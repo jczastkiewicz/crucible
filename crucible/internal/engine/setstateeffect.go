@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"strconv"
 	"strings"
 
@@ -30,8 +31,8 @@ import (
 // one-way and gives no timestamp, no Transformed trigger and no replacement
 // (Card.java:716-745, g.flip). TurnFaceDown turns a face-up permanent face
 // down (Card.java:762-767, turnFaceDown), ending the UntilFacedown copy
-// effects it hosts; it runs no replacement or trigger. Specialize is not
-// resolved.
+// effects it hosts; it runs no replacement or trigger. Mode$ Specialize
+// (ADR-0050) swaps in the face of the source's chosen colour for good.
 type setStateEffect struct{}
 
 func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -47,7 +48,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return nil
 	}
 	mode, _ := a.Params.Param("Mode")
-	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" {
+	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" && mode != "Specialize" {
 		return fmt.Errorf("engine: SetState: Mode$ %q not resolvable yet", mode)
 	}
 	if mode == "Transform" && battlefieldStaticMode(g, "CantTransform") {
@@ -118,6 +119,12 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			changed = g.transform(id)
 		case mode == "Flip":
 			changed = g.flip(id)
+		case mode == "Specialize":
+			var err error
+			if changed, err = g.specialize(id, source.Memory.ChosenColors()); err != nil {
+				return err
+			}
+			source.Memory.SetChosenColors(0)
 		case mode == "TurnFaceDown":
 			if changed = g.turnFaceDown(id); changed {
 				if err := g.setFaceDownState(a, source, c); err != nil {
@@ -142,6 +149,8 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			case "TurnFaceUp":
 				g.faceChangeReplaced(controller, "TurnFaceUp", id)
 				g.checkTurnedFaceUpTriggers(controller, id, a)
+			case "Specialize":
+				g.checkSpecializesTriggers(controller, id)
 			}
 		}
 		if changed && hasParam(a, "RememberChanged") {
@@ -309,4 +318,51 @@ func (g *Game) setFaceDownState(a *Ability, host, c *Card) error {
 		face.Type = line
 	}
 	return nil
+}
+
+// specializeFaces maps the chosen colour to the face index of a Specialize
+// card (Card.java:771-781, carddb.FaceSpecializeWhite..Green).
+var specializeFaces = [...]struct {
+	color mana.Colors
+	face  int
+}{
+	{mana.White, carddb.FaceSpecializeWhite}, {mana.Blue, carddb.FaceSpecializeBlue},
+	{mana.Black, carddb.FaceSpecializeBlack}, {mana.Red, carddb.FaceSpecializeRed},
+	{mana.Green, carddb.FaceSpecializeGreen},
+}
+
+// specialize is Card.changeCardState("Specialize") (Card.java:771-781, ADR-0050)
+// for the card id with the colour its source chose: the card's Def becomes the
+// single face of that colour, under a new timestamp, and stays through every
+// zone change. A card that has specialized already does nothing (canSpecialize,
+// Card.java:6811). Java reads a null chosen colour without a guard
+// (Card.java:771); here a colour that is not exactly one, a card with no such
+// face, and a face-down, transformed or copied card are errors (GO-7).
+func (g *Game) specialize(id CardID, colors mana.Colors) (bool, error) {
+	c := g.Card(id)
+	if c.specializedFrom != nil {
+		return false, nil
+	}
+	if colors.Count() != 1 {
+		return false, fmt.Errorf("engine: SetState: Specialize with %d chosen colors, want 1", colors.Count())
+	}
+	if c.IsFaceDown() || c.frontDef != nil || len(c.copies) > 0 {
+		return false, fmt.Errorf("engine: SetState: Specialize of a face-down, transformed or copied card not resolvable yet")
+	}
+	for _, sf := range specializeFaces {
+		if sf.color != colors {
+			continue
+		}
+		face := c.Def.Faces[sf.face]
+		if face.Name == "" {
+			return false, fmt.Errorf("engine: SetState: %s has no %v Specialize face", c.Def.Name, colors)
+		}
+		def := &compile.Card{Filename: c.Def.Filename, Name: face.Name, SplitType: carddb.SplitSpecialize}
+		def.Faces[0] = face
+		c.specializedFrom, c.Def = c.Def, def
+		g.timestamp++
+		c.Timestamp = g.timestamp
+		return true, nil
+	}
+	return false, fmt.Errorf("engine: SetState: Specialize with colors %v", colors)
 }

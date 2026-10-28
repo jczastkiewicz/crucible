@@ -519,14 +519,15 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	// AbilityKey.SpellAbility: the spell just pushed, read before any
 	// trigger goes on top of it (Defined$ TriggeredSpellAbility).
 	spellID, _ := g.spellItemOf(cast)
+	castCounts := triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
-			matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false)
+			matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false, spellCastModes, castCounts)
 		}
 	}
 	// The spell's own triggers, from the stack: traitHosts never covers it.
 	if c.Zone == Stack {
-		matches = g.appendSpellCastMatches(matches, cast, c, activator, spellID, true)
+		matches = g.appendSpellCastMatches(matches, cast, c, activator, spellID, true, spellCastModes, castCounts)
 	}
 	// Delayed triggers run after every collected card trigger
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:356-361).
@@ -555,14 +556,14 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 // one cast: the 3 multi-face cards among them (Bruna, the Fading Light;
 // Lae'zel, Githyanki Warrior; Drowner of Truth) print it on the front face,
 // and their other faces are melded, specialized or a land, never cast.
-func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool) []Ability {
+func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool, modes []string, counts triggerCounts) []Ability {
 	h := g.Card(host)
 	if h.Def == nil {
 		return matches
 	}
 	for face := range h.triggerFaces {
 		for _, t := range face.Triggers {
-			if !isSpellCastTrigger(t) {
+			if !modeIn(t, modes) {
 				continue
 			}
 			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
@@ -591,8 +592,8 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-					triggered: face.objects(triggeredObjects{spellAbility: spellID, card: c.ID,
-						counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}}), staticTrigger: isStaticTrigger(t)})
+					triggered: face.objects(triggeredObjects{spellAbility: spellID, card: c.ID, activator: activator,
+						counts: counts}), staticTrigger: isStaticTrigger(t)})
 			}
 		}
 	}
@@ -625,17 +626,59 @@ func matchesActivatingPlayer(g *Game, t *compile.Ability, activator, hostControl
 	return recognized && matched
 }
 
-// isSpellCastTrigger reports whether t is CR 603's "a player casts a spell"
-// shape: Mode$ SpellCast.
-func isSpellCastTrigger(t *compile.Ability) bool {
-	return modeIn(t, spellCastModes)
-}
-
 // spellCastModes are the modes a cast spell fires, in MagicStack.java's order
 // (:331-400): SpellAbilityCast (spells and abilities), SpellCast, then
-// SpellCastOrCopy. A copy fires SpellCopy and SpellCastOrCopy; no copy is
-// handled here.
+// SpellCastOrCopy. A copy fires its own three (checkSpellCopyTriggers).
 var spellCastModes = []string{"SpellAbilityCast", "SpellCast", "SpellCastOrCopy"}
+
+// spellCopyModes are the modes a copy fires, MagicStack.java:430-439: SpellCopy
+// (a spell copy only), SpellAbilityCopy (any copy, spell or ability), then
+// SpellCastOrCopy (a spell copy only).
+var spellCopyModes = []string{"SpellCopy", "SpellAbilityCopy", "SpellCastOrCopy"}
+
+// copyTriggerWatching reports whether any trait host has a copy trigger
+// (SpellCopy, SpellAbilityCopy, SpellCastOrCopy) carrying a param
+// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams: Grip of
+// Chaos's IsSingleTarget$), which would silently never fire.
+func (g *Game) copyTriggerWatching() bool {
+	for _, pid := range g.Players() {
+		for _, id := range g.traitHosts(pid) {
+			h := g.Card(id)
+			if h.Def == nil {
+				continue
+			}
+			for face := range h.triggerFaces {
+				for _, t := range face.Triggers {
+					if modeIn(t, spellCopyModes) && hasAnyParam(t, spellCastUnresolvedParams[:]...) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// checkSpellCopyTriggers fires the copy modes for one copy just put on the
+// stack (MagicStack.add, before the copy's BecomesTarget triggers). c is the
+// copy's host card (a spell copy's new card, an ability copy's original host),
+// copier the Activator run param, spellID the copy's stack item. A copy is not
+// cast, so no storm count rides along (TriggerSpellAbilityCastOrCopy.java:
+// 232-252 copies CurrentStormCount only when the run params carry it).
+func (g *Game) checkSpellCopyTriggers(controller PlayerController, c *Card, copier PlayerID, spellID StackItemID, isSpell bool) {
+	var matches []Ability
+	for _, mode := range spellCopyModes {
+		if !isSpell && mode != "SpellAbilityCopy" {
+			continue
+		}
+		for _, pid := range g.Players() {
+			for _, host := range g.traitHosts(pid) {
+				matches = g.appendSpellCastMatches(matches, host, c, copier, spellID, false, []string{mode}, triggerCounts{})
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
 
 // checkBlocksTriggers is CR 509.2's own "whenever ~ blocks" trigger, ported
 // from TriggerBlocks.performTest at the one param this port can resolve:
@@ -2267,6 +2310,7 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // ability's own chosen targets are exactly as real a "becomes the target of
 // a spell or ability" event as a spell's are, CR 115 draws no distinction.
 func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
+	matches = g.withPanharmonicon(matches)
 	// Static$ True triggers run first, inline, in the order found
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:300-309); the rest
 	// go to the stack.

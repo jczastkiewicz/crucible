@@ -148,6 +148,14 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		cmc += 1000
 	}
 	reduced := 0
+	var repeated mana.Cost
+	var repeats int
+	if act != nil {
+		var ok bool
+		if reduced, repeated, repeats, ok = g.abilityReduceCost(c, act, paying); !ok {
+			return base, false
+		}
+	}
 	for _, r := range reduces {
 		raw, ok := r.s.Param("Amount")
 		if !ok {
@@ -178,7 +186,47 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 			g.xReduce = reduced - generic
 		}
 	}
-	return mana.FromShards(shards, max(generic-reduced, 0)), true
+	out := mana.FromShards(shards, max(generic-reduced, 0))
+	for range repeats {
+		out = subtractManaCost(out, repeated)
+	}
+	return out, true
+}
+
+// abilityReduceCost is an activated ability's own ReduceCost$ (CostAdjustment.
+// java:214-222): the amount, a number or an SVar of the host, comes off the
+// generic mana of the activation. With ReduceAmount$ the ReduceCost$ text is a
+// mana cost taken off that many times instead (repeated, repeats). An amount
+// this port cannot evaluate yet (one that reads the ability's targets, which
+// are chosen after the cost is adjusted) refuses the activation, why kept
+// (GO-7).
+func (g *Game) abilityReduceCost(c *Card, act *compile.Ability, paying bool) (generic int, repeated mana.Cost, repeats int, ok bool) {
+	cst, has := act.Param("ReduceCost")
+	if !has {
+		return 0, mana.Cost{}, 0, true
+	}
+	amt, byAmount := act.Param("ReduceAmount")
+	if !byAmount {
+		amt = cst
+	}
+	n, resolved := resolveNamedAmount(g, c.abilityAmounts(act), c, amt)
+	if !resolved {
+		if paying {
+			g.recordPendingError(fmt.Errorf("engine: ReduceCost$ %q on %s is not resolvable yet", amt, c.Name()))
+		}
+		return 0, mana.Cost{}, 0, false
+	}
+	if !byAmount {
+		return max(n, 0), mana.Cost{}, 0, true
+	}
+	cost, err := mana.Parse(cst)
+	if err != nil {
+		if paying {
+			g.recordPendingError(fmt.Errorf("engine: ReduceCost$ %q on %s is not a mana cost", cst, c.Name()))
+		}
+		return 0, mana.Cost{}, 0, false
+	}
+	return 0, cost, max(n, 0), true
 }
 
 // costModResult is how a RaiseCost/ReduceCost line stands against a cast.

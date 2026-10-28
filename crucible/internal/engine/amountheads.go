@@ -298,6 +298,13 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		return g.Card(source).kickerMagnitude(), true
+	case "TimesMutated":
+		// AbilityUtils.java:2107-2108: the host's own counter, which
+		// mutateInto raises on the target permanent.
+		if source == NoCard {
+			return 0, false
+		}
+		return g.Card(source).timesMutated, true
 	}
 	if typ, ok := strings.CutPrefix(count.Head, "Presence_"); ok {
 		return g.presenceCount(sourceController, source, typ, count)

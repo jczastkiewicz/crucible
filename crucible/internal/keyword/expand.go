@@ -38,6 +38,8 @@ func Expand(k Keyword) (Expansion, bool) {
 		return expandEquip(k)
 	case "Cycling":
 		return expandCycling(k)
+	case "Specialize":
+		return expandSpecialize(k)
 	case "TypeCycling":
 		// TypeCycling:<type>:<cost>, CardFactoryUtil.java:3733.
 		args := k.Args()
@@ -571,6 +573,23 @@ func expandCycling(k Keyword) (Expansion, bool) {
 		return Expansion{}, false
 	}
 	return Expansion{Abilities: []string{"AB$ Draw | Cost$ " + args[0] + " Discard<1/CARDNAME> | ActivationZone$ Hand"}}, true
+}
+
+// expandSpecialize is CardFactoryUtil.java:3507's Specialize branch:
+// Specialize:<cost>[:<flavor>[:<condition text>[:<extra params>]]]. The cost,
+// a color named for good and a card of that color or its basic land type
+// discarded, turn the card into that color's face at sorcery speed. The flavor
+// and the condition text are display only.
+func expandSpecialize(k Keyword) (Expansion, bool) {
+	args := k.Args()
+	if len(args) < 1 || args[0] == "" {
+		return Expansion{}, false
+	}
+	line := "AB$ SetState | Cost$ " + args[0] + " ChooseColor<1> Discard<1/Card.ChosenColor;Card.AssociatedWithChosenColor> | Mode$ Specialize | SorcerySpeed$ True | ActivationZone$ Hand"
+	if len(args) > 3 && args[3] != "" {
+		line += " | " + args[3]
+	}
+	return Expansion{Abilities: []string{line}}, true
 }
 
 // amountDetail is the first detail of an Amount-shaped keyword ("Bushido:2"),

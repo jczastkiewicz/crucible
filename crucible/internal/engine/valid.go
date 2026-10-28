@@ -306,6 +306,22 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// discardeffect.go).
 		sc, ok := sourceCard(g, source)
 		return ok && c.Colors().HasAny(sc.Memory.ChosenColors())
+	case name == "AssociatedWithChosenColor":
+		// CardStateProperty.java:63-78: c has the basic land type of the colour
+		// source chose; no choice, or more than one, matches nothing.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		for _, bt := range [...]struct {
+			color mana.Colors
+			sub   string
+		}{{mana.White, "Plains"}, {mana.Blue, "Island"}, {mana.Black, "Swamp"}, {mana.Red, "Mountain"}, {mana.Green, "Forest"}} {
+			if sc.Memory.ChosenColors() == bt.color {
+				return c.Type().HasStringType(bt.sub)
+			}
+		}
+		return false
 	case name == "ChosenSector":
 		// CardProperty.java:119: c is in the sector the source's controller
 		// chose (ChooseSector). Java NPEs on a source that chose none; no

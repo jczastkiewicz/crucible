@@ -5,7 +5,6 @@ package engine
 import (
 	"fmt"
 	"github.com/jczastkiewicz/crucible/internal/valid"
-	"strings"
 )
 
 // copySpellAbilityEffect is CopySpellAbilityEffect.java (CR 707.10): for
@@ -260,30 +259,6 @@ func stackItemsOf(g *Game, targets []EntityID) []StackItemID {
 	return ids
 }
 
-// copyTriggerWatching reports whether any trait host has a trigger copying
-// a spell would have to fire (MagicStack.add's TriggerType.SpellCopy,
-// SpellAbilityCopy and SpellCastOrCopy runs, MagicStack.java:442-450) --
-// none of the three modes is built.
-func (g *Game) copyTriggerWatching() bool {
-	for _, pid := range g.Players() {
-		for _, id := range g.traitHosts(pid) {
-			h := g.Card(id)
-			if h.Def == nil {
-				continue
-			}
-			for face := range h.triggerFaces {
-				for _, t := range face.Triggers {
-					switch strings.ToLower(t.Name) {
-					case "spellcopy", "spellcastorcopy", "spellabilitycopy":
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 // copySpell is CardFactory.copySpellAbilityAndPossiblyHost plus
 // orderAndPlaySimultaneousSa's stack add, for one copy of orig under
 // copier: a new card from the original's definition, owned by copier,
@@ -361,6 +336,8 @@ func (g *Game) copySpell(controller PlayerController, a *Ability, orig Ability, 
 	if cp.Target != NoCard {
 		targets = append(targets, CardEntity(cp.Target))
 	}
+	spellID, _ := g.spellItemOf(host)
+	g.checkSpellCopyTriggers(controller, g.Card(host), copier, spellID, true)
 	return host, copiedTargets{targets: targets, aura: cp.API == APIAttach, copier: copier, host: host}, nil
 }
 
@@ -398,6 +375,7 @@ func (g *Game) copyStackAbility(controller PlayerController, orig Ability, copie
 	}
 	g.PushAbility(cp)
 	targets := allTargetsOf(cp)
+	g.checkSpellCopyTriggers(controller, g.Card(cp.Source), copier, g.nextStackItemID, false)
 	return NoCard, copiedTargets{targets: targets, copier: copier, item: g.nextStackItemID, source: cp.Source}, nil
 }
 

@@ -5,7 +5,7 @@
 // Return<N/Type> beside mana tokens are the shapes that need no mid-payment
 // decision beyond which cards; costparts.go holds the parts added since.
 
-//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile flipcoineffect
+//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile flipcoineffect triggerpack
 
 package engine
 
@@ -1207,6 +1207,8 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	}
 	paid := (uc.mandatory || controller.ConfirmPayCost(g, a.Controller, uc.parsed, a.Source)) &&
 		g.payUnlessCost(controller, a, a.Controller, uc)
+	// SacrificeEffect.java:48 (PayEcho) and :71 (PayCumulativeUpkeep).
+	g.checkUpkeepPaidTriggers(controller, source.ID, isCumulative, paid)
 	return !paid && source.Controller() == a.Controller, nil
 }
 

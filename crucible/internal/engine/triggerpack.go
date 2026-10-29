@@ -743,3 +743,28 @@ func (g *Game) checkCaseSolvedTriggers(controller PlayerController, card CardID,
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }
+
+var upkeepPaidParams = effectEventParams("validcard", "paid")
+
+// checkUpkeepPaidTriggers is Mode$ PayEcho (1 real line) and Mode$
+// PayCumulativeUpkeep (4 real lines): fired by the Echo$ / CumulativeUpkeep$
+// Sacrifice ability once the player answered, ValidCard$ against the permanent
+// and Paid$ against whether the cost was paid (the trigger's own "True" or
+// "False" text, TriggerPayEcho.performTest).
+func (g *Game) checkUpkeepPaidTriggers(controller PlayerController, card CardID, cumulative, paid bool) {
+	mode := "PayEcho"
+	if cumulative {
+		mode = "PayCumulativeUpkeep"
+	}
+	c := g.Card(card)
+	matches := g.scanTriggers([]string{mode}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, upkeepPaidParams) || !g.triggerCardMatches(h, t, "ValidCard", c) {
+			return triggeredObjects{}, false
+		}
+		if v, ok := t.Param("Paid"); ok && strings.EqualFold(v, "True") != paid {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: card}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}

@@ -416,6 +416,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if shape.Tap {
 		c.Tapped = true
 		g.checkTapsTriggers(controller, card, pid, false)
+		g.checkTapAllTriggers(controller, []CardID{card})
 	}
 	if shape.SelfSac {
 		sacrificeCardsFor(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card}, false)

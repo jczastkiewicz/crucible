@@ -446,6 +446,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.Tap {
 		c.Tapped = true
 		g.checkTapsTriggers(controller, card, pid, false)
+		g.checkTapAllTriggers(controller, []CardID{card})
 	}
 	if shape.SelfSac {
 		if g.Card(card).Zone == Battlefield {

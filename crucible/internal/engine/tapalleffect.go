@@ -19,7 +19,7 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control zone parts valid trigger
+//enginelint:allow id card game ability defined condition control zone parts valid trigger triggerhooks
 
 import (
 	"fmt"
@@ -80,6 +80,7 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	// TapperController$ each card's own controller; it is the Player of the
 	// Taps trigger (ValidPlayer$).
 	_, perCard := a.Params.Param("TapperController")
+	var tapped []CardID
 	for _, pid := range players {
 		for _, cid := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(cid)
@@ -95,7 +96,9 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 				tapper = c.Controller()
 			}
 			g.checkTapsTriggers(controller, cid, tapper, false)
+			tapped = append(tapped, cid)
 		}
 	}
+	g.checkTapAllTriggers(controller, tapped)
 	return nil
 }

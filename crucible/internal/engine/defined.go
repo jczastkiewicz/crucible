@@ -391,6 +391,15 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no player", defined)
 		}
 		candidates = []PlayerID{refs.triggered.player}
+	case "TriggeredOpponentVotedDiff", "TriggeredOpponentVotedSame":
+		if !refs.triggered.votesRecorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no votes", defined)
+		}
+		voters := refs.triggered.opponentVotedSame
+		if defined == "TriggeredOpponentVotedDiff" {
+			voters = refs.triggered.opponentVotedDiff
+		}
+		candidates = append([]PlayerID(nil), voters...)
 	case "TriggeredTarget":
 		// AbilityUtils.getDefinedPlayers' "Triggered" branch over
 		// AbilityKey.Target: a player target is itself; a card target names
@@ -414,6 +423,13 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q naming a card as players not resolvable yet", defined)
 		}
 		candidates = []PlayerID{refs.triggered.sourceController}
+	case "TriggeredSourceSAController":
+		// The "...Controller" branch over AbilityKey.SourceSA: the activating
+		// player of the spell or ability that chose the targets.
+		if refs.triggered.sourceSAController == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no source ability", defined)
+		}
+		candidates = []PlayerID{refs.triggered.sourceSAController}
 	case "TriggeredCardController":
 		// AbilityUtils.getDefinedPlayers' "...Controller" branch over
 		// AbilityKey.Card (AbilityUtils.java:1020-1030): getController() of

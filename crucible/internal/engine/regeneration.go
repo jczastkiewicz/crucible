@@ -154,6 +154,7 @@ func (g *Game) regenerateBody(controller PlayerController, id CardID) {
 	if !c.Tapped {
 		c.Tapped = true
 		g.checkTapsTriggers(controller, id, c.Controller(), false)
+		g.checkTapAllTriggers(controller, []CardID{id})
 	}
 	g.removeFromCombat(id)
 }

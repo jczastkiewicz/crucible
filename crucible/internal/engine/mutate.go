@@ -132,7 +132,7 @@ func (g *Game) castMutate(pid PlayerID, card CardID, c *Card, controller PlayerC
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{CardEntity(target)}
-	matches := g.checkBecomesTargetTriggers(tgts, true, pid)
+	matches := g.checkBecomesTargetTriggers(tgts, true, pid, card)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(cast)...)
 	g.pushTriggeredAbilities(controller, matches)

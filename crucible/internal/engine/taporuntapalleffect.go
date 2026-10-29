@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game control ability effecthelpers card condition id zone valid defined
+//enginelint:allow game control ability effecthelpers card condition id zone valid defined triggerhooks
 
 import (
 	"fmt"
@@ -60,6 +60,7 @@ func (tapOrUntapAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		cards = kept
 	}
 	toTap := controller.ChooseBinary(g, a.Controller, a.Source, TapOrUntap)
+	var tapped []CardID
 	for _, id := range cards {
 		c := g.Card(id)
 		if c.Zone != Battlefield {
@@ -69,11 +70,13 @@ func (tapOrUntapAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		case toTap && !c.Tapped:
 			c.Tapped = true
 			g.checkTapsTriggers(controller, id, a.Controller, false)
+			tapped = append(tapped, id)
 		case !toTap && c.Tapped:
 			g.runUntapCommands(controller, id)
 			c.Tapped = false
 			g.checkUntapsTriggers(controller, id)
 		}
 	}
+	g.checkTapAllTriggers(controller, tapped)
 	return nil
 }

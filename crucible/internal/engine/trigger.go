@@ -2360,7 +2360,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 			// Every target of the chain, a Charm mode's and a link's included
 			// (MagicStack.java:410, getAllTargetChoices).
 			tgts := allTargetsOf(matches[i])
-			batch := g.checkBecomesTargetTriggers(tgts, false, matches[i].Controller)
+			batch := g.checkBecomesTargetTriggers(tgts, false, matches[i].Controller, matches[i].Source)
 			batch = append(batch, g.checkWardTriggersForAbility(tgts, pushed.ID, pushed.Source, pushed.Controller)...)
 			batch = append(batch, g.crimeTriggers(pushed)...)
 			g.pushTriggeredAbilities(controller, batch)
@@ -3713,14 +3713,16 @@ func isLandPlayedTrigger(t *compile.Ability) bool {
 // per-activator "have you not targeted this before" set, a separate
 // mechanic FirstTime$'s own plain bool cannot answer; ActivationLimit$ (3)
 // and Static$ (1) -- each its own further mechanic.
-func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool, sourceController PlayerID) []Ability {
+func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool, sourceController PlayerID, cause CardID) []Ability {
 	var matches []Ability
 	seen := make(map[EntityID]bool, len(targets))
+	var distinct []EntityID
 	for _, tgt := range targets {
 		if seen[tgt] {
 			continue
 		}
 		seen[tgt] = true
+		distinct = append(distinct, tgt)
 
 		firstTime := false
 		if cid, ok := tgt.AsCard(); ok {
@@ -3765,7 +3767,8 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 			}
 		}
 	}
-	return matches
+	// MagicStack.java:474-486: then BecomesTargetOnce, once for the lot.
+	return append(matches, g.becomesTargetOnceMatches(distinct, isSpellSource, sourceController, cause)...)
 }
 
 // checkWardTriggers is CR 702.21a's own trigger for a spell: fired at the

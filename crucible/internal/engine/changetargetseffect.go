@@ -152,7 +152,7 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		// isSpellSource false, as castInstantOrSorcery passes it for the
 		// same spell's own cast-time targets (castspell.go); Aura spells
 		// are refused by retargetParts.
-		matches := g.checkBecomesTargetTriggers(f.targets, false, f.controller)
+		matches := g.checkBecomesTargetTriggers(f.targets, false, f.controller, f.source)
 		if f.spell {
 			matches = append(matches, g.checkWardTriggers(f.targets, f.source, f.controller)...)
 		} else {

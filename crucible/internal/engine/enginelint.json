@@ -241,6 +241,7 @@
       "ability"
     ],
     "attack": [
+      "triggerhooks",
       "id",
       "zone",
       "card",
@@ -337,6 +338,7 @@
     "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict", "amount"],
     "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone", "valid"],
     "manaability": [
+      "triggerhooks",
       "manarestrict",
       "id",
       "mana",
@@ -587,7 +589,7 @@
     ],
     "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability", "statictrigger"],
     "exilefromgrave": ["id", "zone", "card", "game", "control", "leftto"],
-    "taptype": ["id", "zone", "card", "game", "control", "valid", "trigger"],
+    "taptype": ["triggerhooks", "id", "zone", "card", "game", "control", "valid", "trigger"],
     "returncost": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "exertcost": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger", "statictrigger"],
     "monstroustrigger": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger", "statictrigger"],
@@ -668,6 +670,7 @@
     ],
     "additional": ["game", "ability", "control", "subability"],
     "regeneration": [
+      "triggerhooks",
       "id",
       "replaceeffect",
       "card",

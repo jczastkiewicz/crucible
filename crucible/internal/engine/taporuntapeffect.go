@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow card game ability defined condition control zone
+//enginelint:allow card game ability defined condition control zone triggerhooks id
 
 import "fmt"
 
@@ -49,6 +49,7 @@ func (tapOrUntapEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 		decider = players[0]
 	}
+	var tapped []CardID
 	for _, id := range cards {
 		c := g.Card(id)
 		if c.Zone != Battlefield {
@@ -62,11 +63,13 @@ func (tapOrUntapEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		case tap && !c.Tapped:
 			c.Tapped = true
 			g.checkTapsTriggers(controller, id, a.Controller, false)
+			tapped = append(tapped, id)
 		case !tap && c.Tapped:
 			g.runUntapCommands(controller, id)
 			c.Tapped = false
 			g.checkUntapsTriggers(controller, id)
 		}
 	}
+	g.checkTapAllTriggers(controller, tapped)
 	return nil
 }

@@ -1,21 +1,30 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
-// that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary and
-// ManifestDread. Each is a player event with a few params tested against it,
+// that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
+// ManifestDread, GiveGift, Vote, BecomesTargetOnce and TapAll. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
 
 //enginelint:allow id card ability trigger triggerscan triggerpack staticability game control valid
 
-import "github.com/jczastkiewicz/crucible/internal/carddb/compile"
+import (
+	"slices"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+)
 
 var (
-	clashedParams         = effectEventParams("validplayer", "won")
-	proliferateParams     = effectEventParams("validplayer")
-	payLifeParams         = effectEventParams("validplayer")
-	foretellParams        = effectEventParams("validplayer")
-	searchedLibraryParams = effectEventParams("validplayer", "searchownlibrary")
-	manifestDreadParams   = effectEventParams("validplayer")
+	clashedParams           = effectEventParams("validplayer", "won")
+	proliferateParams       = effectEventParams("validplayer")
+	payLifeParams           = effectEventParams("validplayer")
+	foretellParams          = effectEventParams("validplayer")
+	searchedLibraryParams   = effectEventParams("validplayer", "searchownlibrary")
+	manifestDreadParams     = effectEventParams("validplayer")
+	giveGiftParams          = effectEventParams("validplayer")
+	voteParams              = effectEventParams("list")
+	becomesTargetOnceParams = effectEventParams("validtarget", "validsource", "validcause")
+	tapAllParams            = effectEventParams("validcards")
 )
 
 // checkClashedTriggers is Mode$ Clashed (TriggerClashed.java:49-62, 6 real
@@ -100,6 +109,129 @@ func (g *Game) checkManifestDreadTriggers(controller PlayerController, pid Playe
 			return triggeredObjects{}, false
 		}
 		return triggeredObjects{cards: append([]CardID(nil), toGrave...)}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkGiveGiftTriggers is Mode$ GiveGift (TriggerGiveGift.java:54-66, 1 real
+// line), run as an ability carrying the Gift keyword starts to resolve, before
+// its conditions and its unless cost (AbilityUtils.resolveApiAbility,
+// AbilityUtils.java:1390-1391). That ability is an instant's or sorcery's
+// GiftAbility, resolved only when the gift was promised, or a permanent's
+// gift trigger, whose enters condition needs the promise
+// (compile.expandGift). ValidPlayer$ against the resolving ability's
+// controller, TriggeredPlayer.
+func (g *Game) checkGiveGiftTriggers(controller PlayerController, a *Ability) {
+	if keyword.Parse(a.Params.Keyword).Name != "Gift" {
+		return
+	}
+	g.pushTriggeredAbilities(controller, g.playerEventMatches("GiveGift", giveGiftParams, a.Controller))
+}
+
+// checkVoteTriggers is Mode$ Vote (TriggerVote.java:58-121, 3 real lines),
+// run once the players finished voting, before any option's ability resolves
+// (VoteEffect.java:126-128). performTest is always true; List$ is stack text
+// only. votes is each option's voters, one entry per ballot, in option order
+// (Java's multimap order is arbitrary). For each host, the voters of every
+// option its controller did not vote for, then of every option it did, each
+// narrowed to the controller's opponents still in the game, are
+// TriggeredOpponentVotedDiff and TriggeredOpponentVotedSame.
+func (g *Game) checkVoteTriggers(controller PlayerController, votes [][]PlayerID) {
+	matches := g.scanTriggers([]string{"Vote"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, voteParams) {
+			return triggeredObjects{}, false
+		}
+		ctrl := h.Controller()
+		return triggeredObjects{
+			opponentVotedDiff: g.opponentVoters(ctrl, votes, true),
+			opponentVotedSame: g.opponentVoters(ctrl, votes, false),
+			votesRecorded:     true,
+		}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// opponentVoters is TriggerVote.getVoters with isOpponent: the voters of each
+// option ctrl voted for (other false) or did not (other true), deduplicated in
+// first-seen order, then only ctrl's opponents still in the game.
+func (g *Game) opponentVoters(ctrl PlayerID, votes [][]PlayerID, other bool) []PlayerID {
+	var out []PlayerID
+	for _, voters := range votes {
+		if other == slices.Contains(voters, ctrl) {
+			continue
+		}
+		for _, v := range voters {
+			if v != ctrl && !g.Player(v).Lost && !slices.Contains(out, v) {
+				out = append(out, v)
+			}
+		}
+	}
+	return out
+}
+
+// becomesTargetOnceMatches is Mode$ BecomesTargetOnce
+// (TriggerBecomesTargetOnce.java:56-80, 4 real lines), run once per spell or
+// ability put on the stack with a target, after its BecomesTarget triggers
+// (MagicStack.java:474-486). targets is every distinct object it targets.
+// ValidTarget$ matches when any of them does, ValidSource$ is the targeting
+// ability's kind and controller (becomesTargetSourceMatches), ValidCause$ the
+// card it comes from. Random$ (the targets were chosen at random, Chira) is
+// not modelled, so its line is not fired (GO-7). The cause card is
+// TriggeredSource, the ability's controller TriggeredSourceSAController and
+// the targets TriggeredTargets.
+func (g *Game) becomesTargetOnceMatches(targets []EntityID, isSpellSource bool, sourceController PlayerID, cause CardID) []Ability {
+	if len(targets) == 0 {
+		return nil
+	}
+	return g.scanTriggers([]string{"BecomesTargetOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, becomesTargetOnceParams) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidTarget"); ok && !attackedTargetMatches(g, h, targets, spec) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidSource"); ok && !becomesTargetSourceMatches(isSpellSource, sourceController, h.Controller(), spec) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("ValidCause"); ok && (cause == NoCard || !g.triggerCardMatches(h, t, "ValidCause", g.Card(cause))) {
+			return triggeredObjects{}, false
+		}
+		o := triggeredObjects{sourceSAController: sourceController, damagedTargets: append([]EntityID(nil), targets...), damagedTargetsRecorded: true}
+		if cause != NoCard {
+			o.source, o.sourceController = CardEntity(cause), g.Card(cause).Controller()
+		}
+		return o, true
+	})
+}
+
+// checkTapAllTriggers is Mode$ TapAll (TriggerTapAll.java, 2 real lines), run
+// once per batch of permanents one action tapped, after their Taps triggers:
+// the attackers of a declaration (PhaseHandler.java:614), a {T} cost
+// (CostTap.java:78), a tapXType or convoke payment (CostTapType.java:214,
+// CostAdjustment.java:376), and the Tap, TapAll, TapOrUntap, TapOrUntapAll
+// and Regenerate effects. ValidCards$ matches when any tapped card does; the
+// matching cards are TriggeredCards.
+func (g *Game) checkTapAllTriggers(controller PlayerController, tapped []CardID) {
+	if len(tapped) == 0 {
+		return
+	}
+	matches := g.scanTriggers([]string{"TapAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, tapAllParams) {
+			return triggeredObjects{}, false
+		}
+		kept := tapped
+		if _, ok := t.Param("ValidCards"); ok {
+			kept = nil
+			for _, id := range tapped {
+				if g.triggerCardMatches(h, t, "ValidCards", g.Card(id)) {
+					kept = append(kept, id)
+				}
+			}
+			if len(kept) == 0 {
+				return triggeredObjects{}, false
+			}
+		}
+		return triggeredObjects{cards: append([]CardID(nil), kept...)}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

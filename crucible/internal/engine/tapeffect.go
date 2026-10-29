@@ -19,7 +19,7 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control zone parts amount effecthelpers resolvechoice replacement
+//enginelint:allow id card game ability defined condition control zone parts amount effecthelpers resolvechoice replacement triggerhooks
 
 import (
 	"fmt"
@@ -110,6 +110,7 @@ func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		}
 		tapper = ps[0]
 	}
+	var tapped []CardID
 	for _, id := range cards {
 		c := g.Card(id)
 		// A phased-out permanent is skipped (TapEffect.java:56).
@@ -123,8 +124,10 @@ func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		if wasUntapped {
 			c.Tapped = true
 			g.checkTapsTriggers(controller, id, tapper, false)
+			tapped = append(tapped, id)
 		}
 	}
+	g.checkTapAllTriggers(controller, tapped)
 	return nil
 }
 

@@ -95,6 +95,7 @@ func tapTypeCandidates(g *Game, pid PlayerID, source CardID, excludeSelf bool, r
 // earlier part of the same cost) is skipped rather than firing a trigger
 // for a tap that does not actually happen.
 func tapChosenPermanents(g *Game, controller PlayerController, ids []CardID) {
+	var tapped []CardID
 	for _, id := range ids {
 		c := g.Card(id)
 		if c.Tapped {
@@ -102,7 +103,9 @@ func tapChosenPermanents(g *Game, controller PlayerController, ids []CardID) {
 		}
 		c.Tapped = true
 		g.checkTapsTriggers(controller, id, c.Controller(), false)
+		tapped = append(tapped, id)
 	}
+	g.checkTapAllTriggers(controller, tapped)
 }
 
 // totalPower is the sum of the power of ids (a power this port cannot resolve

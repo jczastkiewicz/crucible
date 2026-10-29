@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id ability game control effecthelpers card condition additional zone valid defined player parts
+//enginelint:allow id ability game control effecthelpers card condition additional zone valid defined player parts triggerhooks
 
 import (
 	"fmt"
@@ -160,6 +160,19 @@ func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			}{pick, p})
 		}
 	}
+	votes := make([][]PlayerID, 0, len(options))
+	for i := range options {
+		var voters []PlayerID
+		for _, b := range ballots {
+			if b.option == i {
+				voters = append(voters, b.voter)
+			}
+		}
+		if len(voters) > 0 {
+			votes = append(votes, voters)
+		}
+	}
+	g.checkVoteTriggers(controller, votes)
 	resolveSub := func(i int, amounts bool) error {
 		child := *a
 		if amounts {

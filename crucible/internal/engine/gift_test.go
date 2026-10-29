@@ -86,3 +86,49 @@ func TestGiftPermanentGivesTheGiftWhenItEnters(t *testing.T) {
 		}
 	}
 }
+
+// Mode$ GiveGift (Jolly Gerbils) fires when a promised gift is given, from an
+// instant's GiftAbility or a permanent's gift trigger, and not when no gift
+// was promised (AbilityUtils.java:1390-1391).
+func TestGiveGiftFiresOnlyForAPromisedGift(t *testing.T) {
+	t.Parallel()
+
+	shapes := []struct {
+		name, typeLine, pt string
+		lines              []string
+	}{
+		{"instant", "Instant", "", []string{"A:SP$ GainLife | Defined$ You | LifeAmount$ 1"}},
+		{"permanent", "Creature", "1", nil},
+	}
+	for _, shape := range shapes {
+		for _, promise := range []bool{true, false} {
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			libraryCards(t, g, p, 2)
+			libraryCards(t, g, other, 2)
+			g.NewCard(corpusCard(t, "Jolly Gerbils"), p, engine.Battlefield)
+			lines := append([]string{"Cost:G", "K:Gift"}, shape.lines...)
+			lines = append(lines, "SVar:GiftAbility:DB$ Draw | Defined$ Promised | NumCards$ 1 | GiftDescription$ a card")
+			card := g.NewCard(copyTestDef(t, "Test Gift "+shape.name, shape.typeLine, shape.pt, shape.pt, lines...), p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			c := engine.NewScriptedController()
+			c.QueueConfirmPayCost(promise)
+			if promise {
+				c.QueuePlayerChoice(other)
+			}
+			if !g.CastSpell(p, card, c) {
+				t.Fatalf("%s promise=%v: cast failed: %v", shape.name, promise, g.TakePendingError())
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("%s promise=%v: resolve: %v", shape.name, promise, err)
+			}
+			want := 0
+			if promise {
+				want = 1
+			}
+			if got := len(g.Zone(engine.Hand, p).Cards()); got != want {
+				t.Errorf("%s promise=%v: Jolly Gerbils drew %d, want %d", shape.name, promise, got, want)
+			}
+		}
+	}
+}

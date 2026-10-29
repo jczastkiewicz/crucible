@@ -114,11 +114,14 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	if err != nil {
 		return nil, err
 	}
+	var tapped []CardID
 	for _, id := range attackers {
 		if containsCard(provisional, id) {
 			g.checkTapsTriggers(controller, id, g.Card(id).Controller(), true)
+			tapped = append(tapped, id)
 		}
 	}
+	g.checkTapAllTriggers(controller, tapped)
 	// Java asks which attackers exert before the attack costs and pays the
 	// exert inside the same Cost (PhaseHandler.java:564-578); here exert is
 	// offered after, to the attackers whose costs were paid, so a dropped

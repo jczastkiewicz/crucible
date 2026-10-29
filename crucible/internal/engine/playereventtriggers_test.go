@@ -179,3 +179,100 @@ func TestManifestDreadHandsOnTheGraveyardedCard(t *testing.T) {
 		t.Errorf("graveyarded card in %v, want Hand (returned by the trigger)", got)
 	}
 }
+
+// Mode$ Vote (Grudge Keeper): each opponent who voted for an option its
+// controller did not loses 2 life; one who voted the same way does not
+// (TriggerVote.java:66-121).
+func TestVoteHandsOnTheOpponentsWhoVotedDifferently(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name      string
+		theirVote int
+		wantLife  int
+	}{{"different", 1, 18}, {"same", 0, 20}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			g.NewCard(corpusCard(t, "Grudge Keeper"), p, engine.Battlefield)
+			c := engine.NewScriptedController()
+			c.QueueAbilityChoice([]int{0})
+			c.QueueAbilityChoice([]int{tc.theirVote})
+
+			if err := resolveWith(t, g, p, c, "DB$ Vote | Defined$ Player | Choices$ DBA,DBB",
+				"DBA", "DB$ GainLife | Defined$ You | LifeAmount$ 0",
+				"DBB", "DB$ GainLife | Defined$ You | LifeAmount$ 0"); err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if got := g.Player(other).Life; got != tc.wantLife {
+				t.Errorf("opponent life %d, want %d", got, tc.wantLife)
+			}
+		})
+	}
+}
+
+// Mode$ BecomesTargetOnce (Leyline of Combustion): a spell an opponent
+// controls targeting you fires it once, its 2 damage going to that spell's
+// controller (TriggerBecomesTargetOnce.java:56-80, MagicStack.java:474-486);
+// your own spell does not.
+func TestBecomesTargetOnceFiresForAnOpponentsSpell(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name                 string
+		casterIsOpponent     bool
+		wantMine, wantTheirs int
+	}{{"opponent", true, 18, 18}, {"own", false, 18, 20}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			caster := p
+			if tc.casterIsOpponent {
+				caster = other
+			}
+			g.SetTurnState(1, caster, engine.Main1)
+			g.NewCard(corpusCard(t, "Leyline of Combustion"), p, engine.Battlefield)
+			bolt := g.NewCard(corpusCard(t, "Shock"), caster, engine.Hand)
+			g.Player(caster).ManaPool.Add(mana.Red, 1)
+			c := engine.NewScriptedController()
+			c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+			if !g.CastSpell(caster, bolt, c) {
+				t.Fatalf("cast failed: %v", g.TakePendingError())
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if got, want := [2]int{g.Player(p).Life, g.Player(other).Life}, [2]int{tc.wantMine, tc.wantTheirs}; got != want {
+				t.Errorf("life %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// Mode$ TapAll | ValidCards$ Merfolk.!token+YouCtrl (Deeproot Pilgrimage):
+// one effect tapping two Merfolk fires once, not once per Merfolk
+// (TriggerTapAll.java, TapAllEffect.java:57-62).
+func TestTapAllFiresOncePerBatch(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Deeproot Pilgrimage"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Coral Merfolk"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Coral Merfolk"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+
+	if err := resolveWith(t, g, p, c, "DB$ TapAll | ValidCards$ Merfolk.YouCtrl"); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	tokens := 0
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if g.Card(id).IsToken {
+			tokens++
+		}
+	}
+	if tokens != 1 {
+		t.Errorf("%d tokens, want 1", tokens)
+	}
+}

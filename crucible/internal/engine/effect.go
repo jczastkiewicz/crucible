@@ -2,7 +2,7 @@
 
 package engine
 
-//enginelint:allow id zone parts card player game ability control subability defined manapay unlesscost textwords costparts
+//enginelint:allow id zone parts card player game ability control subability defined manapay unlesscost textwords costparts triggerhooks
 
 import (
 	"errors"
@@ -139,6 +139,9 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 		// a sub-ability included (AbilityUtils.java:1313-1319): ResolvedLimit$'s
 		// state, and Count$ResolvedThisTurn's.
 		g.Card(a.Source).trigResolved.note(a.Params)
+	}
+	if g != nil && a.Params != nil {
+		g.checkGiveGiftTriggers(controller, a)
 	}
 	if a.Params != nil {
 		if unlessCost, ok := a.Params.Param("UnlessCost"); ok {

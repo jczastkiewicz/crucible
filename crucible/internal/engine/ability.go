@@ -687,6 +687,19 @@ type triggeredObjects struct {
 	// (BecomesTarget). Read by Defined$ TriggeredTarget/TriggeredTargetLKICopy.
 	// NoEntity when unset.
 	target EntityID
+	// opponentVotedDiff and opponentVotedSame are AbilityKey.OpponentVotedDiff
+	// and OpponentVotedSame of Mode$ Vote (TriggerVote.java:66-82): the host
+	// controller's opponents who voted for an option the controller did not,
+	// and for one the controller did. Read by Defined$
+	// TriggeredOpponentVotedDiff/Same; votesRecorded tells an empty list from
+	// an unrecorded one.
+	opponentVotedDiff []PlayerID
+	opponentVotedSame []PlayerID
+	votesRecorded     bool
+	// sourceSAController is the controller of AbilityKey.SourceSA, the spell
+	// or ability that chose the targets (Mode$ BecomesTargetOnce), read by
+	// Defined$ TriggeredSourceSAController. NoPlayer when unset.
+	sourceSAController PlayerID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the

@@ -36,7 +36,6 @@ import (
 // flag here and at the discard sites.
 var changeZoneUnresolvedParams = [...]string{
 	"AttachAfter",
-	"Champion",
 
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
 	"Unearth",
@@ -1327,6 +1326,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				g.exileFaceDown(a, id)
 				if melded != NoCard {
 					g.markExiledWith(melded, a.Source)
+				}
+				if hasParam(a, "Champion") {
+					// ChangeZoneEffect.java:1479-1483: the Champion keyword's
+					// exile fires Championed for the host.
+					g.checkChampionedTriggers(controller, a.Source, id)
 				}
 			}
 			if _, seen := moved[from]; !seen {

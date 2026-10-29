@@ -717,6 +717,9 @@ type triggeredObjects struct {
 	// and AbilityResolves, read by the TriggeredSpellAbility$ amounts after
 	// the ability left the stack. NoCard when unset.
 	saHost CardID
+	// enlisted is AbilityKey.Enlisted of Mode$ Enlisted, the creature tapped
+	// for Enlist, read by Defined$ TriggeredEnlisted. NoCard when unset.
+	enlisted CardID
 	// fighter is AbilityKey.Fighter of Mode$ Fight (TriggerFight's
 	// triggering object), read by Defined$ TriggeredFighter/
 	// TriggeredFighterLKICopy. NoCard when unset.

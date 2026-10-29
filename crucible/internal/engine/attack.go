@@ -127,6 +127,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	// offered after, to the attackers whose costs were paid, so a dropped
 	// attacker never exerts. Only the order of the questions differs.
 	g.exertDeclaredAttackers(controller, attackers)
+	g.enlistDeclaredAttackers(controller, attackers)
 	for _, id := range attackers {
 		g.Card(id).AttacksThisTurn++
 		g.recordAttacked(id)
@@ -379,4 +380,81 @@ func (g *Game) attackersOf(target EntityID) []CardID {
 		}
 	}
 	return attackers
+}
+
+// enlistDeclaredAttackers is Enlist (CR 702.154, CostEnlist.java), offered
+// with exert (PhaseHandler.java:574-578): for each attacker carrying the
+// keyword's OptionalAttackCost, in declaration order, its controller picks
+// at most one untapped, non-attacking creature they control without
+// summoning sickness to tap (CostEnlist.getCardsForEnlisting,
+// CostEnlist.java:110-112; Java asks enlistAttackers, then the cost's card
+// choice, which here is one ChooseCardsForEffect with zero meaning no). The
+// tapped creature fires Taps and TapAll, the attacker is marked
+// enlistedThisCombat and fires Enlisted, then the keyword's "when you do"
+// pump goes on the stack with the tapped creature as TriggerRemembered
+// (CostEnlist.java:76-91).
+func (g *Game) enlistDeclaredAttackers(controller PlayerController, attackers []CardID) {
+	for _, id := range attackers {
+		payoff, ok := optionalAttackCostEnlist(g.Card(id))
+		if !ok {
+			continue
+		}
+		pid := g.Card(id).Controller()
+		var eligible []CardID
+		for _, cid := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(cid)
+			if c.Type().Has(cardtype.Creature) && !c.Tapped && !c.isSick() && !c.IsPhasedOut() && !containsCard(attackers, cid) {
+				eligible = append(eligible, cid)
+			}
+		}
+		if len(eligible) == 0 {
+			continue
+		}
+		chosen := controller.ChooseCardsForEffect(g, pid, id, eligible, 0, 1)
+		if len(chosen) != 1 || !containsCard(eligible, chosen[0]) {
+			continue
+		}
+		tapped := chosen[0]
+		g.Card(tapped).Tapped = true
+		g.checkTapsTriggers(controller, tapped, pid, false)
+		g.checkTapAllTriggers(controller, []CardID{tapped})
+		g.combat.enlisted = append(g.combat.enlisted, id)
+		g.checkEnlistedTriggers(controller, id, tapped)
+		if payoff == nil {
+			continue
+		}
+		api, ok := APIByName(payoff.Name)
+		if !ok {
+			continue
+		}
+		c := g.Card(id)
+		g.pushTriggeredAbilities(controller, []Ability{{API: api, Source: id, Controller: pid, Params: payoff,
+			Amounts: c.Def.Faces[0].Amounts, TriggerRemembered: []EntityID{CardEntity(tapped)}}})
+	}
+}
+
+// optionalAttackCostEnlist is c's Enlist OptionalAttackCost static ability's
+// Trigger$ payoff (the keyword's expansion): ok when c has one, payoff nil
+// when it names none.
+func optionalAttackCostEnlist(c *Card) (payoff *compile.Ability, ok bool) {
+	if c.Def == nil {
+		return nil, false
+	}
+	for _, face := range c.traitFaces() {
+		for _, s := range face.Statics {
+			if !strings.EqualFold(s.Name, "OptionalAttackCost") {
+				continue
+			}
+			if text, has := s.Param("Cost"); !has || !strings.HasPrefix(text, "Enlist<") {
+				continue
+			}
+			for _, sub := range s.Subs {
+				if strings.EqualFold(sub.Key, "Trigger") {
+					return sub.Ability, true
+				}
+			}
+			return nil, true
+		}
+	}
+	return nil, false
 }

@@ -622,6 +622,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			}
 		}
 		return false
+	case name == "enlistedThisCombat":
+		// CardProperty.java:1553-1554: enlisted a creature this combat.
+		return slices.Contains(g.combat.enlisted, c.ID)
 	case name == "blockedThisCombat":
 		// CardProperty.java:1548: blocked a creature in the combat in progress.
 		for _, b := range g.combat.Blocks {

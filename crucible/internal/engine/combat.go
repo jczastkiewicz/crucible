@@ -22,6 +22,10 @@ type Combat struct {
 	// that became blocked without a blocker (BecomesBlocked, CR 509.1h): it
 	// stays blocked and deals no combat damage unless it has trample.
 	ForcedBlocked []CardID
+	// enlisted is every attacker that enlisted a creature this combat
+	// (Card.setEnlistedThisCombat, CostEnlist.java:78), read by the
+	// enlistedThisCombat property.
+	enlisted []CardID
 	// dealtFirstStrike is Combat.combatantsThatDealtFirstStrikeDamage
 	// (Combat.java:74): every combatant that took part in the first-strike
 	// step, so the regular step can skip it unless it has double strike

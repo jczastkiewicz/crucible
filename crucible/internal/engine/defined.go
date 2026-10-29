@@ -998,6 +998,12 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
 		}
 		return []CardID{refs.triggered.card}, nil
+	case "TriggeredEnlisted", "TriggeredEnlistedLKICopy":
+		// AbilityKey.Enlisted of Mode$ Enlisted (TriggerEnlisted.java:36-39).
+		if refs.triggered.enlisted == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no enlisted creature", defined)
+		}
+		return []CardID{refs.triggered.enlisted}, nil
 	case "TriggeredFighter", "TriggeredFighterLKICopy":
 		// AbilityKey.Fighter of Mode$ Fight (TriggerFight.java). A CardID
 		// stays the card's across a move, so the LKI spelling is the same.

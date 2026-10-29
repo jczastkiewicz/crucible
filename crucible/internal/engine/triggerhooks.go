@@ -1,7 +1,7 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
 // that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
 // ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered,
-// AbilityResolves and ManaAdded. Each is a player event with a few params tested against it,
+// AbilityResolves, ManaAdded, Championed and Enlisted. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
@@ -30,6 +30,8 @@ var (
 	abilityTriggeredParams  = effectEventParams("validmode", "validdestination", "validspellability", "validsource", "validcause", "triggeredownability")
 	abilityResolvesParams   = effectEventParams("validspellability", "validsource")
 	manaAddedParams         = effectEventParams("validsource", "validsa", "player", "produced", "static")
+	championedParams        = effectEventParams("validcard", "validsource")
+	enlistedParams          = effectEventParams("validcard", "validenlisted")
 )
 
 // checkClashedTriggers is Mode$ Clashed (TriggerClashed.java:49-62, 6 real
@@ -391,4 +393,35 @@ func (g *Game) checkManaAddedTriggers(controller PlayerController, card CardID, 
 	}
 	g.resolveStaticTriggers(controller, static)
 	g.pushTriggeredAbilities(controller, stacked)
+}
+
+// checkChampionedTriggers is Mode$ Championed (TriggerChampioned.java:57-73,
+// 1 real line, Mistbind Clique), run when the Champion keyword's ChangeZone
+// exiled championed for host (ChangeZoneEffect.java:1479-1483). ValidCard$
+// against the championed card, ValidSource$ against the host, which is
+// TriggeredCard.
+func (g *Game) checkChampionedTriggers(controller PlayerController, host, championed CardID) {
+	exiled, champion := g.Card(championed), g.Card(host)
+	matches := g.scanTriggers([]string{"Championed"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, championedParams) || !g.triggerCardMatches(h, t, "ValidCard", exiled) || !g.triggerCardMatches(h, t, "ValidSource", champion) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: host}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkEnlistedTriggers is Mode$ Enlisted (TriggerEnlisted.java:26-39, 3
+// real lines), run once attacker enlisted tapped (CostEnlist.java:87-89).
+// ValidCard$ against the attacker, TriggeredCard; ValidEnlisted$ against
+// the tapped creature, TriggeredEnlisted.
+func (g *Game) checkEnlistedTriggers(controller PlayerController, attacker, tapped CardID) {
+	a, e := g.Card(attacker), g.Card(tapped)
+	matches := g.scanTriggers([]string{"Enlisted"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, enlistedParams) || !g.triggerCardMatches(h, t, "ValidCard", a) || !g.triggerCardMatches(h, t, "ValidEnlisted", e) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: attacker, enlisted: tapped}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
 }

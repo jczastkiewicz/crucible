@@ -301,6 +301,41 @@ func Expand(k Keyword) (Expansion, bool) {
 			triggers = append(triggers, "Mode$ CounterAdded | ValidCard$ Card.Self | TriggerZones$ Battlefield | Chapter$ "+n+" | CounterType$ LORE | CounterAmount$ EQ"+n+" | Execute$ "+ability)
 		}
 		return Expansion{Triggers: triggers}, true
+	case "Champion":
+		// CardFactoryUtil.java:741-795 (CR 702.72): when it enters, exile
+		// another permanent of a listed type you control or sacrifice it;
+		// when it leaves, the exiled card returns. The exiled card is the
+		// host's remembered card; ChangeZone's Champion$ fires Championed.
+		if k.Details == "" {
+			return Expansion{}, false
+		}
+		var types []string
+		for _, v := range strings.Split(k.Details, ",") {
+			types = append(types, strings.TrimSpace(v)+".YouCtrl+Other")
+		}
+		return Expansion{
+			Triggers: []string{
+				"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ KWChampion" + Slot,
+				"Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ KWChampionReturn" + Slot,
+			},
+			SVars: []SVarDef{
+				{"KWChampion" + Slot, "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | Champion$ True | Hidden$ True | Optional$ True | ChangeType$ " + strings.Join(types, ",") + " | SubAbility$ KWChampionSac" + Slot},
+				{"KWChampionSac" + Slot, "DB$ Sacrifice | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0"},
+				{"KWChampionReturn" + Slot, "DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | SubAbility$ KWChampionClear" + Slot},
+				{"KWChampionClear" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Enlist":
+		// CardFactoryUtil.java:3899-3905 (CR 702.154): as it attacks, you may
+		// tap a nonattacking creature you control without summoning sickness;
+		// when you do, it gets +X/+0, X that creature's power.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ OptionalAttackCost | ValidCard$ Card.Self | Cost$ Enlist<1/CARDNAME/creature> | Secondary$ True | Trigger$ KWEnlist" + Slot},
+			SVars:   []SVarDef{{"KWEnlist" + Slot, "DB$ Pump | NumAtt$ TriggerRemembered$CardPower"}},
+		}, true
 	case "Squad":
 		// CardFactoryUtil.java:1777-1789: when it enters having been cast with
 		// the Squad cost paid, create that many token copies of it. The

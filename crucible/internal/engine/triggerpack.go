@@ -644,3 +644,29 @@ func (g *Game) checkDamagePreventedOnceTriggers(controller PlayerController, isC
 		g.pushTriggeredAbilities(controller, matches)
 	}
 }
+
+var (
+	fightParams     = effectEventParams("validcard")
+	fightOnceParams = effectEventParams("validcard")
+)
+
+// checkFightTriggers is Mode$ Fight (TriggerFight, once per fighter, ValidCard$
+// against it) and Mode$ FightOnce (TriggerFightOnce, once, ValidCard$ matching
+// when any fighter does), FightEffect.java:70-80.
+func (g *Game) checkFightTriggers(controller PlayerController, fighters []CardID) {
+	var matches []Ability
+	for _, id := range fighters {
+		matches = append(matches, g.cardEventMatches("Fight", fightParams, id)...)
+	}
+	matches = append(matches, g.scanTriggers([]string{"FightOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, fightOnceParams) {
+			return triggeredObjects{}, false
+		}
+		kept := g.milledCardsMatching(h, t, fighters)
+		if len(kept) == 0 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: kept[0]}, true
+	})...)
+	g.pushTriggeredAbilities(controller, matches)
+}

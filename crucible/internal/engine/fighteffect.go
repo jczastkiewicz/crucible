@@ -7,14 +7,13 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/FightEffect.java's
-// resolve/getFighters/dealDamage. Not ported: TriggerType.Fight/FightOnce --
-// this port's own trigger table has no entry for either mode yet, the
-// identical "an unbuilt Mode$ simply never fires" reasoning every other
-// still-missing mode already has (game-state.md's own "Not ported yet").
+// resolve/getFighters/dealDamage. Mode$ Fight (once per fighter) and
+// Mode$ FightOnce (once for the pair) fire after the damage and the
+// replace-dying exile (FightEffect.java:70-80, checkFightTriggers).
 
 package engine
 
-//enginelint:allow id card game ability defined condition control zone combatdamage trigger excessdamage replacedying effecthelpers
+//enginelint:allow id card game ability defined condition control zone combatdamage trigger excessdamage replacedying effecthelpers triggerpack
 
 import (
 	"fmt"
@@ -89,7 +88,9 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	bindExcessSVar(g, a, table)
 	g.checkDamageTableTriggers(controller, table, false)
-	return g.replaceDying(a, "Fight")
+	err = g.replaceDying(a, "Fight")
+	g.checkFightTriggers(controller, fighters)
+	return err
 }
 
 // fightFighters is getFighters's own real corpus shape: at most one card

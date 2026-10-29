@@ -1,0 +1,9 @@
+# FightOnce: Prey Upon makes Grizzly Bears fight the opponent's Runeclaw
+# Bear (both 2/2, both die); Neyith draws a card once for the fight.
+startturn human
+advance 3
+tapformana human 2 G
+queue targets 4
+queue targets 5
+castspell human 1
+resolvestack

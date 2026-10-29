@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Prey Upon|Id:1
+humanbattlefield=Forest|Id:2;Neyith of the Dire Hunt|Id:3;Grizzly Bears|Id:4
+aibattlefield=Runeclaw Bear|Id:5
+humanlibrary=Island|Id:6;Island|Id:7

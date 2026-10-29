@@ -22,7 +22,7 @@ import (
 // display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
 	"IncludeSpellsOnStack",
-	"UnlessResolveSubs", "LockInText",
+	"UnlessResolveSubs",
 	"ConditionGameTypes",
 }
 

@@ -197,6 +197,10 @@ func TestRestrictedManaCumulativeUpkeepPaysOnlyThatCost(t *testing.T) {
 	if got := g.Player(p).ManaPool.Total(); got != 0 {
 		t.Errorf("%d mana left, want the restricted unit spent", got)
 	}
+	// Count$TriggeredPayingMana.B.R: the one red unit spent pumps the Fallen.
+	if power, _ := g.Card(fallen).Power(); power != 4 {
+		t.Errorf("Balduvian Fallen power = %d, want 4 (3 and +1/+0 for the red mana spent)", power)
+	}
 }
 
 // TestRestrictedManaAcceptsTurnFaceUpAndFaceDownShapes proves the shapes

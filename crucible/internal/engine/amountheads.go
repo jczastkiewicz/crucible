@@ -436,6 +436,22 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	if sourceController == NoPlayer {
 		return 0, false
 	}
+	if count.Head == "TriggeredPayingMana" {
+		colors := strings.Join(count.Parameters, "")
+		// AbilityUtils.java:1760-1769: the units of the mana the trigger
+		// recorded that match one of the dot-separated letters.
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source || a.triggered.counts.set&countPayingMana == 0 {
+			return 0, false
+		}
+		n := 0
+		for _, r := range a.triggered.counts.payingMana {
+			if strings.ContainsRune(colors, r) {
+				n++
+			}
+		}
+		return n, true
+	}
 	if which, ok := strings.CutPrefix(count.Head, "ManaPool:"); ok {
 		return manaPoolCount(g.Player(sourceController), which)
 	}

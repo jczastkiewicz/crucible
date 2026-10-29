@@ -699,7 +699,10 @@ type triggerCounts struct {
 	// results are the dice a Mode$ RolledDie (one) or RolledDieOnce (all) saw:
 	// TriggerCount$Result sums them, TriggerCountMax$Result takes the highest.
 	results []int
-	set     triggerCountKeys
+	// payingMana is the mana a Mode$ PayCumulativeUpkeep payment spent, one
+	// letter per unit (AbilityKey.PayingMana), read by Count$TriggeredPayingMana.
+	payingMana string
+	set        triggerCountKeys
 }
 
 // triggerCountKeys is which triggerCounts fields were recorded.
@@ -712,6 +715,7 @@ const (
 	countStorm
 	countScry
 	countResult
+	countPayingMana
 )
 
 // count is the value of the AbilityKey name, and whether the trigger recorded

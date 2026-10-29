@@ -462,6 +462,10 @@ type Game struct {
 	// per target in first-seen order: CardDamageTable.preventMap's role for Mode$
 	// DamagePreventedOnce, consumed by checkDamageTableTriggers.
 	preventedDamage []preventedEntry
+
+	// unlessPaidMana is the mana the last unless-cost payment spent, one letter
+	// per unit: SpellAbility.getPayingMana for PayCumulativeUpkeep's PayingMana.
+	unlessPaidMana string
 	// noPreventDamage is AbilityKey.NoPreventDamage for the damage batch being
 	// dealt: set by a DealDamage with NoPrevention$ around dealPendingDamage
 	// (ReplacementHandler.java:407), it skips prevention shields and every

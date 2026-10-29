@@ -751,7 +751,7 @@ var upkeepPaidParams = effectEventParams("validcard", "paid")
 // Sacrifice ability once the player answered, ValidCard$ against the permanent
 // and Paid$ against whether the cost was paid (the trigger's own "True" or
 // "False" text, TriggerPayEcho.performTest).
-func (g *Game) checkUpkeepPaidTriggers(controller PlayerController, card CardID, cumulative, paid bool) {
+func (g *Game) checkUpkeepPaidTriggers(controller PlayerController, card CardID, cumulative, paid bool, spent string) {
 	mode := "PayEcho"
 	if cumulative {
 		mode = "PayCumulativeUpkeep"
@@ -764,7 +764,7 @@ func (g *Game) checkUpkeepPaidTriggers(controller PlayerController, card CardID,
 		if v, ok := t.Param("Paid"); ok && strings.EqualFold(v, "True") != paid {
 			return triggeredObjects{}, false
 		}
-		return triggeredObjects{card: card}, true
+		return triggeredObjects{card: card, counts: triggerCounts{payingMana: spent, set: countPayingMana}}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

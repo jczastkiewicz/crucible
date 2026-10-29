@@ -526,11 +526,12 @@ func (g *Game) payUnlessCostInto(controller PlayerController, a *Ability, pid Pl
 			_, cumulative = a.Params.Param("CumulativeUpkeep")
 		}
 		restore := g.payingFor(&payContext{item: a, cost: mc, resolving: true, cumulative: cumulative})
-		paid := g.PayManaCost(pid, mc, controller)
+		spent, paid := g.payManaCostX(pid, mc, controller)
 		restore()
 		if !paid {
 			return false
 		}
+		g.unlessPaidMana = spentManaLetters(spent)
 	}
 	tapChosenPermanents(g, controller, taps)
 	return g.payUnlessPartsInto(controller, a, pid, uc, rec)
@@ -1205,10 +1206,11 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	if uc.flipN > 0 && flipCoinModInPlay(g) {
 		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q: a FlipCoinMod static is in play, not resolvable yet", text)
 	}
+	g.unlessPaidMana = ""
 	paid := (uc.mandatory || controller.ConfirmPayCost(g, a.Controller, uc.parsed, a.Source)) &&
 		g.payUnlessCost(controller, a, a.Controller, uc)
 	// SacrificeEffect.java:48 (PayEcho) and :71 (PayCumulativeUpkeep).
-	g.checkUpkeepPaidTriggers(controller, source.ID, isCumulative, paid)
+	g.checkUpkeepPaidTriggers(controller, source.ID, isCumulative, paid, g.unlessPaidMana)
 	return !paid && source.Controller() == a.Controller, nil
 }
 
@@ -1515,4 +1517,15 @@ func (uc unlessCost) libZone() ZoneType {
 		return Hand
 	}
 	return Graveyard
+}
+
+// spentManaLetters is SpellAbility.getPayingMana joined: one letter per unit
+// of mana a payment spent, white to green, then colorless.
+func spentManaLetters(x xAnnounced) string {
+	var b strings.Builder
+	for i, n := range x.paid {
+		b.WriteString(strings.Repeat(string("WUBRG"[i]), n))
+	}
+	b.WriteString(strings.Repeat("C", x.colorless))
+	return b.String()
 }

@@ -364,6 +364,10 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 				// CountersPutEffect.java:658-660: the cards that got counters.
 				source.Memory.Remember(CardEntity(cid))
 			}
+			if k.kind == P1P1 && keyword.Parse(a.Params.Keyword).Name == "Training" {
+				// Card.java:1829-1832, CR 702.149c.
+				g.checkTrainsTriggers(controller, cid)
+			}
 			if a.evolve != NoCard && k.kind == P1P1 {
 				// Card.java:1823: the evolve ability's +1/+1 counters made the
 				// creature evolve (CR 702.100b).

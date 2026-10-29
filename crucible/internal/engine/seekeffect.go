@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability card condition control defined effecthelpers game id parts player valid zone
+//enginelint:allow ability card condition control defined effecthelpers game id parts player valid zone triggerpack
 
 import (
 	"fmt"
@@ -80,6 +80,9 @@ func (seekEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			if hasParam(a, "ImprintFound") {
 				source.Memory.Imprint(id)
 			}
+		}
+		if len(sought) > 0 {
+			g.checkSeekAllTriggers(controller, seeker, sought) // SeekEffect.java:105-107
 		}
 	}
 	g.checkChangesZoneAllTriggers(controller, moved, Library, Hand)

@@ -1,0 +1,11 @@
+# SeekAll: seeking a multicolored card creates a 3/3 Golem token for Vexyr.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue cardchoice none
+castspell human 1
+resolvestack

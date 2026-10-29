@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game ability control effecthelpers card condition defined parts id animate
+//enginelint:allow game ability control effecthelpers card condition defined parts id animate triggerpack
 
 import (
 	"fmt"
@@ -72,7 +72,12 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 				}
 				g.setSuspected(id, activate)
 			case "Solve", "Solved":
+				// AlterAttributeEffect.java:91-97: Card.setSolved reports a change.
+				altered = c.Solved != activate
 				c.Solved = activate
+				if altered {
+					g.checkCaseSolvedTriggers(controller, id, a.Controller)
+				}
 			case "Saddle", "Saddled":
 				// Card.setSaddled always reports a change (Card.java:6638-6642), so
 				// the trigger fires even for Activate$ False (AlterAttributeEffect.
@@ -87,6 +92,9 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 				c.Harnessed = activate
 			case "Plotted":
 				c.Plotted = activate
+				if activate {
+					g.checkBecomesPlottedTriggers(controller, id) // Card.setPlotted, Card.java:6778-6781
+				}
 			}
 			if altered && remember {
 				g.Card(a.Source).Memory.Remember(CardEntity(id))

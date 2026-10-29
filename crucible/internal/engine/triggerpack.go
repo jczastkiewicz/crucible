@@ -696,3 +696,50 @@ func (g *Game) checkMentoredTriggers(controller PlayerController, card, mentor C
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }
+
+var seekAllParams = effectEventParams("validplayer")
+
+// checkSeekAllTriggers is Mode$ SeekAll (TriggerSeekAll, 3 real lines): once per
+// seeking player that found any card, ValidPlayer$ against it; Defined$
+// TriggeredCards is what it found.
+func (g *Game) checkSeekAllTriggers(controller PlayerController, pid PlayerID, cards []CardID) {
+	matches := g.scanTriggers([]string{"SeekAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, seekAllParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid, cards: cards}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var (
+	trainsParams         = effectEventParams("validcard")
+	becomesPlottedParams = effectEventParams("validcard")
+	caseSolvedParams     = effectEventParams("validcard", "validplayer")
+)
+
+// checkTrainsTriggers is Mode$ Trains (TriggerTrains, 1 real line): a resolving
+// Training ability put a +1/+1 counter on card (CR 702.149c).
+func (g *Game) checkTrainsTriggers(controller PlayerController, card CardID) {
+	g.pushTriggeredAbilities(controller, g.cardEventMatches("Trains", trainsParams, card))
+}
+
+// checkBecomesPlottedTriggers is Mode$ BecomesPlotted (2 real lines, both
+// TriggerZones$ Exile): fired every time Plotted is set true, an already
+// plotted card included (Card.setPlotted).
+func (g *Game) checkBecomesPlottedTriggers(controller PlayerController, card CardID) {
+	g.pushTriggeredAbilities(controller, g.cardEventMatches("BecomesPlotted", becomesPlottedParams, card))
+}
+
+// checkCaseSolvedTriggers is Mode$ CaseSolved (TriggerCaseSolved, 1 real line):
+// ValidCard$ against the Case, ValidPlayer$ against whoever solved it.
+func (g *Game) checkCaseSolvedTriggers(controller PlayerController, card CardID, solver PlayerID) {
+	c := g.Card(card)
+	matches := g.scanTriggers([]string{"CaseSolved"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, caseSolvedParams) || !g.triggerCardMatches(h, t, "ValidCard", c) || !g.triggerPlayerMatches(h, t, "ValidPlayer", solver) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: card, player: solver}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}

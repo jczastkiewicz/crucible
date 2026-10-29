@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Vexyr, Ich-Tekik's Heir;T:c_3_3_a_phyrexian_golem|SummonSick
+humanhand=Lightning Helix
+humangraveyard=Interdisciplinary Studies
+ailife=20

@@ -240,6 +240,10 @@ type Game struct {
 	// came off, waiting for the next state-based action check to stack them
 	// (counterremoved.go).
 	pendingCounterRemoved []Ability
+	// pendingUnattached are the Mode$ Unattached triggers found as an
+	// attachment came off, waiting for the next state-based action check to
+	// stack them (Unattach has no controller to push to).
+	pendingUnattached []Ability
 	// crewedThisTurn lists the host of every Crew ability resolved this turn
 	// (Card.timesCrewedThisTurn, FirstTimeCrewed$ counts it).
 	crewedThisTurn []CardID
@@ -1545,20 +1549,26 @@ func (g *Game) AttachToPlayer(attachment CardID, host PlayerID) {
 func (g *Game) Unattach(attachment CardID) {
 	a := g.Card(attachment)
 	if a.attachedPlayer != NoPlayer {
+		old := a.attachedPlayer
 		if p := g.Player(a.attachedPlayer); p.attachments != nil {
 			p.attachments.Remove(attachment)
 		}
 		a.attachedPlayer = NoPlayer
+		g.queueUnattached(attachment, PlayerEntity(old))
 		g.runUnattachCommands(nil, attachment)
 		return
 	}
 	if a.attachedTo == NoCard {
 		return
 	}
+	old := a.attachedTo
 	if h := g.Card(a.attachedTo); h.attachments != nil {
 		h.attachments.Remove(attachment)
 	}
 	a.attachedTo = NoCard
+	// Card.unattachFromEntity runs Unattached before the commands
+	// (Card.java:4016-4019).
+	g.queueUnattached(attachment, CardEntity(old))
 	// Card.unattachFromEntity ends with runUnattachCommands (Card.java:3995).
 	g.runUnattachCommands(nil, attachment)
 }

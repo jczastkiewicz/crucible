@@ -1,12 +1,12 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
 // that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
 // ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered,
-// AbilityResolves, ManaAdded, Championed and Enlisted. Each is a player event with a few params tested against it,
+// AbilityResolves, ManaAdded, Championed, Enlisted and Unattached. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
 
-//enginelint:allow id card ability trigger triggerscan triggerpack staticability game control valid replaceeffect statictrigger
+//enginelint:allow id card ability trigger triggerscan triggerpack staticability game control valid replaceeffect statictrigger zone
 
 import (
 	"slices"
@@ -32,6 +32,7 @@ var (
 	manaAddedParams         = effectEventParams("validsource", "validsa", "player", "produced", "static")
 	championedParams        = effectEventParams("validcard", "validsource")
 	enlistedParams          = effectEventParams("validcard", "validenlisted")
+	unattachedParams        = effectEventParams("validattachment", "validobject")
 )
 
 // checkClashedTriggers is Mode$ Clashed (TriggerClashed.java:49-62, 6 real
@@ -423,5 +424,51 @@ func (g *Game) checkEnlistedTriggers(controller PlayerController, attacker, tapp
 		}
 		return triggeredObjects{card: attacker, enlisted: tapped}, true
 	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// queueUnattached finds the Mode$ Unattached triggers (TriggerUnattached.java,
+// 4 real lines) attachment coming off old sets off (Card.unattachFromEntity,
+// Card.java:4013-4019) and holds them for the next state-based action check:
+// Unattach runs inside zone changes, with no controller to push to.
+// ValidAttachment$ against the attachment, ValidObject$ against what it was
+// attached to, which is TriggeredObject. An attachment that left the
+// battlefield is scanned as it last was there (Java runs its trigger from the
+// last known information), so "when this becomes unattached" fires as an
+// Equipment dies.
+func (g *Game) queueUnattached(attachment CardID, old EntityID) {
+	a := g.Card(attachment)
+	if a.Def == nil {
+		return
+	}
+	test := func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, unattachedParams) || !g.triggerCardMatches(h, t, "ValidAttachment", a) {
+			return triggeredObjects{}, false
+		}
+		objects := triggeredObjects{}
+		if id, isCard := old.AsCard(); isCard {
+			if !g.triggerCardMatches(h, t, "ValidObject", g.Card(id)) {
+				return triggeredObjects{}, false
+			}
+			objects.card = id
+		} else if _, ok := t.Param("ValidObject"); ok {
+			return triggeredObjects{}, false
+		}
+		return objects, true
+	}
+	matches := g.scanTriggers([]string{"Unattached"}, test)
+	if a.Zone != Battlefield {
+		matches = g.appendTriggerMatches(matches, a, Battlefield, []string{"Unattached"}, test)
+	}
+	g.pendingUnattached = append(g.pendingUnattached, matches...)
+}
+
+// flushUnattached puts the queued Unattached triggers on the stack.
+func (g *Game) flushUnattached(controller PlayerController) {
+	if len(g.pendingUnattached) == 0 {
+		return
+	}
+	matches := g.pendingUnattached
+	g.pendingUnattached = nil
 	g.pushTriggeredAbilities(controller, matches)
 }

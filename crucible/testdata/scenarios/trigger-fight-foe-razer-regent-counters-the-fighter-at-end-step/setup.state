@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Prey Upon|Id:1
+humanbattlefield=Forest|Id:2;Foe-Razer Regent|Id:3;Grizzly Bears|Id:4
+aibattlefield=Llanowar Elves|Id:5
+humanlibrary=Island|Id:6;Island|Id:7

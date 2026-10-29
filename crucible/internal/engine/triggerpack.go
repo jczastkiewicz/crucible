@@ -656,7 +656,11 @@ var (
 func (g *Game) checkFightTriggers(controller PlayerController, fighters []CardID) {
 	var matches []Ability
 	for _, id := range fighters {
-		matches = append(matches, g.cardEventMatches("Fight", fightParams, id)...)
+		fights := g.cardEventMatches("Fight", fightParams, id)
+		for i := range fights {
+			fights[i].triggered.fighter = id
+		}
+		matches = append(matches, fights...)
 	}
 	matches = append(matches, g.scanTriggers([]string{"FightOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
 		if !paramsResolvable(t, fightOnceParams) {

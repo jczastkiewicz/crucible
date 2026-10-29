@@ -1,0 +1,9 @@
+turn=1
+activeplayer=human
+activephase=End of Turn
+humanlife=20
+humanbattlefield=Forest|Tapped;Foe-Razer Regent;Grizzly Bears|Damage:1|Counters:P1P1=2
+humangraveyard=Prey Upon
+humanlibrary=Island;Island
+ailife=20
+aigraveyard=Llanowar Elves

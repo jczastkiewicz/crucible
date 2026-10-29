@@ -1,0 +1,12 @@
+# Mode$ Fight: Prey Upon makes Grizzly Bears fight the opponent's Llanowar
+# Elves; Foe-Razer Regent's trigger sets up a delayed trigger that puts two
+# +1/+1 counters on the fighter (TriggeredFighterLKICopy) at the next end step.
+startturn human
+advance 3
+tapformana human 2 G
+queue targets 4
+queue targets 5
+castspell human 1
+resolvestack
+advance 8
+resolvestack

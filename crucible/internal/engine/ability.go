@@ -700,6 +700,10 @@ type triggeredObjects struct {
 	// or ability that chose the targets (Mode$ BecomesTargetOnce), read by
 	// Defined$ TriggeredSourceSAController. NoPlayer when unset.
 	sourceSAController PlayerID
+	// fighter is AbilityKey.Fighter of Mode$ Fight (TriggerFight's
+	// triggering object), read by Defined$ TriggeredFighter/
+	// TriggeredFighterLKICopy. NoCard when unset.
+	fighter CardID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the

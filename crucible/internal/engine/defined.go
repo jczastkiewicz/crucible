@@ -989,6 +989,13 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
 		}
 		return []CardID{refs.triggered.card}, nil
+	case "TriggeredFighter", "TriggeredFighterLKICopy":
+		// AbilityKey.Fighter of Mode$ Fight (TriggerFight.java). A CardID
+		// stays the card's across a move, so the LKI spelling is the same.
+		if refs.triggered.fighter == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no fighter", defined)
+		}
+		return []CardID{refs.triggered.fighter}, nil
 	case "TriggeredSource", "TriggeredSourceLKICopy":
 		// AbilityKey.Source as a card (AbilityUtils.java:167-199): a player
 		// source names no card. Unset is an error, as for the other keys.

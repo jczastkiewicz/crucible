@@ -58,27 +58,27 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,612 |
-| refused      |      9 |
+| plays        | 33,604 |
+| refused      |     11 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
-| inconclusive |     56 |
+| inconclusive |     63 |
 
-100.0% of the 33,621 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+100.0% of the 33,615 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,651 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,644 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
+| 1 | `ReduceCost$ on Wayta, Trainer Prodigy is not resolvable` |
 | 1 | `"_": as-it-enters replacement ReplaceWith$ PutCounter not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
 | 1 | `ConditionCheckSVar$ is not resolvable` |
+| 1 | `Learn: Learn replacement effects not resolvable` |
 | 1 | `MakeCard: Booster$ not resolvable` |
-| 1 | `CheckSVar$ is not resolvable` |
-| 1 | `Dig: DigNum$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

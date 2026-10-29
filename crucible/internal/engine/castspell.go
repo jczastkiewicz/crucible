@@ -549,6 +549,12 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	if g.cantBeCast(pid, card) || (opts.sneak && !g.sneakPayable(pid, card)) {
 		return false
 	}
+	// GameActionUtil.getAdditionalCostSpell: the AlternateAdditionalCost
+	// alternative this cast pays (altadditionalcost.go).
+	opts, ok := g.chooseAlternateAdditionalCost(controller, pid, card, opts)
+	if !ok {
+		return false
+	}
 	// Kicker is chosen as the spell is announced; the card carries the choice
 	// (Card.kicker) from the stack onto the battlefield, and a cast that fails
 	// forgets it.

@@ -363,6 +363,7 @@
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
+      "altadditionalcost",
       "triggerhooks",
       "classlevel",
       "manarestrict",

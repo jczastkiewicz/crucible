@@ -1,0 +1,15 @@
+# BecomeRenowned: Valeron Wardens connects, its Renown trigger puts the
+# counters and renowns it, and its own "whenever a creature you control becomes
+# renowned" trigger draws a card.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+resolvestack
+advance
+advance
+combatdamage
+resolvestack

@@ -18,7 +18,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability event defined amount condition parts control resolvechoice attackconstraints continuouslayers effecthelpers valid zone delayedtrigger
+//enginelint:allow id card game player ability event defined amount condition parts control resolvechoice attackconstraints continuouslayers effecthelpers valid zone delayedtrigger triggerpack
 
 import (
 	"fmt"
@@ -380,6 +380,13 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 		// CountersPutEffect.java:553: whatever the counters did.
 		for _, cid := range cards {
 			g.Card(cid).renowned = true
+			g.checkBecomeRenownedTriggers(controller, cid)
+		}
+	}
+	if keyword.Parse(a.Params.Keyword).Name == "Mentor" {
+		// CountersPutEffect.java:558-562.
+		for _, cid := range cards {
+			g.checkMentoredTriggers(controller, cid, a.Source)
 		}
 	}
 	for _, pid := range players {

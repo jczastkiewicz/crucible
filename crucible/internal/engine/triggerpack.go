@@ -670,3 +670,29 @@ func (g *Game) checkFightTriggers(controller PlayerController, fighters []CardID
 	})...)
 	g.pushTriggeredAbilities(controller, matches)
 }
+
+var (
+	becomeRenownedParams = effectEventParams("validcard")
+	mentoredParams       = effectEventParams("validcard", "validsource")
+)
+
+// checkBecomeRenownedTriggers is Mode$ BecomeRenowned (TriggerBecomeRenowned,
+// 2 real lines): ValidCard$ against the creature that just became renowned
+// (CountersPutEffect.java:554-557).
+func (g *Game) checkBecomeRenownedTriggers(controller PlayerController, card CardID) {
+	g.pushTriggeredAbilities(controller, g.cardEventMatches("BecomeRenowned", becomeRenownedParams, card))
+}
+
+// checkMentoredTriggers is Mode$ Mentored (TriggerMentored, 1 real line,
+// CountersPutEffect.java:558-562): ValidCard$ against the creature that got
+// the counter, ValidSource$ against the mentoring creature.
+func (g *Game) checkMentoredTriggers(controller PlayerController, card, mentor CardID) {
+	c, m := g.Card(card), g.Card(mentor)
+	matches := g.scanTriggers([]string{"Mentored"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, mentoredParams) || !g.triggerCardMatches(h, t, "ValidCard", c) || !g.triggerCardMatches(h, t, "ValidSource", m) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: card, source: CardEntity(mentor)}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}

@@ -77,6 +77,7 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors, cont
 	produced := g.manaReplaced(controller, pid, land,
 		producedMana{color: color, snow: c.Type().HasSupertype(cardtype.Snow), amount: 1})
 	g.addProducedMana(pid, produced, src)
+	g.checkManaAddedTriggers(controller, land, pid, produced, &Ability{API: APIMana, Source: land, Controller: pid, activated: true})
 	g.checkTapsTriggers(controller, land, pid, false)
 	g.checkTapAllTriggers(controller, []CardID{land})
 	g.noteTapsForMana(land, pid)

@@ -1,12 +1,12 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
 // that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
-// ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered
-// and AbilityResolves. Each is a player event with a few params tested against it,
+// ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered,
+// AbilityResolves and ManaAdded. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
 
-//enginelint:allow id card ability trigger triggerscan triggerpack staticability game control valid
+//enginelint:allow id card ability trigger triggerscan triggerpack staticability game control valid replaceeffect statictrigger
 
 import (
 	"slices"
@@ -29,6 +29,7 @@ var (
 	tapAllParams            = effectEventParams("validcards")
 	abilityTriggeredParams  = effectEventParams("validmode", "validdestination", "validspellability", "validsource", "validcause", "triggeredownability")
 	abilityResolvesParams   = effectEventParams("validspellability", "validsource")
+	manaAddedParams         = effectEventParams("validsource", "validsa", "player", "produced", "static")
 )
 
 // checkClashedTriggers is Mode$ Clashed (TriggerClashed.java:49-62, 6 real
@@ -350,4 +351,44 @@ func (g *Game) checkAbilityResolvesTriggers(controller PlayerController, a *Abil
 		return triggeredObjects{saHost: a.Source, source: CardEntity(a.Source), sourceController: src.Controller()}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkManaAddedTriggers is Mode$ ManaAdded (TriggerManaAdded.java:58-86, 2
+// real lines, Caged Sun), run once a mana ability of card added mana to
+// pid's pool (AbilityManaPart.produceMana, AbilityManaPart.java:199-209).
+// ValidSource$ against card, ValidSA$ against the mana ability, Player$
+// against pid; Produced$ ChosenColor needs the host's chosen color among the
+// mana made (any other Produced$ is not modelled, GO-7). Static$ True lines
+// resolve at once, the rest go on the stack, as for TapsForMana. Only the
+// mana-ability paths fire it: the Mana effect of a spell or a non-mana
+// ability does not yet.
+func (g *Game) checkManaAddedTriggers(controller PlayerController, card CardID, pid PlayerID, made producedMana, sa *Ability) {
+	c := g.Card(card)
+	matches := g.scanTriggers([]string{"ManaAdded"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, manaAddedParams) || !g.triggerCardMatches(h, t, "ValidSource", c) || !g.triggerPlayerMatches(h, t, "Player", pid) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidSA"); ok {
+			if matched, known := g.spellAbilityMatches(sa, spec, h, h.Controller(), face.Amounts); !known || !matched {
+				return triggeredObjects{}, false
+			}
+		}
+		if v, ok := t.Param("Produced"); ok {
+			chosen := h.Memory.ChosenColors()
+			if v != "ChosenColor" || chosen == 0 || made.colorless || made.color&chosen == 0 {
+				return triggeredObjects{}, false
+			}
+		}
+		return triggeredObjects{card: card, player: pid, produced: made}, true
+	})
+	var static, stacked []Ability
+	for _, m := range matches {
+		if m.staticTrigger {
+			static = append(static, m)
+		} else {
+			stacked = append(stacked, m)
+		}
+	}
+	g.resolveStaticTriggers(controller, static)
+	g.pushTriggeredAbilities(controller, stacked)
 }

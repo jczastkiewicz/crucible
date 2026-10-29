@@ -484,6 +484,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		made.restrict, _ = ability.Param("RestrictValid")
 		g.addProducedMana(pid, made, src)
 	}
+	g.checkManaAddedTriggers(controller, card, pid, made, &Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true})
 
 	if shape.Tap {
 		g.noteTapsForMana(card, pid)

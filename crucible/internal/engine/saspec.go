@@ -124,7 +124,11 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 	}
 	switch {
 	case prop == "ManaAbility":
-		return a.Params != nil && a.Params.Record == compile.Activated && strings.EqualFold(a.Params.Name, "Mana"), true
+		// A basic land's intrinsic mana ability (CR 305.6) has no script line.
+		if a.Params == nil {
+			return a.API == APIMana && a.activated, true
+		}
+		return a.Params.Record == compile.Activated && strings.EqualFold(a.Params.Name, "Mana"), true
 	case prop == "hasTapCost":
 		if a.Params == nil {
 			return false, true

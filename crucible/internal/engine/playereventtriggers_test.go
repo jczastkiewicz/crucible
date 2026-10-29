@@ -351,3 +351,36 @@ func TestAbilityResolvesFiresForTheFinalChapter(t *testing.T) {
 		})
 	}
 }
+
+// Mode$ ManaAdded | ValidSource$ Land | Produced$ ChosenColor | Static$ True
+// (Caged Sun): a land's mana ability making the chosen color adds one more
+// at once; another color adds nothing (TriggerManaAdded.java:58-86).
+func TestManaAddedDoublesTheChosenColor(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		land  string
+		color mana.Colors
+		want  int
+	}{{"Forest", mana.Green, 2}, {"Plains", mana.White, 1}} {
+		t.Run(tc.land, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			sun := g.NewCard(corpusCard(t, "Caged Sun"), p, engine.Battlefield)
+			g.Card(sun).Memory.SetChosenColors(mana.Green)
+			land := g.NewCard(corpusCard(t, tc.land), p, engine.Battlefield)
+			c := engine.NewScriptedController()
+
+			if !g.TapLandForMana(p, land, tc.color, c) {
+				t.Fatalf("could not tap %s", tc.land)
+			}
+			if err := g.TakePendingError(); err != nil {
+				t.Fatalf("static trigger: %v", err)
+			}
+			if got := g.Player(p).ManaPool.Total(); got != tc.want {
+				t.Errorf("pool has %d mana, want %d", got, tc.want)
+			}
+		})
+	}
+}

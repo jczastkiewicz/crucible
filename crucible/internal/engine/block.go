@@ -268,6 +268,19 @@ func (g *Game) checkBlockPairing(blk Block, earlier []Block, attackers, eligible
 	if !g.CanBlock(blk.Attacker, blk.Blocker) {
 		return illegal("CR 509.1b", "cannot block this attacker", blk.Blocker, blk.Attacker)
 	}
+	// Mode$ BlockRestrict (CombatUtil.java:434-435): the defender's other
+	// blockers already declared must be fewer than the cap.
+	if limit, ok := g.maxBlockers(g.Card(blk.Blocker).Controller()); ok {
+		var others []CardID
+		for _, e := range earlier {
+			if e.Blocker != blk.Blocker && !containsCard(others, e.Blocker) {
+				others = append(others, e.Blocker)
+			}
+		}
+		if len(others) >= limit {
+			return illegal("CR 509.1b", "no more creatures may block", blk.Blocker)
+		}
+	}
 	return nil
 }
 

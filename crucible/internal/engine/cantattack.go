@@ -44,6 +44,11 @@ func (g *Game) attackableTargets(attacker CardID, eligible []EntityID) []EntityI
 // and the defender. The keyword texts and detention are canAttackAtAll's.
 func (g *Game) cantAttack(attacker CardID, target EntityID) bool {
 	c := g.Card(attacker)
+	// CombatUtil.isAttackerSick (CombatUtil.java:209, :242): summoning sick
+	// without haste, unless a CanAttackIfHaste static lets it attack target.
+	if c.SummonSick && !c.HasKeyword("Haste") && !g.asIfHaste("CanAttackIfHaste", c, target) {
+		return true
+	}
 	if c.HasKeyword("Defender") && !g.canAttackDefender(c, target) {
 		return true
 	}

@@ -138,9 +138,11 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 					return true
 				}
 			}
-			if typ, ok := landwalkType(h); ok &&
-				applyCantBlockBy(g, h, "Creature.Self", "", false, "Player.controls"+typ, true, attacker, blocker) {
-				return true
+			for _, lw := range landwalks(h) {
+				if applyCantBlockBy(g, h, "Creature.Self", "", false, "Player.controls"+lw.typ, true, attacker, blocker) &&
+					!g.landwalkIgnored(attacker, blocker, lw.line) {
+					return true
+				}
 			}
 			if refused, _ := protectionEach(h.KeywordLines(), func(vb string, hasVB bool) bool {
 				return applyCantBlockBy(g, h, "Creature.Self", vb, hasVB, "", false, attacker, blocker)
@@ -212,7 +214,7 @@ func (g *Game) relativeMatches(face *compile.Face, spec string, subject, relativ
 	return Matches(g, g.Card(subject), valid.Parse(spec), rc.Controller(), relative)
 }
 
-// landwalkType reports h's own Landwalk keyword argument (K:Landwalk:Island
+// landwalks reports each of h's own Landwalk keyword lines and its argument (K:Landwalk:Island
 // -> "Island", K:Landwalk:Forest.Snow:snow Forest -> "Forest.Snow" -- the
 // keyword's own first Args() element, exactly Landwalk.java's own
 // getValidType/KeywordWithType.type), and whether h carries the keyword at
@@ -221,7 +223,8 @@ func (g *Game) relativeMatches(face *compile.Face, spec string, subject, relativ
 // fixed-string table, since this value is the one part of Landwalk's own
 // CantBlockBy synthesis (CardFactoryUtil.java's `Landwalk landwalk` branch)
 // that differs per card.
-func landwalkType(h *Card) (string, bool) {
+func landwalks(h *Card) []landwalk {
+	var out []landwalk
 	for _, line := range h.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Landwalk" {
@@ -231,9 +234,67 @@ func landwalkType(h *Card) (string, bool) {
 		if len(args) == 0 || args[0] == "" {
 			continue
 		}
-		return args[0], true
+		out = append(out, landwalk{line: line, typ: args[0]})
 	}
-	return "", false
+	return out
+}
+
+// landwalk is one Landwalk keyword line and its land type.
+type landwalk struct{ line, typ string }
+
+// ignoreLandwalkParams are the params a Mode$ IgnoreLandWalk line may carry
+// that landwalkIgnored reads (with staticConditionsMet's).
+var ignoreLandwalkParams = map[string]bool{
+	"mode": true, "validattacker": true, "validblocker": true, "validkeyword": true, "description": true,
+	"secondary": true, "effectzone": true, "condition": true,
+}
+
+// landwalkIgnored is StaticAbilityIgnoreLandwalk (StaticAbilityIgnoreLandwalk
+// .java:10-38, 11 real lines; StaticAbilityCantAttackBlock.java:98, :273):
+// blocker may block attacker as though it lacked the landwalk keyword line
+// when a live IgnoreLandWalk line matches ValidAttacker$ the attacker,
+// ValidBlocker$ the blocker and ValidKeyword$ the keyword's text exactly
+// (each absent matching all). With no blocker nothing is ignored (:95).
+func (g *Game) landwalkIgnored(attacker, blocker CardID, line string) bool {
+	if blocker == NoCard {
+		return false
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.traitFaces() {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "IgnoreLandWalk") || !staticParamsKnown(s, ignoreLandwalkParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if kw, ok := s.Param("ValidKeyword"); ok && kw != line {
+						continue
+					}
+					if spec, ok := s.Param("ValidAttacker"); ok && !Matches(g, g.Card(attacker), valid.Parse(spec), h.Controller(), h.ID) {
+						continue
+					}
+					if spec, ok := s.Param("ValidBlocker"); ok && !Matches(g, g.Card(blocker), valid.Parse(spec), h.Controller(), h.ID) {
+						continue
+					}
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// staticParamsKnown reports whether s names only params in known.
+func staticParamsKnown(s *compile.Ability, known map[string]bool) bool {
+	for _, p := range s.Params {
+		if !known[strings.ToLower(p.Key)] {
+			return false
+		}
+	}
+	return true
 }
 
 // protectionEach reports h's own Protection keyword's CantBlockBy
@@ -508,6 +569,9 @@ func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source Card
 	if matched, _ := matchesPlayerSpec(g, activator, target.Controller(), target.ID, "Opponent"); !matched {
 		return false
 	}
+	if g.hexproofIgnored(activator, CardEntity(target.ID)) {
+		return false
+	}
 	for _, line := range target.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Hexproof" {
@@ -579,6 +643,9 @@ func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source
 		}
 	}
 	if matched, _ := matchesPlayerSpec(g, activator, target, source, "Opponent"); !matched {
+		return false
+	}
+	if g.hexproofIgnored(activator, PlayerEntity(target)) {
 		return false
 	}
 	for _, line := range p.KeywordLines() {
@@ -1667,4 +1734,146 @@ func hexproofValidSA(details string) (sa string, ok bool) {
 		return validType, true
 	}
 	return "", false
+}
+
+// blockRestrictParams are the params a Mode$ BlockRestrict line may carry that
+// maxBlockers reads (with staticConditionsMet's).
+var blockRestrictParams = map[string]bool{
+	"mode": true, "maxblockers": true, "validdefender": true, "description": true, "secondary": true,
+	"effectzone": true, "condition": true,
+}
+
+// maxBlockers is StaticAbilityBlockRestrict.blockRestrict
+// (StaticAbilityBlockRestrict.java:11-37, 4 real lines): the fewest
+// MaxBlockers$ (default 1, a number) among the live lines whose ValidDefender$ admits
+// defender; ok false when none applies.
+func (g *Game) maxBlockers(defender PlayerID) (limit int, ok bool) {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.traitFaces() {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "BlockRestrict") || !staticParamsKnown(s, blockRestrictParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if spec, has := s.Param("ValidDefender"); has {
+						if matched, known := matchesPlayerSpec(g, defender, h.Controller(), h.ID, spec); !known || !matched {
+							continue
+						}
+					}
+					n := 1
+					if raw, has := s.Param("MaxBlockers"); has {
+						// Every corpus MaxBlockers$ is a number; another amount is
+						// not read (GO-7).
+						v, err := strconv.Atoi(raw)
+						if err != nil {
+							continue
+						}
+						n = v
+					}
+					if !ok || n < limit {
+						limit, ok = n, true
+					}
+				}
+			}
+		}
+	}
+	return limit, ok
+}
+
+// asIfHasteParams are the params a Mode$ ActivateAbilityAsIfHaste or
+// CanAttackIfHaste line may carry that asIfHaste reads.
+var asIfHasteParams = map[string]bool{
+	"mode": true, "validcard": true, "validtarget": true, "description": true, "secondary": true,
+	"effectzone": true, "condition": true,
+}
+
+// asIfHaste is StaticAbilityActivateAbilityAsIfHaste (its {T} and {Q} costs,
+// Card.isAbilitySick, :27-50) and StaticAbilityCantAttackBlock.canAttackHaste
+// (:400-428): a live line of mode whose ValidCard$ admits c and, for
+// CanAttackIfHaste, whose ValidTarget$ admits the defender target (each
+// absent matching all).
+func (g *Game) asIfHaste(mode string, c *Card, target EntityID) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.traitFaces() {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, mode) || !staticParamsKnown(s, asIfHasteParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if spec, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(spec), h.Controller(), h.ID) {
+						continue
+					}
+					if spec, ok := s.Param("ValidTarget"); ok && !g.entityMatchesAny(h, target, spec) {
+						continue
+					}
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// entityMatchesAny is matchesValidParam for a player or a card (a defender, a
+// target): any comma-separated alternative of spec admits it,
+// read for host h. NoEntity matches nothing.
+func (g *Game) entityMatchesAny(h *Card, target EntityID, spec string) bool {
+	for _, alt := range strings.Split(spec, ",") {
+		if pid, ok := target.AsPlayer(); ok {
+			if matched, known := matchesPlayerSpec(g, pid, h.Controller(), h.ID, alt); known && matched {
+				return true
+			}
+		} else if id, ok := target.AsCard(); ok && Matches(g, g.Card(id), valid.Parse(alt), h.Controller(), h.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+// ignoreHexproofParams are the params a Mode$ IgnoreHexproof line may carry
+// that hexproofIgnored reads.
+var ignoreHexproofParams = map[string]bool{
+	"mode": true, "activator": true, "validentity": true, "description": true, "secondary": true,
+	"effectzone": true, "condition": true,
+}
+
+// hexproofIgnored is StaticAbilityIgnoreHexproofShroud for hexproof
+// (StaticAbilityIgnoreHexproofShroud.java:13-43, 3 real lines;
+// StaticAbilityCantTarget.java:88): activator may target target as though it
+// lacked hexproof when a live IgnoreHexproof line's Activator$ admits the
+// activator and its ValidEntity$ the target (each absent matching all).
+func (g *Game) hexproofIgnored(activator PlayerID, target EntityID) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.traitFaces() {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "IgnoreHexproof") || !staticParamsKnown(s, ignoreHexproofParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if spec, ok := s.Param("Activator"); ok {
+						if matched, known := matchesPlayerSpec(g, activator, h.Controller(), h.ID, spec); !known || !matched {
+							continue
+						}
+					}
+					if spec, ok := s.Param("ValidEntity"); ok && !g.entityMatchesAny(h, target, spec) {
+						continue
+					}
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

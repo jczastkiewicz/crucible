@@ -427,21 +427,7 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 // targets was printed, so there is nothing to carry parity with.
 func (g *Game) emptyManaPools(controller PlayerController) {
 	for _, id := range g.Players() {
-		pool := &g.Player(id).ManaPool
-		if pool.Total() == 0 {
-			continue
-		}
-		// Event$ LoseMana (ManaPool.clearPool): Kruphix's "that mana becomes
-		// colorless instead" keeps the mana, as one type.
-		if color, colorless, ok := g.loseManaConversion(controller, id); ok {
-			pool.convertTo(color, colorless)
-			continue
-		}
-		if g.endingPhase == CombatEnd || g.endingPhase == Cleanup {
-			pool.Empty()
-		} else {
-			pool.emptyKeepingCombat()
-		}
+		g.clearManaPool(controller, id)
 	}
 }
 

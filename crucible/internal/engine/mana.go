@@ -265,9 +265,14 @@ func (p *Pool) convertTo(color mana.Colors, colorless bool) {
 // the phase is not COMBAT_END). The kept units keep their order; the
 // counters are rebuilt from them.
 func (p *Pool) emptyKeepingCombat() {
+	p.emptyKeeping(func(u poolUnit) bool { return u.combat })
+}
+
+// emptyKeeping is Empty sparing the units keep admits, in their order.
+func (p *Pool) emptyKeeping(keep func(poolUnit) bool) {
 	var kept []poolUnit
 	for _, u := range p.units {
-		if u.combat {
+		if keep(u) {
 			kept = append(kept, u)
 		}
 	}

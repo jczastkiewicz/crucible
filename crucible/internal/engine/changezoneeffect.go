@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow effecteffect id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic additional
+//enginelint:allow effecteffect id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic additional triggerhooks
 
 import (
 	"fmt"
@@ -1039,6 +1039,9 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			// ChangeZoneEffect.java:1083-1085, ahead of ForgetOtherRemembered$'s
 			// clear (:1106): the searched player, whoever searches.
 			source.Memory.Remember(PlayerEntity(player))
+		}
+		if searchedLibrary {
+			g.checkSearchedLibraryTriggers(controller, decider, player)
 		}
 		if !defined && changeType != "" && !each {
 			fetchList = filterValid(g, fetchList, changeType, a.Controller, a.Source)

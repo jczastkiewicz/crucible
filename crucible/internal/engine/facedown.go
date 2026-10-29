@@ -224,6 +224,7 @@ func (manifestDreadEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			}
 			top := append([]CardID(nil), lib[:n]...)
 			if len(top) == 0 {
+				g.checkManifestDreadTriggers(controller, p, nil)
 				continue
 			}
 			chosen := controller.ChooseCardsForEffect(g, p, a.Source, top, 1, 1)
@@ -244,6 +245,7 @@ func (manifestDreadEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			if len(rest) > 0 {
 				g.checkChangesZoneAllTriggers(controller, rest, Library, Graveyard)
 			}
+			g.checkManifestDreadTriggers(controller, p, rest)
 		}
 	}
 	return nil

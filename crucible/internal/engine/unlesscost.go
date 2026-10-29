@@ -5,7 +5,7 @@
 // Return<N/Type> beside mana tokens are the shapes that need no mid-payment
 // decision beyond which cards; costparts.go holds the parts added since.
 
-//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile flipcoineffect triggerpack
+//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile flipcoineffect triggerpack triggerhooks
 
 package engine
 
@@ -839,6 +839,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	if uc.lifeN > 0 {
 		g.Player(pid).Life -= uc.lifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(uc.lifeN)})
+		g.checkPayLifeTriggers(controller, pid, uc.lifeN)
 	}
 	if uc.energyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -uc.energyN)

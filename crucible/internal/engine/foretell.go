@@ -51,6 +51,7 @@ func (g *Game) Foretell(pid PlayerID, card CardID, controller PlayerController) 
 	c = g.Card(card)
 	c.foretold, c.foretoldTurn = true, g.turn
 	g.checkChangesZoneAllTriggers(controller, []CardID{card}, Hand, Exile)
+	g.checkForetellTriggers(controller, pid)
 	return true
 }
 

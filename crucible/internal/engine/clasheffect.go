@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability additional card condition control defined effecthelpers game id parts player zone
+//enginelint:allow ability additional card condition control defined effecthelpers game id parts player zone triggerhooks
 
 import "fmt"
 
@@ -10,8 +10,8 @@ import "fmt"
 // wins (no winner on a tie or two empty libraries); then each, clasher
 // first, puts their card back on top or on the bottom (willPutCardOnTop).
 // WinSubAbility$ resolves if the host's controller won, else
-// OtherwiseSubAbility$. RememberClasher$ remembers the opponent. Mode$
-// Clashed triggers are not ported. Java moves a card within its own library
+// OtherwiseSubAbility$. RememberClasher$ remembers the opponent. Then Mode$
+// Clashed fires for the clasher and for the opponent. Java moves a card within its own library
 // with zone-change events suppressed; this port reorders it in place.
 type clashEffect struct{}
 
@@ -84,8 +84,12 @@ func (clashEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		key = "WinSubAbility"
 	}
 	if subs := additionalAbilities(a.Params, key); len(subs) > 0 {
-		return g.resolveAdditional(a, controller, subs[0])
+		if err := g.resolveAdditional(a, controller, subs[0]); err != nil {
+			return err
+		}
 	}
+	g.checkClashedTriggers(controller, player, winner == player)
+	g.checkClashedTriggers(controller, opponent, winner == opponent)
 	return nil
 }
 

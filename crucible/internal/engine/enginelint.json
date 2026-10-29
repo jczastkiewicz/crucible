@@ -361,6 +361,7 @@
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
+      "triggerhooks",
       "classlevel",
       "manarestrict",
       "costparts",
@@ -619,7 +620,7 @@
       "castrecord",
       "excessdamage"
     ],
-    "foretell": ["id", "zone", "card", "game", "control", "parts", "mana", "manarestrict", "ability"],
+    "foretell": ["id", "zone", "card", "game", "control", "parts", "mana", "manarestrict", "ability", "triggerhooks"],
     "lifelost": [
       "id",
       "zone",
@@ -702,7 +703,7 @@
     "ateot": ["ability", "delayedtrigger", "effecthelpers", "game", "id", "animate", "becomemonarcheffect", "card"],
     "random": ["game"],
     "token": ["card", "control", "event", "game", "id", "parts", "zone", "zonemove", "prepare"],
-    "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined"],
+    "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined", "triggerhooks"],
     "textrewrite": [],
     "textwords": ["card", "game", "ability", "id", "zone", "continuous", "continuouslayers", "textrewrite", "valid"]
   }

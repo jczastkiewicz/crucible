@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game player ability condition control amount parts event zone effecthelpers
+//enginelint:allow id card game player ability condition control amount parts event zone effecthelpers triggerhooks
 
 import "fmt"
 
@@ -10,8 +10,10 @@ import "fmt"
 // one gets one more of every kind of counter it already has (CR 701.34a).
 // Players come first, then permanents, as Java's own list.addAll order.
 //
-// Not ported: the Proliferate replacement family and the Proliferate
-// trigger mode (neither exists in replacement.go/trigger.go yet), and the
+// Mode$ Proliferate fires after each of the Amount$ passes.
+//
+// Not ported: the Proliferate replacement family (not in replacement.go
+// yet), and the
 // per-counter replacement pass GameEntityCounterTable.replaceCounterEffect
 // runs -- putCounterEffect adds counters the same direct way.
 type proliferateEffect struct{}
@@ -66,6 +68,7 @@ func (proliferateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 				emitCounterChanged(g, a.Source, e, kind, 1)
 			}
 		}
+		g.checkProliferateTriggers(controller, a.Controller)
 	}
 	return nil
 }

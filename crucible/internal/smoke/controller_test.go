@@ -99,6 +99,11 @@ func TestControllerAnswersEveryDecisionLegally(t *testing.T) {
 	if got := c.ChooseCardsForEffect(g, p, a, hand, 0, 2); len(got) != 1 {
 		t.Errorf("cards for effect = %v", got)
 	}
+	// Teamwork:2 asks for creatures of total power 2: one Grizzly Bears is enough.
+	team, _ := db.Card("Team Tactics")
+	if got := c.ChooseCardsForEffect(g, p, g.NewCard(team, p, engine.Hand), hand, 0, 2); len(got) == 0 || len(got) > 2 {
+		t.Errorf("teamwork cards = %v", got)
+	}
 	if c.ChoosePlayerForEffect(g, p, a, []engine.PlayerID{o}) != o {
 		t.Error("player for effect")
 	}

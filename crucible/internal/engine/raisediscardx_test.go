@@ -44,11 +44,11 @@ func TestWaterbendXSpellsAreCastWithTheirAnnouncedX(t *testing.T) {
 		name  string
 		setup func(g *engine.Game, p, other engine.PlayerID, c *engine.ScriptedController)
 	}{
-		{"Crashing Wave", func(g *engine.Game, p, other engine.PlayerID, c *engine.ScriptedController) {
+		{"Crashing Wave", func(g *engine.Game, _, other engine.PlayerID, c *engine.ScriptedController) {
 			victim := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
 			c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
 		}},
-		{"Foggy Swamp Visions", func(g *engine.Game, p, other engine.PlayerID, c *engine.ScriptedController) {
+		{"Foggy Swamp Visions", func(g *engine.Game, _, other engine.PlayerID, c *engine.ScriptedController) {
 			dead := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Graveyard)
 			c.QueueTargets([]engine.EntityID{engine.CardEntity(dead)})
 		}},

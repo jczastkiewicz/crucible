@@ -142,8 +142,7 @@ func TestSacrificeAllEffectDefinedSacrificesSpecificCards(t *testing.T) {
 }
 
 // TestSacrificeAllEffectRejectsUnresolvedDefinedValue proves a real
-// Defined$ value definedCards does not recognize (TriggeredObjectLKICopy,
-// a real corpus value on other SacrificeAll lines) fails the whole line
+// Defined$ value definedCards does not recognize fails the whole line
 // loudly rather than silently sacrificing nothing (PORT-8/GO-7).
 func TestSacrificeAllEffectRejectsUnresolvedDefinedValue(t *testing.T) {
 	t.Parallel()
@@ -154,7 +153,7 @@ func TestSacrificeAllEffectRejectsUnresolvedDefinedValue(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	def := etbSacrificeAllTriggerDefParams(t, "Test Unresolved Defined", "Defined$ TriggeredObjectLKICopy", nil)
+	def := etbSacrificeAllTriggerDefParams(t, "Test Unresolved Defined", "Defined$ NotADefinedValue", nil)
 	_, err := castETBSacrifice(t, g, p, def, c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming Defined")

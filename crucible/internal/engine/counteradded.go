@@ -3,7 +3,7 @@
 // counters on a card goes through addCardCounters, so a Saga's chapters, "whenever
 // one or more +1/+1 counters are put on" and the rest see every placement.
 
-//enginelint:allow id zone card game valid ability control event amount parts trigger statictrigger
+//enginelint:allow id zone card game valid ability control event amount parts trigger statictrigger triggerpack triggerscan staticability
 
 package engine
 
@@ -39,6 +39,7 @@ func (g *Game) addCardCounters(controller PlayerController, placer PlayerID, sou
 			return
 		}
 	}
+	first := !g.countersAddedToThisTurn(id)
 	c.Counters.Add(ct, n)
 	g.recordCountersAdded(placer, id, ct, n)
 	emitCounterChanged(g, source, CardEntity(id), ct, n)
@@ -48,6 +49,7 @@ func (g *Game) addCardCounters(controller PlayerController, placer PlayerID, sou
 	}
 	matches = g.counterAddedMatches(matches, "CounterAddedOnce", placer, id, ct, n)
 	g.pushTriggeredAbilities(controller, matches)
+	g.checkCounterBatchTriggers(controller, placer, id, ct, n, first)
 }
 
 // counterAddedParams are the params this port reads on each mode; a trigger
@@ -149,4 +151,66 @@ func (g *Game) counterAddedTriggerMatches(t *compile.Ability, h *Card, host Card
 		}
 	}
 	return true
+}
+
+var (
+	counterPlayerAddedAllParams = effectEventParams("validobject", "validsource", "validobjecttosource")
+	counterAddedAllParams       = effectEventParams("valid", "validsource", "countertype")
+	counterTypeAddedAllParams   = effectEventParams("validobject", "firsttime")
+)
+
+// countersAddedToThisTurn is Game.getCounterAddedThisTurn(null, c) > 0: some
+// counter was put on the card by a player this turn.
+func (g *Game) countersAddedToThisTurn(id CardID) bool {
+	for i := range g.countersAddedThisTurn {
+		if g.countersAddedThisTurn[i].card.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// checkCounterBatchTriggers fires Mode$ CounterPlayerAddedAll,
+// CounterAddedAll and CounterTypeAddedAll (GameEntityCounterTable.java:92-109,
+// :170-175) for one placement of n counters of ct on card id. Java batches
+// every counter one effect puts on all its targets into one table; this port
+// fires per placement, a one-entry table (see quirks). A placement with no
+// placer fires no CounterPlayerAddedAll (Optional.get() on an empty source
+// cannot run). Counters on players are not routed here.
+func (g *Game) checkCounterBatchTriggers(controller PlayerController, placer PlayerID, id CardID, ct CounterType, n int, first bool) {
+	c := g.Card(id)
+	var matches []Ability
+	if placer != NoPlayer {
+		matches = append(matches, g.scanTriggers([]string{"CounterPlayerAddedAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+			if !paramsResolvable(t, counterPlayerAddedAllParams) || !g.triggerCardMatches(h, t, "ValidObject", c) || !g.triggerPlayerMatches(h, t, "ValidSource", placer) {
+				return triggeredObjects{}, false
+			}
+			if spec, ok := t.Param("ValidObjectToSource"); ok && !Matches(g, c, valid.Parse(spec), placer, h.ID) {
+				return triggeredObjects{}, false
+			}
+			return triggeredObjects{card: id}, true
+		})...)
+	}
+	matches = append(matches, g.scanTriggers([]string{"CounterAddedAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, counterAddedAllParams) || !g.triggerCardMatches(h, t, "Valid", c) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("ValidSource"); ok && (placer == NoPlayer || !g.triggerPlayerMatches(h, t, "ValidSource", placer)) {
+			return triggeredObjects{}, false
+		}
+		if want, ok := t.Param("CounterType"); ok && !strings.EqualFold(want, string(ct)) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: id, counts: triggerCounts{amount: n, set: countAmount}}, true
+	})...)
+	matches = append(matches, g.scanTriggers([]string{"CounterTypeAddedAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, counterTypeAddedAllParams) || !g.triggerCardMatches(h, t, "ValidObject", c) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("FirstTime"); ok && !first {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: id}, true
+	})...)
+	g.pushTriggeredAbilities(controller, matches)
 }

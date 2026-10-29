@@ -962,7 +962,7 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no cards", defined)
 		}
 		return slices.Clone(refs.triggered.cards), nil
-	case "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard", "TriggeredNewCardLKICopy":
+	case "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard", "TriggeredNewCardLKICopy", "TriggeredObject", "TriggeredObjectLKICopy":
 		// AbilityKey.NewCard of a zone-change trigger: the card as it is now.
 		// A CardID is stable across the move, so it is the card that moved.
 		// TriggeredCard and TriggeredCardLKICopy are AbilityKey.Card, which

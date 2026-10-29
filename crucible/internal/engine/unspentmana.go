@@ -19,7 +19,7 @@ import (
 // in pid's pool. A line's ValidPlayer$ (absent: every player) admits pid;
 // its ManaType$ names one color, absent every type.
 func (g *Game) unspentManaKept(pid PlayerID) (keep [6]bool) {
-	g.eachManaStatic("UnspentMana", pid, func(h *Card, s *compile.Ability) {
+	g.eachManaStatic("UnspentMana", pid, func(_ *Card, s *compile.Ability) {
 		color, ok := s.Param("ManaType")
 		if !ok {
 			keep = [6]bool{true, true, true, true, true, true}

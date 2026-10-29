@@ -423,6 +423,15 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q naming a card as players not resolvable yet", defined)
 		}
 		candidates = []PlayerID{refs.triggered.sourceController}
+	case "TriggeredSpellAbilityController":
+		// The "...Controller" branch over AbilityKey.SpellAbility: the
+		// controller of the triggering stack item, while it is there.
+		if refs.triggered.spellAbility == NoStackItem {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no spell or ability", defined)
+		}
+		if item, ok := g.stackItem(refs.triggered.spellAbility); ok {
+			candidates = []PlayerID{item.Controller}
+		}
 	case "TriggeredSourceSAController":
 		// The "...Controller" branch over AbilityKey.SourceSA: the activating
 		// player of the spell or ability that chose the targets.

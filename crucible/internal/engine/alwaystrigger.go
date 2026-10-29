@@ -44,7 +44,7 @@ func (g *Game) checkAlwaysTriggers(controller PlayerController) {
 						if !ok || g.alwaysOnStack(host, sub) {
 							continue
 						}
-						m := Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, staticTrigger: isStaticTrigger(t)}
+						m := Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, staticTrigger: isStaticTrigger(t)}
 						if key, has := t.Param("ResolvingCheck"); has {
 							m.recheck = withOnlyParam(t, key)
 						}

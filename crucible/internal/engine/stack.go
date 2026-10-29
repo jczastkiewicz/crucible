@@ -236,6 +236,7 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 		if g.restarted {
 			return nil
 		}
+		g.checkAbilityResolvesTriggers(controller, &a)
 	}
 	g.moveResolvedSpellToGraveyard(controller, a, fizzled)
 	CheckStateBasedActions(g, controller)

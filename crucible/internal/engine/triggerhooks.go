@@ -1,6 +1,7 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
 // that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
-// ManifestDread, GiveGift, Vote, BecomesTargetOnce and TapAll. Each is a player event with a few params tested against it,
+// ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered
+// and AbilityResolves. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
@@ -9,6 +10,7 @@ package engine
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
@@ -25,6 +27,8 @@ var (
 	voteParams              = effectEventParams("list")
 	becomesTargetOnceParams = effectEventParams("validtarget", "validsource", "validcause")
 	tapAllParams            = effectEventParams("validcards")
+	abilityTriggeredParams  = effectEventParams("validmode", "validdestination", "validspellability", "validsource", "validcause", "triggeredownability")
+	abilityResolvesParams   = effectEventParams("validspellability", "validsource")
 )
 
 // checkClashedTriggers is Mode$ Clashed (TriggerClashed.java:49-62, 6 real
@@ -232,6 +236,118 @@ func (g *Game) checkTapAllTriggers(controller PlayerController, tapped []CardID)
 			}
 		}
 		return triggeredObjects{cards: append([]CardID(nil), kept...)}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// abilityTriggeredMatches is Mode$ AbilityTriggered
+// (TriggerAbilityTriggered.java:48-130, 4 real lines) for pushed, a
+// triggered ability just put on the stack (TriggerHandler.java:545).
+// ValidMode$ against the mode of the trigger it came from (a site that did
+// not record its trigger matches no mode); ValidDestination$ against the zone
+// a ChangesZone or ChangesZoneAll trigger's card(s) moved to (Java splits a
+// missing one and throws, so here a trigger without one does not fire);
+// ValidSpellAbility$ against pushed, ValidSource$ against its host,
+// ValidCause$ against any of the cards that caused it; TriggeredOwnAbility$
+// needs the host among them. The causes are getRunParams': the moved card
+// (ChangesZone), the batch (ChangesZoneAll), the attacker (Attacks), the
+// attackers its ValidAttackers$ keeps (AttackersDeclared). pushed is
+// TriggeredSpellAbility, its host TriggeredSource.
+func (g *Game) abilityTriggeredMatches(pushed Ability) []Ability {
+	mode := ""
+	if pushed.trigger != nil {
+		mode = pushed.trigger.Name
+	}
+	return g.scanTriggers([]string{"AbilityTriggered"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, abilityTriggeredParams) {
+			return triggeredObjects{}, false
+		}
+		if v, ok := t.Param("ValidMode"); ok && !slices.Contains(strings.Split(v, ","), mode) {
+			return triggeredObjects{}, false
+		}
+		if v, ok := t.Param("ValidDestination"); ok {
+			dest := pushed.triggered.destination
+			if dest == "" || !slices.ContainsFunc(strings.Split(dest, ","), func(d string) bool { return slices.Contains(strings.Split(v, ","), d) }) {
+				return triggeredObjects{}, false
+			}
+		}
+		if spec, ok := t.Param("ValidSpellAbility"); ok {
+			if matched, known := g.spellAbilityMatches(&pushed, spec, h, h.Controller(), face.Amounts); !known || !matched {
+				return triggeredObjects{}, false
+			}
+		}
+		if !g.triggerCardMatches(h, t, "ValidSource", g.Card(pushed.Source)) {
+			return triggeredObjects{}, false
+		}
+		causes := g.abilityTriggeredCauses(pushed, mode)
+		if _, ok := t.Param("ValidCause"); ok && !slices.ContainsFunc(causes, func(id CardID) bool { return g.triggerCardMatches(h, t, "ValidCause", g.Card(id)) }) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("TriggeredOwnAbility"); ok && !slices.Contains(causes, pushed.Source) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{spellAbility: pushed.ID, saHost: pushed.Source,
+			source: CardEntity(pushed.Source), sourceController: g.Card(pushed.Source).Controller()}, true
+	})
+}
+
+// abilityTriggeredCauses is TriggerAbilityTriggered.getRunParams' Cause for a
+// trigger of mode: nil for a mode it records none for.
+func (g *Game) abilityTriggeredCauses(pushed Ability, mode string) []CardID {
+	o := pushed.triggered
+	switch mode {
+	case "ChangesZone":
+		if o.card != NoCard {
+			return []CardID{o.card}
+		}
+	case "ChangesZoneAll":
+		return o.zoneCause
+	case "Attacks":
+		if o.attacker != NoCard {
+			return []CardID{o.attacker}
+		}
+	case "AttackersDeclared", "AttackersDeclaredOneTarget":
+		if pushed.trigger == nil {
+			return nil
+		}
+		if _, ok := pushed.trigger.Param("ValidAttackers"); !ok {
+			return o.attackers
+		}
+		h := g.Card(pushed.Source)
+		var kept []CardID
+		for _, id := range o.attackers {
+			if g.triggerCardMatches(h, pushed.trigger, "ValidAttackers", g.Card(id)) {
+				kept = append(kept, id)
+			}
+		}
+		return kept
+	}
+	return nil
+}
+
+// checkAbilityResolvesTriggers is Mode$ AbilityResolves
+// (TriggerAbilityResolves.java:33-57, 2 real lines), run once a spell or
+// ability resolved, before a spell moves off the stack (MagicStack.java:
+// 712-713). ValidSpellAbility$ against it, ValidSource$ against its host,
+// which is TriggeredSource; the ability is TriggeredSpellAbility.
+func (g *Game) checkAbilityResolvesTriggers(controller PlayerController, a *Ability) {
+	if a.Source == NoCard || int(a.Source) >= len(g.cards) || g.over {
+		return
+	}
+	src := g.Card(a.Source)
+	matches := g.scanTriggers([]string{"AbilityResolves"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, abilityResolvesParams) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidSpellAbility"); ok {
+			if matched, known := g.spellAbilityMatches(a, spec, h, h.Controller(), face.Amounts); !known || !matched {
+				return triggeredObjects{}, false
+			}
+		}
+		if !g.triggerCardMatches(h, t, "ValidSource", src) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{saHost: a.Source, source: CardEntity(a.Source), sourceController: src.Controller()}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

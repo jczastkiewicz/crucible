@@ -276,3 +276,78 @@ func TestTapAllFiresOncePerBatch(t *testing.T) {
 		t.Errorf("%d tokens, want 1", tokens)
 	}
 }
+
+// Mode$ AbilityTriggered | ValidMode$ ChangesZone,ChangesZoneAll |
+// ValidDestination$ Battlefield (Strict Proctor): a permanent entering makes
+// its enter trigger trigger, and Strict Proctor counters it unless its
+// controller pays {2} (TriggerAbilityTriggered.java:48-90,
+// TriggerHandler.java:545).
+func TestAbilityTriggeredCountersAnEnterTrigger(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		proctor  bool
+		wantHand int
+	}{{"with Strict Proctor", true, 0}, {"without", false, 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, other, engine.Main1)
+			if tc.proctor {
+				g.NewCard(corpusCard(t, "Strict Proctor"), p, engine.Battlefield)
+			}
+			libraryCards(t, g, other, 2)
+			visionary := g.NewCard(corpusCard(t, "Elvish Visionary"), other, engine.Hand)
+			g.Player(other).ManaPool.Add(mana.Green, 2)
+			c := engine.NewScriptedController()
+			c.QueuePayGeneric(mana.ShardG)
+			if tc.proctor {
+				c.QueueConfirmPayCost(false)
+			}
+			if !g.CastSpell(other, visionary, c) {
+				t.Fatalf("cast failed: %v", g.TakePendingError())
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if got := len(g.Zone(engine.Hand, other).Cards()); got != tc.wantHand {
+				t.Errorf("caster's hand has %d cards, want %d", got, tc.wantHand)
+			}
+		})
+	}
+}
+
+// Mode$ AbilityResolves | ValidSpellAbility$ Triggered.LastChapter (Narci,
+// Fable Singer): the final chapter of a Saga resolving drains each opponent
+// for the Saga's mana value (TriggerAbilityResolves.java:33-57,
+// MagicStack.java:712-713, SpellAbility.isLastChapter).
+func TestAbilityResolvesFiresForTheFinalChapter(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name               string
+		lore               int
+		wantMine, wantOpps int
+	}{{"final chapter", 2, 23, 17}, {"earlier chapter", 1, 20, 20}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			g.NewCard(corpusCard(t, "Narci, Fable Singer"), p, engine.Battlefield)
+			// The Saga is sacrificed after its last chapter: Narci draws.
+			libraryCards(t, g, p, 2)
+			saga := g.NewCard(corpusCard(t, "History of Benalia"), p, engine.Battlefield)
+			g.Card(saga).Counters.Add(engine.Lore, tc.lore)
+			c := engine.NewScriptedController()
+
+			if err := resolveTargeting(t, g, p, c, []engine.EntityID{engine.CardEntity(saga)},
+				"DB$ PutCounter | ValidTgts$ Permanent | CounterType$ LORE | CounterNum$ 1"); err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if got, want := [2]int{g.Player(p).Life, g.Player(other).Life}, [2]int{tc.wantMine, tc.wantOpps}; got != want {
+				t.Errorf("life %v, want %v", got, want)
+			}
+		})
+	}
+}

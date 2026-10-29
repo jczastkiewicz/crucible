@@ -99,7 +99,7 @@ func (g *Game) checkSpellToGraveyardTriggers(controller PlayerController, card C
 				continue
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-				matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+				matches = append(matches, Ability{API: api, trigger: t, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
 					triggered: face.objects(triggeredObjects{card: card, cardStamp: c.zoneStamp}), staticTrigger: isStaticTrigger(t)})
 			}
 		}

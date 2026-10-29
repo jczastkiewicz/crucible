@@ -42,6 +42,16 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 	case head == "SpellTargeted":
 		n, ok := g.spellTargetedValue(amounts, sourceController, source, amt, depth)
 		return n, ok, true
+	case head == "TriggeredSpellAbility":
+		// AbilityUtils.java:637-639: xCount over the host of the triggering
+		// spell or ability, which Java still holds once it left the stack
+		// (AbilityResolves, triggeredObjects.saHost).
+		host, ok := g.triggeredSpellAbilityHost(source)
+		if !ok {
+			return 0, false, true
+		}
+		n, ok := handlePaid(g, amounts, sourceController, source, []*Card{g.Card(host)}, amt.Body, amt.Op, depth)
+		return n, ok, true
 	case strings.HasPrefix(head, "TargetedByTarget"):
 		cards, ok := g.targetedByTargetCards(source)
 		if !ok {
@@ -562,4 +572,24 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 		return math(0)
 	}
 	return 0, false
+}
+
+// triggeredSpellAbilityHost is the host card of the resolving ability's
+// AbilityKey.SpellAbility: the recorded host, else the recorded stack item's
+// source while it is still there. false when source's ability is not the one
+// resolving or recorded neither.
+func (g *Game) triggeredSpellAbilityHost(source CardID) (CardID, bool) {
+	a := g.resolving
+	if a == nil || source == NoCard || a.Source != source {
+		return NoCard, false
+	}
+	if a.triggered.saHost != NoCard {
+		return a.triggered.saHost, true
+	}
+	if a.triggered.spellAbility != NoStackItem {
+		if item, ok := g.stackItem(a.triggered.spellAbility); ok {
+			return item.Source, true
+		}
+	}
+	return NoCard, false
 }

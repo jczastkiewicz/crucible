@@ -56,7 +56,7 @@ func (g *Game) checkLeftToTriggers(controller PlayerController, left CardID, des
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(changesZoneCardObjects(t, left, c)), staticTrigger: isStaticTrigger(t)})
+					matches = append(matches, Ability{API: api, trigger: t, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(changesZoneCardObjects(t, left, c)), staticTrigger: isStaticTrigger(t)})
 				}
 			}
 		}
@@ -193,7 +193,7 @@ func (g *Game) appendLeftZoneMatches(matches []Ability, host *Card, zone ZoneTyp
 				continue
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, host, face.Amounts, t); ok {
-				matches = append(matches, Ability{API: api, Source: host.ID, Controller: host.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: moved.ID}), staticTrigger: isStaticTrigger(t)})
+				matches = append(matches, Ability{API: api, trigger: t, Source: host.ID, Controller: host.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: moved.ID}), staticTrigger: isStaticTrigger(t)})
 			}
 		}
 	}
@@ -228,7 +228,7 @@ func (g *Game) otherLeftToTriggerMatches(left CardID, dest ZoneType) []Ability {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(changesZoneCardObjects(t, left, leaving)), staticTrigger: isStaticTrigger(t)})
+						matches = append(matches, Ability{API: api, trigger: t, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(changesZoneCardObjects(t, left, leaving)), staticTrigger: isStaticTrigger(t)})
 					}
 				}
 			}

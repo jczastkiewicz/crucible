@@ -8,6 +8,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -37,7 +38,7 @@ var saUnresolvedPrefixes = []string{
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
 	"Nightbound", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
-	"LastChapter", "paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource",
+	"paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }
 
@@ -145,6 +146,19 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		// SpellAbilityProperty.java:115-116, SpellAbility.isMutate: the spell
 		// cast for its mutate cost.
 		return a.mutate, true
+	case prop == "LastChapter":
+		// SpellAbility.isLastChapter (SpellAbility.java:796-797,
+		// Trigger.java:658-668): a trigger whose Chapter$ is the host's final
+		// chapter.
+		if !a.isTrigger || a.trigger == nil {
+			return false, true
+		}
+		ch, ok := a.trigger.Param("Chapter")
+		if !ok {
+			return false, true
+		}
+		n, err := strconv.Atoi(ch)
+		return err == nil && n == source.finalChapter(), true
 	case prop == "singleTarget":
 		return len(a.Targets) == 1, true
 	case prop == "Buyback":

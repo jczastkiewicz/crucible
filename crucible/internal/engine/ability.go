@@ -325,6 +325,12 @@ type Ability struct {
 	// pusher of a trigger, sets it. hasSourceOnStack reads it (CR 704.5v's
 	// "source of an ability that has triggered but not yet left the stack").
 	isTrigger bool
+	// trigger is the Mode$ line a triggered ability came from (Trigger,
+	// SpellAbility.getTrigger): AbilityTriggered's Mode and the LastChapter
+	// property read it. nil for any other ability, and for a trigger from a
+	// site that does not record it, which then matches no ValidMode$ and is
+	// no chapter.
+	trigger *compile.Ability
 	// stackRoot marks the ability resolveTop popped off the stack, never a
 	// sub-ability, Charm mode or choice it goes on to resolve: the only one
 	// MagicStack.resolveStack hands to AbilityUtils.handleRemembering
@@ -700,6 +706,17 @@ type triggeredObjects struct {
 	// or ability that chose the targets (Mode$ BecomesTargetOnce), read by
 	// Defined$ TriggeredSourceSAController. NoPlayer when unset.
 	sourceSAController PlayerID
+	// destination is AbilityKey.Destination of a ChangesZone or ChangesZoneAll
+	// trigger, the zone the card(s) moved to, as AbilityTriggered compares it
+	// (TriggerAbilityTriggered.getRunParams); recorded where a card entered
+	// the battlefield and for a ChangesZoneAll batch, "" elsewhere.
+	// zoneCause is a ChangesZoneAll batch's every card (its Cause).
+	destination string
+	zoneCause   []CardID
+	// saHost is the host card of AbilityKey.SpellAbility for AbilityTriggered
+	// and AbilityResolves, read by the TriggeredSpellAbility$ amounts after
+	// the ability left the stack. NoCard when unset.
+	saHost CardID
 	// fighter is AbilityKey.Fighter of Mode$ Fight (TriggerFight's
 	// triggering object), read by Defined$ TriggeredFighter/
 	// TriggeredFighterLKICopy. NoCard when unset.

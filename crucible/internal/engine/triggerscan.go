@@ -46,7 +46,7 @@ func (g *Game) appendTriggerMatches(matches []Ability, h *Card, zone ZoneType, m
 				continue
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-				matches = append(matches, Ability{API: api, Source: h.ID, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+				matches = append(matches, Ability{API: api, trigger: t, Source: h.ID, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
 					triggered: face.objects(objs), staticTrigger: isStaticTrigger(t)})
 			}
 		}

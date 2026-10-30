@@ -408,7 +408,7 @@ func TestTriggeredCostUnreadShapesFail(t *testing.T) {
 		name, body, svar, want string
 	}{
 		{"unsupported", "AB$ GainLife | Cost$ " + unsupportedCost4 + " | Defined$ You | LifeAmount$ 5", "SVar:Y:1", unsupportedCost4},
-		{"XMin", "AB$ GainLife | Cost$ X | XMin$ 1 | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "XMin$"},
+		{"XMin", "AB$ GainLife | Cost$ X | XMin$ Nope | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "XMin$"},
 		{"XMax", "AB$ GainLife | Cost$ X | XMax$ Nope | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "XMax$"},
 		{"announced X shape", "AB$ GainLife | Cost$ X " + unsupportedCost4 + " | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "not resolvable"},
 		{"computed X", "AB$ GainLife | Cost$ PayLife<X> | Defined$ You | LifeAmount$ 1", "SVar:X:TriggeredPlayersTargets$Amount", "SVar X"},

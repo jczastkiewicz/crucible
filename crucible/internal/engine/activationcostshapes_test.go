@@ -183,3 +183,55 @@ func TestActivationPaysTwoSacrificeParts(t *testing.T) {
 		}
 	}
 }
+
+// Corpseweft (XMin$ 1, ExileFromGrave<X/Creature>): X cannot be announced
+// below the floor, and the cards exiled are X of the graveyard's creatures.
+func TestActivationHonoursXMinParam(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	weft := g.NewCard(corpusCard(t, "Corpseweft"), p, engine.Battlefield)
+	dead := []engine.CardID{
+		g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Graveyard),
+		g.NewCard(corpusCard(t, "Hill Giant"), p, engine.Graveyard),
+	}
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayX(0)
+	if g.ActivateAbility(p, weft, 0, c) {
+		t.Fatal("activated with X 0 under XMin$ 1")
+	}
+	c.QueuePayX(2)
+	c.QueueCardChoice(dead)
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.ActivateAbility(p, weft, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	for _, id := range dead {
+		if z := g.Card(id).Zone; z != engine.Exile {
+			t.Errorf("a creature card is in %v, want exiled", z)
+		}
+	}
+}
+
+// Hourglass of the Lost (T SubCounter<X/TIME> Exile<1/CARDNAME>): the source
+// itself is exiled as part of the cost.
+func TestActivationExilesItsOwnSource(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	glass := g.NewCard(corpusCard(t, "Hourglass of the Lost"), p, engine.Battlefield)
+	g.Card(glass).Counters.Add("TIME", 2)
+	c := engine.NewScriptedController()
+	c.QueuePayX(2)
+	if !g.ActivateAbility(p, glass, 1, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if z := g.Card(glass).Zone; z != engine.Exile {
+		t.Errorf("Hourglass is in %v, want exiled by its cost", z)
+	}
+	if got := g.Card(glass).Counters.Count("TIME"); got != 0 {
+		t.Errorf("%d time counters left, want 0", got)
+	}
+}

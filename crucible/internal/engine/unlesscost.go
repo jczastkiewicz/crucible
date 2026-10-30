@@ -158,6 +158,9 @@ type unlessCost struct {
 	// Vile Darkness's three exiles): each is paid in turn, from candidates read
 	// when its turn comes.
 	moreSac, moreExile []specCount
+	// exileSelf is Exile<1/CARDNAME>: the source leaves the battlefield for
+	// exile as part of the cost (CostExile's self shape).
+	exileSelf bool
 	// tapN/tapSpec are tapXType<N/Type>: N untapped permanents of the type the
 	// payer controls (CostTapType).
 	tapN    int
@@ -375,6 +378,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileGraveN, uc.exileGraveSpec = n, p.Field(1)
 		case p.Name == "ExileFromHand" && uc.exileHandN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileHandN, uc.exileHandSpec = n, p.Field(1)
+		case p.Name == "Exile" && n == 1 && !uc.exileSelf && (p.Field(1) == "CARDNAME" || p.Field(1) == "NICKNAME"):
+			uc.exileSelf = true
 		case p.Name == "Exile" && uc.exileFieldN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileFieldN, uc.exileFieldSpec = n, p.Field(1)
 		case p.Name == "Exile" && uc.exileFieldN != 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
@@ -759,6 +764,11 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.exileFieldN > 0 && len(g.costCandidates(pid, source, false, Battlefield, uc.exileFieldSpec)) < uc.exileFieldN {
 		return false
 	}
+	if uc.exileSelf {
+		if c := g.Card(source); source == NoCard || c.Zone != Battlefield || c.Controller() != pid || c.IsPhasedOut() {
+			return false
+		}
+	}
 	for _, m := range uc.moreExile {
 		if len(g.costCandidates(pid, source, false, Battlefield, m.spec)) < m.n {
 			return false
@@ -1024,6 +1034,12 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 		if rec != nil {
 			rec.exiled = append(rec.exiled, picks...)
+		}
+	}
+	if uc.exileSelf {
+		exileCards(g, controller, []CardID{a.Source})
+		if rec != nil {
+			rec.exiled = append(rec.exiled, a.Source)
 		}
 	}
 	for _, m := range uc.moreExile {

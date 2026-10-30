@@ -62,7 +62,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 		var announce bool
 		var err error
 		if uc, announce, err = g.triggeredCostShape(&activated, rest, controller); err != nil {
-			g.recordPendingError(fmt.Errorf("engine: %s: activated Cost$ %q not resolvable yet", c.Def.Name, costText))
+			g.recordPendingError(fmt.Errorf("engine: %s: activated Cost$ %q not resolvable yet: %w", c.Def.Name, costText, err))
 			return false
 		}
 		if announce {

@@ -37,8 +37,10 @@ func (g *Game) triggeredCostShape(a *Ability, text string, controller PlayerCont
 			if !ok {
 				return unlessCost{}, false, fmt.Errorf("engine: triggered AB$ Cost$ %q not resolvable yet", text)
 			}
-			if _, has := a.Params.Param("XMin"); has {
-				return unlessCost{}, false, fmt.Errorf("engine: triggered AB$ Cost$ %q: XMin$ not resolvable yet", text)
+			if raw, has := a.Params.Param("XMin"); has {
+				if _, known := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw); !known {
+					return unlessCost{}, false, fmt.Errorf("engine: triggered AB$ Cost$ %q: XMin$ %q not resolvable yet", text, raw)
+				}
 			}
 			if raw, has := a.Params.Param("XMax"); has {
 				if _, known := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw); !known {
@@ -163,6 +165,13 @@ func (g *Game) announceTriggeredX(controller PlayerController, a *Ability, text 
 	}
 	if costNamesX(text) {
 		n = min(n, g.nonManaXMax(a.Controller, a.Source, text))
+	}
+	if raw, has := a.Params.Param("XMin"); has {
+		// AbilityUtils.getAnnouncementBounds: X cannot be announced below
+		// XMin$, so a cost that cannot reach it cannot be paid.
+		if floor, _ := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw); n < floor {
+			return unlessCost{}, false
+		}
 	}
 	a.xManaCostPaid, a.hasXManaCostPaid = n, true
 	g.xctx = xContext{value: n, has: true, source: a.Source}

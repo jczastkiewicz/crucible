@@ -240,6 +240,8 @@ func (p *Prober) run(name string, where *atomic.Value, v variant) (res Result) {
 			pool.Add(c, 20)
 		}
 		pool.AddColorless(20)
+		// Snow mana for a {S} cost (Arcum's Astrolabe, Icehide Golem).
+		pool.AddSnowColorless(5)
 	}
 	fill()
 

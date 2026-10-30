@@ -121,6 +121,7 @@ func targetZone(a *compile.Ability) engine.ZoneType {
 // each side that has one, in the zone the spec targets.
 func (p *Prober) addTailored(g *engine.Game, pid, opp engine.PlayerID, def *compile.Card) {
 	p.addWornAura(g, pid, opp, def)
+	p.addCostTailored(g, pid, def)
 	for _, ts := range targetSpecs(def) {
 		if ts.spell {
 			continue

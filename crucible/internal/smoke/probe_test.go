@@ -211,3 +211,24 @@ func TestProbeTailorsAnAbilityOnTheStack(t *testing.T) {
 		})
 	}
 }
+
+// A card whose cast needs the caster's own cards -- a Goblin to sacrifice, a
+// Pirate to reveal, a Kithkin to behold, two Vampires present, three white
+// creatures to tap, a snow mana -- gets them on a tailored board (costtailor.go)
+// and is judged instead of inconclusive.
+func TestProbeTailorsWhatACastNeeds(t *testing.T) {
+	t.Parallel()
+
+	p := smoke.NewProber(corpusDB(t))
+	for _, card := range []string{
+		"Goblin Grenade", "Daring Buccaneer", "Champion of the Clachan", "Feast of Blood",
+		"Gaze of Justice", "Arcum's Astrolabe",
+	} {
+		t.Run(card, func(t *testing.T) {
+			t.Parallel()
+			if got := p.Probe(card); got.Outcome != smoke.Plays {
+				t.Errorf("Probe(%q) = %v (%s), want plays", card, got.Outcome, got.Detail)
+			}
+		})
+	}
+}

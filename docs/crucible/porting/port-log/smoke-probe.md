@@ -58,25 +58,25 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,602 |
+| plays        | 33,644 |
 | refused      |     11 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
-| inconclusive |     65 |
+| inconclusive |     23 |
 
-100.0% of the 33,613 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+100.0% of the 33,655 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,644 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,662 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `ReduceCost$ on Wayta, Trainer Prodigy is not resolvable` |
 | 1 | `"_": as-it-enters replacement ReplaceWith$ PutCounter not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
 | 1 | `ConditionCheckSVar$ is not resolvable` |
+| 1 | `Effect: RememberSpell$ not resolvable` |
 | 1 | `Learn: Learn replacement effects not resolvable` |
 | 1 | `MakeCard: Booster$ not resolvable` |
 
@@ -99,8 +99,11 @@ LandPlayed are gone).
 - The inconclusive cards. Past the variants (plain board, a spell on the stack, the rich board, combat) the probe builds
   a tailored one: for each `ValidTgts$` alternative the card names it places a corpus card the spec accepts
   (`internal/smoke/tailor.go`, fewest abilities first; judged with the card in hand, so a spec that reads game state
-  finds none until a staged board plays it), or casts one for `TargetType$ Spell`. What remains is engine work that
-  fails silently today, grouped in open plan R25d-R25k. The probe's mana pool holds 20 of each colour: the controller
+  finds none until a staged board plays it), or casts one for `TargetType$ Spell`. It also gives the probe player what the cast itself needs
+  (`internal/smoke/costtailor.go`): the permanents a `Cost$`, a self `RaiseCost` or an `AlternateAdditionalCost`
+  sacrifices, taps, returns or exiles, the cards it reveals or beholds, and the permanents an `IsPresent$` on the spell
+  counts. What remains is engine work that
+  fails silently today, grouped in open plan R25d-R25k. The probe's mana pool holds 20 of each colour and 5 colorless snow: the controller
   pays generic mana with the colour floating most, so a cost of twelve generic needs twelve of one.
 - Command-zone cards are counted as `placed`, which proves nothing about their one-shot abilities. A sticker sheet is
   refused by the probe itself (open plan R15), not by the engine, and that line goes when stickers are ported.

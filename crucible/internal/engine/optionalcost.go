@@ -343,7 +343,7 @@ func (uc unlessCost) hasParts() bool {
 		uc.drawN > 0 || uc.returnN > 0 || uc.revealN > 0 || uc.revealSelf || uc.revealChosen != "" || uc.addCounterN > 0 || uc.exileGraveN > 0 || uc.tapN > 0 ||
 		uc.evidenceN > 0 || uc.youCounterN > 0 || uc.libN > 0 || uc.removeAnyN > 0 || uc.subCounterN > 0 || uc.subCounterAll ||
 		uc.discardTypeN > 0 || uc.movedToGraveN > 0 || uc.forage || uc.exileHandAll || uc.exileEitherN > 0 ||
-		uc.chooseCreatureType || len(uc.moreSac) > 0 || len(uc.moreExile) > 0 || uc.exileSelf
+		uc.chooseCreatureType || len(uc.moreSac) > 0 || len(uc.moreExile) > 0 || uc.exileSelf || uc.untapN > 0 || uc.revealHand || uc.revealSameColorN > 0
 }
 
 // optionalOptionPayable is CostPart.canPay for o's non-mana part.

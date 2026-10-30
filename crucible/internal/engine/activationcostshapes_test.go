@@ -235,3 +235,48 @@ func TestActivationExilesItsOwnSource(t *testing.T) {
 		t.Errorf("%d time counters left, want 0", got)
 	}
 }
+
+// Halo Fountain (W T untapYType<1/Creature.YouCtrl>): a tapped creature is
+// untapped as the cost; with none tapped the cost cannot be paid.
+func TestActivationUntapsAChosenCreature(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	fountain := g.NewCard(corpusCard(t, "Halo Fountain"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, fountain, 0, c) {
+		t.Fatal("activated with no tapped creature")
+	}
+	g.Card(bears).Tapped = true
+	c.QueueCardChoice([]engine.CardID{bears})
+	if !g.ActivateAbility(p, fountain, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if g.Card(bears).Tapped {
+		t.Error("the Bears are still tapped")
+	}
+}
+
+// Illuminated Folio (1 T Reveal<2/SameColor>): two hand cards sharing a color
+// pay it; two of different colors do not.
+func TestActivationRevealsSameColorCards(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	libraryCards(t, g, p, 3)
+	folio := g.NewCard(corpusCard(t, "Illuminated Folio"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Hand)
+	g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, folio, 0, c) {
+		t.Fatal("activated with a green and a red card")
+	}
+	g.NewCard(corpusCard(t, "Giant Growth"), p, engine.Hand)
+	c.QueuePayGeneric(mana.ShardW)
+	if !g.ActivateAbility(p, folio, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+}

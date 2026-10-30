@@ -61,6 +61,11 @@ type unlessCost struct {
 	// Revealing it changes no game state here (the choice is not hidden from
 	// the simulation).
 	revealChosen string
+	// revealHand is Reveal<N/Hand> (the whole hand, always payable);
+	// revealSameColorN is Reveal<N/SameColor>: N hand cards sharing a color.
+	// Revealing changes no state.
+	revealHand       bool
+	revealSameColorN int
 	// revealBattlefield is Behold<N/Type> (CostBehold) or RevealOrChoose<N/Type>
 	// (CostReveal over Hand,Battlefield, Cost.java:522-526): the cards may also
 	// be permanents the payer controls. revealBehold tells Behold apart: its
@@ -158,6 +163,10 @@ type unlessCost struct {
 	// Vile Darkness's three exiles): each is paid in turn, from candidates read
 	// when its turn comes.
 	moreSac, moreExile []specCount
+	// untapN/untapSpec are untapYType<N/Type> (CostUntapType): N tapped
+	// permanents the payer controls that match the spec are untapped.
+	untapN    int
+	untapSpec string
 	// exileSelf is Exile<1/CARDNAME>: the source leaves the battlefield for
 	// exile as part of the cost (CostExile's self shape).
 	exileSelf bool
@@ -359,6 +368,10 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.moreSac = append(uc.moreSac, specCount{n, p.Field(1)})
 		case p.Name == "Return" && uc.returnN == 0 && p.Field(1) != "":
 			uc.returnN, uc.returnSpec = n, p.Field(1)
+		case p.Name == "Reveal" && p.Field(1) == "Hand" && !uc.revealHand:
+			uc.revealHand = true
+		case p.Name == "Reveal" && p.Field(1) == "SameColor" && uc.revealSameColorN == 0 && n > 0:
+			uc.revealSameColorN = n
 		case p.Name == "Reveal" && n == 1 && (p.Field(1) == "CARDNAME" || p.Field(1) == "NICKNAME") && !uc.revealSelf:
 			uc.revealSelf = true
 		case p.Name == "Reveal" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
@@ -384,6 +397,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileFieldN, uc.exileFieldSpec = n, p.Field(1)
 		case p.Name == "Exile" && uc.exileFieldN != 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.moreExile = append(uc.moreExile, specCount{n, p.Field(1)})
+		case p.Name == "untapYType" && uc.untapN == 0 && p.Field(1) != "" && chosenCardSpecResolvable(p.Field(1)) && n > 0:
+			uc.untapN, uc.untapSpec = n, p.Field(1)
 		case p.Name == "tapXType" && uc.tapN == 0 && p.Field(0) != "Any" && p.Field(1) != "" && tapTypeResolvable(p.Field(1)):
 			uc.tapN, uc.tapSpec = n, p.Field(1)
 		case p.Name == "Waterbend" && uc.waterbendN == 0:
@@ -527,6 +542,35 @@ func revealSpecResolvable(spec string) bool {
 	return true
 }
 
+// untapCostCandidates are the tapped permanents pid controls that spec accepts.
+func (g *Game) untapCostCandidates(pid PlayerID, source CardID, spec string) []CardID {
+	var out []CardID
+	for _, id := range g.costCandidates(pid, source, false, Battlefield, spec) {
+		if g.Card(id).Tapped {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// handSharesColor reports whether pid's hand holds n cards that each share a
+// color with one of them (HumanCostDecision.visit(CostReveal), SameColor).
+func (g *Game) handSharesColor(pid PlayerID, n int) bool {
+	hand := g.Zone(Hand, pid).Cards()
+	for _, a := range hand {
+		count := 0
+		for _, b := range hand {
+			if a == b || g.Card(a).Colors()&g.Card(b).Colors() != 0 {
+				count++
+			}
+		}
+		if count >= n {
+			return true
+		}
+	}
+	return false
+}
+
 // unlessRevealable reports whether pid's hand holds the cards the Reveal part
 // names: revealN cards matching revealSpec, an OR list when it carries ";"
 // (the Cost syntax's own comma, as returnTypeCandidates reads it).
@@ -540,6 +584,9 @@ func (g *Game) unlessRevealable(pid PlayerID, source CardID, uc unlessCost) bool
 		if uc.revealChosen == "Player" && m.ChosenPlayer() == NoPlayer || uc.revealChosen == "Type" && m.ChosenType(false) == "" {
 			return false
 		}
+	}
+	if uc.revealSameColorN > 0 && !g.handSharesColor(pid, uc.revealSameColorN) {
+		return false
 	}
 	if uc.revealN == 0 {
 		return true
@@ -778,6 +825,9 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 		if len(g.sacCandidatesFor(pid, source, m.spec)) < m.n {
 			return false
 		}
+	}
+	if uc.untapN > 0 && len(g.untapCostCandidates(pid, source, uc.untapSpec)) < uc.untapN {
+		return false
 	}
 	if uc.tapN > 0 && len(tapTypeCandidates(g, pid, source, false, uc.tapSpec)) < uc.tapN {
 		return false
@@ -1083,6 +1133,11 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.evidenceN > 0 {
 		g.collectEvidence(controller, pid, a.Source, uc.evidenceN)
+	}
+	if uc.untapN > 0 {
+		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, g.untapCostCandidates(pid, a.Source, uc.untapSpec), uc.untapN, uc.untapN) {
+			g.untapCard(controller, id)
+		}
 	}
 	if uc.tapN > 0 {
 		chosen := controller.ChoosePermanentsToTap(g, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN)

@@ -56,6 +56,11 @@ type unlessCost struct {
 	// revealSelf is Reveal<1/CARDNAME>: the source itself, which must be in
 	// the payer's hand (Forecast's "Reveal CARDNAME from your hand").
 	revealSelf bool
+	// revealChosen is RevealChosen<Player> or RevealChosen<Type/...>
+	// (CostRevealChosen): the source's chosen player or type, which must exist.
+	// Revealing it changes no game state here (the choice is not hidden from
+	// the simulation).
+	revealChosen string
 	// revealBattlefield is Behold<N/Type> (CostBehold) or RevealOrChoose<N/Type>
 	// (CostReveal over Hand,Battlefield, Cost.java:522-526): the cards may also
 	// be permanents the payer controls. revealBehold tells Behold apart: its
@@ -148,6 +153,11 @@ type unlessCost struct {
 	exileHandSpec  string
 	exileFieldN    int
 	exileFieldSpec string
+	// moreSac and moreExile are the further Sac and Exile parts of a cost with
+	// several (Kyscu Drake's CARDNAME and a named Spitting Drake, The Book of
+	// Vile Darkness's three exiles): each is paid in turn, from candidates read
+	// when its turn comes.
+	moreSac, moreExile []specCount
 	// tapN/tapSpec are tapXType<N/Type>: N untapped permanents of the type the
 	// payer controls (CostTapType).
 	tapN    int
@@ -216,6 +226,12 @@ type unlessCost struct {
 	manaTokens []string
 }
 
+// specCount is a cost part's amount and valid string.
+type specCount struct {
+	n    int
+	spec string
+}
+
 // parseUnlessCost reads text into an unlessCost, false for a shape past
 // mana, PayLife, PayEnergy, DamageYou<N>, Draw<N/You>, Discard<N/Card>,
 // AddCounter<N/Type> on the source, one Sac, Return or Reveal part and the
@@ -257,6 +273,9 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			continue
 		case p.Name == "ExileFromHand" && p.Field(1) == "All" && !uc.exileHandAll:
 			uc.exileHandAll = true
+			continue
+		case p.Name == "RevealChosen" && uc.revealChosen == "" && (p.Field(0) == "Player" || p.Field(0) == "Type"):
+			uc.revealChosen = p.Field(0)
 			continue
 		case p.Name == "ChooseCreatureType" && p.Field(0) == "1" && !uc.chooseCreatureType:
 			uc.chooseCreatureType = true
@@ -333,6 +352,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.revealN, uc.revealSpec, uc.revealBattlefield = n, strings.Join(alts, ";"), true
 		case p.Name == "Sac" && uc.sacN == 0 && p.Field(1) != "":
 			uc.sacN, uc.sacSpec = n, p.Field(1)
+		case p.Name == "Sac" && uc.sacN != 0 && !uc.sacAll && p.Field(1) != "" && n > 0:
+			uc.moreSac = append(uc.moreSac, specCount{n, p.Field(1)})
 		case p.Name == "Return" && uc.returnN == 0 && p.Field(1) != "":
 			uc.returnN, uc.returnSpec = n, p.Field(1)
 		case p.Name == "Reveal" && n == 1 && (p.Field(1) == "CARDNAME" || p.Field(1) == "NICKNAME") && !uc.revealSelf:
@@ -356,6 +377,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileHandN, uc.exileHandSpec = n, p.Field(1)
 		case p.Name == "Exile" && uc.exileFieldN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileFieldN, uc.exileFieldSpec = n, p.Field(1)
+		case p.Name == "Exile" && uc.exileFieldN != 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.moreExile = append(uc.moreExile, specCount{n, p.Field(1)})
 		case p.Name == "tapXType" && uc.tapN == 0 && p.Field(0) != "Any" && p.Field(1) != "" && tapTypeResolvable(p.Field(1)):
 			uc.tapN, uc.tapSpec = n, p.Field(1)
 		case p.Name == "Waterbend" && uc.waterbendN == 0:
@@ -449,14 +472,19 @@ func (g *Game) unlessSacCandidates(pid PlayerID, source CardID, uc unlessCost) [
 	if uc.sacN == 0 && !uc.sacAll {
 		return nil
 	}
-	if uc.sacSpec == "CARDNAME" || uc.sacSpec == "NICKNAME" {
+	return g.sacCandidatesFor(pid, source, uc.sacSpec)
+}
+
+// sacCandidatesFor is unlessSacCandidates for one valid string.
+func (g *Game) sacCandidatesFor(pid PlayerID, source CardID, sacSpec string) []CardID {
+	if sacSpec == "CARDNAME" || sacSpec == "NICKNAME" {
 		c := g.Card(source)
 		if c.Zone == Battlefield && !c.IsPhasedOut() && c.Controller() == pid {
 			return []CardID{source}
 		}
 		return nil
 	}
-	spec := valid.Parse(strings.ReplaceAll(uc.sacSpec, ";", ","))
+	spec := valid.Parse(strings.ReplaceAll(sacSpec, ";", ","))
 	var out []CardID
 	for _, id := range g.Zone(Battlefield, pid).Cards() {
 		if Matches(g, g.Card(id), spec, g.Card(source).Controller(), source) {
@@ -500,6 +528,13 @@ func revealSpecResolvable(spec string) bool {
 func (g *Game) unlessRevealable(pid PlayerID, source CardID, uc unlessCost) bool {
 	if uc.revealSelf && (source == NoCard || g.Card(source).Zone != Hand || g.Card(source).Owner != pid) {
 		return false
+	}
+	if uc.revealChosen != "" && source != NoCard {
+		// CostRevealChosen.canPay (:36-44).
+		m := &g.Card(source).Memory
+		if uc.revealChosen == "Player" && m.ChosenPlayer() == NoPlayer || uc.revealChosen == "Type" && m.ChosenType(false) == "" {
+			return false
+		}
 	}
 	if uc.revealN == 0 {
 		return true
@@ -723,6 +758,16 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	}
 	if uc.exileFieldN > 0 && len(g.costCandidates(pid, source, false, Battlefield, uc.exileFieldSpec)) < uc.exileFieldN {
 		return false
+	}
+	for _, m := range uc.moreExile {
+		if len(g.costCandidates(pid, source, false, Battlefield, m.spec)) < m.n {
+			return false
+		}
+	}
+	for _, m := range uc.moreSac {
+		if len(g.sacCandidatesFor(pid, source, m.spec)) < m.n {
+			return false
+		}
 	}
 	if uc.tapN > 0 && len(tapTypeCandidates(g, pid, source, false, uc.tapSpec)) < uc.tapN {
 		return false
@@ -979,6 +1024,26 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 		if rec != nil {
 			rec.exiled = append(rec.exiled, picks...)
+		}
+	}
+	for _, m := range uc.moreExile {
+		picks := g.chosenUnlessCards(controller, pid, a.Source, g.costCandidates(pid, a.Source, false, Battlefield, m.spec), m.n, m.n)
+		exileCards(g, controller, picks)
+		for _, id := range picks {
+			g.markExiledWith(id, a.Source)
+		}
+		if rec != nil {
+			rec.exiled = append(rec.exiled, picks...)
+		}
+	}
+	for _, m := range uc.moreSac {
+		picks := g.sacCandidatesFor(pid, a.Source, m.spec)
+		if m.spec != "CARDNAME" && m.spec != "NICKNAME" {
+			picks = controller.ChoosePermanentsToSacrifice(g, pid, picks, m.n)
+		}
+		sacrificed := sacrificeCardsFor(g, controller, a, picks, false)
+		if rec != nil {
+			rec.sacrificed = append(rec.sacrificed, sacrificed...)
 		}
 	}
 	if uc.libN > 0 {

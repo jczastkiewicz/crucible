@@ -362,8 +362,8 @@ func TestUnpaidTaxThatBreaksTheAttackFailsTheDeclaration(t *testing.T) {
 }
 
 // A CantAttackUnless line this port cannot evaluate fails the declaration
-// before anything changes (GO-7): an unknown param, an unknown condition, two
-// Sac parts the payment cannot hold, an SVar that does not resolve, no Cost$.
+// before anything changes (GO-7): an unknown param, an unknown condition, a
+// cost part the payment cannot hold, an SVar that does not resolve, no Cost$.
 func TestUnresolvableAttackTaxIsAnError(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -372,7 +372,7 @@ func TestUnresolvableAttackTaxIsAnError(t *testing.T) {
 	}{
 		{"param", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ 2 | Bogus$ 1", "Bogus$ not resolvable", nil},
 		{"condition", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ 2 | Condition$ Bogus", "Condition$", nil},
-		{"cost", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Sac<1/Land> Sac<1/Creature>", "not resolvable yet", nil},
+		{"cost", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Unattach<CARDNAME/CARDNAME>", "not resolvable yet", nil},
 		{"svar", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Q", "SVar not resolvable", []string{"Q", "Count$Bogus"}},
 		{"nocost", "Mode$ CantAttackUnless | ValidCard$ Card.Self", "without Cost$", nil},
 	} {

@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,614 |
-| refused      |     41 |
+| plays        | 33,621 |
+| refused      |     34 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -67,18 +67,18 @@ Measured on the full corpus (34,078 cards):
 
 99.9% of the 33,655 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.8% of 8,662 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.9% of 8,662 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `A Killer Among Us: activated Cost$ not resolvable` |
 | 1 | `Back from the Brink: activated Cost$ not resolvable` |
 | 1 | `Captain America, First Avenger: activated Cost$ not resolvable` |
 | 1 | `Clay Golem: activated Cost$ not resolvable` |
 | 1 | `Corpseweft: activated Cost$ not resolvable` |
-| 1 | `Emissary of Grudges: activated Cost$ not resolvable` |
+| 1 | `Fabrication Foundry: activated Cost$ not resolvable` |
+| 1 | `Halo Fountain: activated Cost$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

@@ -193,6 +193,11 @@ type unlessCost struct {
 	// the ability. Always payable.
 	rollN, rollSides int
 	rollVar          string
+	// exileStackN/exileStackSpec are ExileFromStack<N/Type> for other spells
+	// (Nivmagus Elemental, Synthesis Pod): the payer picks spells on the stack
+	// that the type accepts and they leave it for exile, uncountered.
+	exileStackN    int
+	exileStackSpec string
 	// exileSelf is Exile<1/CARDNAME>: the source leaves the battlefield for
 	// exile as part of the cost (CostExile's self shape).
 	exileSelf bool
@@ -371,6 +376,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileGraveAll = true
 		case p.Name == "ExileFromGrave" && p.Field(1) == "Card.TopGraveyardCreature" && uc.exileGraveN == 0 && !uc.exileGraveAll:
 			uc.exileGraveN, uc.exileGraveSpec, uc.exileGraveTop = n, "Creature", true
+		case p.Name == "ExileFromStack" && uc.exileStackN == 0 && n > 0 && p.Field(1) != "Card.Self" && chosenCardSpecResolvable(p.Field(1)):
+			uc.exileStackN, uc.exileStackSpec = n, p.Field(1)
 		case p.Name == "ExileFromStack" && n == 1 && p.Field(1) == "Card.Self" && !uc.exileStackSelf:
 			uc.exileStackSelf = true
 		case p.Name == "Discard" && p.Field(1) == "LastDrawn" && !uc.discardLast:
@@ -851,6 +858,9 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.exileGraveN > 0 && len(g.exileGraveOptions(pid, source, uc)) < uc.exileGraveN {
 		return false
 	}
+	if uc.exileStackN > 0 && len(g.exilableStackSpells(pid, source, uc.exileStackSpec)) < uc.exileStackN {
+		return false
+	}
 	if uc.exileSameN > 0 && len(g.sameGraveOwners(pid, source, uc.exileMiscSpec, uc.exileSameN)) == 0 {
 		return false
 	}
@@ -1105,6 +1115,20 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		exiled := g.exileCostCards(controller, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
+		}
+	}
+	if uc.exileStackN > 0 {
+		options := g.exilableStackSpells(pid, a.Source, uc.exileStackSpec)
+		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, options, uc.exileStackN, uc.exileStackN) {
+			// CostExileFromStack.payAsDecided (:105-127): the spell is removed
+			// from the stack, with no Countered event, and exiled.
+			g.removeSpellFromStack(id)
+			g.Move(id, Exile, g.Card(id).Owner)
+			g.markExiledWith(id, a.Source)
+			g.checkChangesZoneAllTriggers(controller, []CardID{id}, Stack, Exile)
+			if rec != nil {
+				rec.exiled = append(rec.exiled, id)
+			}
 		}
 	}
 	if uc.exileSameN > 0 || uc.exileAnyN > 0 {
@@ -1936,6 +1960,18 @@ func (g *Game) anyGraveCandidates(pid PlayerID, source CardID, spec string) []Ca
 	var out []CardID
 	for _, owner := range g.Players() {
 		out = append(out, g.sameGraveCandidates(pid, source, owner, spec)...)
+	}
+	return out
+}
+
+// exilableStackSpells are the spells on the stack, other than the source, that spec
+// accepts (HumanCostDecision.visit(CostExileFromStack) lists spells only).
+func (g *Game) exilableStackSpells(pid PlayerID, source CardID, spec string) []CardID {
+	var out []CardID
+	for _, e := range g.stackSpellCandidates(pid, source, strings.ReplaceAll(spec, ";", ",")) {
+		if id, ok := e.AsCard(); ok && id != source {
+			out = append(out, id)
+		}
 	}
 	return out
 }

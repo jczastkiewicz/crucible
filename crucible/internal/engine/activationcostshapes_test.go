@@ -507,3 +507,33 @@ func TestActivationReadsXFromTheTargets(t *testing.T) {
 		t.Errorf("Martyr of Bones is in %v, want sacrificed", z)
 	}
 }
+
+// Nivmagus Elemental (ExileFromStack<1/Spell.Instant+YouCtrl;Spell.Sorcery+YouCtrl>):
+// the controller's own instant leaves the stack for exile uncountered; with no
+// such spell the ability cannot be activated.
+func TestActivationExilesASpellFromTheStack(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	elemental := g.NewCard(corpusCard(t, "Nivmagus Elemental"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, elemental, 0, c) {
+		t.Fatal("activated with no spell on the stack")
+	}
+	bolt := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	if !g.CastSpell(p, bolt, c) {
+		t.Fatalf("cast failed: %v", g.TakePendingError())
+	}
+	c.QueueCardChoice([]engine.CardID{bolt})
+	if !g.ActivateAbility(p, elemental, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if z := g.Card(bolt).Zone; z != engine.Exile {
+		t.Errorf("the Bolt is in %v, want exiled", z)
+	}
+	if got := g.Card(elemental).Counters.Count("P1P1"); got != 0 {
+		t.Errorf("%d counters before resolution, want 0", got)
+	}
+}

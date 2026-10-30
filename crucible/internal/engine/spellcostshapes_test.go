@@ -121,8 +121,8 @@ func TestTargetDerivedXIsReadAfterTargets(t *testing.T) {
 
 // Ertai's Meddling (RememberSpell$, CopySpellAbility UseOriginalHost$): the
 // targeted spell is exiled with X delay counters; at its controller's upkeep a
-// counter comes off, and with none left a copy of the original spell goes on
-// the stack, hosted by the exiled card, which stays in exile.
+// counter comes off, and with none left the card itself goes back onto the
+// stack as a copy of the original spell, once.
 func TestErtaisMeddlingDelaysASpell(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
@@ -160,18 +160,15 @@ func TestErtaisMeddlingDelaysASpell(t *testing.T) {
 	if got := g.Player(p).Life; got != 17 {
 		t.Errorf("life %d after the delayed copy resolved, want 17", got)
 	}
-	if got := g.Card(bolt).Zone; got != engine.Exile {
-		t.Errorf("the original Bolt is in %v, want still exiled", got)
+	if got := g.Card(bolt).Zone; got != engine.Graveyard {
+		t.Errorf("the original Bolt is in %v, want the graveyard after it resolved", got)
 	}
 	g.SetTurnState(5, other, engine.Untap)
 	g.AdvancePhase(c)
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
 		t.Fatal(err)
 	}
-	// Forge's script keeps the card exiled (UseOriginalHost$), so the copy
-	// comes back at every later upkeep: reproduced as Java does it, logged in
-	// card-script-defects.md (PORT-8).
-	if got := g.Player(p).Life; got != 14 {
-		t.Errorf("life %d after a later upkeep, want 14 (the reproduced repeat)", got)
+	if got := g.Player(p).Life; got != 17 {
+		t.Errorf("life %d after a later upkeep, want 17: the delayed spell comes back once", got)
 	}
 }

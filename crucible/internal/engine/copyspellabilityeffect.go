@@ -281,15 +281,20 @@ func (g *Game) copySpell(controller PlayerController, a *Ability, orig Ability, 
 		return g.copyStackAbility(controller, orig, copier, mayChoose)
 	}
 	// UseOriginalHost$ (CardFactory.java:130): the copy's host is the original
-	// card itself, where it is (Ertai's Meddling's exiled card), not a new
-	// copied card; it is not moved, and leaves that zone only by what the
-	// spell does.
+	// card itself (Ertai's Meddling's exiled card), not a new copied card.
 	host := orig.Source
 	if !hasParam(a, "UseOriginalHost") {
 		var err error
 		if host, err = g.copySpellHost(a, g.Card(orig.Source), copier); err != nil {
 			return NoCard, copiedTargets{}, err
 		}
+	} else if g.Card(host).Zone != Stack {
+		// MagicStack.addAndUnfreeze (MagicStack.java:144-147): a spell whose
+		// host is not a copied-spell card is moved onto the stack zone, so the
+		// original card leaves exile and goes to its graveyard once it
+		// resolves (Ertai's Meddling's rulings: the card is put back onto the
+		// stack).
+		g.moveByEffect(controller, host, Stack, 0, NoPlayer, false)
 	}
 	return g.pushSpellCopy(controller, a, orig, copier, mayChoose, host)
 }

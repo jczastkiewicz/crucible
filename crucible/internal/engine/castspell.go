@@ -775,13 +775,12 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 		// PlaySpellAbility.java:462-466: an X in the mana cost whose SVar is not
 		// Count$xPaid is not announced; it is that SVar's value (Spoils of War's
 		// cards in the chosen opponent's graveyard).
-		n, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, "X")
-		if !ok {
-			g.recordPendingError(fmt.Errorf("engine: card %d: X in its mana cost is not resolvable yet", c.ID))
-			return false
+		// An X that reads the targets (Choking Vines' number of targets) is
+		// not known yet: the caster announces it as before.
+		if n, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, "X"); ok {
+			g.preX, g.hasPreX = max(n, 0), true
+			return true
 		}
-		g.preX, g.hasPreX = max(n, 0), true
-		return true
 	}
 	n := controller.ChoosePayX(g, pid, total)
 	if n < 0 {

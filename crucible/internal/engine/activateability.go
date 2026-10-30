@@ -46,7 +46,6 @@
 package engine
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -446,12 +445,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		// that SVar's value, not announced (Bargaining Table's cards in the
 		// announced opponent's hand).
 		if _, has := abilityAmounts["x"]; has && !xAmountIsPaid(abilityAmounts) {
-			n, known := resolveNamedAmount(g, abilityAmounts, c, "X")
-			if !known {
-				g.recordPendingError(fmt.Errorf("engine: card %d: X in its activation cost is not resolvable yet", card))
-				return false
+			// An X that reads something not known yet is announced as before.
+			if n, known := resolveNamedAmount(g, abilityAmounts, c, "X"); known {
+				g.preX, g.hasPreX = max(n, 0), true
 			}
-			g.preX, g.hasPreX = max(n, 0), true
 		}
 	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)

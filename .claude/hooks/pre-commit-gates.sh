@@ -9,8 +9,9 @@ cwd=$(jq -r '.cwd // ""' <<<"$in")
 dir=$(commit_dir "$cmd" "${cwd:-${CLAUDE_PROJECT_DIR:-.}}")
 [ -n "$dir" ] || exit 0
 root=$(repo_root "$dir")
-# Gates whose inputs are unchanged since HEAD are skipped (gates.sh header); CI
-# still runs every gate on push.
-out=$(GATES_AUTO_SKIP=1 "$root/crucible/scripts/gates.sh" full 2>&1) && exit 0
+# Gates whose inputs are unchanged since HEAD are skipped and go test runs
+# without -race (gates.sh header); CI still runs every gate, -race included, on
+# push.
+out=$(GATES_AUTO_SKIP=1 GATES_NO_RACE=1 "$root/crucible/scripts/gates.sh" full 2>&1) && exit 0
 printf 'Commit blocked: CI gates failed in %s. Fix, then commit again.\n%s\n' "$root" "$out" >&2
 exit 2

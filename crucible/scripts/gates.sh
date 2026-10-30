@@ -7,6 +7,10 @@
 #
 # GATES_SKIP="apiscan ..." skips gates whose name starts with a listed word.
 #
+# GATES_NO_RACE=1 (the pre-commit hook) runs go test without -race: the
+# engine's tests take about 15 s plain and 110 s under the race detector, paid
+# on every commit. CI keeps -race, so a data race still fails the push.
+#
 # GATES_AUTO_SKIP=1 (both .claude hooks) adds to it from `git status`: a gate
 # is skipped when nothing it reads has changed since HEAD. CI never sets it.
 #
@@ -103,7 +107,11 @@ gate "apiscan -check -api" go run ./tools/apiscan -check -api
 [ -x ../.claude/hooks/hooks_test.sh ] && gate hooks ../.claude/hooks/hooks_test.sh
 
 if [ "$mode" = full ]; then
-	gate "go test -race" go test -race -timeout 45m -coverprofile="$tmp/cover.out" ./...
+	if [ "${GATES_NO_RACE:-}" = 1 ]; then
+		gate "go test" go test -timeout 45m -coverprofile="$tmp/cover.out" ./...
+	else
+		gate "go test -race" go test -race -timeout 45m -coverprofile="$tmp/cover.out" ./...
+	fi
 	[ -s "$tmp/cover.out" ] && gate covergate go run ./tools/covergate -profile "$tmp/cover.out"
 	gate javacycles go run ./tools/javacycles -root ../forge-game/src/main/java -prefix forge.game -expect 88
 	gate "prettier --check" sh -c 'cd .. && prettier --check . --log-level warn'

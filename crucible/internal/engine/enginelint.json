@@ -708,7 +708,19 @@
     "ateot": ["ability", "delayedtrigger", "effecthelpers", "game", "id", "animate", "becomemonarcheffect", "card"],
     "random": ["game"],
     "token": ["card", "control", "event", "game", "id", "parts", "zone", "zonemove", "prepare"],
-    "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined", "triggerhooks"],
+    "facedown": [
+      "card",
+      "id",
+      "game",
+      "control",
+      "zone",
+      "ability",
+      "effecthelpers",
+      "condition",
+      "parts",
+      "defined",
+      "triggerhooks"
+    ],
     "textrewrite": [],
     "textwords": ["card", "game", "ability", "id", "zone", "continuous", "continuouslayers", "textrewrite", "valid"]
   }

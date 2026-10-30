@@ -26,7 +26,8 @@ cd crucible && golangci-lint run   # v2.14.0, same as CI; scripts/ensure-golangc
 
 # All of the above in CI order. .claude/ hooks run full before every Claude commit (blocking) and fast on Stop (report
 # only), both with GATES_AUTO_SKIP=1: gates whose inputs are unchanged since HEAD are skipped, and go test uses its cache
-# (CI keeps -count=1). Measured: ~25 s with tests cached; a changed engine adds its own ~45 s test run.
+# (CI keeps -count=1); the commit hook also sets GATES_NO_RACE=1 (go test without -race, CI keeps it). Measured: ~25 s
+# with tests cached; a changed engine adds its own ~15 s test run (~110 s under -race).
 crucible/scripts/gates.sh fast|full
 
 # What to port next: unregistered APIs by corpus line count, deferred ones marked (port-effect step 0)

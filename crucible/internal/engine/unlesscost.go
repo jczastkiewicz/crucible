@@ -167,6 +167,20 @@ type unlessCost struct {
 	// permanents the payer controls that match the spec are untapped.
 	untapN    int
 	untapSpec string
+	// exileTotal is Exile<1+/Type+withTotalCMC<GE|EQ><N>> or the same under
+	// ExileFromGrave (The Capitoline Triad, Fabrication Foundry): one or more
+	// cards of the zone whose total mana value reaches (GE) or is exactly (EQ)
+	// exileTotalN. CostExile.canPay checks only the total (:230-236).
+	exileTotal     bool
+	exileTotalZone ZoneType
+	exileTotalSpec string
+	exileTotalEQ   bool
+	exileTotalN    int
+	// exileSameN/exileAnyN are ExileSameGrave<N/Type> (N cards of one
+	// graveyard, Night Soil) and ExileAnyGrave<N/Type> (N cards of any
+	// graveyards, Thelon of Havenwood), both with spec as the type.
+	exileSameN, exileAnyN int
+	exileMiscSpec         string
 	// exileSelf is Exile<1/CARDNAME>: the source leaves the battlefield for
 	// exile as part of the cost (CostExile's self shape).
 	exileSelf bool
@@ -289,6 +303,17 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 		case p.Name == "RevealChosen" && uc.revealChosen == "" && (p.Field(0) == "Player" || p.Field(0) == "Type"):
 			uc.revealChosen = p.Field(0)
 			continue
+		case (p.Name == "ExileFromGrave" || p.Name == "Exile") && p.Field(0) == "1+" && !uc.exileTotal:
+			spec, eq, total, ok := splitTotalCMC(p.Field(1), x, hasX)
+			if !ok {
+				return unlessCost{}, false
+			}
+			uc.exileTotal, uc.exileTotalSpec, uc.exileTotalEQ, uc.exileTotalN = true, spec, eq, total
+			uc.exileTotalZone = Battlefield
+			if p.Name == "ExileFromGrave" {
+				uc.exileTotalZone = Graveyard
+			}
+			continue
 		case p.Name == "ChooseCreatureType" && p.Field(0) == "1" && !uc.chooseCreatureType:
 			uc.chooseCreatureType = true
 			continue
@@ -389,6 +414,10 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.addCounterN, uc.addCounterType, uc.addCounterSpec = n, M1M1, "Creature.YouCtrl"
 		case p.Name == "ExileFromGrave" && uc.exileGraveN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileGraveN, uc.exileGraveSpec = n, p.Field(1)
+		case p.Name == "ExileSameGrave" && uc.exileSameN == 0 && uc.exileAnyN == 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.exileSameN, uc.exileMiscSpec = n, p.Field(1)
+		case p.Name == "ExileAnyGrave" && uc.exileAnyN == 0 && uc.exileSameN == 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.exileAnyN, uc.exileMiscSpec = n, p.Field(1)
 		case p.Name == "ExileFromHand" && uc.exileHandN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileHandN, uc.exileHandSpec = n, p.Field(1)
 		case p.Name == "Exile" && n == 1 && !uc.exileSelf && (p.Field(1) == "CARDNAME" || p.Field(1) == "NICKNAME"):
@@ -797,6 +826,15 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.exileGraveN > 0 && len(g.exileGraveOptions(pid, source, uc)) < uc.exileGraveN {
 		return false
 	}
+	if uc.exileSameN > 0 && len(g.sameGraveOwners(pid, source, uc.exileMiscSpec, uc.exileSameN)) == 0 {
+		return false
+	}
+	if uc.exileAnyN > 0 && len(g.anyGraveCandidates(pid, source, uc.exileMiscSpec)) < uc.exileAnyN {
+		return false
+	}
+	if uc.exileTotal && !g.totalCMCPayable(g.costCandidates(pid, source, false, uc.exileTotalZone, uc.exileTotalSpec), uc) {
+		return false
+	}
 	if uc.exileTypesN > 0 {
 		// CostExile.canPay (CostExile.java:215-228): the card types among every
 		// valid graveyard card reach N.
@@ -1039,6 +1077,41 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.exileGraveN > 0 {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.exileGraveOptions(pid, a.Source, uc), uc.exileGraveN, uc.exileGraveN)
+		exiled := g.exileCostCards(controller, a.Source, picks)
+		if rec != nil {
+			rec.exiled = append(rec.exiled, exiled...)
+		}
+	}
+	if uc.exileSameN > 0 || uc.exileAnyN > 0 {
+		var options []CardID
+		n := uc.exileAnyN
+		if uc.exileSameN > 0 {
+			n = uc.exileSameN
+			owners := g.sameGraveOwners(pid, a.Source, uc.exileMiscSpec, n)
+			owner := owners[0]
+			if len(owners) > 1 {
+				owner = controller.ChoosePlayerForEffect(g, pid, a.Source, owners)
+				if !slices.Contains(owners, owner) {
+					owner = owners[0]
+				}
+			}
+			options = g.sameGraveCandidates(pid, a.Source, owner, uc.exileMiscSpec)
+		} else {
+			options = g.anyGraveCandidates(pid, a.Source, uc.exileMiscSpec)
+		}
+		exiled := g.exileCostCards(controller, a.Source, g.chosenUnlessCards(controller, pid, a.Source, options, n, n))
+		if rec != nil {
+			rec.exiled = append(rec.exiled, exiled...)
+		}
+	}
+	if uc.exileTotal {
+		options := g.costCandidates(pid, a.Source, false, uc.exileTotalZone, uc.exileTotalSpec)
+		picks := g.chosenUnlessCards(controller, pid, a.Source, options, min(1, len(options)), len(options))
+		if !g.totalCMCMet(picks, uc) {
+			// HumanCostDecision.java:299-302 cancels a wrong sum; the first
+			// cards that reach it stand in.
+			picks = g.totalCMCFallback(options, uc)
+		}
 		exiled := g.exileCostCards(controller, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
@@ -1577,6 +1650,10 @@ func costNamesX(text string) bool {
 		if p.Field(0) == "X" {
 			return true
 		}
+		// withTotalCMC<GE|EQ>X: the total is the announced X (Fabrication Foundry).
+		if spec := p.Field(1); strings.Contains(spec, "+withTotalCMC") && strings.HasSuffix(spec, "X") {
+			return true
+		}
 	}
 	return false
 }
@@ -1701,4 +1778,111 @@ func spentManaLetters(x xAnnounced) string {
 	}
 	b.WriteString(strings.Repeat("C", x.colorless))
 	return b.String()
+}
+
+// splitTotalCMC reads "Type+withTotalCMC<GE|EQ><N|X>": the type without the
+// total, whether it is an exact sum, and the number (X standing for x).
+func splitTotalCMC(spec string, x int, hasX bool) (base string, eq bool, total int, ok bool) {
+	base, tail, found := strings.Cut(spec, "+withTotalCMC")
+	if !found || len(tail) < 3 {
+		return "", false, 0, false
+	}
+	switch tail[:2] {
+	case "GE":
+	case "EQ":
+		eq = true
+	default:
+		return "", false, 0, false
+	}
+	if tail[2:] == "X" {
+		return base, eq, x, hasX
+	}
+	n, err := strconv.Atoi(tail[2:])
+	return base, eq, n, err == nil && n >= 0
+}
+
+// totalCMCPayable is CostExile.canPay's total check: the candidates' mana
+// values add up to uc.exileTotalN (EQ: some subset does, CardLists.cmcCanSumTo).
+func (g *Game) totalCMCPayable(options []CardID, uc unlessCost) bool {
+	if !uc.exileTotalEQ {
+		sum := 0
+		for _, id := range options {
+			sum += g.Card(id).CMC()
+		}
+		return sum >= uc.exileTotalN
+	}
+	reach := make([]bool, uc.exileTotalN+1)
+	reach[0] = true
+	for _, id := range options {
+		v := g.Card(id).CMC()
+		for s := uc.exileTotalN; s >= v; s-- {
+			if reach[s-v] {
+				reach[s] = true
+			}
+		}
+	}
+	return reach[uc.exileTotalN]
+}
+
+// totalCMCMet reports whether picks (at least one card) have the total mana
+// value the cost asks for.
+func (g *Game) totalCMCMet(picks []CardID, uc unlessCost) bool {
+	sum := 0
+	for _, id := range picks {
+		sum += g.Card(id).CMC()
+	}
+	return len(picks) > 0 && (sum == uc.exileTotalN || !uc.exileTotalEQ && sum >= uc.exileTotalN)
+}
+
+// totalCMCFallback is the cards that reach the total when the payer's pick did
+// not: for GE the highest mana values first, for EQ the first subset in order.
+func (g *Game) totalCMCFallback(options []CardID, uc unlessCost) []CardID {
+	if !uc.exileTotalEQ {
+		sorted := slices.Clone(options)
+		slices.SortStableFunc(sorted, func(a, b CardID) int { return g.Card(b).CMC() - g.Card(a).CMC() })
+		var out []CardID
+		sum := 0
+		for _, id := range sorted {
+			out = append(out, id)
+			if sum += g.Card(id).CMC(); sum >= uc.exileTotalN {
+				break
+			}
+		}
+		return out
+	}
+	var search func(i, sum int, chosen []CardID) []CardID
+	search = func(i, sum int, chosen []CardID) []CardID {
+		if sum == uc.exileTotalN && len(chosen) > 0 {
+			return chosen
+		}
+		for ; i < len(options); i++ {
+			if v := g.Card(options[i]).CMC(); sum+v <= uc.exileTotalN {
+				if got := search(i+1, sum+v, append(slices.Clone(chosen), options[i])); got != nil {
+					return got
+				}
+			}
+		}
+		return nil
+	}
+	return search(0, 0, nil)
+}
+
+// sameGraveOwners are the players whose graveyard holds n cards spec accepts.
+func (g *Game) sameGraveOwners(pid PlayerID, source CardID, spec string, n int) []PlayerID {
+	var owners []PlayerID
+	for _, owner := range g.Players() {
+		if len(g.sameGraveCandidates(pid, source, owner, spec)) >= n {
+			owners = append(owners, owner)
+		}
+	}
+	return owners
+}
+
+// anyGraveCandidates are the cards spec accepts in every graveyard.
+func (g *Game) anyGraveCandidates(pid PlayerID, source CardID, spec string) []CardID {
+	var out []CardID
+	for _, owner := range g.Players() {
+		out = append(out, g.sameGraveCandidates(pid, source, owner, spec)...)
+	}
+	return out
 }

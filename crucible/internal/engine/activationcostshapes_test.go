@@ -280,3 +280,98 @@ func TestActivationRevealsSameColorCards(t *testing.T) {
 		t.Fatalf("activation failed: %v", g.TakePendingError())
 	}
 }
+
+// The Capitoline Triad (ExileFromGrave<1+/Card.Historic+withTotalCMCGE30>):
+// historic graveyard cards totalling 30 mana value are exiled.
+func TestActivationExilesGraveCardsReachingATotalManaValue(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	triad := g.NewCard(corpusCard(t, "The Capitoline Triad"), p, engine.Battlefield)
+	index := len(g.Card(triad).Def.Faces[0].Abilities) - 1
+	c := engine.NewScriptedController()
+	little := g.NewCard(corpusCard(t, "Sol Ring"), p, engine.Graveyard)
+	if g.ActivateAbility(p, triad, index, c) {
+		t.Fatal("activated with a graveyard worth 1 mana value")
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("unpayable total should refuse silently: %v", err)
+	}
+	big := g.NewCard(corpusCard(t, "Emrakul, the Aeons Torn"), p, engine.Graveyard)
+	big2 := g.NewCard(corpusCard(t, "Emrakul, the Aeons Torn"), p, engine.Graveyard)
+	c.QueueCardChoice([]engine.CardID{big, big2})
+	if !g.ActivateAbility(p, triad, index, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	for _, id := range []engine.CardID{big, big2} {
+		if z := g.Card(id).Zone; z != engine.Exile {
+			t.Errorf("an Emrakul is in %v, want exiled", z)
+		}
+	}
+	if z := g.Card(little).Zone; z != engine.Graveyard {
+		t.Errorf("Sol Ring is in %v, want left alone", z)
+	}
+}
+
+// Night Soil (1 ExileSameGrave<2/Creature>) takes both creature cards from one
+// graveyard; Thelon of Havenwood (B G ExileAnyGrave<1/Fungus>) takes one from
+// any graveyard.
+func TestActivationExilesFromOneOrAnyGraveyard(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	soil := g.NewCard(corpusCard(t, "Night Soil"), p, engine.Battlefield)
+	mine := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Graveyard)
+	theirs := g.NewCard(corpusCard(t, "Hill Giant"), other, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, soil, 0, c) {
+		t.Fatal("activated with one creature card in each graveyard")
+	}
+	pair := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Graveyard)
+	c.QueuePlayerChoice(other)
+	c.QueueCardChoice([]engine.CardID{theirs, pair})
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.ActivateAbility(p, soil, 0, c) {
+		t.Fatalf("Night Soil: %v", g.TakePendingError())
+	}
+	if g.Card(theirs).Zone != engine.Exile || g.Card(pair).Zone != engine.Exile || g.Card(mine).Zone != engine.Graveyard {
+		t.Error("Night Soil did not exile exactly the two cards of the other graveyard")
+	}
+
+	thelon := g.NewCard(corpusCard(t, "Thelon of Havenwood"), p, engine.Battlefield)
+	shroom := g.NewCard(corpusCard(t, "Thallid"), other, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c.QueueCardChoice([]engine.CardID{shroom})
+	if !g.ActivateAbility(p, thelon, 0, c) {
+		t.Fatalf("Thelon: %v", g.TakePendingError())
+	}
+	if z := g.Card(shroom).Zone; z != engine.Exile {
+		t.Errorf("the Fungus is in %v, want exiled", z)
+	}
+}
+
+// Fabrication Foundry (Announce$ X, Exile<1+/Artifact.Other+withTotalCMCEQX>):
+// other artifacts whose mana values add up to the announced X are exiled.
+func TestActivationExilesPermanentsTotallingTheAnnouncedX(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	foundry := g.NewCard(corpusCard(t, "Fabrication Foundry"), p, engine.Battlefield)
+	ring := g.NewCard(corpusCard(t, "Sol Ring"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Mind Stone"), p, engine.Battlefield)
+	target := g.NewCard(corpusCard(t, "Sol Ring"), p, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.White, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayX(1)
+	c.QueueCardChoice([]engine.CardID{ring})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+	queueGeneric(c, mana.ShardW, 2)
+	if !g.ActivateAbility(p, foundry, 1, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if z := g.Card(ring).Zone; z != engine.Exile {
+		t.Errorf("Sol Ring (mana value 1) is in %v, want exiled for X 1", z)
+	}
+}

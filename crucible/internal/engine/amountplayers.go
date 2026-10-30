@@ -52,6 +52,9 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 		}
 		n, ok := handlePaid(g, amounts, sourceController, source, []*Card{g.Card(host)}, amt.Body, amt.Op, depth)
 		return n, ok, true
+	case strings.HasPrefix(head, "TargetedObjects"):
+		n, ok := g.targetedObjectsValue(amounts, sourceController, source, amt, depth)
+		return n, ok, true
 	case strings.HasPrefix(head, "TargetedByTarget"):
 		cards, ok := g.targetedByTargetCards(source)
 		if !ok {
@@ -592,4 +595,32 @@ func (g *Game) triggeredSpellAbilityHost(source CardID) (CardID, bool) {
 		}
 	}
 	return NoCard, false
+}
+
+// targetedObjectsValue is AbilityUtils.java:587-600's TargetedObjects head:
+// every target of the resolving ability, its root's and each linked part's,
+// players and cards alike (with the Distinct suffix each once), measured by
+// objectXCount. Only the Amount body (their number) is read, the one every
+// corpus line uses (Fireball's "each target beyond the first"); the spell
+// being cast reads the targets just chosen (costModAmountFor).
+func (g *Game) targetedObjectsValue(amounts map[string]expr.Amount, sourceController PlayerID, source CardID, amt expr.Amount, depth int) (int, bool) {
+	a := g.resolving
+	if a == nil || source == NoCard || a.Source != source || amt.Body != "Amount" {
+		return 0, false
+	}
+	objects := allTargetsOf(*a)
+	if strings.HasSuffix(amt.Head, "Distinct") {
+		var distinct []EntityID
+		for _, e := range objects {
+			if !slices.Contains(distinct, e) {
+				distinct = append(distinct, e)
+			}
+		}
+		objects = distinct
+	}
+	n := len(objects)
+	if amt.Op != nil {
+		return applyOperator(g, amounts, sourceController, source, n, amt.Op, depth)
+	}
+	return n, true
 }

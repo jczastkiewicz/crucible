@@ -71,10 +71,10 @@ type dealDamageEffect struct{}
 //     DamageMap$, as in Java: the DamageResolve that deals the batch is the
 //     cause (ReplacementHandler.java:407), so the param lives there
 //     (damageresolveeffect.go);
-//   - DivideEvenly$/DividerOnResolution$ -- Fireball's even split and
-//     Master of the Wild Hunt's assignCombatDamage at resolution
-//     (:188-193, :220-241). DividedAsYouChoose$ resolves: each target takes
-//     the share announced with it (perTargetAmounts, dividedtargets.go);
+//   - DividerOnResolution$ -- Master of the Wild Hunt's assignCombatDamage
+//     at resolution (:220-241). DividedAsYouChoose$ resolves: each target
+//     takes the share announced with it (perTargetAmounts, dividedtargets.go),
+//     and DivideEvenly$ RoundedDown splits the damage evenly (Fireball);
 //   - CardChoices$/PlayerChoices$/Random$ -- a choice outside Defined$/
 //     targets (:150-176);
 //   - RelativeTarget$ resolves: Defined$ is re-read with each source as the
@@ -91,7 +91,7 @@ type dealDamageEffect struct{}
 // cause), not on this ability.
 var dealDamageUnresolvedParams = [...]string{
 	"TriggeredSpellAbility", "CounterNum", "Optional",
-	"DivideEvenly", "DividerOnResolution",
+	"DividerOnResolution",
 	"Random",
 	"RememberRedirectedExcess",
 }
@@ -174,6 +174,19 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 		if len(deciders) > 0 && !controller.ConfirmEffect(g, deciders[0], a.Source) {
 			return nil
+		}
+	}
+	// DamageDealEffect.java:188-193 (Fireball): DivideEvenly$ RoundedDown
+	// splits NumDmg$ evenly among the targets, rounded down; Java reads no
+	// other value.
+	if v, ok := a.Params.Param("DivideEvenly"); ok && v == "RoundedDown" {
+		if len(targets) == 0 {
+			dmg = 0
+		} else {
+			dmg /= len(targets)
+		}
+		if amounts, err = a.perTargetAmounts("DealDamage", targets, dmg); err != nil {
+			return err
 		}
 	}
 	radiant := g.radianceCards(a)

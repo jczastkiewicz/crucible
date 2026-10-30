@@ -110,6 +110,12 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		if raw, ok := r.s.Param("Amount"); ok {
 			n, ok := g.costModAmountFor(c, pid, act, r.face, r.host, raw)
 			if !ok {
+				// A raise whose amount does not resolve: casting for less than
+				// Java would charge is wrong, so the cast is refused and why is
+				// kept (GO-7).
+				if paying {
+					g.recordPendingError(fmt.Errorf("engine: RaiseCost on %s: Amount$ %q not resolvable yet", r.host.Def.Name, raw))
+				}
 				return base, false
 			}
 			count = n

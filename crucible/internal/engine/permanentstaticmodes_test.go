@@ -136,3 +136,36 @@ func TestSetCostRaisesSpellsToThree(t *testing.T) {
 		})
 	}
 }
+
+// Fireball (fireball.txt): it costs {1} more for each target beyond the first
+// (RaiseCost | Amount$ TargetedObjects$Amount/Minus.1) and deals X damage
+// divided evenly, rounded down (DivideEvenly$ RoundedDown).
+func TestFireballCostsMorePerTargetAndSplitsEvenly(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Red, 7)
+	fb := g.NewCard(corpusCard(t, "Fireball"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueuePayX(5)
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other), engine.CardEntity(bears)})
+	for range 7 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	if !g.CastSpell(p, fb, c) {
+		t.Fatalf("cast failed: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool %d, want 0 after X=5, {R} and {1} for the second target", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(other).Life; got != 18 {
+		t.Errorf("opponent's life %d, want 18 (5 split two ways, rounded down)", got)
+	}
+	if got := g.Card(bears).Zone; got != engine.Graveyard {
+		t.Errorf("Grizzly Bears in %v, want the graveyard", got)
+	}
+}

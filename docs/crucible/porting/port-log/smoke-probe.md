@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,656 |
-| refused      |      6 |
+| plays        | 33,657 |
+| refused      |      5 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -74,7 +74,6 @@ Largest refusal causes over the full corpus (cards blocked):
 | Cards | Refusal |
 | ---: | --- |
 | 3 | `card N: X in its mana cost is not resolvable` |
-| 1 | `MakeCard: Booster$ not resolvable` |
 | 1 | `Dig: DigNum$ not resolvable` |
 | 1 | `Mode$ MustAttack: ValidPlayer$ not resolvable` |
 

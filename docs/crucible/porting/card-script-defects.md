@@ -400,3 +400,11 @@ remembered objects, a `LinkedHashSet` (`Card.java:194`), so equal amounts collap
 remember one `1`, and `Count$RememberedNumber` sums to 1 where the card says one +1/+1 counter per counter put. Crucible
 reproduces Java (the memory is an ordered set too) rather than count correctly (PORT-8). Fix upstream: a counting
 mechanism that does not dedupe, e.g. a per-pass `RememberAmount` into a multiset.
+
+Worf, Defiant Commander (`upcoming/worf_defiant_commander.txt`): `SVar:X:TriggeredCardController$OpponentsAttackedThisTurn`
+is read on an `AttackersDeclared` trigger, which sets no `Card` triggering object (`TriggerAttackersDeclared.java`
+`setTriggeringObjects`). `AbilityUtils.java:624-629` then counts an empty player list, so X is 0 and the Dig exiles
+nothing. A Java test on `upstream/master` (bad51eada9f) with one opponent attacked gave X 0, while the same count through
+`TriggeredPlayer$OpponentsAttackedThisTurn` with a `Player` triggering object gave 1. Crucible refuses the card
+(`DigNum$ X` not resolvable) rather than reproduce a count that is always 0 (PORT-8). Militant Angel uses the same head on
+a `ChangesZone` trigger, where `Card` is set, and is unaffected.

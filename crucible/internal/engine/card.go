@@ -856,6 +856,17 @@ func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, b
 	return nil, nil, false
 }
 
+// grantOrigin is the card whose static granted ability to c (the ability's
+// original host, SpellAbility.getOriginalHost), NoCard for a printed line.
+func (c *Card) grantOrigin(ability *compile.Ability) CardID {
+	for _, grant := range c.traitGrants {
+		if slices.Contains(grant.abilities, ability) {
+			return grant.origin
+		}
+	}
+	return NoCard
+}
+
 // abilityCount is how many indices abilityAt answers for, printed lines and
 // granted ones alike. Under CR 305.7 the printed indices answer not-found
 // while the granted ones after them still answer, so a walk over c's

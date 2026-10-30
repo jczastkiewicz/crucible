@@ -560,3 +560,28 @@ func TestActivationUnattachesItsOwnEquipment(t *testing.T) {
 		t.Errorf("Bears still carry %v, want the Sunforger unattached", got)
 	}
 }
+
+// Heartseeker (granted "{T}, Unattach CARDNAME": Unattach<OriginalHost>): the
+// Equipment that granted the ability unattaches as the cost.
+func TestActivationUnattachesTheGrantingEquipment(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	seeker := g.NewCard(corpusCard(t, "Heartseeker"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	victim := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	g.Card(bears).SummonSick = false
+	g.Attach(seeker, bears)
+	sba(g)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
+	if !g.ActivateAbility(p, bears, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(bears).Attachments(); len(got) != 0 {
+		t.Errorf("Bears still carry %v, want the Heartseeker unattached", got)
+	}
+	if !g.Card(bears).Tapped {
+		t.Error("the Bears did not tap for the cost")
+	}
+}

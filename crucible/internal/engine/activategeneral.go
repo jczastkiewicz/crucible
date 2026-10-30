@@ -58,6 +58,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 		// floor, so the ability cannot be activated at all.
 		return false
 	}
+	origin := c.grantOrigin(ability)
 	_, targets := ability.Param("ValidTgts")
 	deferX := rest != "" && targets && costNamesX(rest) && !amountIsXPaid(activated.Amounts)
 	if rest != "" && !deferX {
@@ -78,6 +79,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 			}
 		}
 	}
+	uc.originHost = origin
 	if !g.unlessPayable(pid, card, uc) {
 		return false
 	}
@@ -95,6 +97,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 			g.recordPendingError(fmt.Errorf("engine: %s: activated Cost$ %q not resolvable yet: %w", c.Def.Name, costText, err))
 			return false
 		}
+		again.originHost = origin
 		if uc = again; !g.unlessPayable(pid, card, uc) {
 			return false
 		}

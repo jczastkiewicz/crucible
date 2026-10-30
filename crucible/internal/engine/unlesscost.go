@@ -146,7 +146,11 @@ type unlessCost struct {
 	// unattachSpec is Unattach<type>: an attachment of the source that the
 	// type accepts (CostUnattach.findCardToUnattach).
 	unattachSelf bool
-	unattachSpec string
+	// unattachOriginal is Unattach<OriginalHost>: the Equipment whose static
+	// granted the ability (originHost, set by the activation) unattaches.
+	unattachOriginal bool
+	originHost       CardID
+	unattachSpec     string
 	// discardRandomN is Discard<N/Random>: N cards of the hand at random, no
 	// choice (CostDiscard's "Random" type).
 	discardRandomN int
@@ -349,6 +353,9 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			continue
 		case p.Name == "Unattach" && p.Field(0) == "CARDNAME" && !uc.unattachSelf:
 			uc.unattachSelf = true
+			continue
+		case p.Name == "Unattach" && p.Field(0) == "OriginalHost" && !uc.unattachOriginal:
+			uc.unattachOriginal = true
 			continue
 		case p.Name == "Unattach" && uc.unattachSpec == "" && p.Field(0) != "OriginalHost" && !strings.Contains(p.Field(0), "X") && chosenCardSpecResolvable(p.Field(0)):
 			uc.unattachSpec = p.Field(0)
@@ -869,6 +876,9 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.unattachSelf && g.Card(source).attachedTo == NoCard {
 		return false
 	}
+	if uc.unattachOriginal && (uc.originHost == NoCard || g.Card(uc.originHost).attachedTo == NoCard) {
+		return false
+	}
 	if uc.unattachSpec != "" && len(g.unattachCandidates(pid, source, uc.unattachSpec)) == 0 {
 		return false
 	}
@@ -1199,6 +1209,11 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.unattachSelf {
 		g.Unattach(a.Source)
+	}
+	if uc.unattachOriginal {
+		// CostUnattach.doPayment detaches the Equipment from whatever it
+		// carries, not necessarily the ability's creature.
+		g.Unattach(uc.originHost)
 	}
 	if uc.unattachSpec != "" {
 		options := g.unattachCandidates(pid, a.Source, uc.unattachSpec)

@@ -214,7 +214,16 @@ const forageExileN = 3
 
 // extraPartsPayable is CostPart.canPay for the parts this file owns.
 func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) bool {
-	if uc.subCounterN > 0 {
+	switch {
+	case uc.subCounterN > 0 && uc.subCounterSpec != "":
+		if len(g.subCounterCandidates(pid, source, uc)) == 0 {
+			return false
+		}
+	case uc.subCounterAll:
+		if g.Card(source).IsPhasedOut() {
+			return false
+		}
+	case uc.subCounterN > 0:
 		// CostRemoveCounter.canPay's payCostFromSource branch (:163-165).
 		c := g.Card(source)
 		if c.IsPhasedOut() || c.Counters.Count(uc.subCounterType) < uc.subCounterN {
@@ -286,8 +295,24 @@ func (g *Game) exileEitherCandidates(pid PlayerID, source CardID, spec string) [
 // when there is one.
 func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost, rec *paidLists) {
 	if uc.subCounterN > 0 {
+		from := a.Source
+		if uc.subCounterSpec != "" {
+			options := g.subCounterCandidates(pid, a.Source, uc)
+			picked := controller.ChooseCardsForEffect(g, pid, a.Source, options, 1, 1)
+			if len(picked) != 1 || !isSubset(picked, options) {
+				picked = options[:1]
+			}
+			from = picked[0]
+		}
+		c := g.Card(from)
+		removeCounters(g, a.Source, CardEntity(from), &c.Counters, uc.subCounterType, false, false, uc.subCounterN)
+		g.noteCostCountersRemoved(a.Source, uc.subCounterN)
+	}
+	if uc.subCounterAll {
 		c := g.Card(a.Source)
-		removeCounters(g, a.Source, CardEntity(a.Source), &c.Counters, uc.subCounterType, false, false, uc.subCounterN)
+		n := c.Counters.Count(uc.subCounterType)
+		removeCounters(g, a.Source, CardEntity(a.Source), &c.Counters, uc.subCounterType, false, false, n)
+		g.noteCostCountersRemoved(a.Source, n)
 	}
 	if uc.discardTypeN > 0 {
 		options := g.costCandidates(pid, a.Source, false, Hand, uc.discardTypeSpec)
@@ -502,4 +527,29 @@ func (g *Game) chooseCostCreatureType(controller PlayerController, pid PlayerID,
 	}
 	g.Card(host).Memory.SetChosenType(types[i], false)
 	return true
+}
+
+// subCounterCandidates is CostRemoveCounter.canPay's typed branch (:166-181):
+// the permanents pid controls that the SubCounter part's spec admits and that
+// carry at least its N counters of its kind, all N coming off one of them
+// (":174, remove X counters from a single permanent").
+func (g *Game) subCounterCandidates(pid PlayerID, source CardID, uc unlessCost) []CardID {
+	var out []CardID
+	for _, id := range g.costCandidates(pid, source, false, Battlefield, uc.subCounterSpec) {
+		if g.Card(id).Counters.Count(uc.subCounterType) >= uc.subCounterN {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// noteCostCountersRemoved is CostRemoveCounter.payAsDecided's
+// setSVar("CostCountersRemoved", removed) (:197), kept on the source card as
+// the runtime SVars are (Card.svars), for SVar$CostCountersRemoved.
+func (g *Game) noteCostCountersRemoved(source CardID, removed int) {
+	c := g.Card(source)
+	if c.svars == nil {
+		c.svars = map[string]int{}
+	}
+	c.svars["costcountersremoved"] = removed
 }

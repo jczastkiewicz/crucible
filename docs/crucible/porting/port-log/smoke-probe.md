@@ -58,27 +58,27 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,645 |
-| refused      |     10 |
+| plays        | 33,614 |
+| refused      |     41 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
 | inconclusive |     23 |
 
-100.0% of the 33,655 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+99.9% of the 33,655 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,662 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.8% of 8,662 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `"_": as-it-enters replacement ReplaceWith$ PutCounter not resolvable` |
-| 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
-| 1 | `ConditionCheckSVar$ is not resolvable` |
-| 1 | `Learn: Learn replacement effects not resolvable` |
-| 1 | `MakeCard: Booster$ not resolvable` |
-| 1 | `CheckSVar$ is not resolvable` |
+| 1 | `A Killer Among Us: activated Cost$ not resolvable` |
+| 1 | `Back from the Brink: activated Cost$ not resolvable` |
+| 1 | `Captain America, First Avenger: activated Cost$ not resolvable` |
+| 1 | `Clay Golem: activated Cost$ not resolvable` |
+| 1 | `Corpseweft: activated Cost$ not resolvable` |
+| 1 | `Emissary of Grudges: activated Cost$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

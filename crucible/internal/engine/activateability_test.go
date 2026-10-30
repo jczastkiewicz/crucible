@@ -203,11 +203,10 @@ func TestActivateAbilityDeclinesForManaAPI(t *testing.T) {
 	}
 }
 
-// TestActivateAbilityDeclinesForNonPureManaCost proves a Cost$ naming
-// anything past the parts ActivationShape reads -- a Sac<X/...> part, here --
-// fails loudly by returning false rather than silently paying the mana
-// half and ignoring the rest (PORT-8/GO-7).
-func TestActivateAbilityDeclinesForNonPureManaCost(t *testing.T) {
+// TestActivateAbilityAnnouncesXForASacrificeCost proves a cost naming X past its mana
+// announces X (activateGeneral, announceTriggeredX); an X of 0 pays nothing
+// for that part and the ability activates.
+func TestActivateAbilityAnnouncesXForASacrificeCost(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -219,8 +218,9 @@ func TestActivateAbilityDeclinesForNonPureManaCost(t *testing.T) {
 	creature := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for a Sac<X/...> cost, want false")
+	c.QueuePayX(0)
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Errorf("ActivateAbility failed with X = 0: %v", g.TakePendingError())
 	}
 }
 
@@ -537,11 +537,10 @@ func TestActivateAbilityCombinesTapAndPayLifeCost(t *testing.T) {
 	}
 }
 
-// TestActivateAbilityDeclinesForNonLiteralPayLifeCost proves a PayLife<...>
-// naming anything but a literal positive integer -- an X-cost here,
-// PayLife<X> -- still declines outright: ActivationShape's own doc comment
-// has the reason (internal/cost).
-func TestActivateAbilityDeclinesForNonLiteralPayLifeCost(t *testing.T) {
+// TestActivateAbilityAnnouncesXForAPayLifeCost proves a cost naming X past its mana
+// announces X (activateGeneral, announceTriggeredX); an X of 0 pays nothing
+// for that part and the ability activates.
+func TestActivateAbilityAnnouncesXForAPayLifeCost(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -553,8 +552,9 @@ func TestActivateAbilityDeclinesForNonLiteralPayLifeCost(t *testing.T) {
 	creature := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for PayLife<X>, want false")
+	c.QueuePayX(0)
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Errorf("ActivateAbility failed with X = 0: %v", g.TakePendingError())
 	}
 }
 
@@ -653,11 +653,10 @@ func TestActivateAbilityCombinesTapAndPayEnergyCost(t *testing.T) {
 	}
 }
 
-// TestActivateAbilityDeclinesForNonLiteralPayEnergyCost proves a
-// PayEnergy<...> naming anything but a literal positive integer -- an
-// X-cost here, PayEnergy<X> -- still declines outright: ActivationShape's
-// own doc comment has the reason (internal/cost).
-func TestActivateAbilityDeclinesForNonLiteralPayEnergyCost(t *testing.T) {
+// TestActivateAbilityAnnouncesXForAPayEnergyCost proves a cost naming X past its mana
+// announces X (activateGeneral, announceTriggeredX); an X of 0 pays nothing
+// for that part and the ability activates.
+func TestActivateAbilityAnnouncesXForAPayEnergyCost(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -669,8 +668,9 @@ func TestActivateAbilityDeclinesForNonLiteralPayEnergyCost(t *testing.T) {
 	creature := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for PayEnergy<X>, want false")
+	c.QueuePayX(0)
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Errorf("ActivateAbility failed with X = 0: %v", g.TakePendingError())
 	}
 }
 
@@ -888,11 +888,10 @@ func TestActivateAbilityTapTypeExcludesSourceWhenCostAlsoTapsIt(t *testing.T) {
 	}
 }
 
-// TestActivateAbilityDeclinesForNonLiteralTapTypeCost proves a
-// tapXType<...> naming anything but a literal positive integer -- an X-cost
-// here -- still declines outright: ActivationShape's own doc comment has
-// the reason (internal/cost).
-func TestActivateAbilityDeclinesForNonLiteralTapTypeCost(t *testing.T) {
+// TestActivateAbilityAnnouncesXForATapTypeCost proves a cost naming X past its mana
+// announces X (activateGeneral, announceTriggeredX); an X of 0 pays nothing
+// for that part and the ability activates.
+func TestActivateAbilityAnnouncesXForATapTypeCost(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -904,8 +903,9 @@ func TestActivateAbilityDeclinesForNonLiteralTapTypeCost(t *testing.T) {
 	source := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	if g.ActivateAbility(p, source, 0, c) {
-		t.Error("ActivateAbility returned true for tapXType<X/Creature>, want false")
+	c.QueuePayX(0)
+	if !g.ActivateAbility(p, source, 0, c) {
+		t.Errorf("ActivateAbility failed with X = 0: %v", g.TakePendingError())
 	}
 }
 
@@ -1143,11 +1143,11 @@ func TestActivateAbilityDeclinesWhenNotEnoughReturnTypeCandidates(t *testing.T) 
 	}
 }
 
-// TestActivateAbilityDeclinesForNonLiteralReturnTypeCost proves a
-// Return<...> naming anything but a literal positive integer -- an X-cost
-// here -- still declines outright: ActivationShape's own doc comment has
-// the reason (internal/cost).
-func TestActivateAbilityDeclinesForNonLiteralReturnTypeCost(t *testing.T) {
+// TestActivateAbilityAnnouncesXForAReturnTypeCost proves a Return<X/Type>
+// cost announces X (activateGeneral, announceTriggeredX), held to what can be
+// returned (Cost.getMaxForNonManaX): with the source the only creature, an X
+// of 2 is 1, paid with {1} and the source returned to hand.
+func TestActivateAbilityAnnouncesXForAReturnTypeCost(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -1158,9 +1158,22 @@ func TestActivateAbilityDeclinesForNonLiteralReturnTypeCost(t *testing.T) {
 	def := creatureDefWithAbility(t, "Test Return Type X", "AB$ GainLife | Cost$ X Return<X/Creature> | Defined$ You | LifeAmount$ 3")
 	source := g.NewCard(def, p, engine.Battlefield)
 
+	g.Player(p).ManaPool.Add(mana.Green, 1)
 	c := engine.NewScriptedController()
-	if g.ActivateAbility(p, source, 0, c) {
-		t.Error("ActivateAbility returned true for Return<X/Creature>, want false")
+	c.QueuePayX(2)
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueueReturnChoice([]engine.CardID{source})
+	if !g.ActivateAbility(p, source, 0, c) {
+		t.Fatalf("ActivateAbility failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(source).Zone; got != engine.Hand {
+		t.Errorf("source in %v, want returned to hand", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life %d, want 23", got)
 	}
 }
 
@@ -1561,13 +1574,11 @@ func TestActivateAbilityNonLoyaltyCounterCostHasNoOncePerTurnLimit(t *testing.T)
 	}
 }
 
-// TestActivateAbilityDeclinesForNonSelfAddCounterTarget proves an
-// AddCounter<N/Type> naming a target past the self-reference shape (a
-// chosen creature you control, "Creature.YouCtrl") declines the whole line
-// outright -- ActivationShape's own doc comment has the reason
-// (internal/cost, CostRemoveCounter.java's own non-self branch this port
-// does not carry).
-func TestActivateAbilityDeclinesForNonSelfAddCounterTarget(t *testing.T) {
+// TestActivateAbilityPaysAddCounterOnAChosenCreature proves an
+// AddCounter<N/Type> naming a creature you control rather than the source
+// (CostPutCounter's non-self branch) is paid through the unless-cost reader
+// (activateGeneral): the chosen creature gets the counter.
+func TestActivateAbilityPaysAddCounterOnAChosenCreature(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -1577,10 +1588,22 @@ func TestActivateAbilityDeclinesForNonSelfAddCounterTarget(t *testing.T) {
 	def := creatureDefWithAbility(t, "Test Non Self AddCounter",
 		"AB$ GainLife | Cost$ 2 R T AddCounter<1/M1M1/Creature.YouCtrl/a creature you control> | ValidTgts$ Any | Defined$ You | LifeAmount$ 1")
 	creature := g.NewCard(def, p, engine.Battlefield)
+	g.Card(creature).SummonSick = false
+	g.Player(p).ManaPool.Add(mana.Red, 3)
 
 	c := engine.NewScriptedController()
-	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for a non-self AddCounter target, want false")
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueueCardChoice([]engine.CardID{creature})
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatalf("ActivateAbility failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(creature).Counters.Count(engine.M1M1); got != 1 {
+		t.Errorf("-1/-1 counters = %d, want 1", got)
+	}
+	if !g.Card(creature).Tapped {
+		t.Error("the source is untapped, want tapped by {T}")
 	}
 }
 

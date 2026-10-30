@@ -53,6 +53,9 @@ type unlessCost struct {
 	// tracks, so paying it only needs them to exist.
 	revealN    int
 	revealSpec string
+	// revealSelf is Reveal<1/CARDNAME>: the source itself, which must be in
+	// the payer's hand (Forecast's "Reveal CARDNAME from your hand").
+	revealSelf bool
 	// revealBattlefield is Behold<N/Type> (CostBehold) or RevealOrChoose<N/Type>
 	// (CostReveal over Hand,Battlefield, Cost.java:522-526): the cards may also
 	// be permanents the payer controls. revealBehold tells Behold apart: its
@@ -72,6 +75,15 @@ type unlessCost struct {
 	// the kind removed from the source.
 	subCounterN    int
 	subCounterType CounterType
+	// subCounterSpec is SubCounter<N/Type/Valid>'s permanent (Zameck
+	// Guildmage's "a creature you control"): the counters come off one the
+	// payer controls that the spec admits instead of the source ("" for the
+	// source).
+	subCounterSpec string
+	// subCounterAll is SubCounter<All/Type> on the source: every counter of
+	// the kind comes off, however many (none included), CostRemoveCounter's
+	// "All" amount (:124, :158).
+	subCounterAll bool
 	// removeAnySelf is RemoveAnyCounter<N/Kind/CARDNAME|NICKNAME>: the counters
 	// come off the source itself (HumanCostDecision.java:1046-1047).
 	removeAnySelf bool
@@ -234,6 +246,10 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 		case p.Name == "Sac" && p.Field(0) == "All" && p.Field(1) != "" && uc.sacN == 0 && !uc.sacAll:
 			uc.sacAll, uc.sacSpec = true, p.Field(1)
 			continue
+		case p.Name == "SubCounter" && p.Field(0) == "All" && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME" || p.Field(2) == "NICKNAME") &&
+			uc.subCounterN == 0 && !uc.subCounterAll:
+			uc.subCounterAll, uc.subCounterType = true, CounterType(strings.ToUpper(p.Field(1)))
+			continue
 		case p.Name == "Discard" && p.Field(1) == "Hand":
 			// CostDiscard's "Hand" type discards the whole hand whatever the
 			// amount (Vaultguard Trooper writes Discard<0/Hand>).
@@ -282,6 +298,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.discardTypeN, uc.discardTypeSpec = n, p.Field(1)
 		case p.Name == "SubCounter" && uc.subCounterN == 0 && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME" || p.Field(2) == "NICKNAME"):
 			uc.subCounterN, uc.subCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
+		case p.Name == "SubCounter" && uc.subCounterN == 0 && p.Field(1) != "" && chosenCardSpecResolvable(p.Field(2)):
+			uc.subCounterN, uc.subCounterType, uc.subCounterSpec = n, CounterType(strings.ToUpper(p.Field(1))), p.Field(2)
 		case p.Name == "GainControl" && uc.gainN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.gainN, uc.gainSpec = n, p.Field(1)
 		case p.Name == "PutCardToLibFromSameGrave" && uc.sameParts == 0 && (p.Field(1) == "0" || p.Field(1) == "-1") && chosenCardSpecResolvable(p.Field(2)):
@@ -317,6 +335,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.sacN, uc.sacSpec = n, p.Field(1)
 		case p.Name == "Return" && uc.returnN == 0 && p.Field(1) != "":
 			uc.returnN, uc.returnSpec = n, p.Field(1)
+		case p.Name == "Reveal" && n == 1 && (p.Field(1) == "CARDNAME" || p.Field(1) == "NICKNAME") && !uc.revealSelf:
+			uc.revealSelf = true
 		case p.Name == "Reveal" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec = n, p.Field(1)
 		case p.Name == "BeholdExile" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
@@ -478,6 +498,9 @@ func revealSpecResolvable(spec string) bool {
 // names: revealN cards matching revealSpec, an OR list when it carries ";"
 // (the Cost syntax's own comma, as returnTypeCandidates reads it).
 func (g *Game) unlessRevealable(pid PlayerID, source CardID, uc unlessCost) bool {
+	if uc.revealSelf && (source == NoCard || g.Card(source).Zone != Hand || g.Card(source).Owner != pid) {
+		return false
+	}
 	if uc.revealN == 0 {
 		return true
 	}

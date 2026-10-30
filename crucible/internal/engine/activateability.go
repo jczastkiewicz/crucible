@@ -241,6 +241,15 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	fromGraveyard, fromHand := false, false
 	zone, _ := ability.Param("ActivationZone")
+	_, forecast := ability.Param("Forecast")
+	if forecast {
+		// SpellAbilityEffect.buildSpellAbility (:78-83): Forecast is activated
+		// from the hand, during its controller's upkeep, once each turn.
+		zone = "Hand"
+		if g.activePhase != Upkeep || g.activePlayer != pid {
+			return false
+		}
+	}
 	if extra, ok := ability.Param("AdditionalActivationZone"); ok && extra == c.Zone.String() {
 		// SpellAbilityRestriction.java:217: one more zone the host may
 		// activate from (Karlach's graveyard Specialize).
@@ -280,7 +289,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
 	if !ok {
-		return false
+		// A cost past the shapes this function pays: the unless-cost reader
+		// every other payer of a Cost$ uses (activategeneral.go).
+		return g.activateGeneral(controller, pid, card, index, ability, costText, fromGraveyard, isLoyaltyAbility)
 	}
 	// CostPutCounter.canPay: the source must be able to receive the counters
 	// (Card.canReceiveCounters: not phased out, no Mode$ CantPutCounter).
@@ -524,49 +535,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		// and exiles' own: it is paid with them, after the counters.
 		g.collectEvidence(controller, pid, card, shape.CollectEvidenceN)
 	}
-	if isLoyaltyAbility {
-		g.noteLoyaltyActivation(c)
-	}
-	c.activations.note(index)
-	g.recordActivation(&activated, &before)
-	held := g.castExitMatches()
-	g.holdingCastExits, g.castExits = outerHold, outerExits
-	if isRevert {
-		// AbilityStatic resolves on activation, never on the stack
-		// (MagicStack.java:283-288).
-		g.endAnimateRevert(card, ability)
-		g.pushTriggeredAbilities(controller, held)
-		return true
-	}
-	g.pushTriggeredAbilities(controller, []Ability{activated})
-	// One batch, as unfreezeStack runs every waiting trigger at once: the
-	// costs' triggers in firing order, then AbilityCast, then Cycled
-	// (MagicStack.java:354-365).
-	held = append(held, g.abilityCastMatches(&activated)...)
-	if isCycling(ability) {
-		pl := g.Player(pid)
-		pl.CyclingThisTurn++
-		held = append(held, g.cycledMatches(card, pid, pl.CyclingThisTurn == 1)...)
-	}
-	// MagicStack.java:400-418: a Crew ability of a Vehicle and a Saddle ability
-	// of a Mount fire Crewed / Saddled once per creature tapped for it.
-	switch keyword.Parse(ability.Keyword).Name {
-	case "Crew":
-		if c.Type().HasSubtype("Vehicle") {
-			held = append(held, g.crewedMatches(&activated, "Crewed")...)
-		}
-	case "Saddle":
-		if c.Type().HasSubtype("Mount") {
-			held = append(held, g.crewedMatches(&activated, "Saddled")...)
-		}
-	case "Station":
-		// MagicStack.java:420-427.
-		if c.Type().HasSubtype("Spacecraft") || c.Type().HasSubtype("Planet") {
-			held = append(held, g.crewedMatches(&activated, "Stationed")...)
-		}
-	}
-	g.pushTriggeredAbilities(controller, held)
-	return true
+	return g.finishActivation(controller, pid, card, index, ability, &activated, &before, isLoyaltyAbility, isRevert, outerHold, outerExits)
 }
 
 // activatorValid is SpellAbilityRestriction.checkActivatorRestrictions
@@ -670,6 +639,9 @@ func (g *Game) activationLimitsMet(pid PlayerID, c *Card, index int, ability *co
 			return false
 		}
 	}
+	if _, forecast := ability.Param("Forecast"); forecast && turn >= 1 {
+		return false
+	}
 	for _, k := range [...]struct {
 		key   string
 		count int
@@ -760,4 +732,57 @@ func subtractManaCost(cost, sub mana.Cost) mana.Cost {
 		}
 	}
 	return mana.FromShards(shards, max(0, generic-sub.Generic()))
+}
+
+// finishActivation is the part of activating an ability after its costs are
+// paid: the loyalty and per-card activation records, the activation record,
+// then the ability and the triggers its costs held go on the stack
+// (MagicStack.addAndUnfreeze). Shared by ActivateAbility's shape path and
+// activateGeneral.
+func (g *Game) finishActivation(controller PlayerController, pid PlayerID, card CardID, index int, ability *compile.Ability,
+	activated *Ability, before *Card, isLoyaltyAbility, isRevert, outerHold bool, outerExits []castHeld) bool {
+	c := g.Card(card)
+	if isLoyaltyAbility {
+		g.noteLoyaltyActivation(c)
+	}
+	c.activations.note(index)
+	g.recordActivation(activated, before)
+	held := g.castExitMatches()
+	g.holdingCastExits, g.castExits = outerHold, outerExits
+	if isRevert {
+		// AbilityStatic resolves on activation, never on the stack
+		// (MagicStack.java:283-288).
+		g.endAnimateRevert(card, ability)
+		g.pushTriggeredAbilities(controller, held)
+		return true
+	}
+	g.pushTriggeredAbilities(controller, []Ability{*activated})
+	// One batch, as unfreezeStack runs every waiting trigger at once: the
+	// costs' triggers in firing order, then AbilityCast, then Cycled
+	// (MagicStack.java:354-365).
+	held = append(held, g.abilityCastMatches(activated)...)
+	if isCycling(ability) {
+		pl := g.Player(pid)
+		pl.CyclingThisTurn++
+		held = append(held, g.cycledMatches(card, pid, pl.CyclingThisTurn == 1)...)
+	}
+	// MagicStack.java:400-418: a Crew ability of a Vehicle and a Saddle ability
+	// of a Mount fire Crewed / Saddled once per creature tapped for it.
+	switch keyword.Parse(ability.Keyword).Name {
+	case "Crew":
+		if c.Type().HasSubtype("Vehicle") {
+			held = append(held, g.crewedMatches(activated, "Crewed")...)
+		}
+	case "Saddle":
+		if c.Type().HasSubtype("Mount") {
+			held = append(held, g.crewedMatches(activated, "Saddled")...)
+		}
+	case "Station":
+		// MagicStack.java:420-427.
+		if c.Type().HasSubtype("Spacecraft") || c.Type().HasSubtype("Planet") {
+			held = append(held, g.crewedMatches(activated, "Stationed")...)
+		}
+	}
+	g.pushTriggeredAbilities(controller, held)
+	return true
 }

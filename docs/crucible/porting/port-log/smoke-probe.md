@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,650 |
-| refused      |     11 |
+| plays        | 33,654 |
+| refused      |     7 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -73,12 +73,12 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `Captain America, First Avenger: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
-| 1 | `Merseine: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
-| 1 | `Say Its Name: activated Cost$ not resolvable` |
-| 1 | `Token: TokenPower$ is not resolvable` |
 | 1 | `"_": as-it-enters replacement ReplaceWith$ PutCounter not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
+| 1 | `Learn: Learn replacement effects not resolvable` |
+| 1 | `MakeCard: Booster$ not resolvable` |
+| 1 | `Dig: DigNum$ not resolvable` |
+| 1 | `Effect: Abilities$ grants an ability that regrants itself, not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

@@ -106,6 +106,7 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		return false, nil
 	}
 	var chosen []int
+	decider := a.Controller
 	random, hasRandom := a.Params.Param("Random")
 	if hasRandom && random == "Compare" {
 		// CharmEffect.java:247-251: Random$ Compare picks at random only when
@@ -130,7 +131,6 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 		chosen = g.randomSample(len(options), num)
 	} else {
-		decider := a.Controller
 		if _, ok := a.Params.Param("Chooser"); ok {
 			// CharmEffect.java:266-273: the activator picks one opponent whatever
 			// Chooser$ says, even when only one exists, and that opponent picks
@@ -172,6 +172,15 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 	}
 	sort.Ints(chosen)
+	if len(chosen) > 0 {
+		// CharmEffect.faceDilemma (:208-215, :265, :287): the chooser faced a
+		// dilemma; the random branch counts the activator.
+		facer := a.Controller
+		if !hasRandom {
+			facer = decider
+		}
+		g.Player(facer).dilemmasFacedThisTurn++
+	}
 
 	// chainAbilities appends each chosen mode, its own SubAbility$ chain with
 	// it, to the Charm's tail (CharmEffect.java:293-317), and setupTargets

@@ -172,3 +172,34 @@ func TestErtaisMeddlingDelaysASpell(t *testing.T) {
 		t.Errorf("life %d after a later upkeep, want 17: the delayed spell comes back once", got)
 	}
 }
+
+// Captain Benjamin Sisko (Count$YouFaceDilemmaThisTurn): choosing the modes of
+// a modal spell is facing a dilemma, and the end step makes a token for each.
+func TestModalChoiceCountsAsAFacedDilemma(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Captain Benjamin Sisko"), p, engine.Battlefield)
+	charm := g.NewCard(corpusCard(t, "Boros Charm"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	c := engine.NewScriptedController()
+	c.QueueModeChoice([]int{0})
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	c.QueuePayGeneric(mana.ShardR)
+	if !g.CastSpell(p, charm, c) {
+		t.Fatalf("cast failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	before := len(g.Zone(engine.Battlefield, p).Cards())
+	g.SetTurnState(1, p, engine.Main2)
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(g.Zone(engine.Battlefield, p).Cards()) - before; got != 1 {
+		t.Errorf("%d tokens made, want 1 (one dilemma faced)", got)
+	}
+}

@@ -164,6 +164,20 @@ func handlePaid(g *Game, amounts map[string]expr.Amount, sourceController Player
 			}
 		}
 		return len(core) + len(super) + len(sub), true
+	case strings.HasPrefix(def, "SharesCardTypes"):
+		// AbilityUtils.java:3795-3808: the largest group of the cards sharing a
+		// core type with one of them, at least 1.
+		most := 1
+		for _, a := range cards {
+			n := 1
+			for _, b := range cards {
+				if a != b && sharesCardType(a, b) {
+					n++
+				}
+			}
+			most = max(most, n)
+		}
+		return math(most)
 	case strings.HasPrefix(def, "CardTypes"):
 		permanent := strings.HasPrefix(def, "CardTypesPermanent")
 		var seen cardtype.Line

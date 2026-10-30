@@ -755,6 +755,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.RollsThisTurn = 0
 		p.librarySearched = 0
 		p.CardsDrawnThisTurn = 0
+		p.dilemmasFacedThisTurn = 0
 		p.DescendedThisTurn, p.descended = false, 0
 		p.committedCrimes = 0
 		p.VenturedThisTurn = 0

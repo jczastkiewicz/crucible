@@ -197,6 +197,9 @@ type Player struct {
 	// player attacked with this turn, once per declaration (Count$
 	// CreaturesAttackedThisTurn counts a creature that attacked twice twice).
 	attackedThisTurn []CardID
+	// dilemmasFacedThisTurn counts the modal choices this player made this
+	// turn (CharmEffect.faceDilemma, Player.dilemmasFacedThisTurn).
+	dilemmasFacedThisTurn int
 	// attackedPlayersThisTurn is Player.getAttackedPlayersMyTurn: each player
 	// this player attacked directly this turn, once, in first-attack order (the
 	// Player keys of Java's attackedThisTurn map; a planeswalker or battle

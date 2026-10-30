@@ -1,0 +1,9 @@
+# CR 702.170a: plot is a special action at sorcery speed -- pay the plot cost
+# ({1}{W} for Dust Animus) and exile the card from your hand. It ends up in
+# exile and both Plains are tapped.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+plot human 1

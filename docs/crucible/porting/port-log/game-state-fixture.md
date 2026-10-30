@@ -178,6 +178,10 @@ queue action <p> tapformana <id> <color>  ScriptedController.QueueAction, p taps
 queue action <p> manaability <id> <n>     ScriptedController.QueueAction, p activates id's n'th mana ability (ADR-0026)
 queue action <p> cast <id> <door>         ScriptedController.QueueAction, p casts Room id as its LeftSplit/RightSplit half
 queue action <p> unlockdoor <id> <door>   ScriptedController.QueueAction, p unlocks Room id's LeftSplit/RightSplit door (special action)
+queue action <p> foretell <id>     ScriptedController.QueueAction, p foretells id (special action)
+queue action <p> plot <id>         ScriptedController.QueueAction, p plots id (special action)
+foretell <player> <id>        Game.Foretell(player, id, controller), id from Loaded.CardByFixtureID
+plot <player> <id>            Game.Plot(player, id, controller), id from Loaded.CardByFixtureID
 queue roomdoor <door>                 ScriptedController.QueueRoomDoor, UnlockDoor's LeftSplit/RightSplit pick
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one

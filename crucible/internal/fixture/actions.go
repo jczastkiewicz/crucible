@@ -185,6 +185,23 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		l.Game.Foretell(pid, ids[0], c)
 
+	case "plot":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if len(args) < 2 {
+			return fmt.Errorf("plot: want a player and a card id, got %q", strings.Join(args, " "))
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("plot: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("plot: want exactly one card id, got %q", args[1])
+		}
+		l.Game.Plot(pid, ids[0], c)
+
 	case "concede":
 		pid, err := resolveActionPlayer(l, args, 1)
 		if err != nil {
@@ -860,6 +877,11 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("foretell takes one card id, got %q", strings.Join(args[2:], " "))
 		}
 		return engine.Action{Kind: engine.ActionForetell, Card: ids[0]}, pid, nil
+	case "plot":
+		if len(args) != 3 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("plot takes one card id, got %q", strings.Join(args[2:], " "))
+		}
+		return engine.Action{Kind: engine.ActionPlot, Card: ids[0]}, pid, nil
 	case "playland":
 		if len(args) != 3 {
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes one card id, got %q", args[1], strings.Join(args[2:], " "))

@@ -56,7 +56,7 @@ var manaRestrictionSpecials = map[string]bool{
 // but never paid for: this port has no turn-face-up special action, so mana
 // restricted to it pays only its other alternatives.
 var staticSpecials = map[string]bool{
-	"Foretelling": true, "Unlock": true, "isTurnFaceUp": true, "MorphUp": true, "ManifestUp": true,
+	"Foretelling": true, "Plotting": true, "Unlock": true, "isTurnFaceUp": true, "MorphUp": true, "ManifestUp": true,
 }
 
 // manaRestrictionSupported reports whether every alternative of restrict is

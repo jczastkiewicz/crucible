@@ -132,6 +132,11 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			cost, ok = g.foretellCost(pid, c)
 			opts.foretold = ok
 		}
+		if !ok && g.plottedCastAllowed(pid, c) {
+			// A plotted card: cast from exile without paying its mana cost.
+			cost, ok = mana.Cost{}, true
+			opts.withoutManaCost = true
+		}
 		if !ok {
 			// Escape (CR 702.138): its mana instead of the mana cost, its other
 			// parts (exiling other graveyard cards) on top; the spell is not

@@ -232,3 +232,20 @@ func TestProbeTailorsWhatACastNeeds(t *testing.T) {
 		})
 	}
 }
+
+// A counterspell that wants a spell targeting one of the caster's permanents
+// (TargetValidTargeting$: Confound, Intervene, Keep Safe) is judged against an
+// opposing spell aimed at the probe player's own permanent.
+func TestProbeAimsAnOpposingSpellAtTheProbesPermanent(t *testing.T) {
+	t.Parallel()
+
+	p := smoke.NewProber(corpusDB(t))
+	for _, card := range []string{"Confound", "Intervene", "Keep Safe"} {
+		t.Run(card, func(t *testing.T) {
+			t.Parallel()
+			if got := p.Probe(card); got.Outcome != smoke.Plays {
+				t.Errorf("Probe(%q) = %v (%s), want plays", card, got.Outcome, got.Detail)
+			}
+		})
+	}
+}

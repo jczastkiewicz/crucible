@@ -97,6 +97,9 @@ type variant struct {
 	rich bool
 	// opposing is a spell left on the stack ("" for none).
 	opposing string
+	// againstMine has the opposing spell target a permanent of the probe
+	// player's (a counterspell that wants a spell targeting one).
+	againstMine bool
 	// combat sends the probe player's creatures into an attack that the
 	// opponent blocks, and casts the card in the declare blockers step.
 	combat bool
@@ -130,6 +133,7 @@ var variants = [...]variant{
 	{rich: true},
 	{rich: true, opposing: bolt},
 	{rich: true, opposing: bears},
+	{rich: true, opposing: bolt, againstMine: true},
 	{rich: true, combat: true},
 	{tailor: true},
 	{rich: true, tailor: true},
@@ -258,9 +262,12 @@ func (p *Prober) run(name string, where *atomic.Value, v variant) (res Result) {
 		if v.opposing == bears {
 			caster = pid
 		}
+		ctl.againstCaster, ctl.caster = v.againstMine, caster
 		g.Player(caster).ManaPool.Add(mana.Red, 2)
 		g.Player(caster).ManaPool.Add(mana.Green, 2)
-		if !g.CastSpell(caster, g.NewCard(spellDef, caster, engine.Hand), ctl) {
+		cast := g.CastSpell(caster, g.NewCard(spellDef, caster, engine.Hand), ctl)
+		ctl.againstCaster = false
+		if !cast {
 			res.Outcome, res.Detail = Inconclusive, "the opposing spell could not be cast"
 			return res
 		}

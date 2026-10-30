@@ -58,27 +58,27 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,621 |
-| refused      |     34 |
+| plays        | 33,634 |
+| refused      |     27 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
-| inconclusive |     23 |
+| inconclusive |     17 |
 
-99.9% of the 33,655 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+99.9% of the 33,661 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.9% of 8,662 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.9% of 8,666 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `Back from the Brink: activated Cost$ not resolvable` |
-| 1 | `Captain America, First Avenger: activated Cost$ not resolvable` |
-| 1 | `Clay Golem: activated Cost$ not resolvable` |
-| 1 | `Corpseweft: activated Cost$ not resolvable` |
-| 1 | `Fabrication Foundry: activated Cost$ not resolvable` |
-| 1 | `Halo Fountain: activated Cost$ not resolvable` |
+| 1 | `Back from the Brink: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
+| 1 | `Captain America, First Avenger: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
+| 1 | `Clay Golem: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
+| 1 | `Fabrication Foundry: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
+| 1 | `Jandor's Ring: activated Cost$ not resolvable yet: triggered AB$ Cost$ not resolvable` |
+| 1 | `Martyr of Bones: activated Cost$ not resolvable yet: triggered AB$ Cost$: SVar X not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

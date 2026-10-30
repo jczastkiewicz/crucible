@@ -43,6 +43,11 @@ type Controller struct {
 	// the attackers taken in turn, so that a Wall, a Zombie or a legendary
 	// creature a staged variant placed blocks too (staged.go).
 	blockEvery bool
+	// againstCaster makes the targets a spell picks cards controlled by anyone
+	// but the player named, which a counterspell asking for a spell that
+	// targets the prober's permanent needs (TargetValidTargeting$).
+	againstCaster bool
+	caster        engine.PlayerID
 }
 
 // maxYes is how many optional questions a Controller answers yes to.
@@ -261,7 +266,14 @@ func (*Controller) ChoosePermanentsToReturn(_ *engine.Game, _ engine.PlayerID, c
 }
 
 // ChooseTargets takes the first valid targets, at least one when the choice allows it.
-func (*Controller) ChooseTargets(_ *engine.Game, _ engine.PlayerID, valid []engine.EntityID, lo, hi int) []engine.EntityID {
+func (c *Controller) ChooseTargets(g *engine.Game, _ engine.PlayerID, valid []engine.EntityID, lo, hi int) []engine.EntityID {
+	if c.againstCaster {
+		for i, e := range valid {
+			if id, ok := e.AsCard(); ok && g.Card(id).Controller() != c.caster {
+				return valid[i : i+pick(min(lo, 1), min(hi, 1), 1)]
+			}
+		}
+	}
 	return valid[:pick(lo, hi, len(valid))]
 }
 

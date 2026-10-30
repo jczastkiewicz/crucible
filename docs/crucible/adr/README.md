@@ -61,7 +61,7 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0048](0048-face-down-cast-and-command-zone-hosts.md)       | Face-down cast turns the card face down first; Mask flag  | Accepted                  |
 | [0049](0049-booster-data-compiled-from-edition-files.md)    | Booster templates compiled from edition files             | Proposed                  |
 | [0050](0050-specialize-is-a-persistent-face-swap.md)        | Specialize is a persistent face swap on the card          | Accepted                  |
-| [0051](0051-commander-is-a-designation-on-the-player.md)    | A commander is a designation on the player, no format     | Proposed                  |
+| [0051](0051-commander-is-a-designation-on-the-player.md)    | A commander is a designation on the player, no format     | Accepted                  |
 
 ## Numbering
 

@@ -1,6 +1,6 @@
 # ADR-0051 — A Commander Is a Designation on the Player, Not the Commander Format
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-30
 - **Deciders:** Crucible session (You're in Command)
 

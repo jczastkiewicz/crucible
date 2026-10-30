@@ -137,8 +137,12 @@ type Game struct {
 	castTargetsFor CardID
 	// preX is the X a spell announced before its targets (castspell.go
 	// announceX), waiting for payManaCostX.
-	preX    int
-	hasPreX bool
+	// redirectGuard lists the replacement rules whose redirect is being dealt
+	// (replaceeffect.go); empty outside dealRedirectedDamage, so Clone does not
+	// carry it.
+	redirectGuard []redirectUse
+	preX          int
+	hasPreX       bool
 	// holdingCastExits is set while a spell is being cast, and castExits
 	// collects, in order, what triggered meanwhile: the cards that left a
 	// graveyard -- the spell itself cast from there, a Delve or ExileFromGrave

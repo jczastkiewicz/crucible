@@ -132,6 +132,7 @@
     "ability": ["id", "mana", "damageresolveeffect", "replaceeffect", "game", "parts"],
     "combat": ["id", "game", "valid", "effecthelpers", "card"],
     "game": [
+      "replaceeffect",
       "manarestrict",
       "sticker",
       "id",

@@ -177,8 +177,8 @@ func TestReplaceManaChangesTypeAndAmount(t *testing.T) {
 }
 
 // TestReplaceEffectUnportedVarTypeLeavesDamage proves a ReplaceWith$ the
-// effect rejects is skipped whole: VarType$ Card swaps the event's object,
-// which this port does not model, so the damage happens unchanged.
+// effect rejects is skipped whole: VarType$ PlanarDice on VarName$ Affected is
+// no object swap this port models, so the damage happens unchanged.
 func TestReplaceEffectUnportedVarTypeLeavesDamage(t *testing.T) {
 	t.Parallel()
 
@@ -186,7 +186,7 @@ func TestReplaceEffectUnportedVarTypeLeavesDamage(t *testing.T) {
 	resolveLine(t, g, p, engine.NewScriptedController(),
 		"DB$ Effect | ReplacementEffects$ Swap | SubAbility$ DBDamage",
 		"Swap", "Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DBSwap | Description$ Swap.",
-		"DBSwap", "DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+		"DBSwap", "DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ PlanarDice",
 		"DBDamage", "DB$ DealDamage | Defined$ You | NumDmg$ 2")
 	if got := g.Player(p).Life; got != 18 {
 		t.Errorf("life = %d, want 18 -- the unported replacement skipped", got)

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -44,8 +45,11 @@ type replacementEvent struct {
 	// name one, and ReplaceCount$ reads it.
 	vars map[string]int
 
-	// affected is the damaged object (DamageDone's Affected).
+	// affected is the damaged object (DamageDone's Affected); source the card
+	// dealing it (DamageSource, Defined$ ReplacedSourceController), NoCard when
+	// the event records none.
 	affected EntityID
+	source   CardID
 	// redirect and redirectAmount are the split-off half ReplaceSplitDamage
 	// adds: redirectAmount of the damage goes to redirect instead.
 	redirect       EntityID
@@ -93,6 +97,24 @@ type producedMana struct {
 	// combat is CombatMana$ (AbilityManaPart.java:115): the mana lasts to
 	// the end of combat.
 	combat bool
+}
+
+// redirectUse is a replacement rule that already redirected the damage being
+// dealt to its new target (Game.redirectGuard).
+type redirectUse struct {
+	host CardID
+	rule *compile.Ability
+}
+
+// redirectedBy reports whether the rule of host has redirected the damage now
+// being dealt, so it does not apply to it a second time.
+func (g *Game) redirectedBy(host CardID, rule *compile.Ability) bool {
+	for _, u := range g.redirectGuard {
+		if u.host == host && u.rule == rule {
+			return true
+		}
+	}
+	return false
 }
 
 // replaceEffectFor is the effect behind a Replace* API, for the
@@ -155,6 +177,9 @@ func (replaceEffectEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 		}
 		ev.result = replacementUpdated
 		return nil
+	}
+	if name, _ := a.Params.Param("VarName"); strings.EqualFold(name, "Affected") {
+		return redirectAffected(g, a, ev)
 	}
 	if t, ok := a.Params.Param("VarType"); ok && t != "amount" {
 		return fmt.Errorf("engine: ReplaceEffect: VarType$ %q not resolvable yet", t)
@@ -561,4 +586,57 @@ func manaTypeByName(v string) (mana.Colors, bool, error) {
 		return 0, false, fmt.Errorf("engine: ReplaceMana: mana type %q not resolvable yet", v)
 	}
 	return c, colorless, nil
+}
+
+// redirectAffected is ReplaceEffect.java's VarName$ Affected on a DamageDone
+// event (ReplaceEffect.java:31-48): the damage's object becomes the first
+// Card, Player or GameEntity VarValue$ names, so all of it is dealt there
+// instead (Reverberation, Mirror Strike, Blood of the Martyr). Nothing named
+// leaves the event as it is, Updated. The redirect is the one
+// ReplaceSplitDamage makes, for the whole amount.
+func redirectAffected(g *Game, a *Ability, ev *replacementEvent) error {
+	if ev.amountName != "DamageAmount" {
+		return fmt.Errorf("engine: ReplaceEffect: VarName$ Affected not resolvable yet for this event")
+	}
+	value, ok := a.Params.Param("VarValue")
+	if !ok {
+		return fmt.Errorf("engine: ReplaceEffect: no VarValue$")
+	}
+	kind, _ := a.Params.Param("VarType")
+	host := g.Card(a.Source)
+	var targets []EntityID
+	switch kind {
+	case "Card":
+		cards, err := definedCards(host, value, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: ReplaceEffect: VarValue$: %w", err)
+		}
+		for _, id := range cards {
+			targets = append(targets, CardEntity(id))
+		}
+	case "Player":
+		players, err := definedPlayers(g, a.Controller, a.Source, value, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: ReplaceEffect: VarValue$: %w", err)
+		}
+		for _, pid := range players {
+			targets = append(targets, PlayerEntity(pid))
+		}
+	case "GameEntity":
+		es, err := definedEntities(g, a.Controller, host, value, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: ReplaceEffect: VarValue$: %w", err)
+		}
+		targets = es
+	default:
+		return fmt.Errorf("engine: ReplaceEffect: VarType$ %q not resolvable yet for VarName$ Affected", kind)
+	}
+	ev.result = replacementUpdated
+	if len(targets) == 0 || ev.amount <= 0 {
+		return nil
+	}
+	ev.redirect, ev.redirectAmount = targets[0], ev.amount
+	ev.amount = 0
+	ev.result = replacementReplaced
+	return nil
 }

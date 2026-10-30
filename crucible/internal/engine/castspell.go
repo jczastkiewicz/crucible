@@ -768,7 +768,19 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 	if partsText == "" {
 		raiseText = g.raiseAnnouncedXText(pid, c)
 	}
-	if total.CountX() == 0 && partsText == "" && raiseText == "" {
+	if total.CountX() == 0 && partsText == "" && raiseText == "" && !announcesX(line) {
+		return true
+	}
+	if total.CountX() > 0 && !xIsPaid(c) && (line == nil || !hasParamLine(line, "XAlternative")) {
+		// PlaySpellAbility.java:462-466: an X in the mana cost whose SVar is not
+		// Count$xPaid is not announced; it is that SVar's value (Spoils of War's
+		// cards in the chosen opponent's graveyard).
+		n, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, "X")
+		if !ok {
+			g.recordPendingError(fmt.Errorf("engine: card %d: X in its mana cost is not resolvable yet", c.ID))
+			return false
+		}
+		g.preX, g.hasPreX = max(n, 0), true
 		return true
 	}
 	n := controller.ChoosePayX(g, pid, total)
@@ -799,7 +811,12 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 // is announced (PlaySpellAbility.java:768-771). Any other X (a count of
 // targets, of lands) is computed, never asked.
 func xIsPaid(c *Card) bool {
-	amt, ok := c.Def.Faces[0].Amounts["x"]
+	return xAmountIsPaid(c.Def.Faces[0].Amounts)
+}
+
+// xAmountIsPaid is xIsPaid over an ability's amounts.
+func xAmountIsPaid(amounts map[string]expr.Amount) bool {
+	amt, ok := amounts["x"]
 	return !ok || (amt.Kind == expr.Expression && amt.Head == "Count" && strings.EqualFold(amt.Body, "xPaid"))
 }
 
@@ -1063,7 +1080,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 		return false
 	}
 	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts, spell: true, casting: true}
-	if !g.announceSVarsFor(pid, c, controller, spellAbility) || !g.announceXFor(pid, c, controller, opts, spellAbility) {
+	if !g.announceTypeFor(pid, c, controller, spellAbility) || !g.announceSVarsFor(pid, c, controller, spellAbility) || !g.announceXFor(pid, c, controller, opts, spellAbility) {
 		return false
 	}
 	if a.API == APICharm {
@@ -1446,4 +1463,29 @@ func (g *Game) castSnapshotNow() castSnapshot {
 		snap.graveyard = append(snap.graveyard, g.Zone(Graveyard, pid).Cards()...)
 	}
 	return snap
+}
+
+// hasParamLine reports whether line names param key.
+func hasParamLine(line *compile.Ability, key string) bool {
+	_, ok := line.Param(key)
+	return ok
+}
+
+// announcesX reports whether line names X in Announce$: the caster announces
+// it as a value of its own even when no cost part carries an X symbol
+// (PlaySpellAbility.java:742-762; Nahiri's Sacrifice's Sac<1/...cmcEQX>).
+func announcesX(line *compile.Ability) bool {
+	if line == nil {
+		return false
+	}
+	raw, ok := line.Param("Announce")
+	if !ok {
+		return false
+	}
+	for _, name := range strings.Split(raw, ",") {
+		if strings.EqualFold(strings.TrimSpace(name), "X") {
+			return true
+		}
+	}
+	return false
 }

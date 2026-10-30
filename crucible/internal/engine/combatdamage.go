@@ -493,6 +493,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 // records under the new target. Nothing happens when amount is not
 // positive.
 func (g *Game) dealRedirectedDamage(controller PlayerController, source CardID, to EntityID, amount int, isCombat bool, table *damageTable) {
+	defer func() { g.redirectGuard = nil }()
 	if amount <= 0 {
 		return
 	}

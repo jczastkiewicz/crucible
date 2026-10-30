@@ -46,6 +46,7 @@
 package engine
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -215,7 +216,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if c.isDetained() {
 		return false
 	}
-	ability, _, ok := c.abilityAt(index)
+	ability, abilityAmounts, ok := c.abilityAt(index)
 	if !ok {
 		return false
 	}
@@ -283,6 +284,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	if isLoyaltyAbility && !g.loyaltyActivationAllowed(c) {
+		return false
+	}
+	if !g.announceTypeFor(pid, c, controller, ability) {
 		return false
 	}
 	costText, ok := ability.Param("Cost")
@@ -437,6 +441,19 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	before := *c
 	restore := g.payingFor(&payContext{item: &activated, cost: manaCost})
 	g.xColor = xColorMask(ability)
+	if manaCost.CountX() > 0 {
+		// PlaySpellAbility.java:462-466: an X whose SVar is not Count$xPaid is
+		// that SVar's value, not announced (Bargaining Table's cards in the
+		// announced opponent's hand).
+		if _, has := abilityAmounts["x"]; has && !xAmountIsPaid(abilityAmounts) {
+			n, known := resolveNamedAmount(g, abilityAmounts, c, "X")
+			if !known {
+				g.recordPendingError(fmt.Errorf("engine: card %d: X in its activation cost is not resolvable yet", card))
+				return false
+			}
+			g.preX, g.hasPreX = max(n, 0), true
+		}
+	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	g.xColor = 0
 	restore()

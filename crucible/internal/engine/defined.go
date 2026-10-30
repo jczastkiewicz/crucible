@@ -547,6 +547,22 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q outside a replacement that records it", defined)
 		}
 		candidates = []PlayerID{pid}
+	case "ReplacedSourceController", "ReplacedTargetController":
+		// AbilityUtils.java:1081-1093: the controller of the replacing object
+		// named, a card's only (a player damaged has none).
+		var from CardID
+		if defined == "ReplacedSourceController" {
+			from = refs.replacedSource
+		} else if cid, ok := refs.replacedTarget.AsCard(); ok {
+			from = cid
+		}
+		if from == NoCard {
+			if refs.replacedTarget == NoEntity && refs.replacedSource == NoCard {
+				return nil, fmt.Errorf("engine: Defined$ %q outside a replacement that records it", defined)
+			}
+			break
+		}
+		candidates = []PlayerID{g.Card(from).Controller()}
 	case "ReplacedTarget":
 		// The same "Replaced" branch over AbilityKey.Target: a DamageDone
 		// replacement's damaged object, which is a player only when a player was

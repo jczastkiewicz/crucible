@@ -874,10 +874,10 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // rather than ReplaceDamage's own flat "prevent N" -- raphael_the_muscle.txt's/
 // gratuitous_violence.txt's own real "deals double damage" among them.
 // replaceEffectEffect (replaceeffect.go) resolves 56 of the corpus's 59 real
-// lines naming it with VarName$ DamageAmount specifically (12 more name
-// VarName$ Affected/LifeGained/Number/Ignore instead -- an entirely
-// different substitution, redirecting who is damaged or what else changes,
-// not resizing the damage itself, out of scope for this dispatch).
+// lines naming it with VarName$ DamageAmount specifically; VarName$ Affected
+// redirects the whole damage to the object VarValue$ names
+// (redirectAffected), and the lines naming LifeGained/Number/Ignore change
+// what else the event carries.
 //
 // A third real shape resolves here too: `DB$ RemoveCounter`/`DB$ PutCounter`
 // (applyDamageReplaceCounter, below) -- CR 616's own "Replaced" outcome this
@@ -891,7 +891,7 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 func (g *Game) damageReplaced(controller PlayerController, source, target CardID, isCombat bool, amount int) (int, EntityID, int) {
 	targetCard := g.Card(target)
 	toughness, hasToughness := targetCard.Toughness()
-	return g.damageReplacement(controller, targetCard.Controller(), CardEntity(target), amount,
+	return g.damageReplacement(controller, targetCard.Controller(), CardEntity(target), source, amount,
 		func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability, amount int) bool {
 			if !damageReplacementMatches(g, r, source, h.Controller(), h.ID, z, isCombat, amounts, amount, toughness, hasToughness) {
 				return false
@@ -913,13 +913,13 @@ func (g *Game) damageReplaced(controller PlayerController, source, target CardID
 // 5 or 4 of 3 damage depending on which the player applies first; a
 // redirected half (ReplaceSplitDamage) and a counter change instead of the
 // damage (applyDamageReplaceCounter) are carried along the same way.
-func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, affected EntityID, amount int,
+func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, affected EntityID, source CardID, amount int,
 	matches func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability, amount int) bool) (int, EntityID, int) {
 	redirect, redirectAmount := NoEntity, 0
 	res := g.runReplacements(controller, decider, func() []replacementCandidate {
 		var out []replacementCandidate
 		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
-			if !matches(h, z, amounts, r, amount) || !damageRedirectAllowed(g, r, h, affected) {
+			if !matches(h, z, amounts, r, amount) || !damageRedirectAllowed(g, r, h, affected) || g.redirectedBy(h.ID, r) {
 				return
 			}
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
@@ -927,11 +927,14 @@ func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, 
 					if !strings.EqualFold(sub.Key, "ReplaceWith") {
 						continue
 					}
-					ev := replacementEvent{amountName: "DamageAmount", amount: amount, affected: affected}
+					ev := replacementEvent{amountName: "DamageAmount", amount: amount, affected: affected, source: source}
 					if g.runReplaceWith(controller, h, amounts, sub.Ability, &ev) {
 						amount = ev.amount
 						if ev.redirectAmount != 0 || ev.redirect != NoEntity {
 							redirect, redirectAmount = ev.redirect, ev.redirectAmount
+							// The damage dealt to its new target is the same event
+							// continuing: this replacement does not apply to it again.
+							g.redirectGuard = append(g.redirectGuard, redirectUse{host: h.ID, rule: r})
 						}
 						return ev.result
 					}
@@ -954,7 +957,7 @@ func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, 
 					// Awe Strike's life gain.
 					api, known := APIByName(sub.Ability.Name)
 					if _, replaceAPI := replaceEffectFor(api); known && !replaceAPI {
-						ev := replacementEvent{result: replacementReplaced, amountName: "DamageAmount", amount: amount, affected: affected}
+						ev := replacementEvent{result: replacementReplaced, amountName: "DamageAmount", amount: amount, affected: affected, source: source}
 						if err := g.runReplacementChain(controller, h, replaceCountAmounts(g, amounts, h, sub.Ability, &ev), sub.Ability, &ev); err != nil {
 							g.recordPendingError(err)
 							return replacementNotReplaced
@@ -979,7 +982,7 @@ func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, 
 // ValidTarget$ matched against a Player through matchesPlayerSpec rather
 // than Matches.
 func (g *Game) damageReplacedPlayer(controller PlayerController, source CardID, target PlayerID, isCombat bool, amount int) (int, EntityID, int) {
-	return g.damageReplacement(controller, target, PlayerEntity(target), amount,
+	return g.damageReplacement(controller, target, PlayerEntity(target), source, amount,
 		func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability, amount int) bool {
 			if !damageReplacementMatches(g, r, source, h.Controller(), h.ID, z, isCombat, amounts, amount, 0, false) {
 				return false

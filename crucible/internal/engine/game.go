@@ -114,6 +114,10 @@ type Game struct {
 	// cost with X, which the announced X absorbs when it is paid (March of
 	// Reckless Joy); costStatics sets it, payManaCostX spends it.
 	xReduce int
+	// xSetTo is a Mode$ SetCost | RaiseTo$ floor waiting on the announced X of
+	// the cost being paid (Trinisphere on an X spell): costStatics sets it,
+	// payManaCostX raises the generic mana to it once X is known. 0 for none.
+	xSetTo int
 	// maxDistinctSources is MagicStack.maxDistinctSources: the most spells
 	// plus distinct non-spell sources the stack held after any push this turn
 	// (Count$MaxDistinctOnStack), reset when a turn's cleanup begins.
@@ -1168,7 +1172,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		// card's own phasing (GameAction.java:977 reads lki.isPhasedOut()).
 		c.phasedOut, c.directlyPhasedOut, c.wontPhaseInNormal = NoPlayer, false, false
 		melded = c.leaveMeld()
-		c.Counters = Counters{}
+		if !g.countersRemain(&snap, kind) {
+			c.Counters = Counters{}
+		}
 		c.Damage.Clear()
 		c.PT.Clear()
 		c.TypeMod.Clear()
@@ -1177,7 +1183,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.Tapped = false
 		c.SummonSick = false
 		c.Exerted = false
-		c.LoyaltyAbilityActivated = false
+		c.LoyaltyAbilityActivated, c.loyaltyActivations, c.loyaltyLimitUsed = false, 0, false
 		c.ProtectingPlayer = NoPlayer
 		c.controller = c.Owner
 		c.tempControllers = nil
@@ -1323,7 +1329,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.Tapped = false
 		c.SummonSick = false
 		c.Exerted = false
-		c.LoyaltyAbilityActivated = false
+		c.LoyaltyAbilityActivated, c.loyaltyActivations, c.loyaltyLimitUsed = false, 0, false
 		c.ProtectingPlayer = NoPlayer
 		c.controller = c.Owner
 		c.tempControllers = nil

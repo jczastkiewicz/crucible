@@ -77,7 +77,7 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 		// (TargetSelection.java:84, 117-120).
 		return true
 	}
-	chosen, err := g.chooseTargets(controller, a, choice)
+	chosen, err := g.chooseTargets(controller, a, a, choice)
 	if err != nil {
 		a.targetsErr = err
 		return true
@@ -105,11 +105,83 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 // (numTargets == null, TargetSelection.java:123): with TargetsAtRandom$
 // (TargetRestrictions.java:202-204) the game picks them at random
 // (randomTargets) and nobody is asked; otherwise choice.targeter is asked.
-func (g *Game) chooseTargets(controller PlayerController, a *Ability, choice targetChoice) ([]EntityID, error) {
+func (g *Game) chooseTargets(controller PlayerController, root, a *Ability, choice targetChoice) ([]EntityID, error) {
 	if _, random := a.Params.Param("TargetsAtRandom"); random {
 		return g.randomTargets(a, choice)
 	}
-	return controller.ChooseTargets(g, choice.targeter, choice.candidates, choice.min, choice.max), nil
+	candidates, err := g.mustTargetFilter(root, choice)
+	if err != nil {
+		return nil, err
+	}
+	return controller.ChooseTargets(g, choice.targeter, candidates, choice.min, choice.max), nil
+}
+
+// mustTargetParams are the params a Mode$ MustTarget line may carry that
+// mustTargetFilter reads.
+var mustTargetParams = map[string]bool{"validsa": true, "validtarget": true, "validzone": true}
+
+// mustTargetFilter is StaticAbilityMustTarget.filterMustTargetCards
+// (TargetSelection.java:147) for one targeting part of root, a spell or
+// ability its controller is choosing targets for: each live Mode$ MustTarget
+// line whose ValidSA$ admits root (Standard Bearer: an opponent's spell or
+// activated ability) restricts the candidates to the cards of type
+// ValidTarget$ in zone ValidZone$, while one is among them. That makes the
+// targets chosen meet meetsMustTargetRestriction (SpellAbility.java:2182), the
+// rule the restriction states: at least one Flagbearer if able. More distinct
+// restrictions than targets cannot be met; Java clears the candidates, and here
+// it is an error (no corpus line reaches it).
+func (g *Game) mustTargetFilter(root *Ability, choice targetChoice) ([]EntityID, error) {
+	candidates := choice.candidates
+	if root == nil || choice.targeter != root.Controller {
+		return candidates, nil
+	}
+	type restriction struct {
+		typ  string
+		zone ZoneType
+	}
+	var live []restriction
+	g.anyStatic("MustTarget", mustTargetParams, func(h *Card, s *compile.Ability) bool {
+		if spec, ok := s.Param("ValidSA"); ok {
+			if matched, recognized := g.spellAbilityMatches(root, spec, h, h.Controller(), h.abilityAmounts(s)); !recognized || !matched {
+				return false
+			}
+		}
+		typ, _ := s.Param("ValidTarget")
+		zoneName, _ := s.Param("ValidZone")
+		zones, err := parseZoneList(zoneName)
+		if err != nil || len(zones) != 1 {
+			return false
+		}
+		r := restriction{typ, zones[0]}
+		if !slices.Contains(live, r) && slices.ContainsFunc(candidates, func(e EntityID) bool { return g.meetsMustTarget(e, r.typ, r.zone) }) {
+			live = append(live, r)
+		}
+		return false
+	})
+	if len(live) == 0 {
+		return candidates, nil
+	}
+	if len(live) > choice.max {
+		return nil, fmt.Errorf("engine: MustTarget: %d restrictions for %d targets, not resolvable yet", len(live), choice.max)
+	}
+	var out []EntityID
+	for _, e := range candidates {
+		if slices.ContainsFunc(live, func(r restriction) bool { return g.meetsMustTarget(e, r.typ, r.zone) }) {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// meetsMustTarget is a MustTarget restriction's test of one candidate:
+// card.getType().hasStringType(typ) && card.isInZone(zone).
+func (g *Game) meetsMustTarget(e EntityID, typ string, zone ZoneType) bool {
+	id, ok := e.AsCard()
+	if !ok {
+		return false
+	}
+	c := g.Card(id)
+	return c.Zone == zone && c.Type().HasStringType(typ)
 }
 
 // randomTargets is TargetSelection.java:123-137: num targets drawn one at a

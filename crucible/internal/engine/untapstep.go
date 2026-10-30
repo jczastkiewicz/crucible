@@ -135,7 +135,7 @@ func (g *Game) untapOtherPlayerAllows(c *Card, active PlayerID) bool {
 					if !strings.EqualFold(s.Name, "UntapOtherPlayer") || !g.staticConditionsMet(h, s) {
 						continue
 					}
-					if !paramsResolvable(s, untapOtherPlayerParams) {
+					if !staticParamsKnown(s, untapOtherPlayerParams) {
 						continue
 					}
 					if v, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(v), h.Controller(), h.ID) {

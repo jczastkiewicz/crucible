@@ -66,7 +66,7 @@ func (g *Game) altCostOptions(pid PlayerID, c *Card) []castOption {
 	var out []castOption
 	for _, face := range c.traitFaces() {
 		for _, s := range face.Statics {
-			if !isSelfSpellAltCost(s) || !paramsResolvable(s, altCostParams) || !g.staticConditionsMet(c, s) {
+			if !isSelfSpellAltCost(s) || !staticParamsKnown(s, altCostParams) || !g.staticConditionsMet(c, s) {
 				continue
 			}
 			text, _ := s.Param("Cost")

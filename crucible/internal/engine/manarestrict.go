@@ -10,6 +10,7 @@ package engine
 import (
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -153,7 +154,35 @@ func (g *Game) restrictionMet(u poolUnit, ctx *payContext) bool {
 // usableMana is the units the current payment may spend (ADR-0046).
 func (g *Game) usableMana() func(poolUnit) bool {
 	ctx := g.payFor
-	return func(u poolUnit) bool { return g.restrictionMet(u, ctx) }
+	return func(u poolUnit) bool { return g.restrictionMet(u, ctx) && !g.spellManaRestricted(u, ctx) }
+}
+
+// manaRestrictionParams are the params a Mode$ ManaRestriction line may carry
+// that spellManaRestricted reads.
+var manaRestrictionParams = map[string]bool{"validsource": true, "invertvalidsource": true}
+
+// spellManaRestricted is StaticAbilityManaRestriction.manaRestriction
+// (SpellAbility.allowsPayingWithShard, SpellAbility.java:447): a spell whose
+// own card carries a live Mode$ ManaRestriction line may not be paid with
+// mana from a source that line's ValidSource$ rejects (Imperiosaur, Myr
+// Superion), or, with InvertValidSource$, accepts (Hogaak, Arisen
+// Necropolis). Mana with no source card matches no ValidSource$, as Java's
+// matchesValid(null) does.
+func (g *Game) spellManaRestricted(u poolUnit, ctx *payContext) bool {
+	if ctx == nil || ctx.item == nil || !ctx.item.spell {
+		return false
+	}
+	host := g.Card(ctx.item.Source)
+	if host.Def == nil {
+		return false
+	}
+	src := g.manaSourceCard(u.src)
+	return g.hostStatic(host, "ManaRestriction", manaRestrictionParams, func(h *Card, s *compile.Ability) bool {
+		_, invert := s.Param("InvertValidSource")
+		spec, ok := s.Param("ValidSource")
+		matched := !ok || src != nil && Matches(g, src, valid.Parse(spec), h.Controller(), h.ID)
+		return matched == invert
+	})
 }
 
 // staticRestrictionMet is Static.<special>[+<host property>...] against a

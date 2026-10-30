@@ -287,10 +287,12 @@ func (g *Game) landwalkIgnored(attacker, blocker CardID, line string) bool {
 	return false
 }
 
-// staticParamsKnown reports whether s names only params in known.
+// staticParamsKnown reports whether static line s names only params in known
+// or the conditions staticConditionsMet reads (staticConditionParams): a
+// reader that checks those conditions reads every param s carries.
 func staticParamsKnown(s *compile.Ability, known map[string]bool) bool {
 	for _, p := range s.Params {
-		if !known[strings.ToLower(p.Key)] {
+		if k := strings.ToLower(p.Key); !known[k] && !staticConditionParams[k] {
 			return false
 		}
 	}
@@ -480,7 +482,7 @@ func cantAttachStatic(g *Game, attachment *Card, host CardID) bool {
 		}
 		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
-				if !strings.EqualFold(s.Name, "CantAttach") || !paramsResolvable(s, cantAttachParams) || !g.staticConditionsMet(h, s) {
+				if !strings.EqualFold(s.Name, "CantAttach") || !staticParamsKnown(s, cantAttachParams) || !g.staticConditionsMet(h, s) {
 					continue
 				}
 				if v, ok := s.Param("ValidCard"); ok && !Matches(g, attachment, valid.Parse(v), h.Controller(), h.ID) {
@@ -1399,7 +1401,7 @@ func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
 			}
 			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
-					if !strings.EqualFold(s.Name, "CantPutCounter") || !paramsResolvable(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
+					if !strings.EqualFold(s.Name, "CantPutCounter") || !staticParamsKnown(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
 					}
 					if kind, ok := s.Param("CounterType"); ok && !strings.EqualFold(kind, string(ct)) {
@@ -1484,7 +1486,7 @@ func (g *Game) canDamagePrevented(source CardID, isCombat bool) bool {
 		}
 		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
-				if !strings.EqualFold(s.Name, "CantPreventDamage") || !paramsResolvable(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
+				if !strings.EqualFold(s.Name, "CantPreventDamage") || !staticParamsKnown(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
 					continue
 				}
 				if raw, ok := s.Param("IsCombat"); ok && strings.EqualFold(raw, "True") != isCombat {
@@ -1531,7 +1533,7 @@ func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
 			}
 			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
-					if !strings.EqualFold(s.Name, "MaxCounter") || !paramsResolvable(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
+					if !strings.EqualFold(s.Name, "MaxCounter") || !staticParamsKnown(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
 					}
 					if kind, has := s.Param("CounterType"); has && !strings.EqualFold(kind, string(ct)) {
@@ -1662,7 +1664,7 @@ func (g *Game) cantTargetHost(h *Card, onStack bool, entity EntityID, activator 
 	}
 	for _, face := range h.traitFaces() {
 		for _, s := range face.Statics {
-			if !strings.EqualFold(s.Name, "CantTarget") || !paramsResolvable(s, cantTargetParams) {
+			if !strings.EqualFold(s.Name, "CantTarget") || !staticParamsKnown(s, cantTargetParams) {
 				continue
 			}
 			if zone, ok := s.Param("EffectZone"); (ok && strings.Contains(zone, "Stack")) != onStack {
@@ -1999,3 +2001,92 @@ func (g *Game) canBlockIfReach(attacker, blocker CardID) bool {
 
 // validCardParam is the one param a ValidCard$-only mode line reads.
 var validCardParam = map[string]bool{"validcard": true}
+
+// countersRemain is StaticAbilityCountersRemain.countersRemain
+// (GameAction.java:178, :254): a permanent's counters stay on it as it moves
+// to a zone other than a hand or library when a live Mode$ CountersRemain
+// line -- the card's own, read off its last-known information, or another
+// card's -- has a ValidCard$ admitting it (Skullbriar, the Walking Grave; Me,
+// the Immortal).
+func (g *Game) countersRemain(lki *Card, to ZoneType) bool {
+	if to == Hand || to == Library {
+		return false
+	}
+	apply := func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidCard")
+		return !ok || Matches(g, lki, valid.Parse(spec), h.Controller(), h.ID)
+	}
+	return lki.Def != nil && g.hostStatic(lki, "CountersRemain", validCardParam, apply) ||
+		g.anyStatic("CountersRemain", validCardParam, apply)
+}
+
+// loyaltyActivationAllowed is SpellAbilityRestriction.java:450-460 for a
+// loyalty ability of c: once per turn (CR 606.3), twice under a live Mode$
+// NumLoyaltyAct line with Twice$ whose ValidCard$ admits c (Oath of Teferi),
+// and Additional$ more per line naming it (The Chain Veil). Once both are
+// live, the twice-limit counts toward the additional ones only after it was
+// used. A line with OnlySourceAbs$ (Comet, Stellar Pup), which names the one
+// ability the effect allows, is not read, so it grants nothing (GO-7).
+func (g *Game) loyaltyActivationAllowed(c *Card) bool {
+	// The exported marker is authoritative: set by itself (a test, a fixture)
+	// it counts as one activation, cleared it resets the count.
+	n := 0
+	if c.LoyaltyAbilityActivated {
+		n = max(c.loyaltyActivations, 1)
+	}
+	limit := 1
+	if g.loyaltyLimitIncrease(c) {
+		limit = 2
+	}
+	if n < limit {
+		return true
+	}
+	if limit == 2 && !c.loyaltyLimitUsed {
+		limit--
+	}
+	return n < limit+g.loyaltyAdditional(c)
+}
+
+// noteLoyaltyActivation is Card.addPlaneswalkerAbilityActivated.
+func (g *Game) noteLoyaltyActivation(c *Card) {
+	c.LoyaltyAbilityActivated = true
+	c.loyaltyActivations++
+	if c.loyaltyActivations == 2 && g.loyaltyLimitIncrease(c) {
+		c.loyaltyLimitUsed = true
+	}
+}
+
+// numLoyaltyActParams are the params a Mode$ NumLoyaltyAct line may carry
+// that the readers below read.
+var numLoyaltyActParams = map[string]bool{"validcard": true, "twice": true, "additional": true}
+
+// loyaltyLimitIncrease is StaticAbilityNumLoyaltyAct.limitIncrease.
+func (g *Game) loyaltyLimitIncrease(c *Card) bool {
+	return g.anyStatic("NumLoyaltyAct", numLoyaltyActParams, func(h *Card, s *compile.Ability) bool {
+		if _, ok := s.Param("Twice"); !ok {
+			return false
+		}
+		spec, ok := s.Param("ValidCard")
+		return !ok || Matches(g, c, valid.Parse(spec), h.Controller(), h.ID)
+	})
+}
+
+// loyaltyAdditional is StaticAbilityNumLoyaltyAct.additionalActivations: the
+// sum of the numeric Additional$ of every live line admitting c.
+func (g *Game) loyaltyAdditional(c *Card) int {
+	addl := 0
+	g.anyStatic("NumLoyaltyAct", numLoyaltyActParams, func(h *Card, s *compile.Ability) bool {
+		raw, ok := s.Param("Additional")
+		if !ok {
+			return false
+		}
+		if spec, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(spec), h.Controller(), h.ID) {
+			return false
+		}
+		if n, err := strconv.Atoi(raw); err == nil {
+			addl += n
+		}
+		return false
+	})
+	return addl
+}

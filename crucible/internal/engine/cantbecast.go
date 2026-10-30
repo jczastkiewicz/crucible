@@ -145,7 +145,7 @@ func (g *Game) cantBeActivated(pid PlayerID, card *Card, isMana, isLoyalty bool)
 }
 
 func (g *Game) cantBeActivatedApplies(pid PlayerID, c, host *Card, s *compile.Ability, isMana, isLoyalty bool) bool {
-	if !paramsResolvable(s, cantBeActivatedParams) || !g.staticConditionsMet(host, s) {
+	if !staticParamsKnown(s, cantBeActivatedParams) || !g.staticConditionsMet(host, s) {
 		return false
 	}
 	if validCard, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID) {
@@ -226,7 +226,7 @@ func (g *Game) cantPlayLand(pid PlayerID, card CardID) bool {
 }
 
 func (g *Game) cantPlayLandApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
-	if !paramsResolvable(s, cantPlayLandParams) || !g.staticConditionsMet(host, s) {
+	if !staticParamsKnown(s, cantPlayLandParams) || !g.staticConditionsMet(host, s) {
 		return false
 	}
 	if validCard, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID) {

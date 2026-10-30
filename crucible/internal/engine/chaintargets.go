@@ -74,7 +74,7 @@ func (g *Game) resolveChainTargets(controller PlayerController, a *Ability) bool
 			// TargetMin$ 0 with no candidate, or no target allowed at all,
 			// asks nothing (resolveTargets).
 			var err error
-			if chosen, err = g.chooseTargets(controller, &link, choice); err != nil {
+			if chosen, err = g.chooseTargets(controller, a, &link, choice); err != nil {
 				a.failLinkTargets(sub, api, err)
 				a.chainTargets = append(a.chainTargets, chainTarget{Params: sub.Ability, Err: err})
 				return true

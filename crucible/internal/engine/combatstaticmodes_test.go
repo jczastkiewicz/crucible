@@ -124,3 +124,34 @@ func TestIgnoreShroudLetsTheNamedPlayerTarget(t *testing.T) {
 		}
 	}
 }
+
+// Mode$ MustTarget (Standard Bearer, StaticAbilityMustTarget): an opponent
+// casting a targeted spell must choose a Flagbearer if able, so only Standard
+// Bearer is offered; its controller's own spell is not restricted.
+func TestMustTargetOffersOnlyTheFlagbearer(t *testing.T) {
+	t.Parallel()
+	for _, opponent := range []bool{true, false} {
+		g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+		bearer := g.NewCard(corpusCard(t, "Standard Bearer"), p, engine.Battlefield)
+		g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+		caster := p
+		if opponent {
+			caster = other
+		}
+		g.SetTurnState(1, caster, engine.Main1)
+		shock := g.NewCard(corpusCard(t, "Shock"), caster, engine.Hand)
+		g.Player(caster).ManaPool.Add(mana.Red, 1)
+		c := &targetRecorder{ScriptedController: engine.NewScriptedController()}
+		c.QueueTargets([]engine.EntityID{engine.CardEntity(bearer)})
+		if !g.CastSpell(caster, shock, c) {
+			t.Fatalf("cast failed: %v", g.TakePendingError())
+		}
+		if len(c.offers) != 1 {
+			t.Fatalf("offers %v", c.offers)
+		}
+		onlyBearer := len(c.offers[0]) == 1 && c.offers[0][0] == engine.CardEntity(bearer)
+		if onlyBearer != opponent {
+			t.Errorf("opponent %v: offered %v", opponent, c.offers[0])
+		}
+	}
+}

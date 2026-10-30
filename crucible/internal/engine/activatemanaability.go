@@ -286,7 +286,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		return false
 	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")
-	if isLoyaltyAbility && c.LoyaltyAbilityActivated {
+	if isLoyaltyAbility && !g.loyaltyActivationAllowed(c) {
 		return false
 	}
 	costText, ok := ability.Param("Cost")
@@ -457,7 +457,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		g.collectEvidence(controller, pid, card, shape.CollectEvidenceN)
 	}
 	if isLoyaltyAbility {
-		c.LoyaltyAbilityActivated = true
+		g.noteLoyaltyActivation(c)
 	}
 	// MagicStack.java:232-235: a mana ability is recorded as activated before
 	// it resolves.

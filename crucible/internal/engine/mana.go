@@ -357,14 +357,15 @@ func (p *Pool) payWithSnow(cost mana.Cost, snow []mana.Shard, snowAny bool) ([]p
 }
 
 // payUsable is payWithSnow spending only the units usable accepts (nil: all
-// of them), the paid-for object's view of the pool (ADR-0046). A pool with no
-// restricted unit pays directly. Otherwise the payment runs on a view of the
+// of them), the paid-for object's view of the pool (ADR-0046; a spell's own
+// ManaRestriction static, spellManaRestricted). A pool whose every unit is
+// unrestricted and usable pays directly. Otherwise the payment runs on a view of the
 // usable units, the restricted ones first within a bucket, and one equal unit
 // per spent unit is then removed from p; a failed payment leaves p as it was.
 func (p *Pool) payUsable(cost mana.Cost, snow []mana.Shard, snowAny bool, usable func(poolUnit) bool) ([]poolUnit, bool) {
 	restricted := false
 	for _, u := range p.units {
-		if u.restrict != "" {
+		if u.restrict != "" || usable != nil && !usable(u) {
 			restricted = true
 			break
 		}
@@ -375,7 +376,7 @@ func (p *Pool) payUsable(cost mana.Cost, snow []mana.Shard, snowAny bool, usable
 	var view Pool
 	for _, first := range [...]bool{true, false} {
 		for _, u := range p.units {
-			if (u.restrict != "") == first && (usable == nil || usable(u) || u.restrict == "") {
+			if (u.restrict != "") == first && (usable == nil || usable(u)) {
 				view.addRestrictedUnits(int(u.bucket), 1, u.src, u.restrict)
 			}
 		}

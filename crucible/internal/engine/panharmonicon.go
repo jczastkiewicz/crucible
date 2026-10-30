@@ -52,7 +52,7 @@ func (g *Game) panharmoniconExtra(host *Card, t *compile.Ability, moved *Card, o
 }
 
 func (g *Game) panharmoniconApplies(sh *Card, s *compile.Ability, host, moved *Card, origin, dest ZoneType) bool {
-	if !paramsResolvable(s, panharmoniconParams) || !g.staticConditionsMet(sh, s) {
+	if !staticParamsKnown(s, panharmoniconParams) || !g.staticConditionsMet(sh, s) {
 		return false
 	}
 	if v, ok := s.Param("ValidCard"); ok && !Matches(g, host, valid.Parse(v), sh.Controller(), sh.ID) {
@@ -161,7 +161,7 @@ func ownTrigger(host *Card, execute *compile.Ability) *compile.Ability {
 }
 
 func (g *Game) panharmoniconGenericApplies(sh *Card, s *compile.Ability, host *Card, mode string, m *Ability) bool {
-	if !paramsResolvable(s, panharmoniconParams) || !g.staticConditionsMet(sh, s) {
+	if !staticParamsKnown(s, panharmoniconParams) || !g.staticConditionsMet(sh, s) {
 		return false
 	}
 	if v, ok := s.Param("ValidMode"); ok && !containsString(strings.Split(v, ","), mode) {

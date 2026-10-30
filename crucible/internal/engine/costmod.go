@@ -32,7 +32,7 @@ var costModParams = map[string]bool{
 	"mode": true, "validcard": true, "activator": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
-	"validspell": true, "foreachshard": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+	"validspell": true, "raiseto": true, "foreachshard": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }
 
 // spellCost is base, the printed (or alternative) mana cost of casting card as
@@ -70,7 +70,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		s    *compile.Ability
 		face *compile.Face
 	}
-	var raises, reduces []line
+	var raises, reduces, sets []line
 	for _, host := range g.staticHostsWith(card) {
 		h := g.Card(host)
 		if h.Def == nil {
@@ -99,6 +99,8 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 					}
 				case strings.EqualFold(s.Name, "ReduceCost") && g.costModStatus(pid, c, h, s, act) == costModApplies:
 					reduces = append(reduces, line{h, s, face})
+				case strings.EqualFold(s.Name, "SetCost") && g.costModStatus(pid, c, h, s, act) == costModApplies:
+					sets = append(sets, line{h, s, face})
 				}
 			}
 		}
@@ -189,6 +191,28 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 	out := mana.FromShards(shards, max(generic-reduced, 0))
 	for range repeats {
 		out = subtractManaCost(out, repeated)
+	}
+	if paying && act == nil {
+		g.xSetTo = 0
+	}
+	// Mode$ SetCost, applied last (CostAdjustment.java:252-255,
+	// applySetCostAbility :433-447): Amount$ more generic mana, or with
+	// RaiseTo$ enough to bring the converted cost up to Amount$ (Trinisphere).
+	// An X spell's floor waits for the announced X (payManaCostX).
+	for _, r := range sets {
+		raw, _ := r.s.Param("Amount")
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			continue
+		}
+		if _, raiseTo := r.s.Param("RaiseTo"); raiseTo {
+			if paying && act == nil && out.CountX() > 0 {
+				g.xSetTo = max(g.xSetTo, value)
+				continue
+			}
+			value = max(value-out.CMC(), 0)
+		}
+		out = mana.FromShards(out.Shards(), out.Generic()+value)
 	}
 	return out, true
 }
@@ -344,7 +368,7 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 			return costModUnresolvable
 		}
 	}
-	if !paramsResolvable(s, costModParams) {
+	if !staticParamsKnown(s, costModParams) {
 		return costModUnresolvable
 	}
 	return costModApplies

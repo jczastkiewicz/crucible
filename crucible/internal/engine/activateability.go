@@ -270,7 +270,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	default:
 		return false
 	}
-	if isLoyaltyAbility && c.LoyaltyAbilityActivated {
+	if isLoyaltyAbility && !g.loyaltyActivationAllowed(c) {
 		return false
 	}
 	costText, ok := ability.Param("Cost")
@@ -525,7 +525,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		g.collectEvidence(controller, pid, card, shape.CollectEvidenceN)
 	}
 	if isLoyaltyAbility {
-		c.LoyaltyAbilityActivated = true
+		g.noteLoyaltyActivation(c)
 	}
 	c.activations.note(index)
 	g.recordActivation(&activated, &before)

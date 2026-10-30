@@ -381,21 +381,18 @@ type Card struct {
 	// reads it.
 	regeneratedThisTurn int
 
-	// LoyaltyAbilityActivated is CR 606.3's own once-per-turn marker
-	// (Card.planeswalkerAbilityActivated in Java, collapsed from an int to a
-	// bool -- StaticAbilityNumLoyaltyAct's own limit-raising static ability,
-	// the only real reason Java counts past one, is a further mechanic this
-	// port does not build). ActivateAbility/ActivateManaAbility
-	// (activateability.go/activatemanaability.go) refuse any ability naming
-	// Planeswalker$ (SpellAbility.isPwAbility's own bare hasParam check, the
-	// identical presence-only contract compile.Ability.Param already
-	// returns) once this reads true, and set it the moment such an ability
-	// actually commits -- CR 606.3 restricts the whole loyalty ability, not
-	// only the shape that pays for it, so an AddCounter<0/...> "+0" ability
-	// (a real corpus shape, addCounterN's own doc comment) sets it exactly
-	// the same as any other. Reset every cleanup (cleanupStep, turn.go)
-	// alongside AttacksThisTurn/BecameTargetThisTurn.
+	// LoyaltyAbilityActivated is CR 606.3's own once-per-turn marker: some
+	// ability naming Planeswalker$ (SpellAbility.isPwAbility's bare hasParam
+	// check) committed this turn -- an AddCounter<0/...> "+0" one included,
+	// since CR 606.3 restricts the whole loyalty ability. loyaltyActivations
+	// is Java's Card.planeswalkerAbilityActivated count behind it, and
+	// loyaltyLimitUsed its planeswalkerActivationLimitUsed: the second
+	// activation was made under a Mode$ NumLoyaltyAct Twice$ line
+	// (loyaltyActivationAllowed, staticability.go). All three reset every
+	// cleanup (cleanupStep, turn.go) and on a zone change.
 	LoyaltyAbilityActivated bool
+	loyaltyActivations      int
+	loyaltyLimitUsed        bool
 
 	// activations counts how often each of the card's A: lines was
 	// activated: Card.numberTurnActivations/numberGameActivations

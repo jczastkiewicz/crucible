@@ -86,6 +86,7 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		if n < 0 {
 			return xAnnounced{}, false
 		}
+		xMana := n * countX
 		if mask := g.xColor; mask != 0 {
 			// SpellAbility.getXColor (SpellAbility.java:2563-2576): each X unit is
 			// paid with mana of the named colors, a hybrid of them when several
@@ -106,8 +107,14 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 			// (CostAdjustment reduces the whole generic part once X is set).
 			absorbed := min(g.xReduce, n*countX)
 			generic += n*countX - absorbed
+			xMana -= absorbed
 		}
 		g.xReduce = 0
+		// Trinisphere's floor counts the announced X (CR 601.2f).
+		if g.xSetTo > 0 {
+			generic += max(g.xSetTo-cost.CMC()-xMana, 0)
+			g.xSetTo = 0
+		}
 		x = xAnnounced{value: n, announced: true}
 	}
 

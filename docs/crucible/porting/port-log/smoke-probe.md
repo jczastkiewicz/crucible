@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,655 |
-| refused      |      6 |
+| plays        | 33,656 |
+| refused      |      5 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -73,7 +73,6 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `"_": as-it-enters replacement ReplaceWith$ PutCounter not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
 | 1 | `MakeCard: Booster$ not resolvable` |
 | 1 | `Dig: DigNum$ not resolvable` |

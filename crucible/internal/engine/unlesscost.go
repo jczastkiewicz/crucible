@@ -33,6 +33,9 @@ type unlessCost struct {
 	// "CARDNAME" for the source itself.
 	lifeN, discardN, sacN int
 	sacSpec               string
+	// sacAll is Sac<All/Type> (CostSacrifice's "All" amount): every permanent
+	// of the type the payer controls, no choice, always payable (Soulblast).
+	sacAll bool
 	// discardHand is Discard<N/Hand>: the whole hand, always payable.
 	discardHand bool
 	// energyN is PayEnergy<N>; mandatory is the Mandatory token, which makes
@@ -228,6 +231,9 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 		case p.Name == "Forage" && !uc.forage:
 			uc.forage = true
 			continue
+		case p.Name == "Sac" && p.Field(0) == "All" && p.Field(1) != "" && uc.sacN == 0 && !uc.sacAll:
+			uc.sacAll, uc.sacSpec = true, p.Field(1)
+			continue
 		case p.Name == "Discard" && p.Field(1) == "Hand":
 			// CostDiscard's "Hand" type discards the whole hand whatever the
 			// amount (Vaultguard Trooper writes Discard<0/Hand>).
@@ -420,7 +426,7 @@ func (uc unlessCost) withTriggered(g *Game, a *Ability) (unlessCost, error) {
 // phased out, Card.canBeSacrificedBy), else pid's permanents matching the
 // valid string.
 func (g *Game) unlessSacCandidates(pid PlayerID, source CardID, uc unlessCost) []CardID {
-	if uc.sacN == 0 {
+	if uc.sacN == 0 && !uc.sacAll {
 		return nil
 	}
 	if uc.sacSpec == "CARDNAME" || uc.sacSpec == "NICKNAME" {
@@ -876,8 +882,12 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		// whole hand, no choice, and an empty hand pays it too.
 		discardCards(g, controller, slices.Clone(g.Zone(Hand, pid).Cards()), pid)
 	}
-	if uc.sacN > 0 {
-		sacrificed := sacrificeCardsFor(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN), false)
+	if uc.sacN > 0 || uc.sacAll {
+		picks := candidates
+		if !uc.sacAll {
+			picks = controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN)
+		}
+		sacrificed := sacrificeCardsFor(g, controller, a, picks, false)
 		if rec != nil {
 			rec.sacrificed = append(rec.sacrificed, sacrificed...)
 			rec.sacrificedMoved = append(rec.sacrificedMoved, sacrificed...)

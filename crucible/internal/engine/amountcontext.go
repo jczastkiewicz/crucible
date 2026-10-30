@@ -31,7 +31,7 @@ var contextHeads = map[string]bool{
 	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredCardLKI": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
 	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "Discarded": true, "Tapped": true,
 	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggeredExploited": true,
-	"TriggeredDevoured": true, "CardTriggeredTarget": true,
+	"TriggeredDevoured": true, "CardTriggeredTarget": true, "AllTargeted": true,
 }
 
 // listHeadCards is the card list an amount head names, in calculateAmount's
@@ -157,6 +157,16 @@ func (g *Game) contextCards(source CardID, head string) ([]*Card, bool) {
 			return nil, false
 		}
 		return g.targetedCards(a), true
+	case "AllTargeted":
+		// AbilityUtils.java:677-687: findTargetedCards over the root and every
+		// linked part (Urgent Necropsy's four "up to one target" links).
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return nil, false
+		}
+		all := *a
+		all.Targets = allTargetsOf(*a)
+		return g.targetedCards(&all), true
 	default:
 		var ok bool
 		if ids, ok = g.abilityListIDs(source, head); !ok {

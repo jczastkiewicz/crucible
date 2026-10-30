@@ -6,6 +6,7 @@
 package engine
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -84,6 +85,11 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 			n = controller.ChoosePayX(g, decider, cost)
 		}
 		if n < 0 {
+			return xAnnounced{}, false
+		}
+		if n < g.castXMin {
+			// CostPartMana.getXMin: X can't be below the floor.
+			g.recordPendingError(fmt.Errorf("engine: X %d is below the cost's XMin%d", n, g.castXMin))
 			return xAnnounced{}, false
 		}
 		xMana := n * countX

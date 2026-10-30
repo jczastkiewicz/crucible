@@ -118,6 +118,10 @@ type Game struct {
 	// the cost being paid (Trinisphere on an X spell): costStatics sets it,
 	// payManaCostX raises the generic mana to it once X is known. 0 for none.
 	xSetTo int
+	// castXMin is the XMin<n> floor of the spell being cast's Cost$
+	// (spellAdditionalCost): an announced X below it refuses the cast. 0 for
+	// none.
+	castXMin int
 	// maxDistinctSources is MagicStack.maxDistinctSources: the most spells
 	// plus distinct non-spell sources the stack held after any push this turn
 	// (Count$MaxDistinctOnStack), reset when a turn's cleanup begins.

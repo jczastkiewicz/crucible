@@ -8,6 +8,7 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -616,7 +617,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	g.castPending = card
 	g.holdingCastExits = true
 	defer func() {
-		g.castPending, g.preX, g.hasPreX = NoCard, 0, false
+		g.castPending, g.preX, g.hasPreX, g.castXMin = NoCard, 0, false, 0
 		g.castTargets, g.castTargetsFor = nil, NoCard
 		// A cast that went on the stack released the hold (castExitMatches).
 		// One that failed after a cost part already fired a trigger (a
@@ -644,6 +645,14 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	if opts.flashNeedsInfo && (!g.announceX(pid, c, controller, opts) ||
 		!g.flashDecided(pid, card, opts, Ability{Source: card, Controller: pid, spell: true})) {
 		return false
+	}
+	// A permanent spell whose Cost$ names X past its mana (Torgaar's
+	// Sac<X/Creature>): X is announced before the cost is read
+	// (PlaySpellAbility.announceValuesLikeX), as the instant path does.
+	if line := firstSpellAbility(c); line != nil && !g.hasPreX {
+		if text, has := line.Param("Cost"); has && costNamesX(text) && !g.announceXFor(pid, c, controller, opts, line) {
+			return false
+		}
 	}
 	extra, hasExtra, ok := g.castExtraCost(pid, c, firstSpellAbility(c), opts)
 	if !ok || !g.optionalPartsPayable(pid, card, opts.optional) {
@@ -1139,13 +1148,59 @@ func (g *Game) spellAdditionalCost(pid PlayerID, c *Card, line *compile.Ability)
 	if !hasCost {
 		return unlessCost{}, false, true
 	}
-	uc, parsed := parseUnlessCostX(costText, g.preX, g.hasPreX)
-	if !parsed || !g.unlessPayable(pid, c.ID, uc) || (uc.hasMana && !uc.mana.Equal(c.Def.Faces[0].ManaCost)) {
+	// XMin<n> (Welcome the Darkness's "X can't be 0"): CostPartMana's floor on
+	// the announced X, held until the mana is paid (payManaCostX).
+	g.castXMin, costText = splitXMin(costText)
+	x, hasX := g.preX, g.hasPreX
+	if !hasX && costNamesX(costText) && !xIsPaid(c) {
+		// An X past the mana that is not announced (Firestorm's
+		// TargetedObjects$Amount, Phyrexian Purge's three life per target):
+		// CostPart.getAbilityAmount reads the SVar once the targets are
+		// chosen, which they are by now (castTargets).
+		x, hasX = g.spellCostX(pid, c)
+	}
+	uc, parsed := parseUnlessCostX(costText, x, hasX)
+	if !parsed {
+		// A shape this port cannot pay: the cast is refused, and why is kept
+		// (GO-7), never cast free of the cost.
+		g.recordPendingError(fmt.Errorf("engine: %s: spell Cost$ %q not resolvable yet", c.Def.Name, costText))
+		return unlessCost{}, false, false
+	}
+	if !g.unlessPayable(pid, c.ID, uc) || (uc.hasMana && !uc.mana.Equal(c.Def.Faces[0].ManaCost)) {
 		return unlessCost{}, false, false
 	}
 	// A line whose Cost$ is only the printed mana (Aether Tide's "X U") adds
 	// no additional cost: a RaiseCost static's part is then the only one.
 	return uc, uc.hasParts() || uc.waterbendN > 0, true
+}
+
+// splitXMin takes an XMin<n> token out of a Cost$ text: the floor and the
+// text without it. A token whose n is not a number is left in the text, which
+// the cost parser then refuses.
+func splitXMin(text string) (int, string) {
+	fields := strings.Fields(text)
+	for i, f := range fields {
+		rest, ok := strings.CutPrefix(f, "XMin")
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(rest)
+		if err != nil {
+			return 0, text
+		}
+		return n, strings.Join(append(fields[:i:i], fields[i+1:]...), " ")
+	}
+	return 0, text
+}
+
+// spellCostX is the card's SVar X read for the spell being cast, against the
+// targets just chosen (costModAmountFor's context); false when it does not
+// resolve, which leaves the X part unread and the cast refused.
+func (g *Game) spellCostX(pid PlayerID, c *Card) (int, bool) {
+	saved := g.resolving
+	g.resolving = &Ability{Source: c.ID, Controller: pid, Targets: g.castTargets, spell: true}
+	defer func() { g.resolving = saved }()
+	return resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, "X")
 }
 
 // castExtraCost is the additional cost casting c under opts pays beyond its

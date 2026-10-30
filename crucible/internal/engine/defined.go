@@ -781,6 +781,9 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 		if refs.triggered.originalHost != NoCard {
 			return []CardID{refs.triggered.originalHost}, nil
 		}
+		if host.IsEffect && host.effectOrigin != NoCard {
+			return []CardID{host.effectOrigin}, nil
+		}
 		return []CardID{host.ID}, nil
 	case "Self", "CorrectedSelf":
 		// CorrectedSelf is game.getCardState(host) (AbilityUtils.java:84-85): the

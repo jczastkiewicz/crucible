@@ -226,6 +226,9 @@ type Card struct {
 	// active in the Command zone only, whatever zones their own script text
 	// names (EffectEffect.java's setActiveZone(EnumSet.of(ZoneType.Command))).
 	IsEffect bool
+	// effectOrigin, on an effect card, is the card whose ability made it (the
+	// first, through effects that regrant), SpellAbility.getOriginalHost.
+	effectOrigin CardID
 	// effectLife is when an effect card stops existing: its Duration$ and
 	// its ExileOnMoved$/ForgetOnMoved$ watch. Zero on every other card.
 	effectLife effectLifetime

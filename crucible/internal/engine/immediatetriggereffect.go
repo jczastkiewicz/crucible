@@ -5,6 +5,8 @@ package engine
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // immediateTriggerEffect is ImmediateTriggerEffect.java: a reflexive
@@ -39,6 +41,13 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 	execs := additionalAbilities(a.Params, "Execute")
 	if len(execs) == 0 {
 		return fmt.Errorf("engine: ImmediateTrigger: no Execute$")
+	}
+	if execs[0].Ability.Name == compile.BackRefName {
+		resolved, ok := g.resolveBackRef(source, execs[0].SVar)
+		if !ok {
+			return fmt.Errorf("engine: ImmediateTrigger: Execute$ %s is not on the chain's card", execs[0].SVar)
+		}
+		execs[0].Ability = resolved
 	}
 	api, ok := APIByName(execs[0].Ability.Name)
 	if !ok {
@@ -96,5 +105,46 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 		})
 	}
 	g.pushTriggeredAbilities(controller, abilities)
+	return nil
+}
+
+// resolveBackRef is the compiled ability SVar named name on the card the
+// running chain belongs to: the effect card's origin (the card whose trait
+// started the chain, through regrants), else the host itself.
+func (g *Game) resolveBackRef(host *Card, name string) (*compile.Ability, bool) {
+	for _, c := range []*Card{host, g.Card(host.effectOrigin)} {
+		if c == nil || c.Def == nil {
+			continue
+		}
+		for fi := range c.Def.Faces {
+			f := &c.Def.Faces[fi]
+			var roots []*compile.Ability
+			roots = append(roots, f.Abilities...)
+			roots = append(roots, f.Triggers...)
+			roots = append(roots, f.Statics...)
+			roots = append(roots, f.Replacements...)
+			for _, r := range roots {
+				if found := findSVarAbility(r, name); found != nil {
+					return found, true
+				}
+			}
+		}
+	}
+	return nil, false
+}
+
+// findSVarAbility walks a's finite compiled tree for the ability defined in
+// SVar name; a back-reference stub ends a branch.
+func findSVarAbility(a *compile.Ability, name string) *compile.Ability {
+	if a.SVar == name && a.Name != compile.BackRefName {
+		return a
+	}
+	for _, s := range a.Subs {
+		if s.Ability != nil && s.Ability.Name != compile.BackRefName {
+			if found := findSVarAbility(s.Ability, name); found != nil {
+				return found
+			}
+		}
+	}
 	return nil
 }

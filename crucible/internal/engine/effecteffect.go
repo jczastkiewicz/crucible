@@ -218,6 +218,14 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			life.armed = g.ActivePlayer() == pid
 		}
 		eff.effectLife = life
+		// OriginalHost of the chain an effect card runs is the card whose
+		// trait started it, through effects that regrant (AbilityUtils.java:
+		// 86-90, the root ability's card state).
+		if src := g.Card(a.Source); src.IsEffect && src.effectOrigin != NoCard {
+			eff.effectOrigin = src.effectOrigin
+		} else {
+			eff.effectOrigin = a.Source
+		}
 		if hasParam(a, "Boon") {
 			eff.isBoon = true
 			eff.boons = boonTriggers(eff.Def)

@@ -731,6 +731,11 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 				if (isAnimateGrant(ability, p) || isEffectAbilityGrant(ability, p)) && c.regrants(err, name) {
 					continue
 				}
+				if c.backReference(ability, p, name, err) {
+					ability.Subs = append(ability.Subs, SubRef{Key: p.Key, SVar: name,
+						Ability: &Ability{Record: SubAbility, Name: BackRefName, SVar: name}})
+					continue
+				}
 				return nil, err
 			}
 			ability.Subs = append(ability.Subs, sub)
@@ -864,6 +869,22 @@ func isAnimateGrant(a *Ability, p vocab.Param) bool {
 // Animate grant that regrants itself, and refused by the engine when applied.
 func isEffectAbilityGrant(a *Ability, p vocab.Param) bool {
 	return strings.EqualFold(p.Key, "Abilities") && a.Name == "Effect"
+}
+
+// BackRefName is the Name of the stub an ImmediateTrigger's Execute$ becomes
+// when it names an SVar already open on its own chain (Discord, Lord of
+// Disharmony: MaybeRepeat re-runs ChooseName, which grants the chain MaybeRepeat
+// ends). A tree cannot hold the loop, so the stub names the SVar and the
+// engine finds the compiled ability by that name on the card the chain
+// belongs to when the trigger fires (PORT-2: nothing is re-parsed).
+const BackRefName = "BackRef"
+
+// backReference reports whether err is an ImmediateTrigger's Execute$ coming
+// straight back to an SVar open on the chain.
+func (c *faceCompiler) backReference(ability *Ability, p vocab.Param, name string, err error) bool {
+	var cyc *cycleError
+	return ability.Name == "ImmediateTrigger" && strings.EqualFold(p.Key, "Execute") &&
+		errors.As(err, &cyc) && cyc.name == name
 }
 
 // regrants reports whether err, from following grant, is a granted trigger

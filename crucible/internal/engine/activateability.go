@@ -223,7 +223,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// ability too, same as Mana -- never on the stack, ActivateManaAbility's
 	// job, not this one's, even though the Produce walk it would need there
 	// isn't ported yet either.
-	if ability.Record != compile.Activated || ability.Name == "Mana" || ability.Name == "ManaReflected" {
+	// An ST$ line (compile.Static in a card's abilities, StaticAbilityApiBased)
+	// is a spell ability its controller activates like an AB$ one, from the
+	// zone it names (Discord's DiscordCast, Command).
+	if (ability.Record != compile.Activated && ability.Record != compile.Static) || ability.Name == "Mana" || ability.Name == "ManaReflected" {
 		return false
 	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")

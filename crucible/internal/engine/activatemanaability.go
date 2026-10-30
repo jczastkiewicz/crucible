@@ -16,6 +16,7 @@
 package engine
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -297,6 +298,12 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	shape, ok := parsed.ActivationShape()
 	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 || shape.SelfDiscard ||
 		shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0 {
+		// A cost this mana ability path does not pay (a storage land's
+		// SubCounter<X/...>, Lion's Eye Diamond's discarded hand): refused with
+		// why kept (GO-7), never activated for free.
+		if c.Def != nil {
+			g.recordPendingError(fmt.Errorf("engine: %s: mana ability Cost$ %q not resolvable yet", c.Def.Name, costText))
+		}
 		return false
 	}
 	// CostPutCounter.canPay: the source must be able to receive the counters

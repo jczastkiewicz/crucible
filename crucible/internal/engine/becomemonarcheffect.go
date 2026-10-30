@@ -328,7 +328,7 @@ func (g *Game) nextInGameAfter(p PlayerID) PlayerID {
 		}
 	}
 	step := 1
-	if g.turnOrderReversed {
+	if g.turnOrderIsReversed() {
 		step = len(ids) - 1
 	}
 	for i := 1; i <= len(ids); i++ {

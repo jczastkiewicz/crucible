@@ -112,8 +112,8 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 		}
 		g.extraPhases[g.activePhase] = st[:len(st)-1]
 	} else {
-		next = PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
-		if next == Untap {
+		next = nextPhaseOf(g.activePhase, g.phasesReversed(g.activePlayer))
+		if g.activePhase == Cleanup {
 			g.turn++
 			g.previousPlayer = g.activePlayer
 			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
@@ -295,7 +295,7 @@ type extraTurn struct {
 // already over; returning p unchanged rather than panicking is safe because
 // nothing calls AdvancePhase without checking Over first once that happens.
 func (g *Game) nextPlayerAfter(p PlayerID) PlayerID {
-	return g.nextPlayerInDirection(p, g.turnOrderReversed)
+	return g.nextPlayerInDirection(p, g.turnOrderIsReversed())
 }
 
 // nextPlayerInDirection is Game.getNextPlayerAfter(p, direction): the next

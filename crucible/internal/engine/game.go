@@ -814,7 +814,7 @@ func (g *Game) Players() []PlayerID {
 // (defined.go).
 func (g *Game) playersInTurnOrder() []PlayerID {
 	out := g.Players()
-	if !g.turnOrderReversed {
+	if !g.turnOrderIsReversed() {
 		return out
 	}
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {

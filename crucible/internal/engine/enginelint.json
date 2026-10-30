@@ -24,7 +24,7 @@
     "event": ["event.go"],
     "control": ["control.go"],
     "action": ["action.go"],
-    "turn": ["turn.go"],
+    "turn": ["turn.go", "turnreversed.go"],
     "mulligan": ["mulligan.go"],
     "match": ["match.go"],
     "stack": ["stack.go"],

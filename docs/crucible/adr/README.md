@@ -61,10 +61,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0048](0048-face-down-cast-and-command-zone-hosts.md)       | Face-down cast turns the card face down first; Mask flag  | Accepted                  |
 | [0049](0049-booster-data-compiled-from-edition-files.md)    | Booster templates compiled from edition files             | Proposed                  |
 | [0050](0050-specialize-is-a-persistent-face-swap.md)        | Specialize is a persistent face swap on the card          | Accepted                  |
+| [0051](0051-commander-is-a-designation-on-the-player.md)    | A commander is a designation on the player, no format     | Proposed                  |
 
 ## Numbering
 
-No gap and no missing number: 0001-0050, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0051, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

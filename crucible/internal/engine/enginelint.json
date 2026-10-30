@@ -338,6 +338,8 @@
     "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict", "amount"],
     "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone", "valid"],
     "manaability": [
+      "chosencosts",
+      "activategeneral",
       "triggerhooks",
       "manarestrict",
       "id",

@@ -907,7 +907,10 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.sacN > 0 || uc.sacAll {
 		picks := candidates
-		if !uc.sacAll {
+		// CARDNAME is the source itself: HumanCostDecision.visit(CostSacrifice)
+		// returns it without asking.
+		self := uc.sacSpec == "CARDNAME" || uc.sacSpec == "NICKNAME"
+		if !uc.sacAll && !self {
 			picks = controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN)
 		}
 		sacrificed := sacrificeCardsFor(g, controller, a, picks, false)

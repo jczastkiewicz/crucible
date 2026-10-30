@@ -58,6 +58,11 @@ var manaAbilityAllowedParams = map[string]bool{
 	"ab": true, "cost": true, "spelldescription": true, "produced": true, "amount": true, "subability": true,
 	"planeswalker": true, "ultimate": true, "activationzone": true, "activationphases": true,
 	"playerturn": true, "opponentturn": true, "activationfirstcombat": true, "activationafterblockers": true,
+	// AI hints and a description: neither changes what the ability does.
+	"ailogic": true, "ainorecursivecheck": true, "precostdesc": true,
+	// SpellAbilityRestriction's instant-speed grant: a mana ability has no
+	// stack timing to restrict.
+	"instantspeed": true,
 }
 
 // manaAbilityParamsResolvable reports whether a is nothing but the params
@@ -296,15 +301,18 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
-	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 || shape.SelfDiscard ||
-		shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0 {
-		// A cost this mana ability path does not pay (a storage land's
-		// SubCounter<X/...>, Lion's Eye Diamond's discarded hand): refused with
-		// why kept (GO-7), never activated for free.
-		if c.Def != nil {
+	general := !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 || shape.SelfDiscard ||
+		shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0
+	if general {
+		// A cost the shape reader does not cover (a storage land's
+		// SubCounter<X/...>, Lion's Eye Diamond's discarded hand, Mana
+		// Confluence's life): paid by the unless-cost reader, with only the
+		// {T} and {Q} symbols kept here (manaAbilityGeneral).
+		if fromGraveyard {
 			g.recordPendingError(fmt.Errorf("engine: %s: mana ability Cost$ %q not resolvable yet", c.Def.Name, costText))
+			return false
 		}
-		return false
+		shape = cost.ActivationShape{Tap: parsed.Tap}
 	}
 	// CostPutCounter.canPay: the source must be able to receive the counters
 	// (Card.canReceiveCounters: not phased out, no Mode$ CantPutCounter).
@@ -329,6 +337,9 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		return false
 	}
 	if shape.Tap && (c.Tapped || c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
+		return false
+	}
+	if general && parsed.Untap && (!c.Tapped || c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
 		return false
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
@@ -390,20 +401,38 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			return false
 		}
 	}
+	// The general path announces X before the amount is read: a storage
+	// land's Amount$ X is the counters its cost removes (Count$xPaid).
+	act := Ability{
+		API: APIMana, Source: card, Controller: pid, Params: ability,
+		Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
+	}
+	var uc unlessCost
+	if general {
+		if uc, ok = g.manaAbilityGeneralCost(controller, &act, c.Def.Name, costText); !ok {
+			return false
+		}
+	}
 	amount := 1
 	if amountText, hasAmount := ability.Param("Amount"); hasAmount {
-		amount, ok = resolveNamedAmount(g, c.abilityAmounts(ability), c, amountText)
+		prevX := g.xctx
+		g.xctx = xContext{value: act.xManaCostPaid, has: act.hasXManaCostPaid, source: card}
+		amount, ok = resolveNamedAmount(g, act.Amounts, c, amountText)
+		g.xctx = prevX
 		if !ok || amount <= 0 {
 			return false
 		}
 	}
-	costMana, err := mana.Parse(strings.Join(parsed.Mana, " "))
-	if err != nil {
-		return false
-	}
-	chosen, ok := g.chooseCostCards(controller, pid, card, shape)
-	if !ok {
-		return false
+	var costMana mana.Cost
+	var chosen chosenCosts
+	if !general {
+		var err error
+		if costMana, err = mana.Parse(strings.Join(parsed.Mana, " ")); err != nil {
+			return false
+		}
+		if chosen, ok = g.chooseCostCards(controller, pid, card, shape); !ok {
+			return false
+		}
 	}
 	// A SubAbility$ link's targets are chosen with the ability, before any
 	// cost is paid (CR 602.2b, PlaySpellAbility.java:675-683).
@@ -414,54 +443,60 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	// The source as it is before its costs move it (ADR-0042).
 	src := g.manaSourceOf(card)
 	before := *c
-	restore := g.payingFor(&payContext{item: &Ability{API: APIMana, Source: card, Controller: pid, activated: true}, cost: costMana})
-	paid := g.PayManaCost(pid, costMana, controller)
-	restore()
-	if !paid {
-		return false
-	}
-	if shape.Tap {
-		c.Tapped = true
-		g.checkTapsTriggers(controller, card, pid, false)
-		g.checkTapAllTriggers(controller, []CardID{card})
-	}
-	if shape.SelfSac {
-		sacrificeCardsFor(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card}, false)
-	}
-	if shape.SelfExile {
-		exileCards(g, controller, []CardID{card})
-	}
-	g.payCostCards(controller, pid, chosen, &Ability{Source: card, Controller: pid, Params: ability})
-	if shape.SelfExert {
-		c.Exerted = true
-		g.checkExertedTriggers(controller, card)
-	}
-	if shape.PayEnergyN > 0 {
-		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
-		emitCounterChanged(g, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
-	}
-	if shape.TapTypeN > 0 {
-		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
-		tapChosenPermanents(g, controller, chosen)
-	}
-	if shape.AddCounterType != "" {
-		ct := CounterType(strings.ToUpper(shape.AddCounterType))
-		c.Counters.Add(ct, shape.AddCounterN)
-		emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
-	}
-	if shape.SubCounterType != "" {
-		ct := CounterType(strings.ToUpper(shape.SubCounterType))
-		c.Counters.Add(ct, -shape.SubCounterN)
-		emitCounterChanged(g, card, CardEntity(card), ct, -shape.SubCounterN)
-	}
-	if shape.SelfExileFromGrave {
-		exileFromGraveyard(g, controller, card)
-	}
-	if shape.SelfExileFromHand {
-		exileFromHand(g, card)
-	}
-	if shape.CollectEvidenceN > 0 {
-		g.collectEvidence(controller, pid, card, shape.CollectEvidenceN)
+	if general {
+		if !g.payManaAbilityGeneral(controller, &act, pid, uc, parsed) {
+			return false
+		}
+	} else {
+		restore := g.payingFor(&payContext{item: &Ability{API: APIMana, Source: card, Controller: pid, activated: true}, cost: costMana})
+		paid := g.PayManaCost(pid, costMana, controller)
+		restore()
+		if !paid {
+			return false
+		}
+		if shape.Tap {
+			c.Tapped = true
+			g.checkTapsTriggers(controller, card, pid, false)
+			g.checkTapAllTriggers(controller, []CardID{card})
+		}
+		if shape.SelfSac {
+			sacrificeCardsFor(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card}, false)
+		}
+		if shape.SelfExile {
+			exileCards(g, controller, []CardID{card})
+		}
+		g.payCostCards(controller, pid, chosen, &Ability{Source: card, Controller: pid, Params: ability})
+		if shape.SelfExert {
+			c.Exerted = true
+			g.checkExertedTriggers(controller, card)
+		}
+		if shape.PayEnergyN > 0 {
+			g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
+			emitCounterChanged(g, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
+		}
+		if shape.TapTypeN > 0 {
+			chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
+			tapChosenPermanents(g, controller, chosen)
+		}
+		if shape.AddCounterType != "" {
+			ct := CounterType(strings.ToUpper(shape.AddCounterType))
+			c.Counters.Add(ct, shape.AddCounterN)
+			emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
+		}
+		if shape.SubCounterType != "" {
+			ct := CounterType(strings.ToUpper(shape.SubCounterType))
+			c.Counters.Add(ct, -shape.SubCounterN)
+			emitCounterChanged(g, card, CardEntity(card), ct, -shape.SubCounterN)
+		}
+		if shape.SelfExileFromGrave {
+			exileFromGraveyard(g, controller, card)
+		}
+		if shape.SelfExileFromHand {
+			exileFromHand(g, card)
+		}
+		if shape.CollectEvidenceN > 0 {
+			g.collectEvidence(controller, pid, card, shape.CollectEvidenceN)
+		}
 	}
 	if isLoyaltyAbility {
 		g.noteLoyaltyActivation(c)
@@ -524,4 +559,55 @@ func (g *Game) resolveManaSubAbility(controller PlayerController, parent *Abilit
 	if err := g.registry.resolveSubAbility(g, parent, controller); err != nil {
 		g.recordPendingError(err)
 	}
+}
+
+// manaAbilityGeneralCost reads a mana ability's Cost$ the shape reader refused,
+// without its {T} and {Q} symbols, and announces its X into act. ok is false
+// when the cost cannot be read (a pending error, GO-7), the player declines the
+// X, or the parts cannot be paid.
+func (g *Game) manaAbilityGeneralCost(controller PlayerController, act *Ability, name, costText string) (uc unlessCost, ok bool) {
+	rest := withoutTapSymbols(costText)
+	if rest != "" {
+		var announce bool
+		var err error
+		if uc, announce, err = g.triggeredCostShape(act, rest, controller); err != nil {
+			g.recordPendingError(fmt.Errorf("engine: %s: mana ability Cost$ %q not resolvable yet", name, costText))
+			return unlessCost{}, false
+		}
+		if announce {
+			if uc, ok = g.announceTriggeredX(controller, act, rest, uc); !ok {
+				return unlessCost{}, false
+			}
+		}
+	}
+	if !g.unlessPayable(act.Controller, act.Source, uc) {
+		return unlessCost{}, false
+	}
+	return uc, true
+}
+
+// payManaAbilityGeneral pays a mana ability's general cost: the {T} or {Q}
+// symbol of the host, then the unless-cost parts (CostPayment.payCost).
+func (g *Game) payManaAbilityGeneral(controller PlayerController, act *Ability, pid PlayerID, uc unlessCost, parsed cost.Cost) bool {
+	c := g.Card(act.Source)
+	wasTapped := c.Tapped
+	if parsed.Tap {
+		c.Tapped = true
+	}
+	if parsed.Untap {
+		c.Tapped = false
+	}
+	if !g.payActivatedUnlessCost(controller, act, pid, uc) {
+		g.Card(act.Source).Tapped = wasTapped
+		return false
+	}
+	act.paid.recorded = true
+	if parsed.Tap {
+		g.checkTapsTriggers(controller, act.Source, pid, false)
+		g.checkTapAllTriggers(controller, []CardID{act.Source})
+	}
+	if parsed.Untap {
+		g.checkUntapsTriggers(controller, act.Source)
+	}
+	return true
 }

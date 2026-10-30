@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,654 |
-| refused      |      7 |
+| plays        | 33,655 |
+| refused      |      6 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -75,10 +75,10 @@ Largest refusal causes over the full corpus (cards blocked):
 | ---: | --- |
 | 1 | `"_": as-it-enters replacement ReplaceWith$ PutCounter not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
-| 1 | `Learn: Learn replacement effects not resolvable` |
 | 1 | `MakeCard: Booster$ not resolvable` |
 | 1 | `Dig: DigNum$ not resolvable` |
 | 1 | `Effect: Abilities$ grants an ability that regrants itself, not resolvable` |
+| 1 | `Mode$ MustAttack: ValidPlayer$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

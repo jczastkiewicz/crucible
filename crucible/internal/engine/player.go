@@ -296,6 +296,10 @@ type Player struct {
 	// (Player.initiativeEffect), reused the way monarchEffect is
 	// (takeinitiativeeffect.go).
 	initiativeEffect CardID
+	// radiationCard is this player's "Radiation" effect card
+	// (Player.radiationEffect), in the Command zone while they have a rad
+	// counter (internalradiationeffect.go).
+	radiationCard CardID
 	// theRing is this player's "The Ring" effect card (Player.theRing),
 	// NoCard until the Ring first tempts them; it stays in the Command zone
 	// for the rest of the game (ringtemptsyoueffect.go).

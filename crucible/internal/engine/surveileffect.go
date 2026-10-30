@@ -21,10 +21,13 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined amount condition control zone
+//enginelint:allow id card game player ability defined amount condition control zone valid
 
 import (
 	"fmt"
+	"strconv"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
@@ -72,10 +75,8 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 
 	for _, pid := range players {
 		lib := g.Zone(Library, pid).Cards()
-		n := num
-		if n > len(lib) {
-			n = len(lib)
-		}
+		// Player.surveil: num += StaticAbilitySurveilNum.surveilNumMod.
+		n := min(num+g.surveilNumMod(controller, pid), len(lib))
 		// An empty library still counts as a surveil: Player.surveil skips only
 		// the arranging (Player.java:1049) and runs the trigger and the
 		// per-turn count after it (:1083-1090).
@@ -104,4 +105,34 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		g.Player(pid).surveilThisTurn++
 	}
 	return nil
+}
+
+// surveilNumParams are the params a Mode$ SurveilNum line may carry that
+// surveilNumMod reads.
+var surveilNumParams = map[string]bool{"num": true, "validplayer": true, "optional": true}
+
+// surveilNumMod is StaticAbilitySurveilNum.surveilNumMod: the sum of the Num$
+// of every live Mode$ SurveilNum line whose ValidPlayer$ admits pid (Enhanced
+// Surveillance), an Optional$ one only when pid accepts it. Java asks
+// confirmStaticApplication; ConfirmEffect stands for it here.
+func (g *Game) surveilNumMod(controller PlayerController, pid PlayerID) int {
+	mod := 0
+	g.anyStatic("SurveilNum", surveilNumParams, func(h *Card, s *compile.Ability) bool {
+		if spec, ok := s.Param("ValidPlayer"); ok {
+			if matched, known := matchesPlayerSpec(g, pid, h.Controller(), h.ID, spec); !known || !matched {
+				return false
+			}
+		}
+		raw, _ := s.Param("Num")
+		n, err := strconv.Atoi(raw)
+		if err != nil {
+			return false
+		}
+		if _, optional := s.Param("Optional"); optional && !controller.ConfirmEffect(g, pid, h.ID) {
+			return false
+		}
+		mod += n
+		return false
+	})
+	return mod
 }

@@ -636,7 +636,8 @@
       "valid",
       "parts",
       "playerstate",
-      "statictrigger"
+      "statictrigger",
+      "event"
     ],
     "targeting": [
       "id",

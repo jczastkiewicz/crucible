@@ -562,14 +562,14 @@ func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source Card
 		return true
 	}
 	for _, line := range target.KeywordLines() {
-		if keyword.Parse(line).Name == "Shroud" {
+		if keyword.Parse(line).Name == "Shroud" && !g.hexproofIgnored("IgnoreShroud", activator, CardEntity(target.ID)) {
 			return true
 		}
 	}
 	if matched, _ := matchesPlayerSpec(g, activator, target.Controller(), target.ID, "Opponent"); !matched {
 		return false
 	}
-	if g.hexproofIgnored(activator, CardEntity(target.ID)) {
+	if g.hexproofIgnored("IgnoreHexproof", activator, CardEntity(target.ID)) {
 		return false
 	}
 	for _, line := range target.KeywordLines() {
@@ -638,14 +638,14 @@ func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source
 		return true
 	}
 	for _, line := range p.KeywordLines() {
-		if keyword.Parse(line).Name == "Shroud" {
+		if keyword.Parse(line).Name == "Shroud" && !g.hexproofIgnored("IgnoreShroud", activator, PlayerEntity(target)) {
 			return true
 		}
 	}
 	if matched, _ := matchesPlayerSpec(g, activator, target, source, "Opponent"); !matched {
 		return false
 	}
-	if g.hexproofIgnored(activator, PlayerEntity(target)) {
+	if g.hexproofIgnored("IgnoreHexproof", activator, PlayerEntity(target)) {
 		return false
 	}
 	for _, line := range p.KeywordLines() {
@@ -718,13 +718,8 @@ func hexproofValidSource(details string) (validSource string, ok bool) {
 // multi-alternative valid string this port already passes through whole
 // (trigger.go's ValidCard$ Cleric.Other,Card.Self is the same shape).
 //
-// Not ported from applyCantBlockByAbility: the "Dragon Hunter" reach
-// exception (a ValidBlocker alternative containing "withoutReach" is undone
-// if a separate CanBlockIfReach static grants that specific blocker
-// effective reach against this specific attacker) -- one real corpus card
-// needs it; and the Landwalk ignore-check (StaticAbilityIgnoreLandwalk.java) --
-// zero real corpus S:Mode$ IgnoreLandwalk lines exist, so nothing here can
-// ever need to consult it.
+// The Landwalk ignore-check (StaticAbilityIgnoreLandwalk.java) is
+// landwalkIgnored, read where the landwalk restriction is built.
 func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, hasValidBlocker bool,
 	validDefender string, hasValidDefender bool, attacker, blocker CardID) bool {
 	if !Matches(g, g.Card(attacker), valid.Parse(validAttacker), host.Controller(), host.ID) {
@@ -738,6 +733,11 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 	// lets the blocker block as though it had shadow, lifting a "without
 	// shadow" restriction.
 	if hasValidBlocker && strings.Contains(validBlocker, "withoutShadow") && canBlockIfShadow(g, attacker, blocker) {
+		return false
+	}
+	// Dragon Hunter (:246): a Mode$ CanBlockIfReach static lets the blocker
+	// block as though it had reach, lifting a "without reach" restriction.
+	if hasValidBlocker && strings.Contains(validBlocker, "withoutReach") && g.canBlockIfReach(attacker, blocker) {
 		return false
 	}
 	if hasValidDefender && !matchesValidDefender(g, g.Card(blocker).Controller(), validDefender, host) {
@@ -1259,6 +1259,34 @@ func (g *Game) cantSacrifice(c *Card, effect bool, cause *Ability) bool {
 	}
 	return false
 }
+
+// cantDiscard is the negation of Player.canDiscardBy(cause, effect)
+// (StaticAbilityCantDiscard): a live Mode$ CantDiscard line whose ValidPlayer$
+// admits pid, whose ForCost$ (when present) names the other kind of discard,
+// and whose ValidCause$ admits cause (Tamiyo, Collector of Tales). No cause
+// means nothing stops the discard. Only the effect path asks: Tamiyo's line,
+// the one in the corpus, is ForCost$ False.
+func (g *Game) cantDiscard(pid PlayerID, cause *Ability, effect bool) bool {
+	if cause == nil {
+		return false
+	}
+	return g.anyStatic("CantDiscard", cantDiscardParams, func(h *Card, s *compile.Ability) bool {
+		if spec, ok := s.Param("ValidPlayer"); ok {
+			if matched, known := matchesPlayerSpec(g, pid, h.Controller(), h.ID, spec); !known || !matched {
+				return false
+			}
+		}
+		if forCost, ok := s.Param("ForCost"); ok && strings.EqualFold(forCost, "True") == effect {
+			return false
+		}
+		spec, ok := s.Param("ValidCause")
+		return !ok || causeMatches(spec, causeNone, cause.Controller, h.Controller())
+	})
+}
+
+// cantDiscardParams are the params a Mode$ CantDiscard line may carry that
+// cantDiscard reads.
+var cantDiscardParams = map[string]bool{"validplayer": true, "forcost": true, "validcause": true}
 
 // cantDraw is Player.canDraw, cantDrawAmount for one card.
 func (g *Game) cantDraw(pid PlayerID) bool { return g.cantDrawAmount(pid, 1) }
@@ -1838,19 +1866,20 @@ func (g *Game) entityMatchesAny(h *Card, target EntityID, spec string) bool {
 	return false
 }
 
-// ignoreHexproofParams are the params a Mode$ IgnoreHexproof line may carry
-// that hexproofIgnored reads.
+// ignoreHexproofParams are the params a Mode$ IgnoreHexproof or IgnoreShroud
+// line may carry that hexproofIgnored reads.
 var ignoreHexproofParams = map[string]bool{
 	"mode": true, "activator": true, "validentity": true, "description": true, "secondary": true,
 	"effectzone": true, "condition": true,
 }
 
-// hexproofIgnored is StaticAbilityIgnoreHexproofShroud for hexproof
-// (StaticAbilityIgnoreHexproofShroud.java:13-43, 3 real lines;
-// StaticAbilityCantTarget.java:88): activator may target target as though it
-// lacked hexproof when a live IgnoreHexproof line's Activator$ admits the
-// activator and its ValidEntity$ the target (each absent matching all).
-func (g *Game) hexproofIgnored(activator PlayerID, target EntityID) bool {
+// hexproofIgnored is StaticAbilityIgnoreHexproofShroud
+// (StaticAbilityIgnoreHexproofShroud.java:13-43; StaticAbilityCantTarget
+// .java:88): activator may target target as though it lacked hexproof (mode
+// IgnoreHexproof, 3 real lines) or shroud (IgnoreShroud, Autumn Willow) when a
+// live line of mode has an Activator$ admitting the activator and a
+// ValidEntity$ admitting the target (each absent matching all).
+func (g *Game) hexproofIgnored(mode string, activator PlayerID, target EntityID) bool {
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
@@ -1859,7 +1888,7 @@ func (g *Game) hexproofIgnored(activator PlayerID, target EntityID) bool {
 			}
 			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
-					if !strings.EqualFold(s.Name, "IgnoreHexproof") || !staticParamsKnown(s, ignoreHexproofParams) || !g.staticConditionsMet(h, s) {
+					if !strings.EqualFold(s.Name, mode) || !staticParamsKnown(s, ignoreHexproofParams) || !g.staticConditionsMet(h, s) {
 						continue
 					}
 					if spec, ok := s.Param("Activator"); ok {
@@ -1877,3 +1906,96 @@ func (g *Game) hexproofIgnored(activator PlayerID, target EntityID) bool {
 	}
 	return false
 }
+
+// staticConditionParams are the params every static line may carry that
+// staticConditionsMet reads, plus the display-only ones.
+var staticConditionParams = map[string]bool{
+	"mode": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+	"effectzone": true, "condition": true, "phases": true, "playerturn": true,
+	"ispresent": true, "presentcompare": true, "presentdefined": true, "presentzone": true, "presentplayer": true,
+	"ispresent2": true, "presentcompare2": true, "presentdefined2": true, "presentzone2": true, "presentplayer2": true,
+	"checksvar": true, "svarcompare": true, "checksecondsvar": true,
+}
+
+// anyStatic is the loop every StaticAbility<Mode> class runs over
+// STATIC_ABILITIES_SOURCE_ZONES: it reports whether some live line of mode
+// (its conditions met, staticConditionsMet) satisfies apply. A line naming a
+// param outside staticConditionParams and known is skipped, never guessed at
+// (GO-7). Battlefield and Command hosts are walked (traitHosts).
+func (g *Game) anyStatic(mode string, known map[string]bool, apply func(h *Card, s *compile.Ability) bool) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			if g.hostStatic(h, mode, known, apply) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hostStatic is anyStatic for the lines of one host.
+func (g *Game) hostStatic(h *Card, mode string, known map[string]bool, apply func(h *Card, s *compile.Ability) bool) bool {
+	for _, face := range h.traitFaces() {
+		for _, s := range face.Statics {
+			if !strings.EqualFold(s.Name, mode) || !g.staticConditionsMet(h, s) {
+				continue
+			}
+			readable := true
+			for _, p := range s.Params {
+				if k := strings.ToLower(p.Key); !staticConditionParams[k] && !known[k] {
+					readable = false
+					break
+				}
+			}
+			if readable && apply(h, s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// canBlockTapped is StaticAbilityCantAttackBlock.canBlockTapped (CombatUtil
+// .canBlock, :478): a live Mode$ BlockTapped line whose ValidCard$ admits c
+// lets the tapped creature block (Masako the Humorless).
+func (g *Game) canBlockTapped(c *Card) bool {
+	return g.anyStatic("BlockTapped", validCardParam, func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidCard")
+		return !ok || Matches(g, c, valid.Parse(spec), h.Controller(), h.ID)
+	})
+}
+
+// attackVigilance is Card.attackVigilance (PhaseHandler.java:561, :606):
+// attacking does not tap c. Java's Vigilance keyword is itself a Mode$
+// AttackVigilance static on the card; here the keyword is read directly
+// beside the static lines another card grants (Johan).
+func (g *Game) attackVigilance(c *Card) bool {
+	if c.HasKeyword("Vigilance") {
+		return true
+	}
+	return g.anyStatic("AttackVigilance", validCardParam, func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidCard")
+		return !ok || Matches(g, c, valid.Parse(spec), h.Controller(), h.ID)
+	})
+}
+
+// canBlockIfReach is StaticAbilityCantAttackBlock.canBlockIfReach
+// (:280-300): a live Mode$ CanBlockIfReach line whose ValidAttacker$ and
+// ValidBlocker$ (each absent matching all) admit the pair.
+func (g *Game) canBlockIfReach(attacker, blocker CardID) bool {
+	return g.anyStatic("CanBlockIfReach", map[string]bool{"validattacker": true, "validblocker": true},
+		func(h *Card, s *compile.Ability) bool {
+			if spec, ok := s.Param("ValidAttacker"); ok && !Matches(g, g.Card(attacker), valid.Parse(spec), h.Controller(), h.ID) {
+				return false
+			}
+			spec, ok := s.Param("ValidBlocker")
+			return !ok || Matches(g, g.Card(blocker), valid.Parse(spec), h.Controller(), h.ID)
+		})
+}
+
+// validCardParam is the one param a ValidCard$-only mode line reads.
+var validCardParam = map[string]bool{"validcard": true}

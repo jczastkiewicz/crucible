@@ -123,6 +123,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 // GameAction.java:1437-1438). The turn driver's CR 514.3a cleanup repeat
 // reads performed (beginStep, turn.go).
 func checkStateBasedActions(g *Game, controller PlayerController) (over, performed bool) {
+	g.syncRadiationEffects()
 	g.flushCounterRemoved(controller)
 	g.flushUnattached(controller)
 	// CR 704.3: the check repeats until a pass does nothing. GameAction.

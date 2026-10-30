@@ -73,3 +73,20 @@ func (g *Game) noteLifeLost(controller PlayerController, pid PlayerID, amount in
 	g.pushTriggeredAbilities(controller, matches)
 	g.checkLifeLostAllTriggers(controller, pid, amount)
 }
+
+// loseLife is Player.loseLife(lost, false, ...) outside damage: a static that
+// stops life loss stops it, an Event$ LifeReduced replacement may change it,
+// and a loss that survives fires LifeLost. Mana burn and the Radiation effect
+// card lose life this way.
+func (g *Game) loseLife(controller PlayerController, pid PlayerID, lost int, source CardID) {
+	if lost <= 0 || g.cantLoseLife(pid) {
+		return
+	}
+	lose := g.lifeReduced(controller, pid, lost, false)
+	if lose <= 0 {
+		return
+	}
+	g.Player(pid).Life -= lose
+	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(pid), Amount: -int32(lose)})
+	g.noteLifeLost(controller, pid, lose)
+}

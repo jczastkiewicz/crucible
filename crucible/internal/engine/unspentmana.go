@@ -84,21 +84,6 @@ func manaStaticReadable(s *compile.Ability) bool {
 	return true
 }
 
-// manaBurn is Player.loseLife(lost, false, true) for mana burn: a static that
-// stops life loss stops it, an Event$ LifeReduced replacement may change it.
-func (g *Game) manaBurn(controller PlayerController, pid PlayerID, lost int) {
-	if g.cantLoseLife(pid) {
-		return
-	}
-	lose := g.lifeReduced(controller, pid, lost, false)
-	if lose <= 0 {
-		return
-	}
-	g.Player(pid).Life -= lose
-	g.sink.Emit(Event{Kind: LifeChanged, Source: NoCard, Target: PlayerEntity(pid), Amount: -int32(lose)})
-	g.noteLifeLost(controller, pid, lose)
-}
-
 // clearManaPool is ManaPool.clearPool(true) for pid at a phase end
 // (ManaPool.java:119-165): the types a Mode$ UnspentMana line keeps stay, at
 // every phase end, Cleanup included (:141-143); an Event$ LoseMana
@@ -124,6 +109,6 @@ func (g *Game) clearManaPool(controller PlayerController, pid PlayerID) {
 		return keepCombat && u.combat || keep[int(u.bucket)%bucketSnow]
 	})
 	if lost := before - pool.Total(); lost > 0 && g.hasManaBurn(pid) {
-		g.manaBurn(controller, pid, lost)
+		g.loseLife(controller, pid, lost, NoCard)
 	}
 }

@@ -22,10 +22,12 @@ import (
 //	//crucible:register Manifest manifestEffect{api: "Manifest"}
 const registerDirective = "//crucible:register"
 
-// m5Casting are the registry entries M5 wired for casting permanents and
-// Auras, before M6's first script-driven effect. The resolved-API count the
-// docs quote has never included them.
-var m5Casting = map[string]bool{"PermanentCreature": true, "PermanentNoncreature": true, "Attach": true}
+// m5Casting are the registry entries no card script names: the ones M5 wired
+// for casting permanents and Auras, before M6's first script-driven effect,
+// and InternalRadiation, which only the engine's own Radiation effect card
+// runs. The resolved-API count the docs quote has never included them.
+var m5Casting = map[string]bool{"PermanentCreature": true, "PermanentNoncreature": true, "Attach": true,
+	"InternalRadiation": true}
 
 // entry is one registry line: r[API<API>] = <Expr>.
 type entry struct {

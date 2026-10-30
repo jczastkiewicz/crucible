@@ -105,7 +105,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	// Taps trigger waits until the attack stands.
 	var provisional []CardID
 	for _, id := range attackers {
-		if !g.Card(id).HasKeyword("Vigilance") {
+		if !g.attackVigilance(g.Card(id)) {
 			g.Card(id).Tapped = true
 			provisional = append(provisional, id)
 		}

@@ -6,14 +6,9 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/RadiationEffect.java's
-// resolve. CR 704.5u's own upkeep dice-roll-or-lose-life consequence of
-// carrying radiation counters is not ported -- PhaseHandler's own Upkeep
-// step body needs building first (game-state.md's "Not ported yet") -- but
-// that is a separate CR paragraph from this one: CR 121.13 itself is just
-// "a player who is given radiation counters gets them," the whole of what
-// this file resolves, the identical scope a PutCounter line gets independent
-// of whatever static ability a keyword counter's own kind might imply
-// elsewhere.
+// resolve. What the counters then do at the precombat main phase is the
+// player's "Radiation" effect card (internalradiationeffect.go), made here
+// once the player has one.
 
 package engine
 
@@ -77,6 +72,7 @@ func (radiationEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		}
 		p.Counters.Add(Radiation, amount)
 		emitCounterChanged(g, a.Source, PlayerEntity(pid), Radiation, amount)
+		g.syncRadiationEffect(pid)
 	}
 	return nil
 }

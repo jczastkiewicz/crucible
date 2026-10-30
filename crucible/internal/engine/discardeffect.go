@@ -127,7 +127,10 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 
 	picks := make([]discardPick, 0, len(discarders))
 	for _, p := range discarders {
-		if g.Player(p).Lost {
+		// Every mode skips a player Player.canDiscardBy(sa, true) refuses
+		// (DiscardEffect.java:143-251), after its reveal: no reveal event is
+		// emitted for that player here.
+		if g.Player(p).Lost || g.cantDiscard(p, a, true) {
 			continue
 		}
 		cards, keep, err := discardChoice(g, a, controller, mode, p, targets, validSpec)

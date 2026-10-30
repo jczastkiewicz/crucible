@@ -6,8 +6,10 @@ package engine
 import (
 	"strconv"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // DealFirstStrikeDamage is CR 510.4's first sub-step: only creatures with
@@ -455,7 +457,8 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	// poison counters to combat damage (Player.addDamageAfterPrevention).
 	poison := 0
 	lost := 0
-	if g.Card(source).HasKeyword("Infect") {
+	infect := g.infectDamage(source, target)
+	if infect {
 		poison += amount
 	} else if !g.cantLoseLife(target) {
 		// Player.addDamageAfterPrevention's loseLife(damage, true): the
@@ -468,7 +471,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
 	g.noteDamagedThisGame(source, PlayerEntity(target))
-	if !g.Card(source).HasKeyword("Infect") && lost > 0 {
+	if !infect && lost > 0 {
 		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-lost), Flags: flags})
 		g.noteLifeLost(controller, target, lost)
 	}
@@ -503,11 +506,32 @@ func (g *Game) dealRedirectedDamage(controller PlayerController, source CardID, 
 }
 
 // witherDamage is Card.isWitherDamage (CR 120.3d): a source with wither or
-// infect deals damage to a creature as -1/-1 counters. Mode$ WitherDamage, the
-// static that grants it, is not read.
+// infect deals damage to a creature as -1/-1 counters, and so does any source
+// a live Mode$ WitherDamage line's ValidCard$ admits (Everlasting Torment,
+// StaticAbilityWitherDamage).
 func (g *Game) witherDamage(source CardID) bool {
 	c := g.Card(source)
-	return c.HasKeyword("Wither") || c.HasKeyword("Infect")
+	if c.HasKeyword("Wither") || c.HasKeyword("Infect") {
+		return true
+	}
+	return g.anyStatic("WitherDamage", map[string]bool{"validcard": true}, func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidCard")
+		return !ok || Matches(g, c, valid.Parse(spec), h.Controller(), h.ID)
+	})
+}
+
+// infectDamage is Card.isInfectDamage(target) for damage to a player (CR
+// 120.3b): the source has infect, or a live Mode$ InfectDamage line's
+// ValidTarget$ admits the player dealt damage (Phyrexian Unlife,
+// StaticAbilityInfectDamage).
+func (g *Game) infectDamage(source CardID, target PlayerID) bool {
+	if g.Card(source).HasKeyword("Infect") {
+		return true
+	}
+	return g.anyStatic("InfectDamage", map[string]bool{"validtarget": true}, func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidTarget")
+		return !ok || g.entityMatchesAny(h, PlayerEntity(target), spec)
+	})
 }
 
 // toxicMagnitude is Card.getKeywordMagnitude(Keyword.TOXIC): the sum of every

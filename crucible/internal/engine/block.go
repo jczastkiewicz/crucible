@@ -99,7 +99,7 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 		var eligible []CardID
 		for _, id := range g.Zone(Battlefield, defender).Cards() {
 			c := g.Card(id)
-			if c.Type().Has(cardtype.Creature) && !c.Tapped {
+			if c.Type().Has(cardtype.Creature) && (!c.Tapped || g.canBlockTapped(c)) {
 				eligible = append(eligible, id)
 			}
 		}
@@ -300,7 +300,7 @@ func (g *Game) CanBlock(attacker, blocker CardID) bool {
 // another creature.
 func (g *Game) canBlockAtAll(blocker CardID) bool {
 	b := g.Card(blocker)
-	if !b.Type().Has(cardtype.Creature) || b.Tapped || b.isDetained() || b.Suspected {
+	if !b.Type().Has(cardtype.Creature) || b.Tapped && !g.canBlockTapped(b) || b.isDetained() || b.Suspected {
 		return false
 	}
 	if b.hasKeywordText("CARDNAME can't block.") || b.hasKeywordText("CARDNAME can't attack or block.") || g.cantBlock(blocker) {

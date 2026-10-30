@@ -88,22 +88,7 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		if optional && (numCards > len(g.Zone(Library, pid).Cards()) || !controller.ConfirmEffect(g, pid, a.Source)) {
 			continue
 		}
-		// Event$ Mill: "they mill twice that many cards instead".
-		pidCards, replaced := g.playerAmountReplaced(controller, "Mill", "Number", pid, numCards)
-		if replaced || pidCards <= 0 {
-			continue
-		}
-		lib := g.Zone(Library, pid).Cards()
-		n := pidCards
-		if n > len(lib) {
-			n = len(lib)
-		}
-		// topN copies before Move mutates the zone out from under lib's own
-		// slice -- scryEffect's own identical defensive copy (scryeffect.go).
-		topN := append([]CardID(nil), lib[:n]...)
-		for _, id := range topN {
-			g.moveToGraveyard(controller, id)
-			g.checkMilledTriggers(controller, pid, id)
+		for _, id := range g.millCards(controller, pid, numCards) {
 			milled = append(milled, id)
 			if remember {
 				source.Memory.Remember(CardEntity(id))
@@ -112,10 +97,32 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				source.Memory.Imprint(id)
 			}
 		}
-		g.checkMilledOnceTriggers(controller, pid, topN)
 	}
 	g.checkMilledAllTriggers(controller, milled)
 	g.checkLeftZoneTriggers(controller, milled, Library)
 	g.checkChangesZoneAllTriggers(controller, milled, Library, Graveyard)
 	return nil
+}
+
+// millCards is GameAction.mill for one player: the Event$ Mill replacement
+// ("they mill twice that many cards instead"), then the top numCards of pid's
+// library to the graveyard, each firing Milled, and MilledOnce for the batch.
+// It returns the cards milled in library order; the caller fires MilledAll and
+// the zone-change batch triggers.
+func (g *Game) millCards(controller PlayerController, pid PlayerID, numCards int) []CardID {
+	pidCards, replaced := g.playerAmountReplaced(controller, "Mill", "Number", pid, numCards)
+	if replaced || pidCards <= 0 {
+		return nil
+	}
+	lib := g.Zone(Library, pid).Cards()
+	n := min(pidCards, len(lib))
+	// topN copies before Move mutates the zone out from under lib's own
+	// slice -- scryEffect's own identical defensive copy (scryeffect.go).
+	topN := append([]CardID(nil), lib[:n]...)
+	for _, id := range topN {
+		g.moveToGraveyard(controller, id)
+		g.checkMilledTriggers(controller, pid, id)
+	}
+	g.checkMilledOnceTriggers(controller, pid, topN)
+	return topN
 }

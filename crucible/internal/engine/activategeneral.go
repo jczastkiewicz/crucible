@@ -30,7 +30,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 	parsed := cost.Parse(costText)
 	// A graveyard ability's parts would move or exile the card the payment
 	// reads; none of the shapes this path pays is built for it.
-	if fromGraveyard || parsed.Mandatory || (parsed.Tap || parsed.Untap) && c.Zone != Battlefield {
+	if fromGraveyard && !strings.Contains(costText, "ExileFromGrave<1/CARDNAME>") || parsed.Mandatory || (parsed.Tap || parsed.Untap) && c.Zone != Battlefield {
 		g.recordPendingError(fmt.Errorf("engine: %s: activated Cost$ %q not resolvable yet", c.Def.Name, costText))
 		return false
 	}
@@ -163,6 +163,19 @@ func (g *Game) payActivatedUnlessCost(controller PlayerController, a *Ability, p
 		a.paid.colors, a.paid.colorless = x.paid, x.colorless
 	}
 	tapChosenPermanents(g, controller, taps)
+	if uc.manaOfEnchanted {
+		// CostPartMana.getManaCostFor: the cost of the permanent this Aura
+		// enchants as it is now, none when it enchants nothing.
+		if host := g.Card(a.Source).attachedTo; host != NoCard {
+			enchanted := g.Card(host).manaCost()
+			restore := g.payingFor(&payContext{item: a, cost: enchanted})
+			_, paid := g.payManaCostX(pid, enchanted, controller)
+			restore()
+			if !paid {
+				return false
+			}
+		}
+	}
 	if !g.payUnlessPartsInto(controller, a, pid, uc, &a.paid) {
 		return false
 	}

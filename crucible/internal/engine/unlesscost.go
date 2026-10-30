@@ -210,6 +210,12 @@ type unlessCost struct {
 	// exileSelf is Exile<1/CARDNAME>: the source leaves the battlefield for
 	// exile as part of the cost (CostExile's self shape).
 	exileSelf bool
+	// exileSelfGrave is ExileFromGrave<1/CARDNAME>: a graveyard ability exiles
+	// its own card (CostExile.java:185-189).
+	exileSelfGrave bool
+	// manaOfEnchanted is Mana<0\EnchantedCost>: the mana cost of the permanent
+	// the source enchants is paid (CostPartMana.java:127-145).
+	manaOfEnchanted bool
 	// tapN/tapSpec are tapXType<N/Type>: N untapped permanents of the type the
 	// payer controls (CostTapType).
 	tapN    int
@@ -337,6 +343,9 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 		case p.Name == "Mana" && p.Field(0) == `0\Exiled` && !uc.manaOfExiled:
 			uc.manaOfExiled = true
 			continue
+		case p.Name == "Mana" && p.Field(0) == `0\EnchantedCost` && !uc.manaOfEnchanted:
+			uc.manaOfEnchanted = true
+			continue
 		case p.Name == "RevealChosen" && uc.revealChosen == "" && (p.Field(0) == "Player" || p.Field(0) == "Type"):
 			uc.revealChosen = p.Field(0)
 			continue
@@ -356,6 +365,10 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			continue
 		case p.Name == "Unattach" && p.Field(0) == "OriginalHost" && !uc.unattachOriginal:
 			uc.unattachOriginal = true
+			continue
+		case p.Name == "Unattach" && uc.unattachSpec == "" && p.Field(0) != "OriginalHost" && hasX && strings.HasSuffix(p.Field(0), "cmcEQX"):
+			// CardProperty cmcEQX reads the announced X (Count$xPaid).
+			uc.unattachSpec = strings.TrimSuffix(p.Field(0), "X") + strconv.Itoa(x)
 			continue
 		case p.Name == "Unattach" && uc.unattachSpec == "" && p.Field(0) != "OriginalHost" && !strings.Contains(p.Field(0), "X") && chosenCardSpecResolvable(p.Field(0)):
 			uc.unattachSpec = p.Field(0)
@@ -470,6 +483,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileAnyN, uc.exileMiscSpec = n, p.Field(1)
 		case p.Name == "ExileFromHand" && uc.exileHandN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileHandN, uc.exileHandSpec = n, p.Field(1)
+		case p.Name == "ExileFromGrave" && n == 1 && p.Field(1) == "CARDNAME" && !uc.exileSelfGrave:
+			uc.exileSelfGrave = true
 		case p.Name == "Exile" && n == 1 && !uc.exileSelf && (p.Field(1) == "CARDNAME" || p.Field(1) == "NICKNAME"):
 			uc.exileSelf = true
 		case p.Name == "Exile" && uc.exileFieldN == 0 && chosenCardSpecResolvable(p.Field(1)):
@@ -911,6 +926,11 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.exileFieldN > 0 && len(g.costCandidates(pid, source, false, Battlefield, uc.exileFieldSpec)) < uc.exileFieldN {
 		return false
 	}
+	if uc.exileSelfGrave {
+		if c := g.Card(source); source == NoCard || c.Zone != Graveyard || c.Owner != pid {
+			return false
+		}
+	}
 	if uc.exileSelf {
 		if c := g.Card(source); source == NoCard || c.Zone != Battlefield || c.Controller() != pid || c.IsPhasedOut() {
 			return false
@@ -1261,6 +1281,12 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 		if rec != nil {
 			rec.exiled = append(rec.exiled, picks...)
+		}
+	}
+	if uc.exileSelfGrave {
+		exiled := g.exileCostCards(controller, a.Source, []CardID{a.Source})
+		if rec != nil {
+			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
 	if uc.exileSelf {
@@ -1766,6 +1792,10 @@ func unlessManaOf(n int, color string) (string, error) {
 func costNamesX(text string) bool {
 	for _, p := range cost.Parse(text).Parts {
 		if p.Field(0) == "X" || p.Field(0) == "X1+" && p.Name == "RemoveAnyCounter" {
+			return true
+		}
+		// Unattach<...cmcEQX>: the Equipment's mana value is the announced X.
+		if p.Name == "Unattach" && strings.HasSuffix(p.Field(0), "cmcEQX") {
 			return true
 		}
 		// withTotalCMC<GE|EQ>X: the total is the announced X (Fabrication Foundry).

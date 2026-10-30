@@ -163,7 +163,9 @@ func (g *Game) announceTriggeredX(controller PlayerController, a *Ability, text 
 		limit, _ := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw)
 		n = min(n, max(limit, 0))
 	}
-	if costNamesX(text) {
+	if costNamesX(text) && !strings.Contains(text, "cmcEQX") {
+		// An Unattach<...cmcEQX> X is any number: the Equipment that fits is
+		// checked when the cost is paid (PlaySpellAbility.java:683-701).
 		n = min(n, g.nonManaXMax(a.Controller, a.Source, text))
 	}
 	if raw, has := a.Params.Param("XMin"); has {

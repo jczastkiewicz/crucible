@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -583,5 +584,125 @@ func TestActivationUnattachesTheGrantingEquipment(t *testing.T) {
 	}
 	if !g.Card(bears).Tapped {
 		t.Error("the Bears did not tap for the cost")
+	}
+}
+
+// Corpseweft (ExileFromGrave<X/Creature>, TokenPower$ Y with Y
+// ExiledCards$Amount/Twice): the token is twice as big as the cards the cost
+// exiled (AbilityUtils.getPaidCards, :3950-3957).
+func TestTokenSizeReadsTheCardsTheCostExiled(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	weft := g.NewCard(corpusCard(t, "Corpseweft"), p, engine.Battlefield)
+	a := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Graveyard)
+	b := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Black, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayX(2)
+	c.QueuePayGeneric(mana.ShardB)
+	c.QueueCardChoice([]engine.CardID{a, b})
+	if !g.ActivateAbility(p, weft, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if k := g.Card(id); strings.Contains(k.Name(), "Zombie Horror") {
+			if pw, _ := k.Power(); pw != 4 {
+				th, _ := k.Toughness()
+				t.Errorf("token is %d/%d, want 4/4", pw, th)
+			}
+			return
+		}
+	}
+	t.Errorf("no Zombie Horror token among %d permanents", g.Zone(engine.Battlefield, p).Len())
+}
+
+// Say Its Name (ExileFromGrave<1/CARDNAME> ExileFromGrave<2/Card.Other+YouOwn+
+// namedSay Its Name>, ActivationZone$ Graveyard): the card and two other
+// copies leave the graveyard as the cost; with one copy short it cannot be
+// paid (CostExile.java:185-189, :222-273).
+func TestGraveyardActivationExilesItselfAndTwoCopies(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	say := g.NewCard(corpusCard(t, "Say Its Name"), p, engine.Graveyard)
+	one := g.NewCard(corpusCard(t, "Say Its Name"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, say, 1, c) {
+		t.Fatal("activated with one other copy")
+	}
+	two := g.NewCard(corpusCard(t, "Say Its Name"), p, engine.Graveyard)
+	c.QueueCardChoice([]engine.CardID{one, two})
+	if !g.ActivateAbility(p, say, 1, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	for _, id := range []engine.CardID{say, one, two} {
+		if z := g.Card(id).Zone; z != engine.Exile {
+			t.Errorf("card %d is in %v, want exiled", id, z)
+		}
+	}
+}
+
+// Merseine (Mana<0\EnchantedCost>, Activator$ Player.EnchantedController): the
+// controller of the enchanted creature pays its mana cost to remove a net
+// counter; the Aura's own controller may not activate it.
+func TestActivationPaysTheEnchantedCreaturesCost(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	merseine := g.NewCard(corpusCard(t, "Merseine"), p, engine.Battlefield)
+	g.Card(merseine).Counters.Add("NET", 3)
+	ogre := g.NewCard(corpusCard(t, "Hill Giant"), other, engine.Battlefield)
+	g.Attach(merseine, ogre)
+	sba(g)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Red, 4)
+	if g.ActivateAbility(p, merseine, 0, c) {
+		t.Fatal("the Aura's controller activated it")
+	}
+	g.Player(other).ManaPool.Add(mana.Red, 4)
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	if !g.ActivateAbility(other, merseine, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if n := g.Player(other).ManaPool.Total(); n != 0 {
+		t.Errorf("%d mana left, want Hill Giant's {3}{R} paid in full", n)
+	}
+}
+
+// Captain America (3 Unattach<Equipment.Attached+cmcEQX>, Announce$ X): X is
+// announced with no mana X in the cost and the Equipment of that mana value
+// unattaches; an X no attached Equipment matches cannot be paid.
+func TestActivationUnattachesEquipmentOfTheAnnouncedValue(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	captain := g.NewCard(corpusCard(t, "Captain America, First Avenger"), p, engine.Battlefield)
+	g.Card(captain).SummonSick = false
+	seeker := g.NewCard(corpusCard(t, "Heartseeker"), p, engine.Battlefield)
+	g.Attach(seeker, captain)
+	sba(g)
+	g.Player(p).ManaPool.Add(mana.White, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayX(3)
+	if g.ActivateAbility(p, captain, 0, c) {
+		t.Fatal("activated naming X = 3 with a mana value 4 Equipment")
+	}
+	c.QueuePayX(4)
+	c.QueueCardChoice([]engine.CardID{seeker})
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardW)
+	}
+	if !g.ActivateAbility(p, captain, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(captain).Attachments(); len(got) != 0 {
+		t.Errorf("Captain America still carries %v", got)
 	}
 }

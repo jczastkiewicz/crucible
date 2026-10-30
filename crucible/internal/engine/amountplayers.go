@@ -67,7 +67,7 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 		if !ok {
 			return 0, false, true
 		}
-		if len(cards) == 0 && (head == "Sacrificed" || head == "Exiled" || head == "Discarded" || head == "Tapped") {
+		if len(cards) == 0 && (head == "Sacrificed" || head == "Exiled" || head == "ExiledCards" || head == "Discarded" || head == "Tapped") {
 			// A cost list nothing was paid into is Java's null paid list
 			// (SpellAbility.getPaidList): the amount is 0, the operator unread
 			// (AbilityUtils.java:715-729).

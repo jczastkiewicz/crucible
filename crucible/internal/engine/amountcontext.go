@@ -29,7 +29,7 @@ import (
 // (AbilityUtils.java:672-719), read only while that ability resolves.
 var contextHeads = map[string]bool{
 	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredCardLKI": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
-	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "Discarded": true, "Tapped": true,
+	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "ExiledCards": true, "Discarded": true, "Tapped": true,
 	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggeredExploited": true,
 	"TriggeredDevoured": true, "CardTriggeredTarget": true, "AllTargeted": true,
 }
@@ -176,7 +176,7 @@ func (g *Game) contextCards(source CardID, head string) ([]*Card, bool) {
 	// A recorded attacker that has since died is read as it last was: Java's
 	// list holds the battlefield Card object, which the move to the graveyard
 	// replaced with a copy (GameAction.java:207).
-	lki := head == "Sacrificed" || head == "Exiled" || head == "TriggeredCard" || head == "TriggerRemembered" ||
+	lki := head == "Sacrificed" || head == "Exiled" || head == "ExiledCards" || head == "TriggeredCard" || head == "TriggerRemembered" ||
 		head == "TriggerObjectsAttackers" || head == "TriggeredExploited" || head == "TriggeredDevoured" ||
 		head == "CardTriggeredTarget" || head == "TriggeredCardLKI"
 	cards := g.cardsOf(ids, lki)
@@ -273,7 +273,7 @@ func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 				ids = append(ids, id)
 			}
 		}
-	case "Sacrificed", "Exiled", "Discarded", "Tapped":
+	case "Sacrificed", "Exiled", "ExiledCards", "Discarded", "Tapped":
 		if !a.paid.recorded {
 			return nil, false
 		}
@@ -282,7 +282,7 @@ func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 			ids = a.paid.tapped
 		case "Sacrificed":
 			ids = a.paid.sacrificed
-		case "Exiled":
+		case "Exiled", "ExiledCards":
 			ids = a.paid.exiled
 		default:
 			ids = a.paid.discarded

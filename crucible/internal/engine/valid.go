@@ -500,6 +500,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// "false for every card" answer any other unimplemented property
 		// gets.
 		return containsCard(c.Attachments(), source)
+	case name == "Attached":
+		// CardProperty.java:438-441: source.hasCardAttachment(card), the
+		// reverse direction of EquippedBy and its siblings.
+		return source != NoCard && containsCard(g.Card(source).Attachments(), c.ID)
 	case strings.HasPrefix(name, "inRealZone"):
 		// inRealZone reads c.Zone directly, no LKI involved (card.isInZone).
 		zone, ok := ZoneByName(strings.TrimPrefix(name, "inRealZone"))

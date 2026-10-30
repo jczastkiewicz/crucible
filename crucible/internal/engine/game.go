@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/jczastkiewicz/crucible/internal/boosters"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -52,6 +53,11 @@ type Game struct {
 	// db is the compiled card database, shared read-only by every game in the
 	// process (ADR-0005, ADR-0007).
 	db *compile.DB
+	// boosters is the booster data a game opens packs from (SetBoosters), and
+	// gen its generator, which keeps the sheets already made: per game, as
+	// Java keeps them per process.
+	boosters *boosters.Table
+	gen      *boosters.Generator
 	// rand is this game's own stream, seeded per game so a run is
 	// reproducible from its seed alone. There is no package-level RNG
 	// (GO-2, ADR-0006).
@@ -691,6 +697,16 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	}
 	g.zones[zoneKey{Stack, NoPlayer}] = &Zone{Type: Stack, cards: collect.NewOrderedSet[CardID](0)}
 	return g
+}
+
+// SetBoosters gives the game the booster data MakeCard's Booster$ opens packs
+// from. Without it such a line is an error (GO-7).
+func (g *Game) SetBoosters(t *boosters.Table) {
+	g.boosters = t
+	g.gen = nil
+	if t != nil {
+		g.gen = boosters.NewGenerator(t)
+	}
 }
 
 // DB is the compiled card database this game reads from.
@@ -1647,10 +1663,11 @@ func (g *Game) SetPhasedOut(id CardID, p PlayerID) error {
 // is rather than replaying it or advancing it.
 func (g *Game) Clone() *Game {
 	out := &Game{
-		cards:   make([]Card, len(g.cards)),
-		players: append([]Player(nil), g.players...),
-		zones:   make(map[zoneKey]*Zone, len(g.zones)),
-		db:      g.db,
+		cards:    make([]Card, len(g.cards)),
+		players:  append([]Player(nil), g.players...),
+		zones:    make(map[zoneKey]*Zone, len(g.zones)),
+		db:       g.db,
+		boosters: g.boosters,
 		// Shared like db: a Registry holds only stateless effect values.
 		registry:     g.registry,
 		pendingErr:   g.pendingErr,
@@ -1811,6 +1828,9 @@ func (g *Game) Clone() *Game {
 	}
 	for id, snap := range g.lki {
 		out.lki[id] = snap.frozenCopy()
+	}
+	if g.boosters != nil {
+		out.gen = boosters.NewGenerator(g.boosters)
 	}
 	return out
 }

@@ -528,3 +528,7 @@ func (p *Pool) unsupported(req string) *Print {
 	pr.hash = pr.hashOf()
 	return pr
 }
+
+// Rules is the compiled card this print is of, nil for a placeholder of a card
+// no script defines.
+func (p *Print) Rules() *compile.Card { return p.rules }

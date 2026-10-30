@@ -610,3 +610,5 @@ and Waterbender's Restoration say `Announce$ X` and work. Crucible keeps refusin
 `Card.replaceStoredRoll` (`Card.java:1604-1610`) removes one copy per key. With k equal stored values all rerolled, k
 dice are rolled (their triggers fire) but one copy is replaced and k-1 rerolls vanish. Centaur of Attention is the only
 card. Crucible reproduces the map (PORT-8); fix upstream by keying by index.
+
+`BoosterGenerator.java:443` and `:457` call `contains` on `tryGetStaticSheet(...)` without a null check, so a `SheetReplaceCardFromSheet` naming a missing sheet throws a `NullPointerException`; `replaceCardFromExtraSheet` (`:591-593`) checks. `:487` reads `boosterSlots.get(slotType)` for a slot name with no `[Slot]` section and `:528` dereferences it. The `try`/`catch` of `:509-511` is dead for an unknown sheet: `makeSheet` returns an empty sheet or throws a different exception. `PrintSheet.fetchRoulette` (`:95-110`) is documented as a weighted unique draw but skips and walks on, which is not weighted among the cards left. Not filed. Crucible reproduces the draws (PORT-7) and returns an error where Java throws.

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jczastkiewicz/crucible/internal/boosters"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -62,6 +63,14 @@ type Prober struct {
 	db       *compile.DB
 	registry *engine.Registry
 	tailor   tailor
+	boosters *boosters.Table
+}
+
+// WithBoosters is p with the booster data its games open packs from; without
+// it a card that opens one is refused.
+func (p *Prober) WithBoosters(t *boosters.Table) *Prober {
+	p.boosters = t
+	return p
 }
 
 // NewProber returns a Prober over db, which must also hold the token
@@ -212,6 +221,7 @@ func (p *Prober) run(name string, where *atomic.Value, v variant) (res Result) {
 	}
 
 	g := engine.NewGame(p.db, javarand.New(1), []string{"a", "b"})
+	g.SetBoosters(p.boosters)
 	pid, opp := g.Players()[0], g.Players()[1]
 	g.SetTurnState(1, pid, engine.Main1)
 	for _, who := range []engine.PlayerID{pid, opp} {

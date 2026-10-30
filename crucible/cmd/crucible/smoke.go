@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jczastkiewicz/crucible/internal/boosters"
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
@@ -28,6 +29,8 @@ func cardSmoke(args []string) error {
 	corpus := fs.String("corpus", "../forge-gui/res/cardsfolder", "card script directory")
 	tokens := fs.String("tokens", "../forge-gui/res/tokenscripts", "token script directory")
 	types := fs.String("types", "../forge-gui/res/lists/TypeLists.txt", "subtype vocabulary")
+	editions := fs.String("editions", "../forge-gui/res/editions", "edition files, for the cards that open a booster (empty: none)")
+	blockdata := fs.String("blockdata", "../forge-gui/res/blockdata", "print sheets, for the cards that open a booster")
 	decks := fs.String("decks", "", "decklist file, or a directory searched for .dck files")
 	cards := fs.String("cards", "", "comma-separated card names (a comma inside a name is written as a semicolon)")
 	all := fs.Bool("all", false, "probe every card in the corpus")
@@ -55,7 +58,15 @@ func cardSmoke(args []string) error {
 		return err
 	}
 
-	results := probeAll(smoke.NewProber(db), names, *workers, *timeout)
+	prober := smoke.NewProber(db)
+	if *editions != "" {
+		table, err := boosters.Load(*editions, *blockdata, db)
+		if err != nil {
+			return err
+		}
+		prober = prober.WithBoosters(table)
+	}
+	results := probeAll(prober, names, *workers, *timeout)
 	fmt.Print(report(source, results, *top, *list, *raw))
 	return nil
 }

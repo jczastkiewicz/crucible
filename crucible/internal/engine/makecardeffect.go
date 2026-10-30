@@ -5,6 +5,8 @@ package engine
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // makeCardEffect is MakeCardEffect.java: for each Defined$ player (the
@@ -20,9 +22,6 @@ type makeCardEffect struct{}
 
 func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "MakeCard", "Booster"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -62,7 +61,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		if hasParam(a, "Optional") && hasParam(a, "OptionPrompt") && !controller.ConfirmEffect(g, p, a.Source) {
 			return nil
 		}
-		names, err := makeCardNames(g, a, controller, source, p)
+		names, pack, err := makeCardNames(g, a, controller, source, p)
 		if err != nil {
 			return err
 		}
@@ -82,7 +81,10 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			if name == "" {
 				continue
 			}
-			cardDef, ok := g.db.Card(name)
+			cardDef, ok := pack[name]
+			if pack == nil {
+				cardDef, ok = g.db.Card(name)
+			}
 			if !ok {
 				return fmt.Errorf("engine: MakeCard: no card named %q", name)
 			}
@@ -184,19 +186,19 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 }
 
 // makeCardNames is MakeCardEffect's name-gathering half for player p.
-func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Card, p PlayerID) ([]string, error) {
+func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Card, p PlayerID) ([]string, map[string]*compile.Card, error) {
 	if n, ok := a.Params.Param("Name"); ok {
 		if n == "ChosenName" {
-			return append([]string(nil), source.Memory.NamedCards()...), nil
+			return append([]string(nil), source.Memory.NamedCards()...), nil, nil
 		}
-		return []string{n}, nil
+		return []string{n}, nil, nil
 	}
 	if raw, ok := a.Params.Param("Names"); ok {
 		var out []string
 		for _, s := range strings.Split(raw, ",") {
 			out = append(out, strings.ReplaceAll(s, ";", ","))
 		}
-		return out, nil
+		return out, nil, nil
 	}
 	if def, ok := a.Params.Param("DefinedName"); ok {
 		var cards []CardID
@@ -204,12 +206,12 @@ func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Car
 			// MakeCardEffect.java:68-69: the cards p chose into the host's map.
 			var has bool
 			if cards, has = source.Memory.ChosenMapFor(p); !has {
-				return nil, fmt.Errorf("engine: MakeCard: DefinedName$ ChosenMap: player %d chose nothing into the map", p)
+				return nil, nil, fmt.Errorf("engine: MakeCard: DefinedName$ ChosenMap: player %d chose nothing into the map", p)
 			}
 		} else {
 			var err error
 			if cards, err = definedCards(source, def, a.refs()); err != nil {
-				return nil, fmt.Errorf("engine: MakeCard: %w", err)
+				return nil, nil, fmt.Errorf("engine: MakeCard: %w", err)
 			}
 		}
 		var out []string
@@ -218,23 +220,64 @@ func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Car
 				out = append(out, d.Name)
 			}
 		}
-		return out, nil
+		return out, nil, nil
 	}
 	key := "Spellbook"
 	raw, ok := a.Params.Param(key)
 	if !ok {
 		key = "Choices"
 		if raw, ok = a.Params.Param(key); !ok {
-			return nil, nil
+			if hasParam(a, "Booster") {
+				return makeBoosterNames(g, a, controller, source, p)
+			}
+			return nil, nil, nil
 		}
 	}
 	var faces []string
 	for _, s := range strings.Split(raw, ",") {
 		faces = append(faces, strings.ReplaceAll(strings.TrimSpace(s), ";", ","))
 	}
+	out, err := chooseMakeCardFaces(g, a, controller, source, p, faces, nil, key)
+	return out, nil, err
+}
+
+// makeBoosterNames is MakeCardEffect.java:81-90: a pack opened for p, its cards
+// the faces on offer (a card's main part, duplicates kept, in pack order),
+// chosen from by the same Filter$, SpellbookAmount$ and AtRandom$ rules as
+// Choices$. The made card is the pack's own rules, found by name.
+func makeBoosterNames(g *Game, a *Ability, controller PlayerController, source *Card, p PlayerID) ([]string, map[string]*compile.Card, error) {
+	if g.gen == nil {
+		return nil, nil, fmt.Errorf("engine: MakeCard: Booster$ needs the game's booster data (SetBoosters)")
+	}
+	_, cards, err := g.gen.OpenRandom(g.rand)
+	if err != nil {
+		return nil, nil, fmt.Errorf("engine: MakeCard: Booster$: %w", err)
+	}
+	pack := map[string]*compile.Card{}
+	faces := make([]string, 0, len(cards))
+	for _, c := range cards {
+		def := c.Rules()
+		if def == nil {
+			return nil, nil, fmt.Errorf("engine: MakeCard: Booster$: %q has no card script", c.Name)
+		}
+		name := def.Faces[0].Name
+		faces = append(faces, name)
+		if _, ok := pack[name]; !ok {
+			pack[name] = def
+		}
+	}
+	out, err := chooseMakeCardFaces(g, a, controller, source, p, faces, pack, "Booster")
+	return out, pack, err
+}
+
+// chooseMakeCardFaces is the part of MakeCardEffect.java:94-120 that every
+// face list shares: Filter$, then SpellbookAmount$ picks, each at random or
+// by the controller, a chosen face leaving the list. pack, when set, is where a
+// face's card is found instead of the database.
+func chooseMakeCardFaces(g *Game, a *Ability, controller PlayerController, source *Card, p PlayerID, faces []string, pack map[string]*compile.Card, key string) ([]string, error) {
 	if filter, ok := a.Params.Param("Filter"); ok {
 		var err error
-		if faces, err = filterMakeCardFaces(g, a, source, faces, filter); err != nil {
+		if faces, err = filterMakeCardFaces(g, a, source, faces, filter, pack); err != nil {
 			return nil, err
 		}
 	}
@@ -265,7 +308,7 @@ func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Car
 // lines, Brazen Boarding and Tajic); the amount is calculated against the host
 // (CardProperty.java:1450-1477). Filter$ is never read on the Name$ paths in
 // Java, so they ignore it here too (PORT-7).
-func filterMakeCardFaces(g *Game, a *Ability, source *Card, faces []string, filter string) ([]string, error) {
+func filterMakeCardFaces(g *Game, a *Ability, source *Card, faces []string, filter string, pack map[string]*compile.Card) ([]string, error) {
 	rest, ok := strings.CutPrefix(filter, "Card.cmc")
 	if !ok || len(rest) < 3 {
 		return nil, fmt.Errorf("engine: MakeCard: Filter$ %q not resolvable yet", filter)
@@ -277,7 +320,10 @@ func filterMakeCardFaces(g *Game, a *Ability, source *Card, faces []string, filt
 	}
 	var kept []string
 	for _, name := range faces {
-		def, ok := g.db.Card(name)
+		def, ok := pack[name]
+		if pack == nil {
+			def, ok = g.db.Card(name)
+		}
 		if !ok {
 			return nil, fmt.Errorf("engine: MakeCard: no card named %q", name)
 		}

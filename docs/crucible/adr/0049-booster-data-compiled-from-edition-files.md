@@ -36,13 +36,14 @@ your deck before the next game" clause has no Java implementation and none here.
 
 Option 1: the owner wants the card.
 
-**Data.** `carddb` gains `Edition{Code, Affix, BoosterTypes, Sheets, PictureCounts, FoilChance, FoilType}` parsed once
-at load by a loader beside the card compiler; the table is ordered as Java's TreeMap (code plus affix, case-folded) in a
-`collect.OrderedMap`. Lazy loading (Option 3) is rejected: it makes the DB mutable after load and breaks GO-2.
-**Generator.** A `boosters` package ports `BoosterGenerator` with the draw order above, taking `*javarand.Rand` from the
-`Game`. **Effect.** `makecardeffect.go` reads `Booster$` only to enter the branch (Java never reads its value, PORT-7),
-asks `chooseCardName` over the main-part faces, creates the chosen face and moves it to the hand. **Gate.** A scenario
-fixture whose expected pack is produced by the Java oracle for a fixed seed.
+**Data.** A `boosters` package parses the edition files and `printsheets.txt` once at load into an immutable `Table`
+(the editions, the card pool, the print sheets, the templates ordered as Java's TreeMap of code plus type, case-folded);
+a `Game` is given it through `SetBoosters` and builds its sheets lazily in its own `Generator`. Lazy loading (Option 3)
+is rejected: it makes the DB mutable after load and breaks GO-2. **Generator.** The same package ports
+`BoosterGenerator` with the draw order above, taking `*javarand.Rand` from the `Game`. **Effect.** `makecardeffect.go`
+reads `Booster$` only to enter the branch (Java never reads its value, PORT-7), asks `chooseCardName` over the main-part
+faces, creates the chosen face and moves it to the hand. **Gate.** A scenario fixture whose expected pack is produced by
+the Java oracle for a fixed seed.
 
 ## Consequences
 

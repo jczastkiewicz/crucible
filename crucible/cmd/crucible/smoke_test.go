@@ -126,12 +126,21 @@ func TestCardSmokeCommandEndToEnd(t *testing.T) {
 		"-corpus", filepath.Join(root, "forge-gui", "res", "cardsfolder"),
 		"-tokens", filepath.Join(root, "forge-gui", "res", "tokenscripts"),
 		"-types", filepath.Join(root, "forge-gui", "res", "lists", "TypeLists.txt"),
-		"-cards", "Lightning Bolt", "-workers", "1",
+		"-editions", "", "-cards", "Lightning Bolt", "-workers", "1",
 	}
 	if err := cardSmoke(args); err != nil {
 		t.Fatalf("cardSmoke: %v", err)
 	}
-	if err := cardSmoke(append(args[:6:6], "-cards", "Not A Real Card")); err == nil {
+	if err := cardSmoke(append(args[:8:8], "-cards", "Not A Real Card")); err == nil {
 		t.Error("an unknown card should fail the command")
+	}
+	// With the edition data a card that opens a booster plays.
+	withBoosters := append([]string(nil), args[:6]...)
+	withBoosters = append(withBoosters,
+		"-editions", filepath.Join(root, "forge-gui", "res", "editions"),
+		"-blockdata", filepath.Join(root, "forge-gui", "res", "blockdata"),
+		"-cards", "Booster Tutor", "-workers", "1")
+	if err := cardSmoke(withBoosters); err != nil {
+		t.Fatalf("cardSmoke with boosters: %v", err)
 	}
 }

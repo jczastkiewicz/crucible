@@ -35,7 +35,6 @@ type copySpellAbilityEffect struct{}
 // not resolve, each rejected before anything is copied (PORT-8, GO-7):
 // ChooseOnlyOne$ (CR 707.10d, one copy for a chosen other legal target;
 // CopyForEachCanTarget$ without it resolves, copyForEachTarget), DefinedTarget$ (CR 707.10e), SingleChoice$, Epic$,
-// UseOriginalHost$,
 // and Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // never met, silently. The copy's Layer 1 changes (SetColor$, SetPower$,
 // SetToughness$, AddTypes$) go through copyExceptDef (CardFactory.
@@ -45,7 +44,7 @@ type copySpellAbilityEffect struct{}
 // accepted and does nothing here, since Memory holds no SpellAbility.
 var copySpellUnresolvedParams = [...]string{
 	"ChooseOnlyOne", "DefinedTarget", "SingleChoice",
-	"Epic", "UseOriginalHost"}
+	"Epic"}
 
 func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
@@ -190,6 +189,10 @@ func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 			ids = []StackItemID{a.triggered.spellAbility}
 		case "Targeted":
 			ids = stackItemsOf(g, a.Targets)
+		case "Remembered":
+			// The spells an effect card remembered by RememberSpell$, as they
+			// left the stack (Ertai's Meddling).
+			ids = g.Card(a.Source).rememberedSpells
 		case "Parent":
 			// AbilityUtils.java:1232-1233: the stack root the chain resolves
 			// under. It has left the stack as it resolves, so the copy is made
@@ -211,7 +214,7 @@ func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 			}
 			return []Ability{root}, nil
 		default:
-			// Remembered, Imprinted, ValidStack and TriggeredSourceSA are
+			// Imprinted, ValidStack and TriggeredSourceSA are
 			// getDefinedSpellAbilities shapes of their own.
 			return nil, fmt.Errorf("engine: CopySpellAbility: Defined$ %q not resolvable yet", defined)
 		}
@@ -277,7 +280,24 @@ func (g *Game) copySpell(controller PlayerController, a *Ability, orig Ability, 
 	if !orig.spell {
 		return g.copyStackAbility(controller, orig, copier, mayChoose)
 	}
-	source := g.Card(orig.Source)
+	// UseOriginalHost$ (CardFactory.java:130): the copy's host is the original
+	// card itself, where it is (Ertai's Meddling's exiled card), not a new
+	// copied card; it is not moved, and leaves that zone only by what the
+	// spell does.
+	host := orig.Source
+	if !hasParam(a, "UseOriginalHost") {
+		var err error
+		if host, err = g.copySpellHost(a, g.Card(orig.Source), copier); err != nil {
+			return NoCard, copiedTargets{}, err
+		}
+	}
+	return g.pushSpellCopy(controller, a, orig, copier, mayChoose, host)
+}
+
+// copySpellHost is CardFactory.copySpellHost: a new card from the original's
+// definition, owned by copier, straight into the stack zone and marked
+// IsCopiedSpell.
+func (g *Game) copySpellHost(a *Ability, source *Card, copier PlayerID) (CardID, error) {
 	if source.roomDef != nil {
 		// A Room spell's own Def, while on the stack, is doorView's single-half
 		// projection (room.go) -- not the split card CardEntity's own
@@ -287,14 +307,19 @@ func (g *Game) copySpell(controller PlayerController, a *Ability, orig Ability, 
 		// "one-way loss of Room-ness" Clone and Discover are already rejected
 		// for (room.go) -- rejected here too rather than
 		// silently building a corrupted copy (GO-7/PORT-8).
-		return NoCard, copiedTargets{}, fmt.Errorf("engine: CopySpellAbility: copying a Room spell not resolvable yet")
+		return NoCard, fmt.Errorf("engine: CopySpellAbility: copying a Room spell not resolvable yet")
 	}
 	def, err := copyExceptDef(g, a, source.Def)
 	if err != nil {
-		return NoCard, copiedTargets{}, fmt.Errorf("engine: CopySpellAbility: %w", err)
+		return NoCard, fmt.Errorf("engine: CopySpellAbility: %w", err)
 	}
 	host := g.NewCard(def, copier, Stack)
 	g.Card(host).IsCopiedSpell = true
+	return host, nil
+}
+
+// pushSpellCopy is the rest of copySpell once the copy's host is known.
+func (g *Game) pushSpellCopy(controller PlayerController, a *Ability, orig Ability, copier PlayerID, mayChoose bool, host CardID) (CardID, copiedTargets, error) {
 	cp := orig
 	cp.ID = NoStackItem
 	cp.Source, cp.Controller = host, copier

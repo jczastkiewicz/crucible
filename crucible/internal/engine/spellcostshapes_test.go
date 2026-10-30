@@ -118,3 +118,60 @@ func TestTargetDerivedXIsReadAfterTargets(t *testing.T) {
 		t.Errorf("life %d, want 14 (3 for each of two targets)", got)
 	}
 }
+
+// Ertai's Meddling (RememberSpell$, CopySpellAbility UseOriginalHost$): the
+// targeted spell is exiled with X delay counters; at its controller's upkeep a
+// counter comes off, and with none left a copy of the original spell goes on
+// the stack, hosted by the exiled card, which stays in exile.
+func TestErtaisMeddlingDelaysASpell(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, other, engine.Main1)
+	c := engine.NewScriptedController()
+	bolt := g.NewCard(corpusCard(t, "Lightning Bolt"), other, engine.Hand)
+	g.Player(other).ManaPool.Add(mana.Red, 1)
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	if !g.CastSpell(other, bolt, c) {
+		t.Fatalf("Bolt: %v", g.TakePendingError())
+	}
+	meddling := g.NewCard(corpusCard(t, "Ertai's Meddling"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 2)
+	c.QueuePayX(1)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(bolt)})
+	c.QueuePayGeneric(mana.ShardU)
+	if !g.CastSpell(p, meddling, c) {
+		t.Fatalf("Ertai's Meddling: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if b := g.Card(bolt); b.Zone != engine.Exile || b.Counters.Count("DELAY") != 1 {
+		t.Fatalf("Bolt in %v with %d delay counters, want exiled with 1", b.Zone, b.Counters.Count("DELAY"))
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Fatalf("life %d before the delay ends, want 20", got)
+	}
+
+	g.SetTurnState(3, other, engine.Untap)
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 17 {
+		t.Errorf("life %d after the delayed copy resolved, want 17", got)
+	}
+	if got := g.Card(bolt).Zone; got != engine.Exile {
+		t.Errorf("the original Bolt is in %v, want still exiled", got)
+	}
+	g.SetTurnState(5, other, engine.Untap)
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	// Forge's script keeps the card exiled (UseOriginalHost$), so the copy
+	// comes back at every later upkeep: reproduced as Java does it, logged in
+	// card-script-defects.md (PORT-8).
+	if got := g.Player(p).Life; got != 14 {
+		t.Errorf("life %d after a later upkeep, want 14 (the reproduced repeat)", got)
+	}
+}

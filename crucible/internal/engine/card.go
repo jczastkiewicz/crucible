@@ -133,6 +133,12 @@ type Card struct {
 	// foretoldByEffect is Card.foretoldCostByEffect: the cast from exile costs
 	// the mana cost less up to {2} (GameActionUtil.java:229-239).
 	foretoldByEffect bool
+	// rememberedSpells is the spells an effect card remembers by RememberSpell$
+	// (EffectEffect.java:76-81): Java's remembered SpellAbility objects, here
+	// their stack items, read back through stackItemLKI once they left the
+	// stack (Ertai's Meddling's CopySpellAbility Defined$ Remembered).
+	// Appended to only, so a cloned Card may share it.
+	rememberedSpells []StackItemID
 
 	// kicker is which of the card's kicker costs were paid casting it (kicker.go),
 	// read while it is on the stack or the battlefield; Move clears it when the

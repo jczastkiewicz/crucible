@@ -466,7 +466,6 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 	for _, tc := range []struct {
 		line, want string
 	}{
-		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | UseOriginalHost$ True", "UseOriginalHost$"},
 		{"DB$ CopySpellAbility | Defined$ Parent", "Parent"},
 		{"DB$ CopySpellAbility", `Defined$ ""`},
 		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ Bogus", "Amount"},

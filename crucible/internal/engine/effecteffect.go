@@ -19,7 +19,7 @@ import (
 // effectUnresolvedParams are EffectEffect params this port does not model,
 // each its own further mechanic: granted activated abilities (Abilities$),
 // remembering a spell, a last-known copy or keywords rather than objects
-// (RememberSpell$/RememberKeywords$ and its SharedKeywordsZone$/
+// (RememberKeywords$ and its SharedKeywordsZone$/
 // SharedRestrictions$), the counter-driven forget/exile triggers
 // (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), a
 // standalone forget-on-cast (ForgetOnCast$ without RememberObjects$), the
@@ -29,7 +29,7 @@ import (
 // SpellAbilityCondition shapes subAbilityConditionMet does not cover
 // (ConditionZone$, and a Condition$ value rejectUnreadCondition refuses).
 var effectUnresolvedParams = [...]string{
-	"RememberSpell", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
+	"RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
 	"ExileOnCounter",
 	"Adventure",
 }
@@ -138,6 +138,20 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		life.exileOnMoved, life.forgetOnMoved, life.forgetOnCast = 0, 0, false
 	}
 
+	// RememberSpell$ Targeted (EffectEffect.java:76-81,
+	// getDefinedSpellAbilities): the spells the parent targeted, held as their
+	// stack items; the corpus's one line names Targeted.
+	var spells []StackItemID
+	if spec, ok := a.Params.Param("RememberSpell"); ok {
+		if spec != "Targeted" {
+			return fmt.Errorf("engine: Effect: RememberSpell$ %q not resolvable yet", spec)
+		}
+		for _, ref := range a.stackTargets {
+			if ref.spell {
+				spells = append(spells, ref.item)
+			}
+		}
+	}
 	var noted []CardID
 	if spec, ok := a.Params.Param("NoteCounterDefined"); ok {
 		if noted, err = definedCards(source, spec, a.refs()); err != nil {
@@ -229,6 +243,7 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		for _, c := range imprint {
 			eff.Memory.Imprint(c)
 		}
+		eff.rememberedSpells = append(eff.rememberedSpells, spells...)
 		// CountersNoteEffect.noteCounters: one SVar per counter kind on each noted
 		// card, on the effect card, read back by ChangeZone WithNotedCounters$.
 		for _, c := range noted {

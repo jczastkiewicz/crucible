@@ -70,6 +70,8 @@ type Player struct {
 	// surveilThisTurn is Player.surveilThisTurn: how many times this player has
 	// surveiled this turn, read by Mode$ Surveil's FirstTime$ (Player.java:1084).
 	surveilThisTurn int
+	// commanders is Player.getCommanders in designation order (ADR-0051).
+	commanders []CardID
 	// expendThisTurn is Player.expentThisTurn (Player.java:3995-4000): the mana
 	// this player spent on spells this turn, what Mode$ ManaExpend counts.
 	expendThisTurn int

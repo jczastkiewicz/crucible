@@ -596,10 +596,6 @@ by name (`attachObjectToPlayerChoice`).
 counters although it did not attack or block. Crucible resolves the normal case (a counter present) and refuses the
 zero-counter case by name. Not filed.
 
-`SpellAbilityEffect.java:304-306` adds `getAllComponentCards(false)` to the collection it loops over for
-`IncludeAllComponentCards$`: a merged or melded target throws `ConcurrentModificationException`. You're in Command
-(also gated on a commander model Crucible lacks) is the only line.
-
 `PlaySpellAbility.announceValuesLikeX` (`:766-767`) reads the printed cost, not the adjusted one, so Crashing Wave's
 static-merged `Waterbend<X>` is never announced; `TargetMax$ X` reads 0 and the tapping cap is 0. Foggy Swamp Visions
 and Waterbender's Restoration say `Announce$ X` and work. Crucible keeps refusing the three.

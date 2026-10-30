@@ -53,10 +53,10 @@ func (g *Game) hasSurge(pid PlayerID) bool {
 
 // hasFreerunning is Player.hasFreerunning: a card pid controlled (as it was
 // when it dealt the damage) that is an Assassin or a commander dealt combat
-// damage to a player this turn. No card is a commander here (commanderCasts).
+// damage to a player this turn; the commander is the designation of ADR-0051.
 func (g *Game) hasFreerunning(pid PlayerID) bool {
 	for _, d := range g.playerDamageThisTurn {
-		if d.combat && d.source.Controller() == pid && d.source.Type().HasSubtype("Assassin") {
+		if d.combat && d.source.Controller() == pid && (d.source.Type().HasSubtype("Assassin") || d.source.isCommander()) {
 			return true
 		}
 	}

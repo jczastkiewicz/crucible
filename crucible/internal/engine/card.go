@@ -163,6 +163,9 @@ type Card struct {
 	merged       []CardID
 	mergedTo     CardID
 	timesMutated int
+	// commander is Card.isCommander (ADR-0051), kept in step with the owner's
+	// Player.commanders.
+	commander bool
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.
@@ -1304,10 +1307,10 @@ func (c *Card) stackX() int {
 	return c.castX * c.Def.Faces[0].ManaCost.CountX()
 }
 
-// isCommander is Card.isCommander: only Player.addCommander sets it, from a
-// Commander game setup or GameState's |IsCommander option, neither ported
-// (commanderCasts, castrecord.go), so no card here is a commander.
-func (*Card) isCommander() bool { return false }
+// isCommander is Card.isCommander: set by Player.addCommander (commander.go),
+// which AlterAttribute's Commander attribute calls (ADR-0051). A Commander game
+// setup and GameState's |IsCommander option are not ported.
+func (c *Card) isCommander() bool { return c.commander }
 
 // shortManaCost is Card.getManaCost().getShortString(), what a granted
 // keyword's CardManaCost stands for (mana.Cost.ShortString).

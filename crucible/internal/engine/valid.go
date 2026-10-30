@@ -344,8 +344,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "IsRingbearer":
 		return g.isRingBearer(c)
 	case name == "IsCommander":
-		// CardProperty.java:1983-1986 reads Card.isCommander, which no
-		// card here has (Card.isCommander's doc comment).
+		// CardProperty.java:1983-1986 reads Card.isCommander.
 		return c.isCommander()
 	case name == "IsSolved":
 		return c.Solved

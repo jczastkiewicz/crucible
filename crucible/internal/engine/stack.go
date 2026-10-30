@@ -255,8 +255,7 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 // remembered list, in the order chosen; ForgetOtherTargets$ clears the list
 // first. A targeted ability on the stack (ADR-0041's stack-item entity) is the
 // SpellAbility Java remembers, whose host and controller no Remembered reader
-// here can see; it is refused, as are IncludeAllComponentCards$ (the merged
-// and melded parts of each target) and RememberCostMana$ (the paid mana as a
+// here can see; it is refused, as is RememberCostMana$ (the paid mana as a
 // string, Ice Cauldron's "last noted type and amount"), which no reader
 // resolves (GO-7). None of the refusals changes anything first.
 func (g *Game) rememberTargets(a *Ability) error {
@@ -286,9 +285,6 @@ func (g *Game) rememberTargets(a *Ability) error {
 	if !rememberTargetsLine(a.Params) {
 		return nil
 	}
-	if _, ok := a.Params.Param("IncludeAllComponentCards"); ok {
-		return fmt.Errorf("engine: %s: IncludeAllComponentCards$ not resolvable yet", a.API)
-	}
 	for _, e := range a.Targets {
 		if _, ok := e.AsStackItem(); ok {
 			return fmt.Errorf("engine: %s: RememberTargets$ naming an ability on the stack not resolvable yet", a.API)
@@ -300,6 +296,19 @@ func (g *Game) rememberTargets(a *Ability) error {
 	}
 	for _, e := range a.Targets {
 		host.Memory.Remember(e)
+	}
+	if _, ok := a.Params.Param("IncludeAllComponentCards"); ok {
+		// AbilityUtils.java:1525-1528: each targeted card's merged components
+		// are remembered after the targets.
+		for _, e := range a.Targets {
+			if id, ok := e.AsCard(); ok {
+				for _, comp := range g.Card(id).merged {
+					if comp != id {
+						host.Memory.Remember(CardEntity(comp))
+					}
+				}
+			}
+		}
 	}
 	return nil
 }

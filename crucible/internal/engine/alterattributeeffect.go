@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -15,15 +16,12 @@ import (
 // of its prepare spell its controller may cast; never "altered", so never
 // remembered, AlterAttributeEffect.java:65-90). Optional$ lets the activator
 // decline first. Saddle(d) reads the saddle cost's tapped creatures.
-// Commander is not resolved, nor is Suspected while a CantBeSuspected static is
+// Commander is the designation only (commander.go, ADR-0051); Suspected is not resolved while a CantBeSuspected static is
 // out.
 type alterAttributeEffect struct{}
 
 func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "AlterAttribute", "IncludeAllComponentCards"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -35,7 +33,7 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 	for i, attr := range attrs {
 		attr = strings.TrimSpace(attr)
 		switch attr {
-		case "Suspect", "Suspected", "Solve", "Solved", "Harnessed", "Plotted", "Prepared", "Saddle", "Saddled":
+		case "Commander", "Suspect", "Suspected", "Solve", "Solved", "Harnessed", "Plotted", "Prepared", "Saddle", "Saddled":
 		default:
 			return fmt.Errorf("engine: AlterAttribute: attribute %q not resolvable yet", attr)
 		}
@@ -48,6 +46,17 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: AlterAttribute: %w", err)
+	}
+	if hasParam(a, "IncludeAllComponentCards") {
+		// SpellAbilityEffect.java:304-308: each card's merged components join
+		// it, one level, from a snapshot.
+		for _, id := range slices.Clone(cards) {
+			for _, comp := range g.Card(id).merged {
+				if comp != id && !slices.Contains(cards, comp) {
+					cards = append(cards, comp)
+				}
+			}
+		}
 	}
 	if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 		return nil
@@ -65,6 +74,17 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 					g.prepare(id, a.Controller)
 				} else {
 					g.unprepare(id)
+				}
+			case "Commander":
+				// AlterAttributeEffect.java:116-134: a card whose designation
+				// already equals Activate$ is skipped, not altered.
+				altered = c.commander != activate
+				if altered {
+					if activate {
+						g.addCommander(c.Owner, id)
+					} else {
+						g.removeCommander(c.Owner, id)
+					}
 				}
 			case "Suspect", "Suspected":
 				if activate && battlefieldStaticNames(g, "CantBeSuspected") {

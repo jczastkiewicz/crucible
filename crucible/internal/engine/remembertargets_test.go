@@ -166,7 +166,6 @@ func TestRememberTargetsRefusesWhatItCannotRemember(t *testing.T) {
 		{"sub-ability", "DB$ Pump | Defined$ Self | NumAtt$ +1 | SubAbility$ DBX", "never reaches AbilityUtils.handleRemembering",
 			[]string{"DBX", "DB$ Pump | ValidTgts$ Creature | RememberTargets$ True"}, false},
 		{"stack item", "DB$ Pump | ValidTgts$ Card | RememberTargets$ True", "naming an ability on the stack", nil, true},
-		{"components", "DB$ Pump | ValidTgts$ Creature | RememberTargets$ True | IncludeAllComponentCards$ True", "IncludeAllComponentCards$ not resolvable yet", nil, false},
 		{"cost mana", "DB$ Pump | Defined$ Self | NumAtt$ +1 | RememberCostMana$ True", "RememberCostMana$ on an ability that was not paid", nil, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

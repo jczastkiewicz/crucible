@@ -1750,6 +1750,7 @@ func (g *Game) Clone() *Game {
 		if g.players[i].completedDungeons != nil {
 			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
 		}
+		out.players[i].commanders = append([]CardID(nil), g.players[i].commanders...)
 		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
 		out.players[i].attackedThisTurn = append([]CardID(nil), g.players[i].attackedThisTurn...)
 		out.players[i].attackedPlayersThisTurn = append([]PlayerID(nil), g.players[i].attackedPlayersThisTurn...)

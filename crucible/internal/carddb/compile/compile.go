@@ -250,6 +250,12 @@ type Card struct {
 	// SplitType is how the faces relate (AlternateMode:), what decides
 	// whether the card can transform.
 	SplitType carddb.SplitType
+	// FlavorNames are the names the card's functional variants print under
+	// (Variant:UniversesWithin:FlavorName:Skittering Kitten), the ones other
+	// than its own: an edition may list the card by one. SupportedVariants are
+	// every variant's key.
+	FlavorNames       []string
+	SupportedVariants []string
 }
 
 // Compile resolves every ability line of every face.
@@ -259,7 +265,15 @@ type Card struct {
 // is how a card can ship with an ability that silently does half of what its
 // text says; a script that cannot be compiled is a script to fix (PORT-8).
 func Compile(card *carddb.Card) (*Card, error) {
-	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name, SplitType: card.SplitType}
+	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name, SplitType: card.SplitType,
+		SupportedVariants: card.SupportedVariants}
+	for _, i := range card.PresentFaces() {
+		for _, key := range card.SupportedVariants {
+			if v := card.Faces[i].Variants[key]; v != nil && v.FlavorName != "" && v.FlavorName != card.Faces[i].Name {
+				out.FlavorNames = append(out.FlavorNames, v.FlavorName)
+			}
+		}
+	}
 	for _, i := range card.PresentFaces() {
 		face, err := compileFace(&card.Faces[i])
 		if err != nil {

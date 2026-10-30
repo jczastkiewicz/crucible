@@ -23,6 +23,9 @@ import (
 type DB struct {
 	byName map[string]*Card
 	names  []string
+	// all is every compiled card, including those whose primary face name another
+	// script shares (Start // Fire and Start // Finish), which byName keeps one of.
+	all []*Card
 	// tokens is every token script, keyed by its file name without the
 	// extension -- the name TokenScript$ uses (Java's TokenDb, keyed the
 	// same way). Kept apart from byName: many token scripts share a printed
@@ -95,6 +98,7 @@ func LoadDB(root, typeList string) (*DB, error) {
 		}
 		db.byName[name] = card
 		db.names = append(db.names, name)
+		db.all = append(db.all, card)
 	}
 	return db, nil
 }
@@ -238,4 +242,17 @@ func (d *DB) Names() []string {
 		return nil
 	}
 	return d.names
+}
+
+// Cards is every compiled card in the order the scripts were read, those whose
+// primary face name another script shares included.
+func (d *DB) Cards() []*Card {
+	if d.all != nil {
+		return d.all
+	}
+	out := make([]*Card, 0, len(d.names))
+	for _, n := range d.names {
+		out = append(out, d.byName[n])
+	}
+	return out
 }

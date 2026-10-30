@@ -142,6 +142,11 @@ type unlessCost struct {
 	// exileStackSelf is ExileFromStack<1/Card.Self> (CostExileFromStack): the
 	// spell being resolved exiles itself, so it never reaches the graveyard.
 	exileStackSelf bool
+	// unattachSelf is Unattach<CARDNAME> (the Equipment unattaches itself);
+	// unattachSpec is Unattach<type>: an attachment of the source that the
+	// type accepts (CostUnattach.findCardToUnattach).
+	unattachSelf bool
+	unattachSpec string
 	// discardRandomN is Discard<N/Random>: N cards of the hand at random, no
 	// choice (CostDiscard's "Random" type).
 	discardRandomN int
@@ -341,6 +346,12 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			if p.Name == "ExileFromGrave" {
 				uc.exileTotalZone = Graveyard
 			}
+			continue
+		case p.Name == "Unattach" && p.Field(0) == "CARDNAME" && !uc.unattachSelf:
+			uc.unattachSelf = true
+			continue
+		case p.Name == "Unattach" && uc.unattachSpec == "" && p.Field(0) != "OriginalHost" && !strings.Contains(p.Field(0), "X") && chosenCardSpecResolvable(p.Field(0)):
+			uc.unattachSpec = p.Field(0)
 			continue
 		case p.Name == "ChooseCreatureType" && p.Field(0) == "1" && !uc.chooseCreatureType:
 			uc.chooseCreatureType = true
@@ -855,6 +866,12 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.exileStackSelf && g.Card(source).Zone != Stack {
 		return false
 	}
+	if uc.unattachSelf && g.Card(source).attachedTo == NoCard {
+		return false
+	}
+	if uc.unattachSpec != "" && len(g.unattachCandidates(pid, source, uc.unattachSpec)) == 0 {
+		return false
+	}
 	if uc.exileGraveN > 0 && len(g.exileGraveOptions(pid, source, uc)) < uc.exileGraveN {
 		return false
 	}
@@ -1178,6 +1195,15 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		exiled := g.exileCostCards(controller, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
+		}
+	}
+	if uc.unattachSelf {
+		g.Unattach(a.Source)
+	}
+	if uc.unattachSpec != "" {
+		options := g.unattachCandidates(pid, a.Source, uc.unattachSpec)
+		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, options, 1, 1) {
+			g.Unattach(id)
 		}
 	}
 	if uc.exileStackSelf && g.Card(a.Source).Zone == Stack {
@@ -1970,6 +1996,19 @@ func (g *Game) exilableStackSpells(pid PlayerID, source CardID, spec string) []C
 	var out []CardID
 	for _, e := range g.stackSpellCandidates(pid, source, strings.ReplaceAll(spec, ";", ",")) {
 		if id, ok := e.AsCard(); ok && id != source {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// unattachCandidates are the cards attached to source that spec accepts
+// (CostUnattach.findCardToUnattach: source.getEquippedBy() filtered).
+func (g *Game) unattachCandidates(pid PlayerID, source CardID, spec string) []CardID {
+	parsed := valid.Parse(strings.ReplaceAll(spec, ";", ","))
+	var out []CardID
+	for _, id := range g.Card(source).Attachments() {
+		if Matches(g, g.Card(id), parsed, pid, source) {
 			out = append(out, id)
 		}
 	}

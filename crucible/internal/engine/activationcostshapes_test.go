@@ -537,3 +537,26 @@ func TestActivationExilesASpellFromTheStack(t *testing.T) {
 		t.Errorf("%d counters before resolution, want 0", got)
 	}
 }
+
+// Sunforger (R W Unattach<CARDNAME/CARDNAME>): the Equipment unattaches
+// itself as the cost; unattached it cannot pay it.
+func TestActivationUnattachesItsOwnEquipment(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	sunforger := g.NewCard(corpusCard(t, "Sunforger"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	if g.ActivateAbility(p, sunforger, 0, c) {
+		t.Fatal("activated while unattached")
+	}
+	g.Attach(sunforger, bears)
+	if !g.ActivateAbility(p, sunforger, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(bears).Attachments(); len(got) != 0 {
+		t.Errorf("Bears still carry %v, want the Sunforger unattached", got)
+	}
+}

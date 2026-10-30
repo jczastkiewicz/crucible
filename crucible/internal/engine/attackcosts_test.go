@@ -372,7 +372,7 @@ func TestUnresolvableAttackTaxIsAnError(t *testing.T) {
 	}{
 		{"param", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ 2 | Bogus$ 1", "Bogus$ not resolvable", nil},
 		{"condition", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ 2 | Condition$ Bogus", "Condition$", nil},
-		{"cost", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Unattach<CARDNAME/CARDNAME>", "not resolvable yet", nil},
+		{"cost", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Unattach<OriginalHost>", "not resolvable yet", nil},
 		{"svar", "Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Q", "SVar not resolvable", []string{"Q", "Count$Bogus"}},
 		{"nocost", "Mode$ CantAttackUnless | ValidCard$ Card.Self", "without Cost$", nil},
 	} {

@@ -16,6 +16,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -153,6 +154,22 @@ func (g *Game) eachReplacementRule(fn func(h *Card, zone ZoneType, amounts map[s
 				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						fn(h, z, face.Amounts, r)
+					}
+				}
+			}
+		}
+		// A graveyard host (Retriever Phoenix, ActiveZones$ Graveyard) is
+		// offered only the lines that name that zone: every other line keeps
+		// its battlefield-only reach.
+		for _, host := range g.Zone(Graveyard, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.liveTraitFaces() {
+				for _, r := range face.Replacements {
+					if zones, ok := replacementActiveZones(r); ok && slices.Contains(zones, Graveyard) {
+						fn(h, Graveyard, face.Amounts, r)
 					}
 				}
 			}

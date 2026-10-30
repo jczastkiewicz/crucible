@@ -1,16 +1,20 @@
 package engine
 
-//enginelint:allow game ability control effecthelpers card condition defined player id zone discardeffect scheduledaction
+//enginelint:allow game ability control effecthelpers card condition defined player id zone discardeffect scheduledaction valid replacementevents
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+)
 
 // learnEffect is LearnEffect.java through Player.learnLesson: each target
 // player (the activator by default) may reveal a Lesson card from their
 // sideboard and put it into their hand, or discard a card to draw a card,
 // or do neither -- one pick among their sideboard Lessons and hand cards.
 // A player another player controls is offered their hand only.
-// A Learn replacement effect is not modeled, so the effect fails while one
-// is out.
+// A Learn replacement (Retriever Phoenix) replaces the whole learn for its
+// player (Player.learnLesson, Player.java:3940-3943).
 type learnEffect struct{}
 
 func (learnEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -24,15 +28,15 @@ func (learnEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	if liveReplacementEvent(g, "Learn") {
-		return fmt.Errorf("engine: Learn: Learn replacement effects not resolvable yet")
-	}
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Learn: %w", err)
 	}
 	for _, p := range players {
 		if g.Player(p).Lost {
+			continue
+		}
+		if g.learnReplaced(controller, p) {
 			continue
 		}
 		var list []CardID
@@ -66,4 +70,19 @@ func (learnEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		g.DrawCards(p, 1, controller)
 	}
 	return nil
+}
+
+// learnReplaced is ReplacementType.Learn's run for player p
+// (Player.java:3940-3943): a line whose ValidPlayer$ matches p replaces the
+// learn by its ReplaceWith$ ability, after the Optional$ confirmation.
+func (g *Game) learnReplaced(controller PlayerController, p PlayerID) bool {
+	return g.runBeginReplacements(controller, p, "Learn", []string{"validplayer", "optional", "optionaldecider"},
+		func(h *Card, r *compile.Ability) bool {
+			if v, ok := r.Param("ValidPlayer"); ok {
+				if matched, recognized := matchesPlayerSpec(g, p, h.Controller(), h.ID, v); !recognized || !matched {
+					return false
+				}
+			}
+			return true
+		})
 }

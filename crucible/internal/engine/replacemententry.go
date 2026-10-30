@@ -322,8 +322,9 @@ func entryUpdatedShape(sub *compile.Ability) bool {
 			return cost == replacementPayLifeX
 		}
 	}
-	if strings.EqualFold(sub.Name, "PutCounter") {
-		// A chain headed by its counters is applyEnterCounters', after the move.
+	if strings.EqualFold(sub.Name, "PutCounter") && !entrySplitChain(sub) {
+		// A chain headed by its counters is applyEnterCounters', after the move,
+		// unless an Animate of Self follows them (Prison Barricade).
 		return false
 	}
 	return strings.EqualFold(sub.Name, "LoseLife") || isDevourChain(sub) || entryChainRunsBeforeMove(sub, 0) || entrySplitChain(sub)

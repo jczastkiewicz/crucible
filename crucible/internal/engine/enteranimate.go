@@ -106,6 +106,15 @@ func entryAnimateShape(sub *compile.Ability) (shape, sacrifices bool) {
 				return false, false
 			}
 			acts++
+		case strings.EqualFold(a.Name, "PutCounter"):
+			// Counters on the entering card (no Defined$, Prison Barricade's
+			// "enters with a +1/+1 counter and with ..."): they go into the
+			// entry counter table before the move, so a chain with an Animate
+			// of Self after them is split like one with a sacrifice before it.
+			if _, has := a.Param("Defined"); has {
+				return false, false
+			}
+			sacrifices = true
 		default:
 			known := false
 			for _, api := range entryChainAPIs {

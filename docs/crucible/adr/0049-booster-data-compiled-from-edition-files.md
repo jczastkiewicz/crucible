@@ -1,6 +1,6 @@
 # ADR-0049 — Booster Templates Are Compiled From Edition Files Into an Immutable Table
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-28
 - **Deciders:** Crucible session (B9)
 
@@ -34,7 +34,7 @@ your deck before the next game" clause has no Java implementation and none here.
 
 ## Decision
 
-Option 1 only if the owner wants the card; otherwise Option 2 stays and this ADR is Deprecated.
+Option 1: the owner wants the card.
 
 **Data.** `carddb` gains `Edition{Code, Affix, BoosterTypes, Sheets, PictureCounts, FoilChance, FoilType}` parsed once
 at load by a loader beside the card compiler; the table is ordered as Java's TreeMap (code plus affix, case-folded) in a

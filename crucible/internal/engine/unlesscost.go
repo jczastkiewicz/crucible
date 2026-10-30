@@ -18,6 +18,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -101,6 +102,8 @@ type unlessCost struct {
 	// Card and Hand: N cards of the type from the payer's hand (CostDiscard).
 	discardTypeN    int
 	discardTypeSpec string
+	// discardLast is Discard<1/LastDrawn>: the card drawn last, if still in hand.
+	discardLast bool
 	// movedToGraveN/movedToGraveSpec are ExiledMoveToGrave<N/Type>: N exiled
 	// cards of the type, any player's exile, put into their owners' graveyards
 	// (CostExiledMoveToGrave.java:48-92).
@@ -181,6 +184,15 @@ type unlessCost struct {
 	// graveyards, Thelon of Havenwood), both with spec as the type.
 	exileSameN, exileAnyN int
 	exileMiscSpec         string
+	// manaOfExiled is Mana<0\\Exiled>: after the exile parts, the payer also
+	// pays the mana cost of the first card they exiled (CostPartMana's
+	// isExiledCreatureCost, paid last).
+	manaOfExiled bool
+	// rollN/rollSides/rollVar are RollDice<N/Sides/Var> (CostRollDice): the
+	// payer rolls N dice of that many sides and the total becomes SVar Var on
+	// the ability. Always payable.
+	rollN, rollSides int
+	rollVar          string
 	// exileSelf is Exile<1/CARDNAME>: the source leaves the battlefield for
 	// exile as part of the cost (CostExile's self shape).
 	exileSelf bool
@@ -300,6 +312,17 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 		case p.Name == "ExileFromHand" && p.Field(1) == "All" && !uc.exileHandAll:
 			uc.exileHandAll = true
 			continue
+		case p.Name == "RollDice" && uc.rollN == 0 && p.Field(2) != "":
+			rn, e1 := strconv.Atoi(p.Field(0))
+			rs, e2 := strconv.Atoi(p.Field(1))
+			if e1 != nil || e2 != nil || rn < 1 || rs < 1 {
+				return unlessCost{}, false
+			}
+			uc.rollN, uc.rollSides, uc.rollVar = rn, rs, p.Field(2)
+			continue
+		case p.Name == "Mana" && p.Field(0) == `0\Exiled` && !uc.manaOfExiled:
+			uc.manaOfExiled = true
+			continue
 		case p.Name == "RevealChosen" && uc.revealChosen == "" && (p.Field(0) == "Player" || p.Field(0) == "Type"):
 			uc.revealChosen = p.Field(0)
 			continue
@@ -318,7 +341,7 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.chooseCreatureType = true
 			continue
 		}
-		if hasX && p.Field(0) == "X" {
+		if hasX && (p.Field(0) == "X" || p.Field(0) == "X1+" && p.Name == "RemoveAnyCounter") {
 			if x <= 0 {
 				continue
 			}
@@ -350,6 +373,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileGraveN, uc.exileGraveSpec, uc.exileGraveTop = n, "Creature", true
 		case p.Name == "ExileFromStack" && n == 1 && p.Field(1) == "Card.Self" && !uc.exileStackSelf:
 			uc.exileStackSelf = true
+		case p.Name == "Discard" && p.Field(1) == "LastDrawn" && !uc.discardLast:
+			uc.discardLast = true
 		case p.Name == "Discard" && uc.discardTypeN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.discardTypeN, uc.discardTypeSpec = n, p.Field(1)
 		case p.Name == "SubCounter" && uc.subCounterN == 0 && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME" || p.Field(2) == "NICKNAME"):
@@ -1104,6 +1129,20 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
+	if uc.rollN > 0 {
+		// CostRollDice.payAsDecided (:46-51).
+		total, err := g.rollDiceFor(a, controller, pid, uc.rollN, uc.rollSides, 0, 0)
+		if err != nil {
+			g.recordPendingError(err)
+			return false
+		}
+		amounts := make(map[string]expr.Amount, len(a.Amounts)+1)
+		for k, v := range a.Amounts {
+			amounts[k] = v
+		}
+		amounts[strings.ToLower(uc.rollVar)] = expr.Amount{Kind: expr.Literal, Value: total}
+		a.Amounts = amounts
+	}
 	if uc.exileTotal {
 		options := g.costCandidates(pid, a.Source, false, uc.exileTotalZone, uc.exileTotalSpec)
 		picks := g.chosenUnlessCards(controller, pid, a.Source, options, min(1, len(options)), len(options))
@@ -1541,6 +1580,20 @@ func (g *Game) expandUnlessCost(a *Ability, text string, controller PlayerContro
 		}
 		return max(n, 0), nil
 	}
+	if _, announced := a.Params.Param("Announce"); !announced {
+		// Mana<unit\NumTimes> (CostPartMana.java:146-148): the unit paid
+		// SVar NumTimes times, none for 0.
+		if i := strings.Index(text, `Mana<`); i >= 0 {
+			if j := strings.Index(text[i:], `\NumTimes>`); j >= 0 {
+				n, err := amount("NumTimes")
+				if err != nil {
+					return "", err
+				}
+				unit := text[i+len("Mana<") : i+j]
+				text = text[:i] + strings.TrimSpace(strings.Repeat(unit+" ", n)) + text[i+j+len(`\NumTimes>`):]
+			}
+		}
+	}
 	if _, isSVar := a.Amounts[strings.ToLower(text)]; isSVar && text != "X" {
 		n, err := amount(text)
 		if err != nil {
@@ -1647,7 +1700,7 @@ func unlessManaOf(n int, color string) (string, error) {
 // X (Cost.hasXInAnyCostPart, Cost.java:1101-1111, for the parts past mana).
 func costNamesX(text string) bool {
 	for _, p := range cost.Parse(text).Parts {
-		if p.Field(0) == "X" {
+		if p.Field(0) == "X" || p.Field(0) == "X1+" && p.Name == "RemoveAnyCounter" {
 			return true
 		}
 		// withTotalCMC<GE|EQ>X: the total is the announced X (Fabrication Foundry).

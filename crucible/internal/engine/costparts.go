@@ -242,6 +242,9 @@ func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) boo
 	if uc.discardTypeN > 0 && len(g.costCandidates(pid, source, false, Hand, uc.discardTypeSpec)) < uc.discardTypeN {
 		return false
 	}
+	if uc.discardLast && !g.lastDrawnInHand(pid) {
+		return false
+	}
 	if uc.movedToGraveN > 0 && len(g.exiledToGraveCandidates(pid, source, uc.movedToGraveSpec)) < uc.movedToGraveN {
 		return false
 	}
@@ -322,6 +325,13 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 		n := c.Counters.Count(uc.subCounterType)
 		removeCounters(g, a.Source, CardEntity(a.Source), &c.Counters, uc.subCounterType, false, false, n)
 		g.noteCostCountersRemoved(a.Source, n)
+	}
+	if uc.discardLast {
+		last := g.Player(pid).lastDrawn
+		discardCards(g, controller, []CardID{last}, pid)
+		if rec != nil {
+			rec.discarded = append(rec.discarded, last)
+		}
 	}
 	if uc.discardTypeN > 0 {
 		options := g.costCandidates(pid, a.Source, false, Hand, uc.discardTypeSpec)
@@ -561,4 +571,12 @@ func (g *Game) noteCostCountersRemoved(source CardID, removed int) {
 		c.svars = map[string]int{}
 	}
 	c.svars["costcountersremoved"] = removed
+}
+
+// lastDrawnInHand is CostDiscard.canPay for Discard<N/LastDrawn> (:151-153):
+// the card the player drew last is still in their hand. The card stays "last
+// drawn" until the next draw, even from a past turn (Player.java:1251, 1782).
+func (g *Game) lastDrawnInHand(pid PlayerID) bool {
+	p := g.Player(pid)
+	return p.hasLastDrawn && g.Card(p.lastDrawn).Zone == Hand && g.Card(p.lastDrawn).Owner == pid
 }

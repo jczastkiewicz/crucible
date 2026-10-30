@@ -9,7 +9,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability control parts zone castspell manarestrict taptype unlesscost
+//enginelint:allow id card game player ability control parts zone castspell manarestrict taptype unlesscost costparts
 
 import (
 	"fmt"
@@ -58,7 +58,9 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 		// floor, so the ability cannot be activated at all.
 		return false
 	}
-	if rest != "" {
+	_, targets := ability.Param("ValidTgts")
+	deferX := rest != "" && targets && costNamesX(rest) && !amountIsXPaid(activated.Amounts)
+	if rest != "" && !deferX {
 		var announce bool
 		var err error
 		if uc, announce, err = g.triggeredCostShape(&activated, rest, controller); err != nil {
@@ -81,6 +83,21 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 	}
 	if !g.chooseAbilityTargets(controller, &activated) {
 		return false
+	}
+	if deferX {
+		// An X computed from the targets (Martyr of Bones' TargetedObjects$Amount)
+		// is known only now: targets are chosen before costs (PlaySpellAbility.java:675).
+		saved := g.resolving
+		g.resolving = &activated
+		again, _, err := g.triggeredCostShape(&activated, rest, controller)
+		g.resolving = saved
+		if err != nil {
+			g.recordPendingError(fmt.Errorf("engine: %s: activated Cost$ %q not resolvable yet: %w", c.Def.Name, costText, err))
+			return false
+		}
+		if uc = again; !g.unlessPayable(pid, card, uc) {
+			return false
+		}
 	}
 	if uc.hasMana {
 		savedResolving := g.resolving
@@ -143,7 +160,21 @@ func (g *Game) payActivatedUnlessCost(controller PlayerController, a *Ability, p
 		a.paid.colors, a.paid.colorless = x.paid, x.colorless
 	}
 	tapChosenPermanents(g, controller, taps)
-	return g.payUnlessPartsInto(controller, a, pid, uc, &a.paid)
+	if !g.payUnlessPartsInto(controller, a, pid, uc, &a.paid) {
+		return false
+	}
+	if uc.manaOfExiled {
+		// CostPartMana.java:128-131: the exiled card's mana cost, paid after
+		// the exile it depends on.
+		if len(a.paid.exiled) == 0 {
+			return false
+		}
+		restore := g.payingFor(&payContext{item: a, cost: g.Card(a.paid.exiled[0]).manaCost()})
+		_, paid := g.payManaCostX(pid, g.Card(a.paid.exiled[0]).manaCost(), controller)
+		restore()
+		return paid
+	}
+	return true
 }
 
 // withoutTapSymbols is a Cost$ text with its T and Q tokens taken out.

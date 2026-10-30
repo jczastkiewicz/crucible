@@ -629,6 +629,7 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	// happen to be library-to-hand.
 	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
 	g.Player(pid).CardsDrawnThisTurn++
+	g.Player(pid).lastDrawn, g.Player(pid).hasLastDrawn = id, true
 	if g.activePhase == Draw {
 		g.Player(pid).DrawnThisDrawStep++
 	}

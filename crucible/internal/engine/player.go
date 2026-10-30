@@ -200,6 +200,10 @@ type Player struct {
 	// dilemmasFacedThisTurn counts the modal choices this player made this
 	// turn (CharmEffect.faceDilemma, Player.dilemmasFacedThisTurn).
 	dilemmasFacedThisTurn int
+	// lastDrawn is the card this player drew last (Player.lastDrawnCard); it
+	// stays set across turns until the next draw.
+	lastDrawn    CardID
+	hasLastDrawn bool
 	// attackedPlayersThisTurn is Player.getAttackedPlayersMyTurn: each player
 	// this player attacked directly this turn, once, in first-attack order (the
 	// Player keys of Java's attackedThisTurn map; a planeswalker or battle

@@ -375,3 +375,135 @@ func TestActivationExilesPermanentsTotallingTheAnnouncedX(t *testing.T) {
 		t.Errorf("Sol Ring (mana value 1) is in %v, want exiled for X 1", z)
 	}
 }
+
+// Ooze Flux (XMin1, RemoveAnyCounter<X1+/P1P1/Creature>): X counters come off
+// the creatures the payer picks and the token is X/X.
+func TestActivationRemovesAnnouncedCountersFromCreatures(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	flux := g.NewCard(corpusCard(t, "Ooze Flux"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Card(bears).Counters.Add(engine.P1P1, 3)
+	g.Player(p).ManaPool.Add(mana.Green, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayX(2)
+	c.QueueCardChoice([]engine.CardID{bears})
+	c.QueueCardChoice([]engine.CardID{bears})
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.ActivateAbility(p, flux, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(bears).Counters.Count(engine.P1P1); got != 1 {
+		t.Errorf("%d +1/+1 counters left, want 1", got)
+	}
+}
+
+// Jandor's Ring (2 T Discard<1/LastDrawn>): only the card drawn last can be
+// discarded, and only while it is still in hand.
+func TestActivationDiscardsTheLastDrawnCard(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	libraryCards(t, g, p, 4)
+	ring := g.NewCard(corpusCard(t, "Jandor's Ring"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.White, 2)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, ring, 0, c) {
+		t.Fatal("activated before any card was drawn")
+	}
+	g.DrawCards(p, 1, c)
+	hand := g.Zone(engine.Hand, p).Cards()
+	drawn := hand[len(hand)-1]
+	queueGeneric(c, mana.ShardW, 2)
+	if !g.ActivateAbility(p, ring, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if z := g.Card(drawn).Zone; z != engine.Graveyard {
+		t.Errorf("the drawn card is in %v, want discarded", z)
+	}
+}
+
+// Skeleton Scavengers (Mana<1\NumTimes>, NumTimes = its +1/+1 counters): {1}
+// is paid once for each counter.
+func TestActivationPaysManaOncePerNumTimes(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	skeleton := g.NewCard(corpusCard(t, "Skeleton Scavengers"), p, engine.Battlefield)
+	g.Card(skeleton).Counters.Add(engine.P1P1, 2)
+	g.Player(p).ManaPool.Add(mana.Black, 5)
+	c := engine.NewScriptedController()
+	queueGeneric(c, mana.ShardB, 2)
+	if !g.ActivateAbility(p, skeleton, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 3 {
+		t.Errorf("%d mana left, want 3 (two paid)", got)
+	}
+}
+
+// Back from the Brink (ExileFromGrave<1/Creature> Mana<0\Exiled>): the
+// creature card exiled is also paid for with its mana cost.
+func TestActivationPaysTheExiledCardsManaCost(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	brink := g.NewCard(corpusCard(t, "Back from the Brink"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Green, 4)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{bears})
+	queueGeneric(c, mana.ShardG, 2)
+	if !g.ActivateAbility(p, brink, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 2 {
+		t.Errorf("%d mana left, want 2 (Grizzly Bears costs {1}{G})", got)
+	}
+}
+
+// Clay Golem (6 RollDice<1/8/X>, Monstrosity$ X): the d8 rolled while paying
+// is X, and Monstrosity X puts that many +1/+1 counters on the Golem.
+func TestActivationRollsADieForX(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	golem := g.NewCard(corpusCard(t, "Clay Golem"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.White, 6)
+	c := engine.NewScriptedController()
+	queueGeneric(c, mana.ShardW, 6)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield))})
+	if !g.ActivateAbility(p, golem, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if n := g.Card(golem).Counters.Count(engine.P1P1); n < 1 || n > 8 {
+		t.Errorf("%d +1/+1 counters, want the result of one d8 (1-8)", n)
+	}
+}
+
+// Martyr of Bones (Reveal<X/Card.Black>, X the number of targets): the cost is
+// read after the targets are chosen.
+func TestActivationReadsXFromTheTargets(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	martyr := g.NewCard(corpusCard(t, "Martyr of Bones"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Dark Ritual"), p, engine.Hand)
+	g.NewCard(corpusCard(t, "Dark Ritual"), p, engine.Hand)
+	a := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Graveyard)
+	b := g.NewCard(corpusCard(t, "Hill Giant"), other, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(a), engine.CardEntity(b)})
+	c.QueuePayGeneric(mana.ShardB)
+	if !g.ActivateAbility(p, martyr, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if z := g.Card(martyr).Zone; z != engine.Graveyard {
+		t.Errorf("Martyr of Bones is in %v, want sacrificed", z)
+	}
+}

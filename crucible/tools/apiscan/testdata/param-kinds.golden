@@ -4607,11 +4607,10 @@ MustAttack	Condition	3	-	-	token:3
 MustAttack	Description	153	-	-	prose:153
 MustAttack	IsPresent	3	-	-	prose:2,token:1
 MustAttack	Mode	168	-	-	token:168
-MustAttack	MustAttack	26	-	defined:1	token:26
+MustAttack	MustAttack	27	-	defined:1	token:27
 MustAttack	PresentCompare	3	-	-	token:3
 MustAttack	Secondary	15	-	-	bool:15
 MustAttack	ValidCreature	168	-	-	token:168
-MustAttack	ValidPlayer	1	-	-	token:1
 MustBlock	AB	11	-	-	token:11
 MustBlock	AILogic	2	-	-	token:2
 MustBlock	BlockAllDefined	2	-	-	bool:2

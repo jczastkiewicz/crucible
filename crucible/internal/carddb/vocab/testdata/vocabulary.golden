@@ -2728,7 +2728,6 @@ validProperty	NotDefinedTriggeredAttackers
 validProperty	NotDefinedTriggeredCard
 validProperty	NotDefinedTriggeredTarget
 validProperty	NotedColor
-validProperty	NotedDefender
 validProperty	NotedForArcaneSavant
 validProperty	NotedForGreenAnchor
 validProperty	NotedGuessPhantasm

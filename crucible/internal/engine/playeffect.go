@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability amount card castspell condition control defined effecthelpers game id land parts player trigger unlesscost valid zone zonemove illusionarymask
+//enginelint:allow ability amount card castspell condition control defined effecthelpers face game id land parts player trigger unlesscost valid zone zonemove illusionarymask
 
 import (
 	"fmt"
@@ -275,6 +275,15 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			continue
 		}
 		origin := g.Card(pick).Zone
+		faced := opt.face && g.Card(pick).faceDef == nil
+		if faced {
+			g.Card(pick).castAsFace()
+		}
+		undoFace := func() {
+			if faced && g.Card(pick).Zone != Stack && g.Card(pick).Zone != Battlefield {
+				g.Card(pick).undoCastAsFace()
+			}
+		}
 		if opt.land {
 			g.playLandNow(controller, caster, pick)
 			playRecord(g, a, pick, chosenCard)
@@ -286,6 +295,7 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			// PlayEffect.java:387-389: a spell with no mana cost cannot be
 			// paid for, so it is skipped, amount not spent. A PlayCost$
 			// replaces the mana cost, so it is paid instead (:371-386).
+			undoFace()
 			if err := playRepeatLoop(allowRepeats, g.Card(chosenCard), "has no mana cost to pay"); err != nil {
 				return err
 			}
@@ -314,6 +324,8 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			g.playReplaceGraveyard(a, pick)
 			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
+		} else {
+			undoFace()
 		}
 		amount--
 		budget -= pickCMC
@@ -497,6 +509,9 @@ func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 // its one spell.
 type playOption struct {
 	land bool
+	// face is the card's second face (ADR-0052): cast, or played as a land,
+	// through a one-face view of the printed card.
+	face bool
 }
 
 // playOptionsOf is AbilityUtils.getSpellsFromPlayEffect for card: a land's
@@ -510,6 +525,25 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 	if playCastGap(c) != "" {
 		return nil, false
 	}
+	if c.faceDef == nil && faceCastable(c.Def) {
+		// Both faces' options, the front first: Java asks the controller to
+		// choose among them (chooseSpellAbilityToPlay), this port takes the
+		// front when it has one (quirks.md).
+		front, _ := playOptionsOfFace(g, caster, card)
+		c.castAsFace()
+		face, _ := playOptionsOfFace(g, caster, card)
+		c.undoCastAsFace()
+		for i := range face {
+			face[i].face = true
+		}
+		return append(front, face...), true
+	}
+	return playOptionsOfFace(g, caster, card)
+}
+
+// playOptionsOfFace is playOptionsOf for the characteristics c has now.
+func playOptionsOfFace(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
+	c := g.Card(card)
 	t := c.Type()
 	switch {
 	case t.Has(cardtype.Land):
@@ -539,6 +573,11 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 func playCastGap(c *Card) string {
 	switch c.Def.SplitType {
 	case carddb.SplitNone, carddb.SplitTransform, carddb.SplitMeld, carddb.SplitFlip, carddb.SplitSpecialize:
+	case carddb.SplitAdventure, carddb.SplitOmen, carddb.SplitModal, carddb.SplitSplit, carddb.SplitVengeance:
+		if !faceCastable(c.Def) {
+			return "a " + c.Def.SplitType.String() + " card's choice of spells"
+		}
+		return ""
 	default:
 		return "a " + c.Def.SplitType.String() + " card's choice of spells"
 	}

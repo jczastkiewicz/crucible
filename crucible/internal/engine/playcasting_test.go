@@ -7,6 +7,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
@@ -761,5 +762,33 @@ func TestPlayWithTotalCMCStopsWhenTheBudgetIsSpent(t *testing.T) {
 	}
 	if got := g.Card(small).Zone; got != engine.Exile {
 		t.Errorf("small spell zone = %v, want Exile", got)
+	}
+}
+
+// TestPlayCastsTheSecondFaceWhenTheFrontIsNotASpell proves Play offers a
+// multi-face card's second face (ADR-0052): with ValidSA$ Spell a land front
+// is no option, so the Adventure half is cast, gaining life, and the card
+// leaves the stack for exile as an Adventure card does.
+func TestPlayCastsTheSecondFaceWhenTheFrontIsNotASpell(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	def := gainInstant(t, "Adv", "W", "4")
+	def.SplitType = carddb.SplitAdventure
+	def.Faces[carddb.FaceAlternate] = def.Faces[0]
+	def.Faces[0].Name = "Front Land"
+	def.Faces[0].Type = cardtype.ParseToken("Land")
+	def.Faces[0].ManaCost = mana.NoCost()
+	def.Faces[0].Abilities = nil
+	card := g.NewCard(def, p, engine.Exile)
+	c := engine.NewScriptedController()
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | Defined$ Remembered | ValidSA$ Spell | WithoutManaCost$ True")
+	if err := resolvePlay(t, g, host, c, card); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 24 {
+		t.Errorf("life = %d, want 24 (the Adventure half cast)", got)
+	}
+	if got := g.Card(card).Zone; got != engine.Exile {
+		t.Errorf("card zone = %v, want Exile (on an adventure)", got)
 	}
 }

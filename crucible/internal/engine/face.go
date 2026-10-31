@@ -25,8 +25,27 @@ func faceCastable(def *compile.Card) bool {
 		return !isRoomDef(def)
 	case carddb.SplitAdventure, carddb.SplitOmen, carddb.SplitModal, carddb.SplitVengeance:
 		return true
+	case carddb.SplitTransform:
+		_, ok := disturbCost(def)
+		return ok
 	}
 	return false
+}
+
+// disturbCost is the K:Disturb:<cost> of def's front face, the cost of casting
+// its back face from the graveyard (CardFactoryUtil.java:2780-2810).
+func disturbCost(def *compile.Card) (mana.Cost, bool) {
+	for _, line := range def.Faces[carddb.FacePrimary].Keywords {
+		k := keyword.Parse(line)
+		if k.Name != "Disturb" || k.Details == "" {
+			continue
+		}
+		mc, err := mana.Parse(k.Details)
+		if err == nil && mc.CountX() == 0 {
+			return mc, true
+		}
+	}
+	return mana.Cost{}, false
 }
 
 // castAsFace makes c the spell of its second face; undoCastAsFace reverses it
@@ -97,7 +116,14 @@ func (g *Game) PlayLandFace(pid PlayerID, card CardID, controller PlayerControll
 // an Adventure card's creature from exile while it is on an adventure
 // (PlayerZone.java:64, Card.isOnAdventure).
 func (g *Game) faceZoneCost(pid PlayerID, c *Card) (mana.Cost, bool) {
-	if c.Owner != pid || c.Def == nil || c.manaCost().IsNoCost() {
+	if c.Owner != pid || c.Def == nil {
+		return mana.Cost{}, false
+	}
+	if c.faceDef != nil && c.Zone == Graveyard && c.faceDef.SplitType == carddb.SplitTransform {
+		// Disturb: the back face, cast transformed for the disturb cost.
+		return disturbCost(c.faceDef)
+	}
+	if c.manaCost().IsNoCost() {
 		return mana.Cost{}, false
 	}
 	switch {

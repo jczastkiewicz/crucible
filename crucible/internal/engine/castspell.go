@@ -133,7 +133,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		opts.fromKeyword = ok // Flashback and Beam me up exile the spell as it leaves the stack
 		if !ok {
 			cost, ok = g.faceZoneCost(pid, c)
-			opts.fromKeyword = ok && c.faceDef != nil // Aftermath exiles it too
+			opts.fromKeyword = ok && c.faceDef != nil && c.faceDef.SplitType != carddb.SplitTransform // Aftermath exiles it too; a disturbed permanent keeps its back face's own replacement
 		}
 		if !ok {
 			cost, ok = g.foretellCost(pid, c)

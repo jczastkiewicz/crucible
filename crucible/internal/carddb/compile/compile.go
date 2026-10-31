@@ -344,6 +344,9 @@ func compileFace(face *carddb.Face) (Face, error) {
 	if err := c.expandKeywords(&out); err != nil {
 		return Face{}, err
 	}
+	if err := c.expandGrantedKeywords(&out); err != nil {
+		return Face{}, err
+	}
 	out.Amounts = addInlineAmounts(out.Amounts, out.Statics)
 	out.Amounts = addInlineChecks(out.Amounts, out.Abilities, out.Triggers, out.Statics, out.Replacements)
 	return out, nil
@@ -385,55 +388,112 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 		if !ok {
 			continue
 		}
-		for _, sv := range exp.Amounts {
-			if out.Amounts == nil {
-				out.Amounts = map[string]expr.Amount{}
-			}
-			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
-			if _, taken := out.Amounts[strings.ToLower(name)]; taken {
-				return fmt.Errorf("keyword %q: synthesized SVar %q collides with an existing one", line, name)
-			}
-			out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
+		built, err := c.buildExpansion(out, line, slot, exp)
+		if err != nil {
+			return err
 		}
-		for _, sv := range exp.SVars {
-			if c.extra == nil {
-				c.extra = map[string]string{}
-			}
-			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
-			if _, own := c.face.SVars.Get(name); own {
-				return fmt.Errorf("keyword %q: synthesized SVar %q collides with the card's own", line, name)
-			}
-			c.extra[name] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
+		out.Abilities = append(out.Abilities, built.abilities...)
+		out.Triggers = append(out.Triggers, built.triggers...)
+		out.Statics = append(out.Statics, built.statics...)
+		out.Replacements = append(out.Replacements, built.replacements...)
+	}
+	return nil
+}
+
+// expandGrantedKeywords is ADR-0038 decision 4: a Mode$ Continuous static's
+// AddKeyword$ (" & " list, StaticAbilityContinuous.java) grants the traits each
+// keyword stands for, as Card.addChangedCardKeywords makes CardFactoryUtil's
+// keyword abilities appear on the receiver. They are compiled here once, in
+// the granting face's namespace, and hung on the static as `AddKeyword` subs
+// that the engine's trait overlay (applyOneContinuousTraits) reads by Record.
+// A keyword with no template stays inert (GO-7).
+func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
+	for si, st := range out.Statics {
+		if !strings.EqualFold(st.Name, "Continuous") {
+			continue
 		}
-		for _, group := range []struct {
-			lines  []string
-			target *[]*Ability
-			record Record
-		}{
-			{exp.Abilities, &out.Abilities, Spell},
-			{exp.Triggers, &out.Triggers, Trigger},
-			{exp.Statics, &out.Statics, StaticEffect},
-			{exp.Replacements, &out.Replacements, Replacement},
-		} {
-			for _, text := range group.lines {
-				ability, err := c.line(strings.ReplaceAll(text, keyword.Slot, slot), group.record)
-				if err != nil {
-					return fmt.Errorf("keyword %q: %w", line, err)
+		raw, ok := st.Param("AddKeyword")
+		if !ok {
+			continue
+		}
+		for ki, line := range strings.Split(raw, " & ") {
+			exp, ok := keyword.Expand(keyword.Parse(line))
+			if !ok {
+				continue
+			}
+			built, err := c.buildExpansion(out, line, "g"+strconv.Itoa(si)+"x"+strconv.Itoa(ki), exp)
+			if err != nil {
+				return err
+			}
+			for _, group := range [][]*Ability{built.abilities, built.triggers, built.statics, built.replacements} {
+				for _, ability := range group {
+					st.Subs = append(st.Subs, SubRef{Key: "AddKeyword", SVar: line, Ability: ability})
 				}
-				ability.Keyword = line
-				// The ability a synthesized trigger or replacement runs is the
-				// keyword's too (SpellAbility.isKeyword over the one the
-				// trigger executes): Renown's counters, a chapter on the stack.
-				for _, ref := range ability.Subs {
-					if strings.EqualFold(ref.Key, "Execute") || strings.EqualFold(ref.Key, "ReplaceWith") {
-						ref.Ability.Keyword = line
-					}
-				}
-				*group.target = append(*group.target, ability)
 			}
 		}
 	}
 	return nil
+}
+
+// expansion is one keyword's compiled traits, by the face list each belongs
+// to (an `AB$` line keeps its own Record, so the group, not Record, says where
+// it goes).
+type expansion struct{ abilities, triggers, statics, replacements []*Ability }
+
+// buildExpansion compiles one keyword's expansion: its value SVars into
+// out.Amounts, its ability SVars into the face's synthesized set, and each
+// trait line into an Ability tagged with the keyword line. The slot makes
+// every SVar name unique to the keyword line on the card.
+func (c *faceCompiler) buildExpansion(out *Face, line, slot string, exp keyword.Expansion) (expansion, error) {
+	for _, sv := range exp.Amounts {
+		if out.Amounts == nil {
+			out.Amounts = map[string]expr.Amount{}
+		}
+		name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+		if _, taken := out.Amounts[strings.ToLower(name)]; taken {
+			return expansion{}, fmt.Errorf("keyword %q: synthesized SVar %q collides with an existing one", line, name)
+		}
+		out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
+	}
+	for _, sv := range exp.SVars {
+		if c.extra == nil {
+			c.extra = map[string]string{}
+		}
+		name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+		if _, own := c.face.SVars.Get(name); own {
+			return expansion{}, fmt.Errorf("keyword %q: synthesized SVar %q collides with the card's own", line, name)
+		}
+		c.extra[name] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
+	}
+	var built expansion
+	for _, group := range []struct {
+		lines  []string
+		record Record
+		target *[]*Ability
+	}{
+		{exp.Abilities, Spell, &built.abilities},
+		{exp.Triggers, Trigger, &built.triggers},
+		{exp.Statics, StaticEffect, &built.statics},
+		{exp.Replacements, Replacement, &built.replacements},
+	} {
+		for _, text := range group.lines {
+			ability, err := c.line(strings.ReplaceAll(text, keyword.Slot, slot), group.record)
+			if err != nil {
+				return expansion{}, fmt.Errorf("keyword %q: %w", line, err)
+			}
+			ability.Keyword = line
+			// The ability a synthesized trigger or replacement runs is the
+			// keyword's too (SpellAbility.isKeyword over the one the
+			// trigger executes): Renown's counters, a chapter on the stack.
+			for _, ref := range ability.Subs {
+				if strings.EqualFold(ref.Key, "Execute") || strings.EqualFold(ref.Key, "ReplaceWith") {
+					ref.Ability.Keyword = line
+				}
+			}
+			*group.target = append(*group.target, ability)
+		}
+	}
+	return built, nil
 }
 
 // addInlineAmounts parses a static ability's power/toughness value written

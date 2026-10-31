@@ -1699,6 +1699,14 @@ func compareOperand(g *Game, operand string, sourceController PlayerID, source C
 	if !ok || sc.Def == nil {
 		return 0, false
 	}
+	// A granted ability's SVars live on the granting face, which its Amounts
+	// carry (Aegis of the Legion's mentor: Creature.powerLTKWPower, ADR-0038
+	// decision 4), while the source is the card that received it.
+	if a := g.resolving; a != nil && a.Source == source {
+		if amt, ok := a.Amounts[key]; ok {
+			return resolveAmount(g, a.Amounts, sourceController, source, amt)
+		}
+	}
 	for i := range sc.Def.Faces[:liveFaces(sc.Def)] {
 		f := &sc.Def.Faces[i]
 		if amt, ok := f.Amounts[key]; ok {

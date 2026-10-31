@@ -1589,6 +1589,19 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 			grant.statics = append(grant.statics, sub.Ability)
 		case strings.EqualFold(sub.Key, "AddReplacementEffect"):
 			grant.replacements = append(grant.replacements, sub.Ability)
+		case strings.EqualFold(sub.Key, "AddKeyword"):
+			// The traits a granted keyword stands for (compile's
+			// expandGrantedKeywords, ADR-0038 decision 4).
+			switch sub.Ability.Record {
+			case compile.Trigger:
+				grant.triggers = append(grant.triggers, sub.Ability)
+			case compile.StaticEffect:
+				grant.statics = append(grant.statics, sub.Ability)
+			case compile.Replacement:
+				grant.replacements = append(grant.replacements, sub.Ability)
+			default:
+				grant.abilities = append(grant.abilities, sub.Ability)
+			}
 		}
 	}
 	removal := removalNone

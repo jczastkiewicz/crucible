@@ -1,0 +1,11 @@
+# Mode$ Mentored fires from the Mentor keyword's PutCounter with the mentoring
+# creature as Source. Aegis of the Legion grants mentor (AddKeyword$, ADR-0038
+# decision 4: the granted keyword expands to its trigger); the host attacks
+# beside a lesser-power Bears, mentors it, and the equipment's trigger
+# (ValidSource$ Creature.EquippedBy) puts a shield counter on it.
+startturn human
+advance 5
+queue attackers 1,2
+queue targets 2
+declareattackers
+resolvestack

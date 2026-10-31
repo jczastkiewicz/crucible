@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Monoist Gravliner|Id:1|Counters:CHARGE=3;Hill Giant|Id:2|Tapped
+ailife=20

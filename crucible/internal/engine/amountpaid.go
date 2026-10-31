@@ -74,8 +74,7 @@ func validFamilyValue(g *Game, sourceController PlayerID, source CardID, count e
 // into a different property (refused). Checked in handlePaid's own order so a
 // name one earlier branch would catch never reaches a later one.
 //
-// Not measured, each false (GO-7): TapPowerValue (CardLists.getTotalPower's
-// tap-for-power replacements) and AllTypes; CreatureType/PlaneswalkerType/
+// Not measured, each false (GO-7): AllTypes; CreatureType/PlaneswalkerType/
 // LandType need the database's subtype vocabulary and are false without it. A property this does not recognize
 // must not fall back to a plain match count: that would be a real but wrong
 // number. CardPower and CardToughness are read only outside a layer pass
@@ -94,7 +93,18 @@ func handlePaid(g *Game, amounts map[string]expr.Amount, sourceController Player
 	case strings.HasPrefix(def, "Amount"):
 		return math(len(cards))
 	case strings.HasPrefix(def, "TapPowerValue"):
-		return 0, false
+		// CardLists.getTotalPower: each card's net power. The TapPowerValue
+		// statics (Tapestry Warden, Stoic Star Captain, Sulu) are not read
+		// (quirks.md).
+		total := 0
+		for _, c := range cards {
+			power, ok := c.Power()
+			if !ok {
+				return 0, false
+			}
+			total += power
+		}
+		return math(total)
 	case def == "Colors":
 		if op != nil {
 			return 0, false

@@ -69,6 +69,15 @@ func Expand(k Keyword) (Expansion, bool) {
 			return Expansion{}, false
 		}
 		return Expansion{Abilities: []string{"AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + args[0] + "> | Attributes$ Saddled | Defined$ Self | SorcerySpeed$ True"}}, true
+	case "Station":
+		// Station:<N>, CardFactoryUtil.java:3468-3476: tap another creature to
+		// put charge counters on this permanent equal to its power, as a
+		// sorcery. N is reminder text only; the STATION N+ thresholds are
+		// the card's own S: lines.
+		return Expansion{
+			Abilities: []string{"AB$ PutCounter | Cost$ tapXType<1/Creature.Other> | Defined$ Self | CounterType$ CHARGE | CounterNum$ StationX{n} | SorcerySpeed$ True"},
+			Amounts:   []SVarDef{{"StationX" + Slot, "TappedCards$TapPowerValue"}},
+		}, true
 	case "Affinity":
 		// Affinity:<type>, CardFactoryUtil.java:3753: this spell costs {1} less
 		// for each <type> you control.
@@ -185,6 +194,19 @@ func Expand(k Keyword) (Expansion, bool) {
 		return Expansion{
 			Replacements: []string{line},
 			SVars:        []SVarDef{{"KWEtbCounter" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + args[0] + " | ETB$ True | CounterNum$ " + args[1]}},
+		}, true
+	case "Rebound":
+		// CardFactoryUtil.java:2422-2451: a spell cast from your hand that
+		// resolves (Fizzle$ False: a countered spell carries no Fizzle key) is
+		// exiled instead of going to the graveyard, and you may cast it without
+		// paying its mana cost at your next upkeep.
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidLKI$ Card.Self+wasCastFromHand+YouOwn+YouCtrl | Origin$ Stack | Destination$ Graveyard | Fizzle$ False | ReplaceWith$ KWReboundExile" + Slot},
+			SVars: []SVarDef{
+				{"KWReboundExile" + Slot, "DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Stack | Destination$ Exile | RememberChanged$ True | SubAbility$ KWReboundDelay" + Slot},
+				{"KWReboundDelay" + Slot, "DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | OptionalDecider$ You | RememberObjects$ Remembered | Execute$ KWReboundPlay" + Slot},
+				{"KWReboundPlay" + Slot, "DB$ Play | Defined$ DelayTriggerRememberedLKI | WithoutManaCost$ True | Optional$ True"},
+			},
 		}, true
 	case "Fabricate":
 		// CardFactoryUtil.java:1034: when this enters, put N +1/+1 counters on

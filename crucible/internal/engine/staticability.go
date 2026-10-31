@@ -2090,3 +2090,64 @@ func (g *Game) loyaltyAdditional(c *Card) int {
 	})
 	return addl
 }
+
+// protectionPreventsDamage is the damage half of Protection (CR 702.16e):
+// CardFactoryUtil.java:2583-2594 and PlayerFactoryUtil.java:66-75 install
+// `Event$ DamageDone | Prevent$ True | ValidTarget$ <self> | ValidSource$
+// <Protection.getProtectionValid(kw, damage=true)>` for every Protection line,
+// combat or not. lines is the protected card's or player's keyword lines,
+// controller and host the protected entity's, for a ControlledBy source.
+// Protection.java:10-53: a colour or colourless characteristic (or "from
+// <colour>") gets the "Source" suffix so the colour of the damage source is
+// read; "from everything" has no ValidSource, so it prevents everything; "from
+// each color" is nonColorlessSource; a Player characteristic names the
+// source's controller and is wrapped "Card.v,Emblem.v" like every "from" form,
+// while a bare characteristic is not (quirks.md). An unrecognised "from X"
+// is skipped (Java throws at card load).
+func (g *Game) protectionPreventsDamage(source CardID, lines []string, controller PlayerID, host CardID) bool {
+	if source == NoCard {
+		return false
+	}
+	src := g.Card(source)
+	for _, line := range lines {
+		k := keyword.Parse(line)
+		if k.Name != "Protection" {
+			continue
+		}
+		spec := ""
+		if rest, isFrom := strings.CutPrefix(k.Details, "from "); isFrom {
+			switch rest {
+			case "white", "blue", "black", "red", "green", "colorless":
+				spec = strings.ToUpper(rest[:1]) + rest[1:] + "Source"
+			case "each color":
+				spec = "nonColorlessSource"
+			case "everything":
+				return true
+			default:
+				continue
+			}
+			spec = "Card." + spec + ",Emblem." + spec
+		} else {
+			characteristic, _, _ := strings.Cut(k.Details, ":")
+			if characteristic == "" {
+				continue
+			}
+			if strings.HasPrefix(characteristic, "Player") {
+				v := "ControlledBy " + characteristic
+				spec = "Card." + v + ",Emblem." + v
+			} else {
+				for _, suffix := range [...]string{"White", "Blue", "Black", "Red", "Green", "Colorless", "MonoColor", "MultiColor", "EnemyColor"} {
+					if strings.HasSuffix(characteristic, suffix) {
+						characteristic += "Source"
+						break
+					}
+				}
+				spec = characteristic
+			}
+		}
+		if Matches(g, src, valid.Parse(spec), controller, host) {
+			return true
+		}
+	}
+	return false
+}

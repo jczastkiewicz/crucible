@@ -1,0 +1,11 @@
+# CR 702.16e: protection from red also prevents damage from red sources
+# (CardFactoryUtil.java:2583-2594, Protection.getProtectionValid(kw, true) =
+# "RedSource"). Pyroclasm does not target, yet its 2 damage to each creature
+# does nothing to Soltari Priest (1/1) while it kills the Bears.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+queue paygeneric R
+castspell human 1
+resolvestack

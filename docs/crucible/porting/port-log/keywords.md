@@ -139,10 +139,10 @@ Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability th
 (about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
 activated `AB$ Attach` (`attachActivated`, `castspell.go`) by attaching the source to its first creature target unless
 protection refuses; `Draw` defaults `Defined$` to You as `getTargetPlayers` does; Layer 7 reads
-`AffectedDefined$ Equipped/Enchanted`. A Mode$ Continuous static's `AddKeyword$ A & B` expands each keyword at
+`AffectedDefined$ Equipped/Enchanted`. A continuous static's AddKeyword list expands each keyword at
 load (compile `expandGrantedKeywords`) into `AddKeyword` subs on the static; `applyOneContinuousTraits` hangs them on the
 receiver's trait grant (ADR-0038 decision 4), and `compareOperand` reads a granted ability's SVars from its `Amounts`.
-Effect-granted keywords (`KW$`, `Keywords$`) do not expand yet. A bare `Flashback` (no cost) casts for the card's own mana cost. Persist and Undying needed
+Keywords granted by an effect (Pump, Animate) do not expand yet. A bare `Flashback` (no cost) casts for the card's own mana cost. Persist and Undying needed
 `ChangeZone`'s `WithCountersType$`/`WithCountersAmount$` (the permanent enters with the counters before its enter
 replacements, `moveByEffect`'s `enterCounters`) and `Defined$ TriggeredNewCard[LKICopy]` (the card a dies or enters
 trigger recorded); Annihilator needed `Defined$ TriggeredDefendingPlayer`. Tests: `keywordexpansion_test.go`, scenario

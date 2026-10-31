@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Pyroclasm|Id:1
+humanbattlefield=Mountain|Id:2;Mountain|Id:3;Grizzly Bears|Id:4
+aibattlefield=Soltari Priest|Id:5

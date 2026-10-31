@@ -566,6 +566,14 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueCardChoice(ids)
 
+	case "tapchoice":
+		// ChoosePermanentsToTap: a tapXType cost's pick (Station, Crew).
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue tapchoice: %w", err)
+		}
+		c.QueueTapChoice(ids)
+
 	case "cardorder":
 		// The order cards moving into one zone together go in (CR 613.7m,
 		// OrderCardsForZone), as the exile of The Mimeoplasm's two cards.

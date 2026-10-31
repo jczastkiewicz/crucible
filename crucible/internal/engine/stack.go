@@ -398,6 +398,9 @@ func (g *Game) moveResolvedSpellToGraveyard(controller PlayerController, a Abili
 		g.Move(a.Source, Hand, c.Owner)
 		return
 	}
+	if a.spell && !fizzled && !c.IsCopiedSpell && g.reboundResolved(controller, a, c) {
+		return
+	}
 	g.moveToGraveyard(controller, a.Source)
 	if a.spell {
 		g.checkSpellToGraveyardTriggers(controller, a.Source, fizzled)

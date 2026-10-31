@@ -702,6 +702,9 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int)
 	if g.keywordPreventsDamage(source, targetCard, isCombat) {
 		return true
 	}
+	if g.protectionPreventsDamage(source, targetCard.KeywordLines(), targetCard.Controller(), target) {
+		return true
+	}
 	toughness, hasToughness := targetCard.Toughness()
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
@@ -737,6 +740,9 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 		return true
 	}
 	if g.keywordPreventsDamage(source, nil, isCombat) {
+		return true
+	}
+	if g.protectionPreventsDamage(source, g.Player(target).KeywordLines(), target, NoCard) {
 		return true
 	}
 	for _, pid := range g.Players() {

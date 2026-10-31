@@ -1,0 +1,6 @@
+# ADR-0052: playland ... face plays a Modal card's land back face
+# (LandAbility.java:56-69). Akoum Teeth enters tapped; the permanent stays the
+# back face.
+startturn human
+advance 3
+playland human 1 face

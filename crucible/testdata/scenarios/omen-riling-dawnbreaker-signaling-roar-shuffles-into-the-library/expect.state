@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Plains|Tapped;T:w_2_2_soldier|SummonSick
+humanlibrary=Riling Dawnbreaker
+ailife=20

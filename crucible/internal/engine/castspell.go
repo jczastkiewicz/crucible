@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -112,7 +113,8 @@ func (g *Game) CastRoomDoor(pid PlayerID, card CardID, d Door, controller Player
 		return false
 	}
 	if !isRoomDef(g.Card(card).Def) {
-		return false
+		// Any other multi-face card: the second face (ADR-0052).
+		return d == carddb.FaceAlternate && g.CastFace(pid, card, controller)
 	}
 	return g.castFromHand(pid, card, d, controller)
 }
@@ -129,6 +131,10 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		// the card from their graveyard or exile for a keyword's cost.
 		cost, ok := g.flashbackCost(pid, c)
 		opts.fromKeyword = ok // Flashback and Beam me up exile the spell as it leaves the stack
+		if !ok {
+			cost, ok = g.faceZoneCost(pid, c)
+			opts.fromKeyword = ok && c.faceDef != nil // Aftermath exiles it too
+		}
 		if !ok {
 			cost, ok = g.foretellCost(pid, c)
 			opts.foretold = ok

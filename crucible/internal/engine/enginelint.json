@@ -29,6 +29,7 @@
     "match": ["match.go"],
     "stack": ["stack.go"],
     "rebound": ["rebound.go"],
+    "face": ["face.go"],
     "priority": ["priority.go"],
     "driver": ["driver.go"],
     "valid": ["valid.go", "validhistory.go"],
@@ -210,6 +211,7 @@
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "match": ["id", "zone", "game", "control"],
+    "face": ["id", "zone", "game", "control", "card", "room", "castspell", "ability", "land"],
     "rebound": ["id", "zone", "game", "control", "ability", "card", "valid", "replacement"],
     "stack": [
       "rebound",

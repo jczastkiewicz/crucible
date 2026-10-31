@@ -605,6 +605,14 @@ type Card struct {
 	doors    doorSet
 	castDoor Door
 
+	// faceDef is the printed card of a non-Room multi-face card cast as its
+	// second face (face.go, ADR-0052): Def then holds that face alone, and it
+	// stays Def while the card is a permanent (a Modal back face) until it
+	// leaves the stack or the battlefield. onAdventure marks an Adventure
+	// card in exile that may be cast as its creature (Card.isOnAdventure).
+	faceDef     *compile.Card
+	onAdventure bool
+
 	// copies are the Layer 1 copy effects on this permanent (CR 613.2a,
 	// 707.2), ascending Timestamp: Java's Card.clonedStates. The last one's
 	// definition is Def; uncopiedDef is what Def was before the first of

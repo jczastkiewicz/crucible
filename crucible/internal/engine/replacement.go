@@ -250,6 +250,9 @@ func onlyParamsOf(a *compile.Ability, keys ...string) bool {
 // ReplaceWith$ ability without the stack. controller answers any decision
 // that chain asks.
 func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType, CardID) {
+	if g.resolvedFaceSpell(controller, id, false) {
+		return g.Card(id).Zone, NoCard
+	}
 	dest, post := g.movedGraveyardDestination(id)
 	owner := g.Card(id).Owner
 	var melded CardID

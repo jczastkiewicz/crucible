@@ -1,0 +1,16 @@
+# ADR-0052: castspell ... face casts the second face. Heart's Desire ({G}
+# sorcery Adventure) resolves and the card is exiled on an adventure
+# (CardFactoryUtil.java:4075-4101); the Beast is then cast from exile for its
+# own {2}{G} (PlayerZone.java:64, Card.isOnAdventure).
+startturn human
+advance 3
+tapformana human 2 G
+castspell human 1 face
+resolvestack
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack

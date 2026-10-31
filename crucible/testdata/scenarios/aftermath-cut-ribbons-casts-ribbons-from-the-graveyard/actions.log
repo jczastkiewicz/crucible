@@ -1,0 +1,13 @@
+# ADR-0052 / SpellAbilityRestriction.java:359-361: an Aftermath half is cast
+# only from the graveyard. Ribbons ({X}{B}{B}) with X=1 drains the opponent for
+# 1, and the card is exiled as it leaves the stack.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+queue payx 1
+queue paygeneric B
+queue targets ai
+castspell human 1 face
+resolvestack

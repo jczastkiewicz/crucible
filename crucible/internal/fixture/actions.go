@@ -351,6 +351,10 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("playland: want exactly one card id, got %q", args[1])
 		}
+		if len(args) > 2 && args[2] == "face" {
+			l.Game.PlayLandFace(pid, ids[0], c)
+			break
+		}
 		l.Game.PlayLand(pid, ids[0], c)
 
 	case "castspell":
@@ -367,6 +371,10 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		if len(ids) != 1 {
 			return fmt.Errorf("castspell: want exactly one card id, got %q", args[1])
+		}
+		if len(args) > 2 && args[2] == "face" {
+			l.Game.CastFace(pid, ids[0], c)
+			break
 		}
 		l.Game.CastSpell(pid, ids[0], c)
 

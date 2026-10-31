@@ -116,6 +116,9 @@ func (c *Card) PrintedDef() *compile.Card {
 	if c.roomDef != nil {
 		return c.roomDef
 	}
+	if c.faceDef != nil {
+		return c.faceDef
+	}
 	if c.flipped && c.frontDef != nil {
 		// A flipped card is still the paper card it was printed as.
 		return c.frontDef
@@ -160,6 +163,9 @@ func (c *Card) enterRoom() {
 // unlockedRooms set and its Original state (GameAction.java:249). Callers
 // run it after turnFaceUp and endCopiesOnLeave, so Def is the own slot.
 func (c *Card) leaveRoom() {
+	if c.faceDef != nil {
+		c.leaveFace()
+	}
 	if c.roomDef == nil {
 		return
 	}

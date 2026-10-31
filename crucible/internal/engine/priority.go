@@ -10,6 +10,7 @@ package engine
 import (
 	"fmt"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -256,7 +257,13 @@ func (g *Game) applyAction(pid PlayerID, a Action, controller PlayerController) 
 			return &actionError{pid: pid, kind: "activate", card: a.Card, index: a.AbilityIndex}
 		}
 	case ActionPlayLand:
-		if !g.PlayLand(pid, a.Card, controller) {
+		played := false
+		if a.Door == DoorLeft {
+			played = g.PlayLand(pid, a.Card, controller)
+		} else {
+			played = a.Door == carddb.FaceAlternate && g.PlayLandFace(pid, a.Card, controller)
+		}
+		if !played {
 			return &actionError{pid: pid, kind: "play land", card: a.Card}
 		}
 	case ActionTapForMana:

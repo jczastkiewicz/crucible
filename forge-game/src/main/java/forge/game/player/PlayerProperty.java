@@ -260,7 +260,7 @@ public class PlayerProperty {
                 return false;
             }
         } else if (property.equals("NotedDefender")) {
-            String tracker = player.getDraftNotes().getOrDefault("Cogwork Tracker", "");
+            String tracker = sourceController.getDraftNotes().getOrDefault("Cogwork Tracker", "");
 
             return Arrays.asList(tracker.split(",")).contains(String.valueOf(player));
         } else if (property.startsWith("life")) {

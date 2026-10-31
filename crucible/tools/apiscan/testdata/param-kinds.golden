@@ -881,7 +881,7 @@ CantBeCast	IsPresent	4	-	-	prose:2,token:2
 CantBeCast	Mode	141	-	-	token:141
 CantBeCast	NumLimitEachTurn	16	-	-	int:16
 CantBeCast	OnlySorcerySpeed	3	-	-	bool:3
-CantBeCast	Origin	9	-	zone:11	token:9
+CantBeCast	Origin	9	-	zone:12	token:9
 CantBeCast	Phases	5	-	-	token:5
 CantBeCast	PresentCompare	1	-	-	token:1
 CantBeCast	SVarCompare	11	-	-	token:11
@@ -979,7 +979,7 @@ CantPlayLand	CheckSVar	1	-	amount:1	token:1
 CantPlayLand	Description	16	-	-	prose:16
 CantPlayLand	IsPresent	1	-	-	token:1
 CantPlayLand	Mode	18	-	-	token:18
-CantPlayLand	Origin	4	-	zone:11	token:4
+CantPlayLand	Origin	4	-	zone:12	token:4
 CantPlayLand	Player	11	-	-	token:11
 CantPlayLand	PresentCompare	1	-	-	token:1
 CantPlayLand	ValidCard	6	-	valid:5	token:5,prose:1
@@ -1156,9 +1156,9 @@ ChangeZone	Attacking	34	-	-	bool:31,token:2,prose:1
 ChangeZone	Blocking	1	-	-	token:1
 ChangeZone	Boast	3	-	-	bool:3
 ChangeZone	Champion	12	-	-	bool:12
-ChangeZone	ChangeNum	1449	amount:2	amount:1	int:1224,token:220,amount:5
+ChangeZone	ChangeNum	1449	amount:2	amount:2	int:1224,token:220,amount:5
 ChangeZone	ChangeNumDesc	3	-	-	prose:2,token:1
-ChangeZone	ChangeType	2142	-	-	token:2012,prose:130
+ChangeZone	ChangeType	2142	-	valid:1	token:2012,prose:130
 ChangeZone	ChangeTypeDesc	379	-	-	prose:363,token:16
 ChangeZone	CheckSVar	25	-	amount:1	token:24,amount:1
 ChangeZone	ChoiceZone	3	-	zone:3	token:3
@@ -1233,7 +1233,7 @@ ChangeZone	Optional	253	-	-	bool:212,token:41
 ChangeZone	OptionalDecider	1	-	defined:2	token:1
 ChangeZone	OptionalPrompt	3	-	-	prose:3
 ChangeZone	OrOtherConditionSVarCompare	2	-	-	token:2
-ChangeZone	Origin	7126	zone:3	zone:11	token:7126
+ChangeZone	Origin	7126	zone:3	zone:12	token:7126
 ChangeZone	OriginAlternative	63	zone:1,text:1	-	token:63
 ChangeZone	Pawprint	2	-	amount:3	int:2
 ChangeZone	Planeswalker	97	-	-	bool:97
@@ -1312,8 +1312,8 @@ ChangeZoneAll	AB	83	-	-	token:83
 ChangeZoneAll	AILogic	24	-	-	token:24
 ChangeZoneAll	AbilityCount	1	-	-	token:1
 ChangeZoneAll	AtEOT	2	-	-	token:2
-ChangeZoneAll	ChangeNum	2	-	amount:1	int:1,token:1
-ChangeZoneAll	ChangeType	712	-	-	token:683,prose:29
+ChangeZoneAll	ChangeNum	2	-	amount:2	int:1,token:1
+ChangeZoneAll	ChangeType	712	-	valid:1	token:683,prose:29
 ChangeZoneAll	CheckSVar	1	-	amount:1	token:1
 ChangeZoneAll	Condition	2	-	-	token:2
 ChangeZoneAll	ConditionCheckSVar	10	-	-	token:10
@@ -1344,7 +1344,7 @@ ChangeZoneAll	IsPresent	2	-	-	prose:1,token:1
 ChangeZoneAll	LibraryPosition	113	int:1	-	int:113
 ChangeZoneAll	OptionQuestion	3	-	-	prose:3
 ChangeZoneAll	Optional	3	-	-	bool:3
-ChangeZoneAll	Origin	726	zone:1	zone:11	token:726
+ChangeZoneAll	Origin	726	zone:1	zone:12	token:726
 ChangeZoneAll	Pawprint	1	-	amount:3	int:1
 ChangeZoneAll	Planeswalker	20	-	-	bool:20
 ChangeZoneAll	PlayerTurn	2	-	defined:2	bool:2
@@ -1410,7 +1410,7 @@ ChangesZone	NoResolvingCheck	6	-	-	bool:6
 ChangesZone	NotThisAbility	1	-	-	bool:1
 ChangesZone	OneOff	5	-	-	bool:5
 ChangesZone	OptionalDecider	726	-	defined:2	token:726
-ChangesZone	Origin	7757	-	zone:11	token:7757
+ChangesZone	Origin	7757	-	zone:12	token:7757
 ChangesZone	Phase	11	-	-	token:7,prose:4
 ChangesZone	PlayerTurn	9	-	defined:2	bool:9
 ChangesZone	PresentCompare	38	-	-	token:38
@@ -1440,7 +1440,7 @@ ChangesZoneAll	IsPresent	1	-	-	token:1
 ChangesZoneAll	Mode	132	-	-	token:132
 ChangesZoneAll	NoResolvingCheck	1	-	-	bool:1
 ChangesZoneAll	OptionalDecider	5	-	defined:2	token:5
-ChangesZoneAll	Origin	97	-	zone:11	token:97
+ChangesZoneAll	Origin	97	-	zone:12	token:97
 ChangesZoneAll	PlayerTurn	7	-	defined:2	bool:7
 ChangesZoneAll	ResolvedLimit	3	-	int:1	int:3
 ChangesZoneAll	Secondary	3	-	-	bool:3
@@ -2657,7 +2657,7 @@ DelayedTrigger	IsPresent	10	-	-	token:9,prose:1
 DelayedTrigger	Mode	523	-	-	token:523
 DelayedTrigger	NextTurn	60	-	-	bool:60
 DelayedTrigger	OptionalDecider	2	-	defined:2	token:2
-DelayedTrigger	Origin	46	-	zone:11	token:46
+DelayedTrigger	Origin	46	-	zone:12	token:46
 DelayedTrigger	Phase	426	-	-	token:220,prose:206
 DelayedTrigger	Planeswalker	6	-	-	bool:6
 DelayedTrigger	PresentZone	8	-	zone:1	token:8
@@ -2840,8 +2840,8 @@ Dig	Announce	1	-	-	token:1
 Dig	AnnounceTitle	1	-	-	prose:1
 Dig	Attacking	7	-	-	bool:5,prose:1,token:1
 Dig	Boast	1	-	-	bool:1
-Dig	ChangeNum	937	amount:1	amount:1	token:574,int:363
-Dig	ChangeType	1	-	-	token:1
+Dig	ChangeNum	937	amount:1	amount:2	token:574,int:363
+Dig	ChangeType	1	-	valid:1	token:1
 Dig	ChangeValid	402	-	-	token:396,prose:6
 Dig	ChangeValidDesc	5	-	-	prose:4,token:1
 Dig	CheckSVar	1	-	amount:1	token:1
@@ -3002,7 +3002,7 @@ DigUntil	XMax	1	-	amount:2	token:1
 DisableTriggers	Description	9	-	-	prose:9
 DisableTriggers	Destination	8	-	zone:10	token:8
 DisableTriggers	Mode	9	-	-	token:9
-DisableTriggers	Origin	1	-	zone:11	token:1
+DisableTriggers	Origin	1	-	zone:12	token:1
 DisableTriggers	Secondary	2	-	-	bool:2
 DisableTriggers	ValidCard	2	-	valid:5	token:2
 DisableTriggers	ValidCause	8	-	-	token:8
@@ -3540,7 +3540,7 @@ Exerted	TriggerZones	5	-	-	token:5
 Exerted	ValidCard	5	-	valid:5	token:5
 Exiled	Execute	65	-	-	token:65
 Exiled	Mode	65	-	-	token:65
-Exiled	Origin	3	-	zone:11	token:3
+Exiled	Origin	3	-	zone:12	token:3
 Exiled	Secondary	62	-	-	bool:62
 Exiled	TriggerDescription	3	-	-	prose:3
 Exiled	TriggerZones	2	-	-	token:2
@@ -4065,7 +4065,7 @@ LandPlayed	Mode	53	-	-	token:53
 LandPlayed	NotFirstLand	1	-	-	bool:1
 LandPlayed	OneOff	1	-	-	bool:1
 LandPlayed	OptionalDecider	3	-	defined:2	token:3
-LandPlayed	Origin	12	-	zone:11	token:12
+LandPlayed	Origin	12	-	zone:12	token:12
 LandPlayed	Secondary	21	-	-	bool:21
 LandPlayed	Static	14	-	-	bool:14
 LandPlayed	TriggerDescription	42	-	-	prose:42
@@ -4565,7 +4565,7 @@ Moved	FoundSearchingLibrary	1	-	-	bool:1
 Moved	IsPresent	3	-	-	token:3
 Moved	Layer	441	-	-	token:441
 Moved	Optional	70	-	-	bool:70
-Moved	Origin	95	-	zone:11	token:95
+Moved	Origin	95	-	zone:12	token:95
 Moved	Prevent	6	-	-	bool:6
 Moved	ReplaceWith	2119	-	-	token:2119
 Moved	ReplacementResult	1894	-	-	token:1894
@@ -4646,7 +4646,7 @@ Mutates	TriggerDescription	32	-	-	prose:32
 Mutates	TriggerZones	9	-	-	token:9
 Mutates	ValidCard	32	-	valid:5	token:32
 NameCard	AB	16	-	-	token:16
-NameCard	AILogic	15	-	-	token:15
+NameCard	AILogic	16	-	-	token:16
 NameCard	AtRandom	21	-	-	bool:21
 NameCard	ChooseFromDefinedCards	1	defined:1	-	token:1
 NameCard	ChooseFromList	14	-	-	prose:14
@@ -4709,7 +4709,7 @@ Panharmonicon	Description	41	-	-	prose:41
 Panharmonicon	Destination	12	-	zone:10	token:12
 Panharmonicon	IsPresent	1	-	-	token:1
 Panharmonicon	Mode	41	-	-	token:41
-Panharmonicon	Origin	4	-	zone:11	token:4
+Panharmonicon	Origin	4	-	zone:12	token:4
 Panharmonicon	PresentCompare	1	-	-	token:1
 Panharmonicon	Secondary	2	-	-	bool:2
 Panharmonicon	ValidActivator	1	-	-	token:1
@@ -4743,7 +4743,7 @@ PayLife	TriggerDescription	1	-	-	prose:1
 PayLife	TriggerZones	1	-	-	token:1
 PayLife	ValidPlayer	2	-	-	token:2
 PeekAndReveal	AB	36	-	-	token:36
-PeekAndReveal	AILogic	7	-	-	token:7
+PeekAndReveal	AILogic	8	-	-	token:8
 PeekAndReveal	ActivationLimit	5	-	int:1	int:5
 PeekAndReveal	CheckSVar	1	-	amount:1	token:1
 PeekAndReveal	ConditionCheckSVar	2	-	-	token:2
@@ -5191,7 +5191,7 @@ Pump	NumAtt	2965	amount:2	amount:7	int:2465,token:481,amount:19
 Pump	NumDef	2071	amount:2	amount:10	int:1757,token:312,amount:2
 Pump	OptionQuestion	3	-	-	prose:3
 Pump	Optional	4	-	-	bool:4
-Pump	Origin	2	-	zone:11	token:2
+Pump	Origin	2	-	zone:12	token:2
 Pump	Pawprint	1	-	amount:3	int:1
 Pump	Planeswalker	53	-	-	bool:53
 Pump	PlayerTurn	8	-	defined:2	bool:8
@@ -5928,7 +5928,7 @@ Sacrifice	AILogic	10	-	-	token:10
 Sacrifice	ActivationZone	1	-	-	token:1
 Sacrifice	Amount	186	amount:1	amount:14	int:92,token:92,amount:2
 Sacrifice	Boast	1	-	-	bool:1
-Sacrifice	ChangeNum	5	-	amount:1	int:5
+Sacrifice	ChangeNum	5	-	amount:2	int:5
 Sacrifice	ConditionCheckSVar	32	-	-	token:32
 Sacrifice	ConditionCompare	27	-	-	token:27
 Sacrifice	ConditionDefined	32	-	-	token:32
@@ -6004,7 +6004,7 @@ Sacrificed	Destination	4	-	zone:10	token:4
 Sacrificed	Execute	118	-	-	token:118
 Sacrificed	Mode	118	-	-	token:118
 Sacrificed	OptionalDecider	11	-	defined:2	token:11
-Sacrificed	Origin	4	-	zone:11	token:4
+Sacrificed	Origin	4	-	zone:12	token:4
 Sacrificed	PlayerTurn	2	-	defined:2	bool:2
 Sacrificed	ResolvedLimit	1	-	int:1	int:1
 Sacrificed	Secondary	3	-	-	bool:3

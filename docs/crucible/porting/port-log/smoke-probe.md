@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,661 |
-| refused      |      1 |
+| plays        | 33,662 |
+| refused      |      0 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -73,7 +73,6 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `Mode$ MustAttack: ValidPlayer$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

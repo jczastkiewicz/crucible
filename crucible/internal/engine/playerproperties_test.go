@@ -432,8 +432,8 @@ func TestDefinedPlayerSpecsFilterByProperty(t *testing.T) {
 	if got := measure(t, g, p, "PlayerCountPlayers$HasProperty!LostLifeThisTurn GE5"); got != 1 {
 		t.Errorf("HasProperty!LostLifeThisTurn GE5 = %d, want 1 (only the opponent, at 4, lost less than 5)", got)
 	}
-	if err := measureErr(t, g, p, "PlayerCountPlayers$HasProperty!NotedDefender"); err == nil {
-		t.Error("HasProperty!NotedDefender resolved, want an unresolved amount")
+	if err := measureErr(t, g, p, "PlayerCountPlayers$HasProperty!hasEnduringStory"); err == nil {
+		t.Error("HasProperty!hasEnduringStory resolved, want an unresolved amount")
 	}
 }
 
@@ -463,7 +463,7 @@ func TestPlayerPropertiesRefuseWhatTheyCannotRead(t *testing.T) {
 		"PlayerCountOpponents$HasPropertyhasMoreArtifacts",
 		"PlayerCountOpponents$HasPropertyhasFewerCreatures",
 		"PlayerCountOpponents$HasPropertywithMostColors",
-		"PlayerCountOpponents$HasPropertyNotedDefender",
+		"PlayerCountOpponents$HasPropertyhasEnduringStory",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
 		if err := measureErr(t, g, p, x); err == nil {

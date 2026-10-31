@@ -408,3 +408,5 @@ nothing. A Java test on `upstream/master` (bad51eada9f) with one opponent attack
 `TriggeredPlayer$OpponentsAttackedThisTurn` with a `Player` triggering object gave 1. The script now uses `PlayerCountPropertyYou$OpponentsAttackedThisTurn`, as Rose, Cutthroat Raider and Fast Forward do (branch
 `upstream-pr/worf-attacked-opponents-count`, carried in the fork, `upstream-patches.md`). Crucible never reproduced the
 always-0 count (PORT-8). Militant Angel uses the same head on a `ChangesZone` trigger, where `Card` is set, and is unaffected.
+
+Cogwork Tracker (`c/cogwork_tracker.txt`): the second static is `Mode$ MustAttack | ValidPlayer$ Opponent.NotedDefender`. `ValidPlayer$` is read by `Mode$ PlayerMustAttack` alone (`StaticAbilityMustAttack.java:55`); the creature mode reads `ValidCreature$` and `MustAttack$` (`:24-29`), so the static ignored the param and duplicated the first one. The script now uses `MustAttack$ Opponent.NotedDefender` (branch `upstream-pr/cogwork-tracker-noted-defender`, carried in the fork, `upstream-patches.md`); `getDefinedEntities` resolves the dotted form (`AbilityUtils.java:1193-1201`).

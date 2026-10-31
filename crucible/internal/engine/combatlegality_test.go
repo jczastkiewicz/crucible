@@ -171,6 +171,26 @@ func TestMustAttackStaticRequiresTheCreatureToAttack(t *testing.T) {
 	}
 }
 
+// Cogwork Tracker's second static (MustAttack$ Opponent.NotedDefender): a game
+// has no draft notes, so no player is a noted defender and the static adds
+// nothing beyond "attacks each combat if able" (PlayerProperty.java:262-265).
+func TestMustAttackNotedDefenderNamesNobodyWithoutDraftNotes(t *testing.T) {
+	t.Parallel()
+	g, a, _ := combatGame(t)
+	def := combatCreatureDef(t, "Tracker", []string{
+		"Mode$ MustAttack | ValidCreature$ Card.Self",
+		"Mode$ MustAttack | MustAttack$ Opponent.NotedDefender | ValidCreature$ Card.Self",
+	}, nil)
+	tracker := g.NewCard(def, a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers(nil)
+	_, err := g.DeclareCombatAttackers(ac)
+	wantIllegal(t, err, "CR 508.1d")
+
+	declareAttacking(t, g, tracker)
+}
+
 func TestMustAttackStaticExcusesACreatureThatCannotAttack(t *testing.T) {
 	t.Parallel()
 	g, a, _ := combatGame(t)

@@ -1329,6 +1329,12 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 	if key, ok := strings.CutPrefix(property, "NotedFor"); ok && source != NoCard {
 		return g.Player(candidate).notedCard(key, g.Card(source)), true
 	}
+	// PlayerProperty.java:262-265 (Cogwork Tracker): the source controller's draft
+	// notes name the player who passed the card; a game here never has draft
+	// notes, so no player is a noted defender.
+	if property == "NotedDefender" {
+		return false, true
+	}
 	// PlayerProperty.java:140-175 for the "LastTurn" forms: wasDealtDamageLastTurn,
 	// wasDealtCombatDamageLastTurn and wasDealtNonCombatDamageLastTurn compare
 	// the damage dealt to the player last turn (all, combat or noncombat) with

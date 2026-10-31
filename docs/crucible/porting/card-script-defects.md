@@ -405,6 +405,6 @@ Worf, Defiant Commander (`upcoming/worf_defiant_commander.txt`): `SVar:X:Trigger
 is read on an `AttackersDeclared` trigger, which sets no `Card` triggering object (`TriggerAttackersDeclared.java`
 `setTriggeringObjects`). `AbilityUtils.java:624-629` then counts an empty player list, so X is 0 and the Dig exiles
 nothing. A Java test on `upstream/master` (bad51eada9f) with one opponent attacked gave X 0, while the same count through
-`TriggeredPlayer$OpponentsAttackedThisTurn` with a `Player` triggering object gave 1. Crucible refuses the card
-(`DigNum$ X` not resolvable) rather than reproduce a count that is always 0 (PORT-8). Militant Angel uses the same head on
-a `ChangesZone` trigger, where `Card` is set, and is unaffected.
+`TriggeredPlayer$OpponentsAttackedThisTurn` with a `Player` triggering object gave 1. The script now uses `PlayerCountPropertyYou$OpponentsAttackedThisTurn`, as Rose, Cutthroat Raider and Fast Forward do (branch
+`upstream-pr/worf-attacked-opponents-count`, carried in the fork, `upstream-patches.md`). Crucible never reproduced the
+always-0 count (PORT-8). Militant Angel uses the same head on a `ChangesZone` trigger, where `Card` is set, and is unaffected.

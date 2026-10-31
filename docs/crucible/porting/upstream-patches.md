@@ -69,6 +69,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/SetStateEffect.java` | stack description compares from the `"Specialize"` literal: `Mode$` is absent in the `NewState$` form | PR [#12377](https://github.com/Card-Forge/forge/pull/12377), branch `upstream-pr/null-guards-effect-params` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/CopySpellAbilityEffect.java` | Copies counted per spell (`chosenCopies`), so the `CopySpell` replacement sees one spell's amount, not the running total | PR [#12379](https://github.com/Card-Forge/forge/pull/12379), branch `upstream-pr/copy-spell-amount` |
 | 2026-10-27 | `forge-gui/res/cardsfolder/u/urza_academy_headmaster.txt` | `Destroy11U` remembers with `RememberDestroyed$`: `RememberTargets$` on a `GenericChoice` choice is never read | PR [#12471](https://github.com/Card-Forge/forge/pull/12471), branch `upstream-pr/card-script-slips-2` |
+| 2026-10-31 | `forge-gui/res/cardsfolder/upcoming/worf_defiant_commander.txt` | `X` counts attacked opponents with `PlayerCountPropertyYou$`: `TriggeredCardController$` reads a `Card` triggering object that `AttackersDeclared` never sets, so X was always 0 | branch `upstream-pr/worf-attacked-opponents-count` (not opened) |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

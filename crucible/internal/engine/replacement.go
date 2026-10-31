@@ -1117,6 +1117,8 @@ func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Ca
 		return original * 3, true
 	case "HalfDown":
 		return original / 2, true
+	case "HalfUp":
+		return (original + 1) / 2, true
 	case "Plus", "Minus", "LimitMax", "LimitMin":
 		if amt.Op.Operand == "" {
 			return 0, false

@@ -254,7 +254,7 @@ func (replaceDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 	if !ok {
 		value = "1"
 	}
-	prevent, shield, ok := shieldAmount(g, a, value)
+	prevent, shield, ok := shieldAmount(g, a, value, ev)
 	if !ok {
 		return fmt.Errorf("engine: ReplaceDamage: Amount$ %q is not resolvable", value)
 	}
@@ -286,7 +286,7 @@ func (replaceDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 // shieldAmount resolves a prevention amount, and reports whether it is a
 // depleting shield: a non-numeric value naming a Number$ SVar, either as
 // the script wrote it or as an earlier use of the shield left it.
-func shieldAmount(g *Game, a *Ability, value string) (n int, shield, ok bool) {
+func shieldAmount(g *Game, a *Ability, value string, ev *replacementEvent) (n int, shield, ok bool) {
 	if n, err := strconv.Atoi(value); err == nil {
 		return n, false, true
 	}
@@ -298,7 +298,9 @@ func shieldAmount(g *Game, a *Ability, value string) (n int, shield, ok bool) {
 		n, err := strconv.Atoi(amt.Body)
 		return n, err == nil, err == nil
 	}
-	n, ok = resolveNamedAmount(g, a.Amounts, host, value)
+	// Gisela's and Hyperion's ReplaceCount$DamageAmount/HalfUp and /Minus.1:
+	// a prevention sized off the damage itself, never a depleting shield.
+	n, ok = replacingAmount(g, a, value, ev)
 	return n, false, ok
 }
 
@@ -336,7 +338,7 @@ func (replaceSplitDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController)
 	if !ok {
 		value = "1"
 	}
-	prevent, _, ok := shieldAmount(g, a, value)
+	prevent, _, ok := shieldAmount(g, a, value, ev)
 	if !ok {
 		return fmt.Errorf("engine: ReplaceSplitDamage: VarName$ %q is not resolvable", value)
 	}

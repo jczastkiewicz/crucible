@@ -97,6 +97,36 @@ func TestReplaceDamageShieldDepletes(t *testing.T) {
 	}
 }
 
+// TestReplaceDamagePreventionSizedFromDamage proves Gisela's HalfUp and
+// Hyperion's Minus.1: Amount$ naming a ReplaceCount$DamageAmount SVar
+// prevents that share of each hit, rounding up for HalfUp.
+func TestReplaceDamagePreventionSizedFromDamage(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		op   string
+		want int
+	}{
+		{"HalfUp", 19},
+		{"Minus.1", 19},
+	} {
+		t.Run(tc.op, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			resolveLine(t, g, p, engine.NewScriptedController(),
+				"DB$ Effect | ReplacementEffects$ Shield | Duration$ Permanent | SubAbility$ DBDamage",
+				"Shield", "Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DBShield | PreventionEffect$ True | Description$ Reduce.",
+				"DBShield", "DB$ ReplaceDamage | Amount$ ShieldAmount",
+				"ShieldAmount", "ReplaceCount$DamageAmount/"+tc.op,
+				"DBDamage", "DB$ DealDamage | Defined$ You | NumDmg$ 3")
+			if got := g.Player(p).Life; got != tc.want {
+				t.Errorf("life = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 // TestReplaceTokenDoublesTokens proves doubling_season.txt's token half:
 // Event$ CreateToken with ValidToken$ Card.YouCtrl, ReplaceWith$ naming
 // ReplaceToken | Type$ Amount (default Twice). An opponent's tokens are not

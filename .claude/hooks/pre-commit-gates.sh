@@ -9,6 +9,8 @@ cwd=$(jq -r '.cwd // ""' <<<"$in")
 dir=$(commit_dir "$cmd" "${cwd:-${CLAUDE_PROJECT_DIR:-.}}")
 [ -n "$dir" ] || exit 0
 root=$(repo_root "$dir")
+# An upstream-pr/<slug> checkout (PORT-8) holds Forge files only: no gates to run.
+[ -x "$root/crucible/scripts/gates.sh" ] || exit 0
 # Gates whose inputs are unchanged since HEAD are skipped and go test runs
 # without -race (gates.sh header); CI still runs every gate, -race included, on
 # push.

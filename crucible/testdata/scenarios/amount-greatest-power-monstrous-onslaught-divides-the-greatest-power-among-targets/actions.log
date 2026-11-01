@@ -1,0 +1,18 @@
+# AbilityUtils.java:3844-3854: the greatest power among creatures you control
+# is read as the spell is cast, before its targets (TargetRestrictions.java:340,
+# SpellAbility.java:2182-2188). Hill Giant gives X = 3; 2 + 1 are divided among
+# the two Bears.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue targets 8,9
+queue divide 2,1
+castspell human 1
+resolvestack

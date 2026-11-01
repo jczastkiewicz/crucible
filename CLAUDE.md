@@ -114,9 +114,8 @@ M5 in progress (rules kernel): turn/priority loop, zone changes, SBA, combat, ma
 replacement effects, continuous effects across all eight layers (partial), targeting, LKI, activated abilities.
 
 M6 in progress: 194 of the corpus's 204 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
-`registry_gen.go`); the rest return `ErrUnimplemented`, and the other 12 have no real corpus line.
-`crucible card-smoke -all` measures how many cards play (the counts live in `docs/crucible/porting/port-log/smoke-probe.md`), an upper bound; the
-refusal causes it groups are the backlog.
+`registry_gen.go`); the rest return `ErrUnimplemented` and have no real corpus line (`crucible/scripts/unported-apis.sh` prints nothing), as do the other 12.
+`crucible card-smoke -all` measures how many cards play (the counts live in `docs/crucible/porting/port-log/smoke-probe.md`), an upper bound. Every judged card plays, so the M6 backlog is silent misses (R19, `game-state.md` "Not ported yet"), not refusals.
 
 M8 started: `internal/{sim,store,telemetry}` and `crucible run|report` play stored batches (the default-answer controller until the M7 AI); multi-face casting is `face.go` (ADR-0052).
 

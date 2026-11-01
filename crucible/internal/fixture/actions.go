@@ -586,6 +586,19 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueTapChoice(ids)
 
+	case "triggerorder":
+		// OrderSimultaneousTriggers (CR 603.3b): indices of the player's
+		// triggers, in the order they resolve.
+		var order []int
+		for _, f := range strings.Split(value, ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(f))
+			if err != nil {
+				return fmt.Errorf("queue triggerorder: %w", err)
+			}
+			order = append(order, n)
+		}
+		c.QueueTriggerOrder(order)
+
 	case "cardorder":
 		// The order cards moving into one zone together go in (CR 613.7m,
 		// OrderCardsForZone), as the exile of The Mimeoplasm's two cards.

@@ -542,6 +542,11 @@ func (*Controller) ChooseRoomDoor(_ *engine.Game, _ engine.PlayerID, _ engine.Ca
 	return doors[0]
 }
 
+// OrderSimultaneousTriggers keeps the default order.
+func (*Controller) OrderSimultaneousTriggers(*engine.Game, engine.PlayerID, []engine.TriggerOrderItem) []int {
+	return nil
+}
+
 // ChooseReplacementEffect applies the first replacement effect.
 func (*Controller) ChooseReplacementEffect(*engine.Game, engine.PlayerID, []engine.ReplacementOption) int {
 	return 0

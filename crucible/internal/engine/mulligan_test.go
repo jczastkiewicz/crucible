@@ -541,6 +541,10 @@ func (c *scriptedMulliganController) DivideAmongTargets(_ *engine.Game, _ engine
 	panic("scriptedMulliganController: DivideAmongTargets was not expected to be called")
 }
 
+func (c *scriptedMulliganController) OrderSimultaneousTriggers(_ *engine.Game, _ engine.PlayerID, _ []engine.TriggerOrderItem) []int {
+	return nil
+}
+
 func (c *scriptedMulliganController) ChooseRoomDoor(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.Door) engine.Door {
 	panic("scriptedMulliganController: ChooseRoomDoor was not expected to be called")
 }

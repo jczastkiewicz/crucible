@@ -1711,3 +1711,30 @@ func TestRunActionsQueueVerbsAcceptWellFormedArguments(t *testing.T) {
 		})
 	}
 }
+
+// queue tapchoice answers a tapXType cost's ChoosePermanentsToTap with the
+// fixture's cards; queue triggerorder answers OrderSimultaneousTriggers with
+// the listed indices. Both reject a value that does not parse.
+func TestRunActionsQueueTapChoiceAndTriggerOrder(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+	p := l.Game.Players()[0]
+
+	if err := runActions(t, l, c, "queue tapchoice 2\nqueue triggerorder 1,0\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+	if got := c.ChoosePermanentsToTap(l.Game, p, nil, 1); len(got) != 1 || got[0] != l.CardByFixtureID[2] {
+		t.Errorf("tap choice %v, want [%v]", got, l.CardByFixtureID[2])
+	}
+	if got := c.OrderSimultaneousTriggers(l.Game, p, nil); len(got) != 2 || got[0] != 1 || got[1] != 0 {
+		t.Errorf("trigger order %v, want [1 0]", got)
+	}
+	for _, line := range []string{"queue tapchoice abc\n", "queue triggerorder a,b\n"} {
+		if err := runActions(t, l, c, line); err == nil {
+			t.Errorf("%q: a value that does not parse did not error", line)
+		}
+	}
+}

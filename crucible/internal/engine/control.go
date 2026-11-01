@@ -555,6 +555,17 @@ type PlayerController interface {
 	// checks the answer is one of doors (GO-7).
 	ChooseRoomDoor(g *Game, decider PlayerID, room CardID, doors []Door) Door
 
+	// OrderSimultaneousTriggers is CR 603.3b: decider puts the triggered
+	// abilities they control that triggered together on the stack in the
+	// order they choose -- Java's orderSimultaneousSa (PlayerController.java:
+	// 103, MagicStack.java:945-975). items are in the order the triggers were
+	// found; the answer lists their indices in the order they resolve, first
+	// to resolve first (the last put on the stack). Asked only when decider
+	// has two or more. An answer that is not a permutation of the indices
+	// is ignored, the default being the reverse of the found order (the
+	// first found is put on the stack first).
+	OrderSimultaneousTriggers(g *Game, decider PlayerID, items []TriggerOrderItem) []int
+
 	// ChooseReplacementEffect is CR 616.1's own "the affected player
 	// chooses": which of options -- two or more replacement effects that
 	// could each apply to the one event -- applies first. Java's
@@ -677,6 +688,7 @@ type ScriptedController struct {
 	dieResult          []int
 	rollSwapValue      []int
 	roomDoor           []Door
+	triggerOrder       [][]int
 	replacementPick    []int
 	replacementConfirm []bool
 	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
@@ -1435,6 +1447,21 @@ func (c *ScriptedController) ChooseRollSwapValue(_ *Game, _ PlayerID, _ CardID, 
 	return popQueue(&c.rollSwapValue, "roll swap value")
 }
 
+// QueueTriggerOrder appends the answer to the next OrderSimultaneousTriggers
+// call; with nothing queued the default order stands.
+func (c *ScriptedController) QueueTriggerOrder(order []int) {
+	c.triggerOrder = append(c.triggerOrder, order)
+}
+
+// OrderSimultaneousTriggers returns the next answer QueueTriggerOrder queued,
+// or nil (the default order) when none is.
+func (c *ScriptedController) OrderSimultaneousTriggers(_ *Game, _ PlayerID, _ []TriggerOrderItem) []int {
+	if len(c.triggerOrder) == 0 {
+		return nil
+	}
+	return popQueue(&c.triggerOrder, "trigger order")
+}
+
 // QueueRoomDoor appends the answer to the next ChooseRoomDoor call.
 func (c *ScriptedController) QueueRoomDoor(d Door) { c.roomDoor = append(c.roomDoor, d) }
 
@@ -1531,4 +1558,12 @@ func popQueue[T any](q *[]T, kind string) T {
 // know which one came up short.
 func scriptExhausted(kind string) string {
 	return fmt.Sprintf("engine: scripted controller ran out of %s decisions", kind)
+}
+
+// TriggerOrderItem is one triggered ability a player orders under CR 603.3b.
+type TriggerOrderItem struct {
+	// Source is the card the trigger belongs to.
+	Source CardID
+	// Mode is the trigger's Mode$ (ChangesZone, Attacks, ...).
+	Mode string
 }

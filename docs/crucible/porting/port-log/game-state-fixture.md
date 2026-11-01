@@ -148,6 +148,7 @@ queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue discardchoice <id>[,...]  ScriptedController.QueueDiscardChoice, ChooseCardsToDiscard's pick (a Discard<N/Card> cost), ids from Loaded.CardByFixtureID
 queue tapchoice <id>[,...]      ScriptedController.QueueTapChoice, a tapXType cost's ChoosePermanentsToTap pick (Station, Crew), ids from Loaded.CardByFixtureID
+queue triggerorder <i>[,...]    ScriptedController.QueueTriggerOrder, a player's OrderSimultaneousTriggers answer (CR 603.3b): indices of their triggers in the order found, listed in the order they resolve
 queue cardchoice <id>[,...]|none  ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID; none is an empty pick (a declined Optional$ Discard)
 queue option <n>              ScriptedController.QueueOption, ChooseOption's index into the options offered (a type from a list, a "choose one")
 queue optionname <text>       ScriptedController.QueueOptionNamed, the ChooseOption answer equal to the text (_ stands for a space), for lists too long to index: a creature card name out of the whole database

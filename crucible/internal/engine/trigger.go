@@ -2344,10 +2344,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 		return
 	}
 	for _, pid := range g.playersInAPNAPOrder() {
-		for i := range matches {
-			if matches[i].Controller != pid {
-				continue
-			}
+		for _, i := range g.triggerPushOrder(controller, pid, matches) {
 			if !matches[i].targetsChosen && !g.chooseAbilityTargets(controller, &matches[i]) {
 				continue
 			}
@@ -4195,4 +4192,47 @@ func (g *Game) planeswalkTriggerMatches(mode string, cards []CardID, static bool
 		}
 	}
 	return matches
+}
+
+// triggerPushOrder is the order pid's triggered abilities in matches go on
+// the stack (CR 603.3b): the indices of matches whose controller is pid, in
+// the order they are put on the stack, so the last one resolves first. With
+// two or more, pid orders them (OrderSimultaneousTriggers); the default is
+// the order found.
+func (g *Game) triggerPushOrder(controller PlayerController, pid PlayerID, matches []Ability) []int {
+	var idx []int
+	for i := range matches {
+		if matches[i].Controller == pid {
+			idx = append(idx, i)
+		}
+	}
+	if len(idx) < 2 {
+		return idx
+	}
+	items := make([]TriggerOrderItem, len(idx))
+	for k, i := range idx {
+		items[k].Source = matches[i].Source
+		if matches[i].trigger != nil {
+			items[k].Mode = matches[i].trigger.Name
+		}
+	}
+	order := controller.OrderSimultaneousTriggers(g, pid, items)
+	seen := make([]bool, len(idx))
+	valid := len(order) == len(idx)
+	for _, k := range order {
+		if k < 0 || k >= len(idx) || seen[k] {
+			valid = false
+			break
+		}
+		seen[k] = true
+	}
+	if !valid {
+		return idx
+	}
+	// order is the resolution order; the stack takes them last first.
+	pushed := make([]int, len(idx))
+	for pos, k := range order {
+		pushed[len(idx)-1-pos] = idx[k]
+	}
+	return pushed
 }

@@ -35,6 +35,11 @@ crucible/scripts/unported-apis.sh 30
 
 # How many cards the engine plays, and why the rest are refused (smoke-probe.md); ~2 min for the whole corpus
 cd crucible && go run ./cmd/crucible card-smoke -all -workers 8     # or -decks <dir> / -cards "A,B"
+
+# Games: a deck against opponent decks (files or dirs), stored under -out, then summarized; report re-reads a run.
+# The controller is the smoke default-answer one until M7, so results measure the pipeline, not the decks.
+cd crucible && go run ./cmd/crucible run -target a.dck -vs b.dck,decks/ -games 100 -seed 1 -turns 60 -workers 8 -out runs/x
+cd crucible && go run ./cmd/crucible report -run runs/x
 # -top 80 shows the long tail (default 25). Many refusals are probe-controller artifacts (internal/smoke/controller.go:
 # repeated Charm modes, forced blocks), not engine gaps: check those first, they flip many cards at once.
 

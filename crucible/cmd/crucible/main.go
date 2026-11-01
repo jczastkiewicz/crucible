@@ -25,6 +25,10 @@ func main() {
 		err = corpusCoverage(os.Args[2:])
 	case "card-smoke":
 		err = cardSmoke(os.Args[2:])
+	case "run":
+		err = runCmd(os.Args[2:])
+	case "report":
+		err = reportCmd(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -45,5 +49,8 @@ func usage() {
 
 commands:
   corpus-coverage   report which cards in a decklist the card database has
+  card-smoke        probe how many cards the engine plays
+  run               play a deck against opponent decks and store the run
+  report            summarize a stored run
 `)
 }

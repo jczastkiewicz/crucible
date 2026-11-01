@@ -187,27 +187,26 @@ func (g *Game) opponentVoters(ctrl PlayerID, votes [][]PlayerID, other bool) []P
 // not modelled, so its line is not fired (GO-7). The cause card is
 // TriggeredSource, the ability's controller TriggeredSourceSAController and
 // the targets TriggeredTargets.
-func (g *Game) becomesTargetOnceMatches(targets []EntityID, isSpellSource bool, sourceController PlayerID, cause CardID) []Ability {
+func (g *Game) becomesTargetOnceMatches(targets []EntityID, by *Ability) []Ability {
+	cause := by.Source
 	if len(targets) == 0 {
 		return nil
 	}
-	return g.scanTriggers([]string{"BecomesTargetOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+	return g.scanTriggers([]string{"BecomesTargetOnce"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
 		if !paramsResolvable(t, becomesTargetOnceParams) {
 			return triggeredObjects{}, false
 		}
 		if spec, ok := t.Param("ValidTarget"); ok && !attackedTargetMatches(g, h, targets, spec) {
 			return triggeredObjects{}, false
 		}
-		if spec, ok := t.Param("ValidSource"); ok && !becomesTargetSourceMatches(isSpellSource, sourceController, h.Controller(), spec) {
+		if spec, ok := t.Param("ValidSource"); ok && !g.becomesTargetSourceMatches(by, h, face.Amounts, spec) {
 			return triggeredObjects{}, false
 		}
 		if _, ok := t.Param("ValidCause"); ok && (cause == NoCard || !g.triggerCardMatches(h, t, "ValidCause", g.Card(cause))) {
 			return triggeredObjects{}, false
 		}
-		o := triggeredObjects{sourceSAController: sourceController, damagedTargets: append([]EntityID(nil), targets...), damagedTargetsRecorded: true}
-		if cause != NoCard {
-			o.source, o.sourceController = CardEntity(cause), g.Card(cause).Controller()
-		}
+		o := g.becomesTargetSourceObjects(by)
+		o.damagedTargets, o.damagedTargetsRecorded = append([]EntityID(nil), targets...), true
 		return o, true
 	})
 }

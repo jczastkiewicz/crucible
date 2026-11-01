@@ -981,7 +981,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{CardEntity(target)}
-	matches := g.checkBecomesTargetTriggers(tgts, true, pid, card)
+	matches := g.checkBecomesTargetTriggers(tgts, &cast)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(cast)...)
 	g.pushTriggeredAbilities(controller, matches)
@@ -1050,7 +1050,7 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{target}
-	matches := g.checkBecomesTargetTriggers(tgts, true, pid, card)
+	matches := g.checkBecomesTargetTriggers(tgts, &cast)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(cast)...)
 	g.pushTriggeredAbilities(controller, matches)
@@ -1151,7 +1151,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := allTargetsOf(a)
-	matches := g.checkBecomesTargetTriggers(tgts, false, pid, card)
+	matches := g.checkBecomesTargetTriggers(tgts, &a)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(a)...)
 	g.pushTriggeredAbilities(controller, matches)

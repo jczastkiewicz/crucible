@@ -63,6 +63,9 @@ type retargeted struct {
 	id     StackItemID
 	source CardID
 	spell  bool
+	// by is the rewritten item, the targeting object a BecomesTarget
+	// ValidSource$ is matched against.
+	by Ability
 }
 
 func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -145,14 +148,11 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			break
 		}
 		if len(changed) > 0 {
-			fired = append(fired, retargeted{targets: changed, controller: item.Controller, id: item.ID, source: item.Source, spell: item.spell})
+			fired = append(fired, retargeted{targets: changed, controller: item.Controller, id: item.ID, source: item.Source, spell: item.spell, by: *item})
 		}
 	}
 	for _, f := range fired {
-		// isSpellSource false, as castInstantOrSorcery passes it for the
-		// same spell's own cast-time targets (castspell.go); Aura spells
-		// are refused by retargetParts.
-		matches := g.checkBecomesTargetTriggers(f.targets, false, f.controller, f.source)
+		matches := g.checkBecomesTargetTriggers(f.targets, &f.by)
 		if f.spell {
 			matches = append(matches, g.checkWardTriggers(f.targets, f.source, f.controller)...)
 		} else {

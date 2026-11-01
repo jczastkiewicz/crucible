@@ -196,7 +196,7 @@ func TestBecomesTargetSkipsWhenValidTargetDoesNotMatch(t *testing.T) {
 
 // TestBecomesTargetSkipsWhenSourceKindDoesNotMatch proves Spell.OppCtrl must
 // not match a targeting event caused by a TRIGGERED ability (the creature's
-// own ETB LoseLife, isSpellSource false) -- Java's own
+// own ETB LoseLife) -- Java's own
 // SpellAbility.isValid("Spell", ...) checks root.isSpell(), and the
 // triggered ability itself is never a Spell regardless of what spell caused
 // it to exist. Both this test's own kind mismatch and its own OppCtrl
@@ -296,9 +296,8 @@ func TestBecomesTargetSkipsForNonMatchingSpellAbilityController(t *testing.T) {
 }
 
 // TestBecomesTargetFiresForAuraSpellSource proves ValidSource$ Spell.Aura
-// resolves for castAura's own real call site: this port's only spell source
-// reaching checkBecomesTargetTriggers is always an Aura being cast, so the
-// Aura qualifier is trivially satisfied once the kind itself is Spell.
+// resolves for an Aura being cast: the kind is Spell and the Aura property
+// reads the spell's card type.
 func TestBecomesTargetFiresForAuraSpellSource(t *testing.T) {
 	t.Parallel()
 
@@ -381,5 +380,106 @@ func TestBecomesTargetSkipsUnresolvedValidSourceShape(t *testing.T) {
 
 	if got := g.Player(p).Life; got != 20 {
 		t.Errorf("p life = %d, want unchanged 20 -- Instant,Sorcery is not a recognized ValidSource$ head and must skip the whole line", got)
+	}
+}
+
+// Bonecrusher Giant: "Whenever this creature becomes the target of a spell,
+// this creature deals 2 damage to that spell's controller." A Shock aimed at
+// it is a spell source (ValidSource$ Spell holds for an instant), and the
+// trigger records the spell's host as Source, so Defined$
+// TriggeredSourceController names the Shock's caster
+// (TriggerBecomesTarget.java:58, :83-86).
+func TestBonecrusherGiantPunishesTheInstantThatTargetsIt(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	giant := g.NewCard(corpusCard(t, "Bonecrusher Giant"), p, engine.Battlefield)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	oc := engine.NewScriptedController()
+	oc.QueueTargets([]engine.EntityID{engine.CardEntity(giant)})
+	castOthersSpell(t, g, other, corpusCard(t, "Shock"), oc, mana.Red)
+	if err := g.ResolveStack(engine.NewRegistry(), oc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(other).Life; got != 18 {
+		t.Errorf("Shock's caster life = %d, want 18 (Bonecrusher's 2 damage)", got)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("Bonecrusher's controller life = %d, want 20", got)
+	}
+	if got := g.Card(giant).Damage.Marked; got != 2 {
+		t.Errorf("Bonecrusher damage = %d, want Shock's 2", got)
+	}
+}
+
+// ValidSource$ Activated tells an activated ability apart from a triggered
+// one (SpellAbility.isValid's isActivatedAbility head): a tap ability aimed at
+// the watcher fires it, an ETB trigger aimed at it does not.
+func TestBecomesTargetActivatedSourceSkipsTriggeredAbilities(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name      string
+		activated bool
+		want      int
+	}{
+		{"activated ability", true, 25},
+		{"triggered ability", false, 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g := newGame(t, "a", "b")
+			p := g.Players()[0]
+			g.SetTurnState(1, p, engine.Main1)
+			g.Player(p).Life = 20
+			watcher := g.NewCard(becomesTargetCreatureDef(t, "Test Watcher", "Card.Self", "ValidSource$ Activated"), p, engine.Battlefield)
+			c := engine.NewScriptedController()
+			c.QueueTargets([]engine.EntityID{engine.CardEntity(watcher)})
+			if tc.activated {
+				pinger := g.NewCard(creatureDefWithAbility(t, "Test Pinger", "AB$ PutCounter | Cost$ T | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1"), p, engine.Battlefield)
+				g.Card(pinger).SummonSick = false
+				if !g.ActivateAbility(p, pinger, 0, c) {
+					t.Fatal("ActivateAbility failed")
+				}
+			} else {
+				def := etbLoseLifeTriggerDefParams(t, "Test ETB", "ValidTgts$ Creature.YouCtrl | LifeAmount$ 1", nil)
+				g.Player(p).ManaPool.Add(mana.Green, 1)
+				if !g.CastSpell(p, g.NewCard(def, p, engine.Hand), c) {
+					t.Fatal("CastSpell failed")
+				}
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Player(p).Life; got != tc.want {
+				t.Errorf("life = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// Silverfur Partisan's ValidSource$ Instant,Sorcery reads the targeting
+// spell's card type: a Shock at a Wolf its controller controls makes a Wolf
+// token.
+func TestSilverfurPartisanWatchesInstantAndSorcerySpellsOnly(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	partisan := g.NewCard(corpusCard(t, "Silverfur Partisan"), p, engine.Battlefield)
+	oc := engine.NewScriptedController()
+	oc.QueueTargets([]engine.EntityID{engine.CardEntity(partisan)})
+	castOthersSpell(t, g, other, corpusCard(t, "Shock"), oc, mana.Red)
+	if err := g.ResolveStack(engine.NewRegistry(), oc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	tokens := 0
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if g.Card(id).IsToken {
+			tokens++
+		}
+	}
+	if tokens != 1 {
+		t.Errorf("Wolf tokens = %d, want 1", tokens)
 	}
 }

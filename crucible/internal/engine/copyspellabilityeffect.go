@@ -139,10 +139,7 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 		}
 	}
 	for _, tg := range targeted {
-		// isSpellSource as castInstantOrSorcery/castAura pass it: true only
-		// for an Aura (becomesTargetSourceMatches reads .Aura as always true
-		// under a spell source).
-		matches := g.checkBecomesTargetTriggers(tg.targets, tg.aura, tg.copier, tg.source)
+		matches := g.checkBecomesTargetTriggers(tg.targets, &tg.by)
 		if tg.item != NoStackItem {
 			matches = append(matches, g.checkWardTriggersForAbility(tg.targets, tg.item, tg.source, tg.copier)...)
 		} else {
@@ -159,8 +156,10 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 // resolution is on the stack, for its BecomesTarget check.
 type copiedTargets struct {
 	targets []EntityID
-	aura    bool
-	copier  PlayerID
+	// by is the copy as pushed, the targeting object a BecomesTarget
+	// ValidSource$ is matched against.
+	by     Ability
+	copier PlayerID
 	// host is the copy's card on the stack, what Ward's Counter counters.
 	host CardID
 	// item and source name a copied activated or triggered ability instead
@@ -368,7 +367,7 @@ func (g *Game) pushSpellCopy(controller PlayerController, a *Ability, orig Abili
 	}
 	spellID, _ := g.spellItemOf(host)
 	g.checkSpellCopyTriggers(controller, g.Card(host), copier, spellID, true)
-	return host, copiedTargets{targets: targets, aura: cp.API == APIAttach, copier: copier, host: host}, nil
+	return host, copiedTargets{targets: targets, by: cp, copier: copier, host: host}, nil
 }
 
 // copyStackAbility is copySpell for an activated or triggered ability
@@ -406,7 +405,7 @@ func (g *Game) copyStackAbility(controller PlayerController, orig Ability, copie
 	g.PushAbility(cp)
 	targets := allTargetsOf(cp)
 	g.checkSpellCopyTriggers(controller, g.Card(cp.Source), copier, g.nextStackItemID, false)
-	return NoCard, copiedTargets{targets: targets, copier: copier, item: g.nextStackItemID, source: cp.Source}, nil
+	return NoCard, copiedTargets{targets: targets, by: cp, copier: copier, item: g.nextStackItemID, source: cp.Source}, nil
 }
 
 // chooseCopyChainTargets is chooseCopyTargets for m and then each of its
@@ -560,7 +559,7 @@ func (g *Game) copyForEachTarget(controller PlayerController, a *Ability, spells
 		}
 	}
 	for _, tg := range targeted {
-		matches := g.checkBecomesTargetTriggers(tg.targets, tg.aura, tg.copier, tg.source)
+		matches := g.checkBecomesTargetTriggers(tg.targets, &tg.by)
 		if tg.item != NoStackItem {
 			matches = append(matches, g.checkWardTriggersForAbility(tg.targets, tg.item, tg.source, tg.copier)...)
 		} else {

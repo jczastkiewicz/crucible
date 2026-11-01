@@ -2364,7 +2364,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 			if pushed.isTrigger {
 				batch = g.abilityTriggeredMatches(pushed)
 			}
-			batch = append(batch, g.checkBecomesTargetTriggers(tgts, false, matches[i].Controller, matches[i].Source)...)
+			batch = append(batch, g.checkBecomesTargetTriggers(tgts, &pushed)...)
 			batch = append(batch, g.checkWardTriggersForAbility(tgts, pushed.ID, pushed.Source, pushed.Controller)...)
 			batch = append(batch, g.crimeTriggers(pushed)...)
 			g.pushTriggeredAbilities(controller, batch)
@@ -3645,79 +3645,25 @@ func isLandPlayedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "LandPlayed")
 }
 
-// checkBecomesTargetTriggers is CR 115/603.3's own "whenever ~ becomes the
-// target of a spell or ability" -- Mode$ BecomesTarget, ported from
-// TriggerBecomesTarget.performTest at the shape this port can reach:
-// targets carries every distinct object a.Targets (targeting.go) just chose
-// for one ability, deduplicated the identical way MagicStack.add's own
-// distinctObjects set is ("Track distinct objects so Becomes targets don't
-// trigger for things like Seeds of Strength"). Called from
-// pushTriggeredAbilities (below) right after PushAbility, matching
-// MagicStack.add's own order (SpellCastOrCopy/cast-trigger checks, then
-// "Run BecomesTarget triggers"), and from castAura (castspell.go) for an
-// Aura's own single cast-time target -- the two places this port ever
-// finishes choosing a target for something. A targeted Instant/Sorcery would
-// be a third (not built -- CastSpell only casts a permanent or an Aura
-// today, castspell.go's own doc comment), so this only sees a
-// triggered-ability's own targets or an Aura's own attach target, not yet a
-// removal spell's, the identical "mechanism now, content later" gap
-// targeting.go's own doc comment already names for a future cast path.
+// checkBecomesTargetTriggers is Mode$ BecomesTarget (CR 603.2, "whenever ~
+// becomes the target of a spell or ability"; TriggerBecomesTarget.java), run
+// by every path that finishes choosing targets for an object put on the
+// stack: a cast spell (castspell.go, mutate.go), a pushed activated or
+// triggered ability (pushTriggeredAbilities), a copy (CopySpellAbility) and
+// a retarget (ChangeTargets). by is that object as it sits on the stack;
+// targets is every object it targets, deduplicated as MagicStack.add's
+// distinctObjects set is (MagicStack.java:455-486), and BecomesTargetOnce
+// runs after, once for the lot.
 //
-// ValidTarget$ is matched with attackedTargetMatches (below,
-// AttackersDeclared's own AttackedTarget$ dispatch): the identical
-// one-entity-of-either-kind problem, since a real ValidTarget$ can be a
-// player spec, a card spec, or (rarely) a comma list mixing both.
-// Card.AttachedBy/EnchantedBy ("enchanted creature becomes the target of a
-// spell or ability," Ice Cage's own real shape) needs no new code at all:
-// Matches (valid.go) already reads its own source argument as "the object
-// c is checked for being attached to," and host.ID -- the watcher itself --
-// is exactly that for a trigger living on the Aura in question.
-//
-// FirstTime$ (Glyph Keeper's own "for the first time each turn, counter
-// it") reads a new Card.BecameTargetThisTurn (card.go): Java's own
-// hasBecomeTargetThisTurn()/addTargetFromThisTurn is a per-target Player
-// set, but every real FirstTime$ line just asks whether the set was empty,
-// never which players are in it, so a bool suffices. Computed once per
-// distinct target (not once per watcher) the same "check, then mark"
-// order Java's own MagicStack.add loop has, so two watchers checking the
-// same targeting event see identical first-time-ness.
-//
-// ValidSource$ (71 of 77 real lines) resolves too -- matched against the
-// triggering ability itself (AbilityKey.SourceSA in Java, a SpellAbility,
-// not a Card, SpellAbility.isValid's own dispatch) -- through
-// becomesTargetSourceMatches (below), a Spell/Triggered ability-kind
-// classifier built from this dispatch's own two real call sites rather than
-// a general SpellAbility-kind field on Ability: castAura's own Aura is
-// always a Spell (isSpell()==true, and this port's only spell-casting path
-// today, so "the one spell source reaching here" and "an Aura spell" are the
-// identical set -- Spell.Aura's own qualifier is therefore always true
-// whenever the kind itself is Spell), and a triggered ability pushed through
-// pushTriggeredAbilities is always Java's own isAbility()/isTrigger() pair
-// (this port has no activated-ability targeting built yet, so "Ability" and
-// "Triggered" collapse to the identical "not a Spell" check for now).
-// "SpellAbility" itself matches unconditionally (Java's own "match anything"
-// case), and .YouCtrl/.OppCtrl compare the ability's own controller against
-// the watching trigger's host controller the identical way every other
-// YouCtrl/OppCtrl property in this port already does. 6 stay unresolved:
-// silverfur_partisan.txt's/wild_defiance.txt's own real `Instant,Sorcery`
-// (a card-type check neither of this port's two sources -- a Trigger, an
-// Aura -- can ever satisfy) and four real lines combining a kind with a
-// property past YouCtrl/OppCtrl/Aura (`namedGoblin Artisans`, `numTargets
-// EQ1`, `Land+named...`, `Backup`), each its own further mechanic.
-//
-// 101 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
-// Illusionary Servant's own real "When CARDNAME becomes the target of a
-// spell or ability, sacrifice it" among them (Sacrifice itself is still
-// ErrUnimplemented, M6's own remaining scope; TestDestroyLethalToughnessFiresDiesTrigger's
-// own "prove the trigger reached the stack, not that its effect ran"
-// precedent applies here identically). OptionalDecider$ (12, every real line
-// "You") resolves too now, through triggerEffectAPI's own triggerIsOptional
-// (below). Not resolved, each failing loudly by name rather than firing
-// unconditionally (PORT-8/GO-7): Valiant$ (10) -- Card.isValiant's own
-// per-activator "have you not targeted this before" set, a separate
-// mechanic FirstTime$'s own plain bool cannot answer; ActivationLimit$ (3)
-// and Static$ (1) -- each its own further mechanic.
-func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool, sourceController PlayerID, cause CardID) []Ability {
+// ValidTarget$ goes through attackedTargetMatches (a spec may name a player,
+// a card, or both). ValidSource$ is SpellAbility.isValid against by
+// (becomesTargetSourceMatches). FirstTime$ reads Card.BecameTargetThisTurn,
+// computed once per distinct target before any watcher looks (Java's
+// per-target player set is only ever asked whether it is empty). The
+// trigger records the target, by's host card as Source and by's controller
+// as the SourceSA's (becomesTargetSourceObjects). Valiant$ (a per-activator
+// set) and Static$ lines are not fired (isBecomesTargetTrigger, GO-7).
+func (g *Game) checkBecomesTargetTriggers(targets []EntityID, by *Ability) []Ability {
 	var matches []Ability
 	seen := make(map[EntityID]bool, len(targets))
 	var distinct []EntityID
@@ -3754,17 +3700,20 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 							continue
 						}
 						if validSource, ok := t.Param("ValidSource"); ok &&
-							!becomesTargetSourceMatches(isSpellSource, sourceController, w.Controller(), validSource) {
+							!g.becomesTargetSourceMatches(by, w, face.Amounts, validSource) {
 							continue
 						}
 						if _, ok := t.Param("FirstTime"); ok && !firstTime {
 							continue
 						}
-						// TriggerBecomesTarget.java:84-85 records AbilityKey.Target,
-						// the targeted card or player; Source (the targeting spell's
-						// host) and SourceSA are not recorded here.
+						// TriggerBecomesTarget.java:83-86 records AbilityKey.Target
+						// (the targeted card or player), Source (the targeting
+						// spell's or ability's host card) and SourceSA (read here
+						// for its controller).
 						if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, trigger: t, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{target: tgt}), staticTrigger: isStaticTrigger(t)})
+							objs := g.becomesTargetSourceObjects(by)
+							objs.target = tgt
+							matches = append(matches, Ability{API: api, trigger: t, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(objs), staticTrigger: isStaticTrigger(t)})
 						}
 					}
 				}
@@ -3772,7 +3721,7 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 		}
 	}
 	// MagicStack.java:474-486: then BecomesTargetOnce, once for the lot.
-	return append(matches, g.becomesTargetOnceMatches(distinct, isSpellSource, sourceController, cause)...)
+	return append(matches, g.becomesTargetOnceMatches(distinct, by)...)
 }
 
 // checkWardTriggers is CR 702.21a's own trigger for a spell: fired at the
@@ -3915,68 +3864,30 @@ func isBecomesTargetTrigger(t *compile.Ability) bool {
 	return !hasAnyParam(t, "Valiant", "Static")
 }
 
-// becomesTargetSourceMatches is TriggerBecomesTarget.performTest's own
-// ValidSource$ check -- SpellAbility.isValid's own restriction split,
-// ported at the two ability kinds this port's own two real call sites can
-// ever produce (isSpellSource true for castAura's own Aura, false for a
-// triggered ability pushed through pushTriggeredAbilities -- this port has
-// no activated-ability targeting built yet, so Java's own separate
-// isAbility()/isTrigger() checks collapse to the identical "not a Spell"
-// test here). "SpellAbility" matches unconditionally (Java's own "match
-// anything" case); "Spell" requires isSpellSource; "Ability"/"Triggered"
-// require !isSpellSource; every other head (Activated/Instant/Sorcery/
-// Static/LandAbility) refuses outright -- Activated because this port has
-// nothing that ever sets isSpellSource false for an activated ability
-// specifically, Instant/Sorcery because neither of this port's two sources
-// is ever a card of that type. A "."-qualified property afterward is
-// YouCtrl/OppCtrl (the ability's own controller compared against the
-// watching trigger's own host controller, the identical YouCtrl/OppCtrl
-// contract every other property in this port already has) or Aura (always
-// true once the kind itself is Spell, since this port's only spell source
-// reaching here IS an Aura being cast, castAura's own doc comment) --
-// anything else refuses the whole line (GO-7): silverfur_partisan.txt's/
-// wild_defiance.txt's own real `Instant,Sorcery` and four more real lines
-// combining a kind with a property past YouCtrl/OppCtrl/Aura (`namedGoblin
-// Artisans`, `numTargets EQ1`, `Land+named...`, `Backup`), each its own
-// further mechanic.
-func becomesTargetSourceMatches(isSpellSource bool, sourceController, hostController PlayerID, restriction string) bool {
-	head, rest, hasRest := strings.Cut(restriction, ".")
-	var kindMatch bool
-	switch head {
-	case "SpellAbility":
-		kindMatch = true
-	case "Spell":
-		kindMatch = isSpellSource
-	case "Ability", "Triggered":
-		kindMatch = !isSpellSource
-	default:
-		return false
+// becomesTargetSourceObjects is what both BecomesTarget modes record about
+// by, the targeting spell or ability: AbilityKey.Source, its host card
+// (TriggeredSource, TriggeredSourceController), and the SourceSA's controller
+// (TriggeredSourceSAController).
+func (g *Game) becomesTargetSourceObjects(by *Ability) triggeredObjects {
+	o := triggeredObjects{sourceSAController: by.Controller}
+	if by.Source != NoCard {
+		o.source, o.sourceController = CardEntity(by.Source), g.Card(by.Source).Controller()
 	}
-	if !kindMatch {
-		return false
-	}
-	if !hasRest {
-		return true
-	}
-	for _, prop := range strings.Split(rest, "+") {
-		switch prop {
-		case "YouCtrl":
-			if sourceController != hostController {
-				return false
-			}
-		case "OppCtrl":
-			if sourceController == hostController {
-				return false
-			}
-		case "Aura":
-			// Always true here: this port's only isSpellSource-true caller
-			// (castAura) never reaches this dispatch for anything but an
-			// Aura spell.
-		default:
-			return false
-		}
-	}
-	return true
+	return o
+}
+
+// becomesTargetSourceMatches is TriggerBecomesTarget.performTest's
+// ValidSource$ check (TriggerBecomesTarget.java:67-71, matchesValidParam over
+// AbilityKey.SourceSA): SpellAbility.isValid (SpellAbility.java:2201-2268)
+// against by, the spell or ability that chose the target, as it sits on the
+// stack, read from the watcher's point of view. by's kind tells Spell,
+// Activated and Triggered apart (Ability.causeKind) and Instant/Sorcery read
+// its card's type. A spec this port cannot evaluate (Ability.Backup,
+// numTargets EQ1) matches nothing: the line does not fire (GO-7, the same
+// fail-closed answer the trigger's other unreadable params get).
+func (g *Game) becomesTargetSourceMatches(by *Ability, watcher *Card, amounts map[string]expr.Amount, spec string) bool {
+	matched, recognized := g.spellAbilityMatches(by, spec, watcher, watcher.Controller(), amounts)
+	return matched && recognized
 }
 
 // checkPlaneswalkedFromTriggers is Mode$ PlaneswalkedFrom

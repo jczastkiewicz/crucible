@@ -629,9 +629,13 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	// happen to be library-to-hand.
 	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
 	g.Player(pid).CardsDrawnThisTurn++
+	g.Player(pid).extraDrawnThisTurn++
 	g.Player(pid).lastDrawn, g.Player(pid).hasLastDrawn = id, true
 	if g.activePhase == Draw {
 		g.Player(pid).DrawnThisDrawStep++
+		if g.Player(pid).DrawnThisDrawStep == 1 {
+			g.Player(pid).extraDrawnThisTurn--
+		}
 	}
 	g.checkDrawnTriggers(controller, pid, id, g.Player(pid).CardsDrawnThisTurn)
 	g.checkLeftZoneTriggers(controller, []CardID{id}, Library)
@@ -756,6 +760,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.RollsThisTurn = 0
 		p.librarySearched = 0
 		p.CardsDrawnThisTurn = 0
+		p.extraDrawnThisTurn = 0
 		p.dilemmasFacedThisTurn = 0
 		p.DescendedThisTurn, p.descended = false, 0
 		p.committedCrimes = 0

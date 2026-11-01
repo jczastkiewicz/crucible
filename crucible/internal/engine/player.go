@@ -154,6 +154,10 @@ type Player struct {
 	// NotFirstCardInDrawStep$'s own "except the first one they draw in each
 	// of their draw steps" exemption.
 	DrawnThisDrawStep int
+	// extraDrawnThisTurn is Player.numExtraDrawnThisTurn: every card drawn
+	// this turn but the first of a draw step (Player.java:1252-1258), read
+	// by FirstExtraCardDrawnThisTurn$ before the draw counts it.
+	extraDrawnThisTurn int
 	// LifeGainedTimesThisTurn is how many separate times this player has
 	// gained life this turn (Java's own lifeGainedTimesThisTurn, Player.java)
 	// -- a count of EVENTS, not amount (LifeGainedThisTurn's own shape, not

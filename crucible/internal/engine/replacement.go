@@ -1538,7 +1538,7 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 					return
 				}
 			}
-			if notFirstCardInDrawStepExempts(g, r, player) {
+			if notFirstCardInDrawStepExempts(g, r, player) || !firstExtraCardDrawnMatches(g, r, player) {
 				return
 			}
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
@@ -1586,7 +1586,7 @@ func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone Z
 		case "event", "replacewith", "description", "validplayer", "activezones", "secondary",
 			"playerturn", "activephases", "checksvar", "svarcompare", "hellbent",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined",
-			"notfirstcardindrawstep", "optional", "optionaldecider":
+			"notfirstcardindrawstep", "firstextracarddrawnthisturn", "optional", "optionaldecider":
 		default:
 			return false
 		}
@@ -1608,6 +1608,24 @@ func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone Z
 // you draw a card" (ValidPlayer$ Opponent) both carry this param -- the
 // exemption is about player, the event's own affected player, regardless of
 // which ValidPlayer$ token routed the match here.
+// firstExtraCardDrawnMatches is ReplaceDraw.canReplace's
+// FirstExtraCardDrawnThisTurn$ (ReplaceDraw.java:66-69): the extra draws so
+// far this turn, read before this draw counts, must be exactly 1 during the
+// player's own draw step and 0 outside it. Reproduced as written (PORT-7):
+// in the player's own draw step a second draw with no extra draw before it
+// sees 0 and is not replaced, though the card says only the first draw of the
+// draw step is exempt (quirks.md, forge-java-defects.md).
+func firstExtraCardDrawnMatches(g *Game, r *compile.Ability, player PlayerID) bool {
+	if _, ok := r.Param("FirstExtraCardDrawnThisTurn"); !ok {
+		return true
+	}
+	want := 0
+	if g.activePhase == Draw && g.activePlayer == player {
+		want = 1
+	}
+	return g.Player(player).extraDrawnThisTurn == want
+}
+
 func notFirstCardInDrawStepExempts(g *Game, r *compile.Ability, player PlayerID) bool {
 	if v, ok := r.Param("NotFirstCardInDrawStep"); !ok || !strings.EqualFold(v, "True") {
 		return false

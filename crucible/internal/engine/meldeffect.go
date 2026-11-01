@@ -118,6 +118,11 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	s.Melded = true
 
 	g.moveByEffect(controller, primary, Battlefield, 0, a.Controller, hasParam(a, "Tapped"))
+	// CR 123.5a (MeldEffect.java:86-89): the melded permanent takes the
+	// secondary's stickers once it is on the battlefield.
+	if p.Zone == Battlefield {
+		g.takeStickersFrom(primary, secondary)
+	}
 	if !hasParam(a, "Attacking") {
 		return nil
 	}

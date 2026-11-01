@@ -126,6 +126,21 @@ func (g *Game) addSticker(target CardID, o StickerOption, namePos int) {
 	c.stickers = append(c.stickers[:len(c.stickers):len(c.stickers)], appliedSticker{sheet: o.Sheet, slot: o.Slot, timestamp: g.timestamp, namePos: namePos})
 }
 
+// takeStickersFrom is Card.takeStickersFrom (Card.java:4648-4657): every
+// sticker on from moves to to, after the ones already there, each keeping its
+// placement timestamp. Used where CR 123.5a-c moves stickers: a meld (the
+// melded permanent takes the secondary's) and a mutate (the merged permanent
+// takes the mutating spell's).
+func (g *Game) takeStickersFrom(to, from CardID) {
+	f := g.Card(from)
+	if len(f.stickers) == 0 {
+		return
+	}
+	t := g.Card(to)
+	t.stickers = append(t.stickers[:len(t.stickers):len(t.stickers)], f.stickers...)
+	f.stickers = nil
+}
+
 // Stickers is the card's placed stickers' sheet and slot, in placement order.
 func (c *Card) Stickers() []StickerOption {
 	out := make([]StickerOption, 0, len(c.stickers))

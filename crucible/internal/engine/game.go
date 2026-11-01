@@ -1443,7 +1443,10 @@ func (c *Card) leaveMeld() CardID {
 // (PlayerZoneBattlefield.addToMelded), so it gets no leave-the-battlefield
 // cleanup, no last-known information and no effect-card watch -- its state
 // was already cleared when meldeffect.go exiled it -- only the zone change
-// itself and its event.
+// itself and its event. The melded permanent's stickers stay on its own
+// card: Java's owner may give them to the secondary instead
+// (chooseCardToKeepStickers, GameAction.java:654-660, CR 123.5c), and
+// Game.Move has no controller to ask (quirks.md).
 func (g *Game) unmeld(secondary CardID, kind ZoneType, owner PlayerID, top bool) {
 	s := g.Card(secondary)
 	if !s.Melded {

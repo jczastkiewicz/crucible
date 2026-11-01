@@ -338,3 +338,62 @@ func TestSneakCombatStateSurvivesClone(t *testing.T) {
 		t.Error("the original's card is sneaked")
 	}
 }
+
+// The Last Ronin's Technique reads Count$ValidStack Card.Self+sneaked while
+// it resolves: cast for its Sneak cost its three Ninja Turtle Spirits enter
+// tapped and attacking, cast normally they do not.
+func TestLastRoninsTechniqueTokensAttackOnlyWhenSneaked(t *testing.T) {
+	t.Parallel()
+	for _, sneaked := range []bool{true, false} {
+		name := "cast normally"
+		if sneaked {
+			name = "sneaked"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			attacker := sneakCombat(t, g, p, other, false)
+			spell := g.NewCard(corpusCard(t, "The Last Ronin's Technique"), p, engine.Hand)
+			c := engine.NewScriptedController()
+			if sneaked {
+				c.QueueOption(1) // the Sneak cost, after the printed one
+				c.QueueReturnChoice([]engine.CardID{attacker})
+				c.QueuePayGeneric(mana.ShardW)
+				for range 3 {
+					c.QueueAttackTarget(engine.PlayerEntity(other))
+				}
+				g.Player(p).ManaPool.Add(mana.White, 2)
+			} else {
+				c.QueueOption(0)
+				for range 3 {
+					c.QueuePayGeneric(mana.ShardW)
+				}
+				g.Player(p).ManaPool.Add(mana.White, 4)
+			}
+			if !g.CastSpell(p, spell, c) {
+				t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+			}
+			if got := matches(g, spell, "Card.sneaked", p); got != sneaked {
+				t.Fatalf("spell sneaked = %v, want %v", got, sneaked)
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatal(err)
+			}
+			tokens := 0
+			for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+				tok := g.Card(id)
+				if !tok.IsToken {
+					continue
+				}
+				tokens++
+				attacking := matches(g, id, "Creature.attacking", p)
+				if attacking != sneaked || tok.Tapped != sneaked {
+					t.Errorf("token attacking %v tapped %v, want both %v", attacking, tok.Tapped, sneaked)
+				}
+			}
+			if tokens != 3 {
+				t.Errorf("tokens = %d, want 3", tokens)
+			}
+		})
+	}
+}

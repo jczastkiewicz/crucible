@@ -6,6 +6,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // stickerRecorder records the options each ChooseSticker call was offered and
@@ -450,5 +451,92 @@ func TestSeatStickerSheetsKeepsThreeAtRandomFromTheGameSeed(t *testing.T) {
 	}
 	if got := seat(2); !slices.Equal(got, names[:2]) {
 		t.Errorf("seated %v, want %v", got, names[:2])
+	}
+}
+
+// CR 123.5a: a meld puts the secondary's stickers on the melded permanent
+// (MeldEffect.java:86-89), and they still set its stats after the layers
+// rebuild.
+func TestMeldedPermanentTakesTheSecondarysStickers(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Unstable Robot Dragon"), p, engine.StickerSheets)
+	g.Player(p).Counters.Add(engine.Ticket, 5)
+	gis := g.NewCard(corpusCard(t, gisela), p, engine.Battlefield)
+	bru := g.NewCard(corpusCard(t, bruna), p, engine.Battlefield)
+	placeSticker(t, g, p, bru, "PT", 1) // STK10, 2/7
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{bru})
+	if err := resolveMeldOf(t, g, p, gis, c); err != nil {
+		t.Fatalf("Meld: %v", err)
+	}
+	sba(g)
+	sba(g)
+	if got := g.Card(gis).Stickers(); len(got) != 1 || got[0].Slot != "STK10" {
+		t.Errorf("melded permanent stickers = %v, want STK10", got)
+	}
+	if got := g.Card(bru).Stickers(); len(got) != 0 {
+		t.Errorf("secondary keeps stickers %v, want none", got)
+	}
+	if pw, _ := g.Card(gis).Power(); pw != 2 {
+		t.Errorf("Brisela power = %d, want the sticker's 2", pw)
+	}
+}
+
+// CR 123.5b: a stickered creature can be mutated onto, and the merged
+// permanent keeps its stickers; leaving the battlefield, they stay on the
+// permanent's own card (quirks.md: no keeper choice in Game.Move).
+func TestMutateOntoAStickeredCreatureKeepsItsStickers(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Unstable Robot Dragon"), p, engine.StickerSheets)
+	g.Player(p).Counters.Add(engine.Ticket, 5)
+	host := g.NewCard(copyTestDef(t, "Under Flier", "Creature Elf", "2", "2", "K:Flying"), p, engine.Battlefield)
+	placeSticker(t, g, p, host, "PT", 1) // STK10, 2/7
+	spell := g.NewCard(copyTestDef(t, "Over Trampler", "Creature Zombie", "4", "4", "K:Mutate:G", "K:Trample"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c.QueueOptionNamed("Cast Over Trampler for its mutate cost {G}, merging with a non-Human creature you own")
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(host)})
+	if !g.CastSpell(p, spell, c) {
+		t.Fatalf("CastSpell(mutate) failed: %v", g.TakePendingError())
+	}
+	c.QueueCardChoice([]engine.CardID{spell})
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(spell).Zone; z != engine.Merged {
+		t.Fatalf("spell card in %v, want Merged", z)
+	}
+	sba(g)
+	sba(g)
+	if got := g.Card(host).Stickers(); len(got) != 1 {
+		t.Errorf("merged permanent stickers = %v, want one", got)
+	}
+	if pw, _ := g.Card(host).Power(); pw != 2 {
+		t.Errorf("merged power = %d, want the sticker's 2", pw)
+	}
+	g.Move(host, engine.Graveyard, p)
+	if got := g.Card(host).Stickers(); len(got) != 1 {
+		t.Errorf("permanent's card in the graveyard has stickers %v, want one", got)
+	}
+	if got := g.Card(spell).Stickers(); len(got) != 0 {
+		t.Errorf("mutated card has stickers %v, want none", got)
+	}
+}
+
+// Ticket payment is Player.subtractCounter (Player.java:893-916): it counts
+// for Count$CountersRemovedThisTurn TICKET.
+func TestPutStickerTicketsCountAsRemovedCounters(t *testing.T) {
+	t.Parallel()
+	g, p, creature := stickerGame(t, 5)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{creature})
+	c.QueueSticker(1) // STK10 for 3 tickets
+	if err := resolveWith(t, g, p, c, putPTSticker); err != nil {
+		t.Fatal(err)
+	}
+	if got := measure(t, g, p, "Count$CountersRemovedThisTurn TICKET You"); got != 3 {
+		t.Errorf("Count$CountersRemovedThisTurn TICKET You = %d, want 3", got)
 	}
 }

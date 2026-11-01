@@ -90,6 +90,11 @@ func (putStickerEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 		// (PutStickerEffect.java:124-126); only NoTicketCost skips them.
 		if chosen.Tickets > 0 && !free {
 			g.Player(owner).Counters.Add(Ticket, -chosen.Tickets)
+			// Player.subtractCounter (Player.java:893-916): the removal is
+			// recorded for CountersRemovedThisTurn and evented; its
+			// CounterRemoved trigger is commented out in Java, and a player
+			// counter queues none here either.
+			emitCounterChanged(g, a.Source, PlayerEntity(owner), Ticket, -chosen.Tickets)
 		}
 		namePos := 0
 		if chosen.Kind == compile.StickerName {

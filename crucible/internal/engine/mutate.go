@@ -48,14 +48,14 @@ func mutateCost(c *Card) (mana.Cost, bool) {
 
 // mutateHostOK is the part of "Creature.sharesOwnerWith+nonHuman"
 // (CardFactoryUtil.java:3151) that reads the host, plus the shapes this port
-// does not merge into and so never offers (ADR-0047): a face-down,
-// stickered or copied permanent. A permanent that is a copy only because a
-// mutate merged into it already is fine.
+// does not merge into and so never offers (ADR-0047): a face-down or copied
+// permanent. A permanent that is a copy only because a mutate merged into it
+// already is fine. A stickered one keeps its stickers (CR 123.5b).
 func mutateHostOK(t *Card, owner PlayerID) bool {
 	if t.Zone != Battlefield || t.Owner != owner || !t.Type().Has(cardtype.Creature) || t.Type().HasSubtype("Human") {
 		return false
 	}
-	if t.IsFaceDown() || len(t.stickers) > 0 {
+	if t.IsFaceDown() {
 		return false
 	}
 	if len(t.merged) > 0 {
@@ -188,6 +188,9 @@ func (g *Game) mergeInto(spell, target CardID, onTop bool) {
 	}
 	g.timestamp++
 	t.addCopy(copyEffect{Timestamp: g.timestamp, def: merged, permanent: true})
+	// CR 123.5b (MutateEffect.java:73-76): the merged permanent takes the
+	// mutating spell's stickers, before the spell card leaves for Merged.
+	g.takeStickersFrom(target, spell)
 	g.Card(spell).mergedTo = target
 	g.Move(spell, Merged, g.Card(spell).Owner)
 	t.timesMutated++
@@ -241,6 +244,9 @@ func mergedDef(defs []*compile.Card) *compile.Card {
 // every component in the Merged zone go to the destination, each to its own
 // owner's zone (GameAction.java:400-528). Deviation: top first, not in an order
 // the owner chooses, and only the permanent's own dies/leaves triggers fire.
+// Its stickers stay on the permanent's own card: Java's owner picks the
+// component that keeps them (chooseCardToKeepStickers, GameAction.java:
+// 412-416, CR 123.5c), and Game.Move has no controller to ask (quirks.md).
 func (g *Game) moveMerged(id CardID, kind ZoneType, owner PlayerID) CardID {
 	t := g.Card(id)
 	parts := t.merged

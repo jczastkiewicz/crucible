@@ -61,10 +61,10 @@ reads a counter on the target.
 order the owner chooses (`OrderCardsForZone`; the cause's controller for exile), then clears the list. Batch triggers
 with `Origin$ Battlefield` see the list once; the others fire per component.
 
-**Fail closed.** A mutate spell refuses, with an error, if the target is face down, stickered, a commander, in a
-subgame, or itself a copy; transforming, turning face down, copying or phasing a merged permanent errors rather than
-guessing. `Card.java:1541` (the new top after a subgame split) is not logged as a Forge defect until a test reproduces
-it (PORT-8).
+**Fail closed.** A mutate spell refuses, with an error, if the target is face down, a commander, in a subgame, or itself
+a copy; transforming, turning face down, copying or phasing a merged permanent errors rather than guessing.
+`Card.java:1541` (the new top after a subgame split) is not logged as a Forge defect until a test reproduces it
+(PORT-8).
 
 ## Consequences
 

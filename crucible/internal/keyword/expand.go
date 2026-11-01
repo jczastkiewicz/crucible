@@ -47,6 +47,18 @@ func Expand(k Keyword) (Expansion, bool) {
 			return Expansion{}, false
 		}
 		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ " + args[1] + " Discard<1/CARDNAME> | ActivationZone$ Hand | Origin$ Library | Destination$ Hand | ChangeType$ " + args[0]}}, true
+	case "Craft":
+		// Craft:<cost>[:<description>:<reminder object>], CardFactoryUtil.java:
+		// 2734-2743 (Craft.java:28-66): exile this permanent and the craft
+		// materials, then return it transformed at sorcery speed. Defined$
+		// CorrectedSelf is the card now in exile (AbilityUtils.java:84-85).
+		// The other two fields are display only.
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ Exile<1/CARDNAME> " + args[0] +
+			" | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | SorcerySpeed$ True"}}, true
 	case "Crew":
 		// Crew:<power>[:<extra>], CardFactoryUtil.java:3701: tap any number of
 		// other creatures with total power N or more to make it an artifact

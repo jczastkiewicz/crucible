@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // Daybound and Nightbound (CardFactoryUtil.java:879-895, :1522-1533): with
@@ -73,5 +74,35 @@ func TestCurseOfLeechesAttachesToAChosenPlayerAsItTransformsBack(t *testing.T) {
 	}
 	if pid, ok := cc.AttachedToPlayer(); !ok || pid != other {
 		t.Errorf("Curse of Leeches attached to player %v (%v), want the chosen opponent", pid, ok)
+	}
+}
+
+// Ludevic's Test Subject: each activation adds a hatchling counter; the fifth
+// one removes them all and transforms it into Ludevic's Abomination.
+func TestLudevicsTestSubjectHatchesOnTheFifthCounter(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	egg := g.NewCard(corpusCard(t, "Ludevic's Test Subject"), p, engine.Battlefield)
+	for i := 1; i <= 5; i++ {
+		c := engine.NewScriptedController()
+		g.Player(p).ManaPool.Add(mana.Blue, 2)
+		c.QueuePayGeneric(mana.ShardU)
+		if !g.ActivateAbility(p, egg, 0, c) {
+			t.Fatalf("activation %d: %v", i, g.TakePendingError())
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatal(err)
+		}
+		e := g.Card(egg)
+		if i < 5 {
+			if e.InTransformedState() || e.Counters.Count("HATCHLING") != i {
+				t.Fatalf("after %d: transformed %v, %d hatchling counters", i, e.InTransformedState(), e.Counters.Count("HATCHLING"))
+			}
+			continue
+		}
+		if !e.InTransformedState() || e.Name() != "Ludevic's Abomination" || e.Counters.Count("HATCHLING") != 0 {
+			t.Errorf("after 5: %q transformed %v with %d counters, want Ludevic's Abomination with none", e.Name(), e.InTransformedState(), e.Counters.Count("HATCHLING"))
+		}
 	}
 }

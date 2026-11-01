@@ -395,7 +395,7 @@ func (g *Game) checkTurnedFaceUpTriggers(controller PlayerController, card CardI
 	g.pushTriggeredAbilities(controller, matches)
 }
 
-var attachedTriggerParams = effectEventParams("validsource", "validtarget", "targetrelativetosource")
+var attachedTriggerParams = effectEventParams("validsource", "validtarget", "targetrelativetosource", "static")
 
 // checkAttachedTriggers is Mode$ Attached (TriggerAttached, 4 real lines),
 // fired by Card.attachToEntity after the Event$ Attached replacements

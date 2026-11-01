@@ -27,13 +27,14 @@ var saKeywordProperties = map[string][]string{
 	"Crew": {"Crew"}, "Saddle": {"Saddle"}, "Station": {"Station"}, "Cycling": {"Cycling", "TypeCycling"},
 	"Unearth": {"Unearth"}, "Modular": {"Modular"}, "Equip": {"Equip"}, "Exhaust": {"Exhaust"},
 	"Outlast": {"Outlast"}, "PowerUp": {"PowerUp"}, "Boast": {"Boast"}, "Monstrosity": {"Monstrosity"},
+	"Craft": {"Craft"},
 }
 
 // saUnresolvedProperties are SpellAbility properties that read state this
 // port does not track (how a spell was cast, what mana paid for it): a spec
 // naming one is not evaluated.
 var saUnresolvedPrefixes = []string{
-	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Craft", "Dash",
+	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Dash",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",

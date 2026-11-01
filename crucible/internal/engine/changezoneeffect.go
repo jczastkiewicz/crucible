@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -667,6 +668,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			}
 		}
 		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
+		g.retainCraftMaterials(a, id, dest)
 		g.changeZoneLeftCombat(id, joined)
 		g.changeZoneAttach(controller, id, attach)
 		if err := g.leaveBattlefieldFor(a, "ChangeZone", []CardID{id}); err != nil {
@@ -1555,4 +1557,21 @@ func notedEnterCounters(g *Game, a *Ability) []enterCounters {
 		out = append(out, enterCounters{kind: CounterType(strings.ToUpper(strings.TrimPrefix(k, notedCountersPrefix))), n: host.svars[k], placer: a.Controller})
 	}
 	return out
+}
+
+// retainCraftMaterials is GameAction.java:485-486 (Card.retainPaidList,
+// Card.java:1573-1580): a Craft ability's host returning to the battlefield
+// takes over the cards its cost exiled, so they are exiled with the new
+// permanent (Dinosaur Headdress's DefinedCards$ ExiledWith) rather than with
+// the card that sat in exile.
+func (g *Game) retainCraftMaterials(a *Ability, id CardID, dest ZoneType) {
+	if dest != Battlefield || id != a.Source || a.Params == nil || g.Card(id).Zone != Battlefield ||
+		keyword.Parse(a.Params.Keyword).Name != "Craft" {
+		return
+	}
+	for _, e := range a.paid.exiled {
+		if e != id {
+			g.markExiledWith(e, id)
+		}
+	}
 }

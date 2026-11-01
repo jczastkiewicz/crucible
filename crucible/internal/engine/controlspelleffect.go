@@ -149,10 +149,17 @@ func controlSpellNewController(g *Game, a *Ability) (PlayerID, error) {
 // spell a Mode$ SpellCast trigger recorded, named even after it left the
 // stack -- getDefinedSpellAbilities returns the SpellAbility itself).
 func controlSpellTargets(g *Game, a *Ability) ([]namedSpell, error) {
+	targets := a.Targets
 	if !hasParam(a, "ValidTgts") {
 		defined, _ := a.Params.Param("Defined")
 		switch defined {
 		case "Targeted":
+			// AbilityUtils.java:1264-1277: getAllTargetChoices, every targeting
+			// link from the root down, as changeTargetsSpells reads it (Sudden
+			// Substitution's DBControlSpell sits below a creature-targeting link).
+			if a.rootAbility != nil {
+				targets = allTargetsOf(*a.rootAbility)
+			}
 		case "TriggeredSpellAbility":
 			id := a.triggered.spellAbility
 			if id == NoStackItem {
@@ -168,7 +175,7 @@ func controlSpellTargets(g *Game, a *Ability) ([]namedSpell, error) {
 		}
 	}
 	var spells []namedSpell
-	for _, t := range a.Targets {
+	for _, t := range targets {
 		card, ok := t.AsCard()
 		if !ok {
 			continue

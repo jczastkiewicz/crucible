@@ -118,6 +118,8 @@ M6 in progress: 194 of the corpus's 204 script-driven `Effect` APIs resolve (`Ne
 `crucible card-smoke -all` measures how many cards play (the counts live in `docs/crucible/porting/port-log/smoke-probe.md`), an upper bound; the
 refusal causes it groups are the backlog.
 
+M8 started: `internal/{sim,store,telemetry}` and `crucible run|report` play stored batches (the default-answer controller until the M7 AI); multi-face casting is `face.go` (ADR-0052).
+
 Everything left, easiest first: `docs/crucible/00-master-implementation-plan-open.md`. Full per-gap list:
 `docs/crucible/porting/port-log/game-state.md`, "Not ported yet". **M5 exit gate:** test-port matrix green (met). **P4
 exit gate:** fixture-count half met (≥300 scenarios), qualitative half not.

@@ -26,7 +26,7 @@ var (
 	rowRE   = regexp.MustCompile(`(?m)^(\| (plays|refused|panicked|hung|placed|inconclusive)\s+\|\s*)([\d,]+)( \|)`)
 	allRE   = regexp.MustCompile(`(\d+\.\d)%( of the )([\d,]+)( judged cards play\.)`)
 	preCard = regexp.MustCompile(`(On the )([\d,]+)(\s+distinct\s+cards\s+of\s+the\s+)(\d+)(\s+quest)`)
-	causeTb = regexp.MustCompile(`(?s)(\| Cards \| Refusal[^\n]*\n\|[^\n]*\n)(?:\|[^\n]*\n)+`)
+	causeTb = regexp.MustCompile(`(?s)(\| Cards \| Refusal[^\n]*\n\|[^\n]*\n)(?:\|[^\n]*\n)*`)
 	prePct  = regexp.MustCompile(`(it\s+is\s+)(\d+\.\d)%(\s+of\s+)([\d,]+)(\s+judged)`)
 )
 

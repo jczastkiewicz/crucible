@@ -8,7 +8,7 @@ package keyword
 // written the same way and mean different things, and this is where Java says
 // which is which.
 //
-// 203 constants. A `K:` line whose head is not among them is not an error --
+// 204 constants. A `K:` line whose head is not among them is not an error --
 // see [Parse].
 var Defined = []Entry{
 	{Name: "Absorb", Kind: Amount, Class: "KeywordWithAmount", MultipleRedundant: false},
@@ -148,6 +148,7 @@ var Defined = []Entry{
 	{Name: "Phasing", Kind: Simple, Class: "SimpleKeyword", MultipleRedundant: true},
 	{Name: "Plot", Kind: Cost, Class: "KeywordWithCost", MultipleRedundant: false},
 	{Name: "Poisonous", Kind: Amount, Class: "KeywordWithAmount", MultipleRedundant: false},
+	{Name: "Prismatic", Kind: Simple, Class: "SimpleKeyword", MultipleRedundant: true},
 	{Name: "Protection", Kind: Special, Class: "Protection", MultipleRedundant: true},
 	{Name: "Prototype", Kind: Cost, Class: "KeywordWithCost", MultipleRedundant: false},
 	{Name: "Provoke", Kind: Simple, Class: "SimpleKeyword", MultipleRedundant: false},

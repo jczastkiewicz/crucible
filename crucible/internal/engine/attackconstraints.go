@@ -377,7 +377,10 @@ func (g *Game) sortedFilteredRequirements(ac attackConstraints) ([]attackOption,
 		if !g.canAttackAtAll(r.attacker) {
 			continue
 		}
-		allowed := g.goadTargets(r.attacker, targets)
+		allowed, err := g.goadTargets(r.attacker, targets)
+		if err != nil {
+			return nil, err
+		}
 		var own []attackOption
 		for i, d := range r.defenders {
 			if containsEntity(allowed, d) {

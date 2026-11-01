@@ -71,6 +71,14 @@ func manaConvertSupported(s *compile.Ability) bool {
 // (anyColor). AnyType wins when both apply.
 func (g *Game) manaConvertForSpell(pid PlayerID, card CardID) (anyType, anyColor bool) {
 	c := g.Card(card)
+	// Prismatic (CardFactoryUtil.java:3953-3955) is a ManaConvert static on the
+	// card itself: EffectZone$ Stack, ValidPlayer$ You, ValidCard$ Card.Self,
+	// ValidSA$ Spell, AnyType->AnyColor. The cards gain it perpetually through
+	// Animate Keywords$, which grants no keyword statics here, so the keyword
+	// is read directly.
+	if c.HasKeyword("Prismatic") {
+		anyColor = true
+	}
 	spell := &Ability{Source: card, Controller: pid, spell: true}
 	for _, host := range g.staticHostsWith(card) {
 		h := g.Card(host)

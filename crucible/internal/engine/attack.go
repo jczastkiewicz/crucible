@@ -298,7 +298,10 @@ func (g *Game) chooseAttackTargets(controller PlayerController, attackers []Card
 	eligible := g.eligibleAttackTargets()
 	targets := make(map[CardID]EntityID, len(attackers))
 	for _, id := range attackers {
-		options := g.goadTargets(id, eligible)
+		options, err := g.goadTargets(id, eligible)
+		if err != nil {
+			return nil, err
+		}
 		if len(options) == 1 {
 			targets[id] = options[0]
 			continue

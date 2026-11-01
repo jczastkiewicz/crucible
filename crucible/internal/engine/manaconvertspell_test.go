@@ -87,3 +87,41 @@ func TestManaConvertEffectZoneStackGrantAppliesToItsOwnCast(t *testing.T) {
 		}
 	})
 }
+
+// Prismatic (CardFactoryUtil.java:3953-3955): "You may spend mana as though it
+// were mana of any color to cast this spell", here gained perpetually through
+// Animate as Grave Choice and Nantuko Slicer grant it.
+func TestPrismaticSpendsAnyColorOnItsOwnCast(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name      string
+		prismatic bool
+	}{
+		{"prismatic", true},
+		{"plain", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			spell := g.NewCard(creatureDefCost(t, "Red One", "R"), p, engine.Hand)
+			if tc.prismatic {
+				if _, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(spell)},
+					"DB$ Animate | ValidTgts$ Card | TgtZone$ Hand | Keywords$ Prismatic | Duration$ Perpetual"); err != nil {
+					t.Fatal(err)
+				}
+				sba(g)
+				if !g.Card(spell).HasKeyword("Prismatic") {
+					t.Fatal("the card in hand did not gain Prismatic")
+				}
+			}
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			c := engine.NewScriptedController()
+			c.QueuePayGeneric(mana.ShardG)
+			if got := g.CastSpell(p, spell, c); got != tc.prismatic {
+				t.Errorf("casting {R} with green = %v, want %v", got, tc.prismatic)
+			}
+		})
+	}
+}

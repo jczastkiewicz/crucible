@@ -525,6 +525,12 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 		}
 		return math(n)
 	}
+	if spec, ok := strings.CutPrefix(body, "LandsPlayed "); ok {
+		// AbilityUtils.java:3527-3532: the lands played this turn (as last known
+		// before they moved) matching the valid string, ahead of the plain
+		// LandsPlayed count playerPropertyMeasure reads.
+		return math(g.playedLandsCount(pid, source, spec))
+	}
 	if strings.HasPrefix(body, "Sacrificed") {
 		n, ok := g.sacrificedThisTurnCount(pid, source, body)
 		if !ok {

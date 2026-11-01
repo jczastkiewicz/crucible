@@ -19,8 +19,7 @@
 // approximation is the rule here (ADR-0024 Considered Options 2).
 //
 // Java sources this port has none of, each read as its absent default:
-// StaticAbilityBlockRestrict's per-player blocker limit
-// and Mode$ CanBlockTapped. "Can block an additional creature" is read
+// Mode$ CanBlockTapped. "Can block an additional creature" is read
 // (Card.canBlockMoreCreatures).
 
 package engine
@@ -141,6 +140,11 @@ func (g *Game) validateBlocks(defending PlayerID, blocks []Block) error {
 				return illegal("CR 509.1b", "can't block unless a creature with greater power also blocks", blocker)
 			}
 		}
+	}
+
+	// CombatUtil.java:720-723: no more blockers than a BlockRestrict allows.
+	if limit, ok := g.maxBlockers(defending); ok && len(blockers) > limit {
+		return illegal("CR 509.1b", fmt.Sprintf("no more than %d creatures can block each combat", limit), blockers...)
 	}
 
 	for _, attacker := range attackers {
@@ -319,7 +323,24 @@ func (c *Card) canBlockMoreCreatures(blockedBy []CardID) bool {
 
 // canBlockInCombat is CombatUtil.canBlock(blocker, combat).
 func (v blockCheck) canBlockInCombat(blocker CardID) bool {
-	return v.g.Card(blocker).canBlockMoreCreatures(v.attackersBlockedBy(blocker)) && v.g.canBlockAtAll(blocker)
+	b := v.g.Card(blocker)
+	if !b.canBlockMoreCreatures(v.attackersBlockedBy(blocker)) {
+		return false
+	}
+	// CombatUtil.java:428-432: the controller's other blockers already at the
+	// BlockRestrict cap.
+	if limit, ok := v.g.maxBlockers(b.Controller()); ok {
+		others := 0
+		for _, o := range v.allBlockers() {
+			if o != blocker && v.g.Card(o).Controller() == b.Controller() {
+				others++
+			}
+		}
+		if others >= limit {
+			return false
+		}
+	}
+	return v.g.canBlockAtAll(blocker)
 }
 
 // canBeBlockedInCombat is CombatUtil.canBeBlocked(attacker, combat,
@@ -449,8 +470,10 @@ func (v blockCheck) mustBlockAnAttacker(blocker CardID, free []CardID, hasFree b
 		if v.attackerLureSatisfied(attacker, blocker, v.blockersOf(attacker)) || v.blockCosted(blocker, attacker) {
 			continue
 		}
+		// A lure keeps blocker in the pool (CombatUtil.java:766-769): its
+		// requirement is met only with blocker among the blockers.
 		if v.canBeBlockedInCombat(attacker, defender) && g.CanBlock(attacker, blocker) &&
-			v.canStillBeBlocked(attacker, blocker, g.creaturesInPlay(g.defenderOf(attacker))) {
+			(v.minBlockers(attacker) <= 1 || v.canBeBlockedBy(attacker, g.creaturesInPlay(g.defenderOf(attacker)))) {
 			required = append(required, attacker)
 		}
 	}
@@ -473,7 +496,28 @@ func (v blockCheck) mustBlockAnAttacker(blocker CardID, free []CardID, hasFree b
 	if containsAllCards(blockedBy, required) {
 		return false
 	}
+	// CombatUtil.java:805-809: a creature that can't block alone is not
+	// required to block when no other creature of its controller can block
+	// with it.
+	b := g.Card(blocker)
+	if b.hasKeywordText("CARDNAME can't attack or block alone.") || b.hasKeywordText("CARDNAME can't block alone.") {
+		partner := false
+		for _, c := range g.creaturesInPlay(b.Controller()) {
+			if c != blocker && g.canBlockAnyAttacker(c) {
+				partner = true
+				break
+			}
+		}
+		if !partner {
+			return false
+		}
+	}
 	if !v.canBlockInCombat(blocker) {
+		// CombatUtil.java:812-815: blocking nothing, it can't block because
+		// the blocker limit is already reached by others.
+		if len(blockedBy) == 0 {
+			return false
+		}
 		// It can't block more, but is it part of another requirement?
 		for _, attacker := range g.combat.Attackers {
 			blockers := v.blockersOf(attacker)
@@ -600,4 +644,15 @@ func (c *Card) hasKeywordTextPrefix(prefix string) bool {
 func (v blockCheck) blockCosted(blocker, attacker CardID) bool {
 	_, costed, err := v.g.blockCost(blocker, attacker)
 	return costed || err != nil
+}
+
+// canBlockAnyAttacker is CombatUtil.canBlockAtLeastOne over the declared
+// attackers: c can block one of them, judged without the combat so far.
+func (g *Game) canBlockAnyAttacker(c CardID) bool {
+	for _, attacker := range g.combat.Attackers {
+		if g.CanBlock(attacker, c) {
+			return true
+		}
+	}
+	return false
 }

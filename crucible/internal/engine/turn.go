@@ -753,6 +753,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p := g.Player(pid)
 		p.LandsPlayedLastTurn = p.LandsPlayed
 		p.LandsPlayed = 0
+		g.forgetPlayedLands(pid)
 		// Player.onCleanupPhase (Player.java:2474-2494): the "last turn" counts
 		// take this turn's before they reset.
 		p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, p.LifeLostThisTurn

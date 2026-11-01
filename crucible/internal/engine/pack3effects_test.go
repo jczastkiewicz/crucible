@@ -711,6 +711,26 @@ func TestGoadForcesAttackAwayFromGoader(t *testing.T) {
 	}
 }
 
+// A goaded creature whose only non-goading opponent taxes its attack (Ghostly
+// Prison) may attack its goader instead: nobody is required to pay an attack
+// cost (CR 508.1d, CombatUtil.java:216-228), so both are offered.
+func TestGoadedCreatureMayAttackTheGoaderPastATax(t *testing.T) {
+	t.Parallel()
+	g, ps, victim := goadedGame(t)
+	g.NewCard(scriptDef(t, "Test Prison", "Enchantment",
+		"S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2"), ps[2], engine.Battlefield)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{victim})
+	ac.QueueAttackTarget(engine.PlayerEntity(ps[0]))
+	got := declareAttackers(t, g, ac)
+	if len(got) != 1 || got[0] != victim {
+		t.Fatalf("attackers = %v, want the goaded creature", got)
+	}
+	if tgt := g.AttackTarget(victim); tgt != engine.PlayerEntity(ps[0]) {
+		t.Errorf("attack target = %v, want the goader", tgt)
+	}
+}
+
 // Leaving a goaded creature that can attack at home is an illegal
 // declaration (CR 508.1d, ADR-0024), not one the engine repairs by adding it.
 func TestGoadedCreatureLeftHomeIsIllegal(t *testing.T) {

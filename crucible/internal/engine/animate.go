@@ -166,16 +166,24 @@ func animateColors(g *Game) {
 	}
 }
 
-// animateKeywords is applyAnimateEffects' Layer 6 half.
+// animateKeywords is applyAnimateEffects' Layer 6 half. A Perpetual record
+// changes the card in every zone (Card.addPerpetual), so a keyword it grants
+// is read in hand and on the stack too (Prismatic on the cast, Grave Choice);
+// the Layer 6 pass clears every off-battlefield card's KeywordMod first.
 func animateKeywords(g *Game) {
-	liveAnimates(g, func(c *Card, r *animateRecord) {
+	for i := range g.animates {
+		r := &g.animates[i]
+		c := g.Card(r.Card)
+		if c.IsPhasedOut() || c.Zone == None || (c.Zone != Battlefield && !r.Perpetual) {
+			continue
+		}
 		if len(r.AddKeywords) > 0 || len(r.RemoveKeywords) > 0 || r.RemoveAllKW || len(r.CantHave) > 0 {
 			c.KeywordMod.Add(KeywordEffect{
 				Timestamp: r.Timestamp, AddKeywords: r.AddKeywords,
 				RemoveKeywords: r.RemoveKeywords, RemoveAll: r.RemoveAllKW, CantHave: r.CantHave,
 			})
 		}
-	})
+	}
 }
 
 // animateAbilities is applyAnimateEffects' Layer 6 trait half: each record's

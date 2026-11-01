@@ -15,7 +15,8 @@ import (
 // cannot honour yet: the alternative selection loops (WithDifferentPowers$/EachDifferentPower$/
 // ControlAndNot$; ChooseEach$, EachBasicType$ and WithTotalPower$ resolve, chooseEachCards,
 // chooseWithTotalPower), the non-default choice pools (AllCards$,
-// IncludeSpellsOnStack$; TargetControls$ resolves, chooseCardPool) and ChosenMap$'s per-player map.
+// IncludeSpellsOnStack$; chooseCardPool) and ChosenMap$'s per-player map. TargetControls$ is
+// not read since upstream replaced it with ControlledByPlayer$ Chooser (#12563).
 // 399 real (AB|DB)$ lines; the default chooseCardsForEffect shape covers
 // most of them. AtRandom$ is Aggregates.random(pChoices, Amount) over the pool in its scan
 // order (ChooseCardEffect.java:225-228); Secretly$ only moves Reveal$'s
@@ -67,18 +68,6 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	choices, err := chooseCardPool(g, a, source)
 	if err != nil {
 		return err
-	}
-	if hasParam(a, "TargetControls") && !hasParam(a, "DefinedCards") {
-		// CardLists.filterControlledBy(choices, tgtPlayers), before DefinedCards$
-		// replaces the pool (ChooseCardEffect.java:73-78); the players are the
-		// choosers.
-		kept := choices[:0:0]
-		for _, cid := range choices {
-			if slices.Contains(choosers, g.Card(cid).Controller()) {
-				kept = append(kept, cid)
-			}
-		}
-		choices = kept
 	}
 
 	amountValue, ok := a.Params.Param("Amount")

@@ -175,6 +175,30 @@ func (g *Game) sacrificedThisTurnCount(pid PlayerID, source CardID, body string)
 	return n, true
 }
 
+// playedLandsCount is pid's lands played this turn matching spec, each
+// matched as last known before it moved, relative to pid.
+func (g *Game) playedLandsCount(pid PlayerID, source CardID, spec string) int {
+	parsed := valid.Parse(spec)
+	n := 0
+	for i := range g.playedLandsThisTurn {
+		if l := &g.playedLandsThisTurn[i]; l.player == pid && Matches(g, &l.card, parsed, pid, source) {
+			n++
+		}
+	}
+	return n
+}
+
+// forgetPlayedLands is Player.resetLandsPlayedThisTurn's list half.
+func (g *Game) forgetPlayedLands(pid PlayerID) {
+	var kept []sacrificeRecord
+	for _, l := range g.playedLandsThisTurn {
+		if l.player != pid {
+			kept = append(kept, l)
+		}
+	}
+	g.playedLandsThisTurn = kept
+}
+
 // playerPropertyOperand is calculateAmount(source, operand) for a property's
 // comparison operand: an integer, or an SVar name. With amounts (a
 // PlayerCount amount's own table) the name resolves there, depth counting the

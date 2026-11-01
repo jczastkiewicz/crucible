@@ -308,6 +308,11 @@ type Game struct {
 	// LastStateBattlefield copy), with the player who sacrificed it. Read by
 	// the SacrificedThisTurn player measure; cleared at cleanup.
 	sacrificedThisTurn []sacrificeRecord
+	// playedLandsThisTurn is every player's Player.playedLandsThisTurn: a
+	// last-known copy of each land played this turn, taken before it moved, so
+	// it remembers the zone it was played from (Player.java:1663-1669). Read by
+	// the LandsPlayed <valid> player measure; cleared as LandsPlayed resets.
+	playedLandsThisTurn []sacrificeRecord
 	// snowAnyColor is set while a cast through MayPlaySnowIgnoreColor$ pays
 	// its mana cost: snow mana pays a colored pip of any color
 	// (ManaConversionMatrix.snowForColor, PlaySpellAbility.java:648-649).
@@ -1749,6 +1754,7 @@ func (g *Game) Clone() *Game {
 		playerDamageThisTurn:  append([]playerDamage(nil), g.playerDamageThisTurn...),
 		cardDamageThisTurn:    append([]cardDamage(nil), g.cardDamageThisTurn...),
 		sacrificedThisTurn:    append([]sacrificeRecord(nil), g.sacrificedThisTurn...),
+		playedLandsThisTurn:   append([]sacrificeRecord(nil), g.playedLandsThisTurn...),
 		snowAnyColor:          g.snowAnyColor,
 		dayTime:               g.dayTime,
 		previousPlayer:        g.previousPlayer,
@@ -1900,7 +1906,9 @@ type cardDamage struct {
 }
 
 // sacrificeRecord is one entry of Game.sacrificedThisTurn: who sacrificed
-// the permanent and the permanent as last known on the battlefield.
+// the permanent and the permanent as last known on the battlefield. Game.
+// playedLandsThisTurn uses it too: who played the land, and the land as last
+// known before it moved.
 type sacrificeRecord struct {
 	player PlayerID
 	card   Card

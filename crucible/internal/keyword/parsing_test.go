@@ -102,8 +102,8 @@ func TestArgs(t *testing.T) {
 func TestDefinedTable(t *testing.T) {
 	t.Parallel()
 
-	if got := len(keyword.Defined); got != 202 {
-		t.Errorf("Defined holds %d keywords, want 202 (203 enum constants less UNDEFINED)", got)
+	if got := len(keyword.Defined); got != 203 {
+		t.Errorf("Defined holds %d keywords, want 203 (204 enum constants less UNDEFINED)", got)
 	}
 
 	kinds := map[keyword.Kind]int{}
@@ -116,7 +116,7 @@ func TestDefinedTable(t *testing.T) {
 	// 88 + 54 + 27 + 5 + 3 + 2 + 23 = 202. UNDEFINED is a SimpleKeyword with no
 	// name and is not a keyword, so it is not in the table.
 	for kind, want := range map[keyword.Kind]int{
-		keyword.Simple:        88,
+		keyword.Simple:        89,
 		keyword.Cost:          54,
 		keyword.Amount:        27,
 		keyword.Type:          5,

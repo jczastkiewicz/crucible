@@ -540,3 +540,25 @@ func TestPutStickerTicketsCountAsRemovedCounters(t *testing.T) {
 		t.Errorf("Count$CountersRemovedThisTurn TICKET You = %d, want 3", got)
 	}
 }
+
+// A static that both adds a keyword and gains sticker abilities gives the host
+// both: AddKeyword$ first, then the stickers' keywords
+// (StaticAbilityContinuous.java:316-331 appends to the same list).
+func TestGainsStickerAbilitiesOfKeepsTheStaticsOwnAddKeyword(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Unsanctioned Ancient Juggler"), p, engine.StickerSheets)
+	g.Player(p).Counters.Add(engine.Ticket, 4)
+	host := g.NewCard(scriptDef(t, "Chameleon", "Creature",
+		"S:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ Flying | GainsStickerAbilitiesOf$ Creature.YouOwn+Other"), p, engine.Battlefield)
+	other := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	sba(g)
+	if h := g.Card(host); !h.HasKeyword("Flying") || h.HasKeyword("Indestructible") {
+		t.Fatalf("before any sticker the host has %v, want Flying only", h.KeywordLines())
+	}
+	placeSticker(t, g, p, other, "Ability", 1)
+	if h := g.Card(host); !h.HasKeyword("Flying") || !h.HasKeyword("Indestructible") {
+		t.Errorf("host keywords = %v, want Flying and Indestructible", h.KeywordLines())
+	}
+}

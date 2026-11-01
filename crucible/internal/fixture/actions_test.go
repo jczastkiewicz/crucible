@@ -838,6 +838,21 @@ func TestRunActionsQueueCardChoiceNoneAndPlayerChoice(t *testing.T) {
 	if err := runActions(t, l, c, "queue option -1\n"); err == nil {
 		t.Error("a negative option did not error")
 	}
+	if err := runActions(t, l, c, "queue sticker -1\nqueue sticker 3\nqueue stickerpos 1\n"); err != nil {
+		t.Fatalf("queue sticker/stickerpos: %v", err)
+	}
+	p0 := l.Game.Players()[0]
+	if a, b := c.ChooseSticker(l.Game, p0, engine.NoCard, engine.NoCard, nil, true), c.ChooseSticker(l.Game, p0, engine.NoCard, engine.NoCard, nil, true); a != -1 || b != 3 {
+		t.Errorf("stickers = %d, %d, want -1, 3", a, b)
+	}
+	if got := c.ChooseStickerNamePosition(l.Game, p0, engine.NoCard, engine.StickerOption{}); got != 1 {
+		t.Errorf("sticker name position = %d, want 1", got)
+	}
+	for _, bad := range []string{"queue sticker -2", "queue sticker x", "queue stickerpos -1"} {
+		if err := runActions(t, l, c, bad+"\n"); err == nil {
+			t.Errorf("%q did not error", bad)
+		}
+	}
 	if err := runActions(t, l, c, "queue abilitychoice 1,0\n"); err != nil {
 		t.Fatalf("queue abilitychoice: %v", err)
 	}

@@ -86,6 +86,8 @@ import (
 //	queue confirmeffect <bool>           ScriptedController.QueueConfirmEffect, an effect's yes/no prompt
 //	queue confirmpaycost <bool>          ScriptedController.QueueConfirmPayCost, an UnlessCost$ pay-or-not prompt
 //	queue optionaltrigger <bool>         ScriptedController.QueueConfirmOptionalTrigger, an OptionalDecider$ trigger's "you may"
+//	queue sticker <n>                    ScriptedController.QueueSticker, an index into the stickers PutSticker offers (-1 declines)
+//	queue stickerpos <n>                 ScriptedController.QueueStickerNamePosition, where a Name sticker's word goes
 //
 // A scenario that needs a decision point no verb here reaches -- choosing
 // modes, anything an instant or sorcery resolves into -- cannot be written
@@ -651,6 +653,20 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue option %q: want an option index", value)
 		}
 		c.QueueOption(n)
+
+	case "sticker", "stickerpos":
+		// A PutSticker answer (ChooseSticker): an index into the offered
+		// stickers, -1 declining an optional one; stickerpos is where a Name
+		// sticker's word goes (ChooseStickerNamePosition).
+		n, err := strconv.Atoi(value)
+		if err != nil || n < -1 || (kind == "stickerpos" && n < 0) {
+			return fmt.Errorf("queue %s %q: want an index", kind, value)
+		}
+		if kind == "sticker" {
+			c.QueueSticker(n)
+		} else {
+			c.QueueStickerNamePosition(n)
+		}
 
 	case "numberchoice":
 		// A number an effect asks the player to choose (ChooseNumber): the life

@@ -969,7 +969,6 @@ paramKey	Tapped
 paramKey	Tapper
 paramKey	TapperController
 paramKey	Target
-paramKey	TargetControls
 paramKey	TargetMax
 paramKey	TargetMin
 paramKey	TargetRelativeToCause
@@ -4100,6 +4099,8 @@ svarProperty	LandType
 svarProperty	LandsControlled
 svarProperty	LandsInGraveyard
 svarProperty	LandsPlayed
+svarProperty	LandsPlayed Card.!inRealZoneHand,Card.YouDontOwn
+svarProperty	LandsPlayed Card.inRealZoneExile
 svarProperty	LibNum1
 svarProperty	LifeAmount
 svarProperty	LifeGained

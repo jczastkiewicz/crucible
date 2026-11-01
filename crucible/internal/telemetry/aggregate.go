@@ -83,18 +83,102 @@ func (c CardStat) MeanTurnsHeld() float64 {
 	return float64(c.HeldTotal) / float64(c.Tenures)
 }
 
-// Summary is a run folded: the matchups and, per deck, the cards.
+// Summary is a run folded: the matchups and, per deck, the cards and the mana.
 type Summary struct {
 	Matchups map[MatchupKey]*Matchup
 	Cards    map[string]map[string]*CardStat // deck -> card -> stat
+	Mana     map[string]*ManaStat            // deck -> mana health
+}
+
+// MET-10 and MET-11 defaults (MET-2: thresholds are configuration; these are
+// the values in force until a run overrides them).
+const (
+	ScrewCurveCap         = 4
+	ScrewConsecutiveTurns = 2
+	ScrewWindow           = 6
+	FloodStartTurn        = 5
+	FloodExcess           = 2
+	FloodSlack            = 2
+	DeckCurveTop          = 4
+)
+
+// ManaStat is one deck's mana health over the games it played (MET-10 to
+// MET-14). Turns count the deck's own turns, the first being 1.
+type ManaStat struct {
+	Games      int
+	ScrewGames int
+	FloodGames int
+	// Turns sampled, and of those: no land played with none in hand, and with
+	// one held (MET-14 keeps the two apart).
+	Turns         int
+	MissedNoLand  int
+	MissedHeld    int
+	UnusedMana    int
+	CurveTurnsMet int
+}
+
+// ScrewRate and FloodRate are the shares of the deck's games flagged.
+func (m ManaStat) ScrewRate() float64 { return share(m.ScrewGames, m.Games) }
+
+// FloodRate is the share of the deck's games MET-11 flags.
+func (m ManaStat) FloodRate() float64 { return share(m.FloodGames, m.Games) }
+
+func share(k, n int) float64 {
+	if n == 0 {
+		return 0
+	}
+	return float64(k) / float64(n)
+}
+
+// foldMana folds one seat's samples of one game, in turn order.
+func (m *ManaStat) foldMana(rows []ManaRow) {
+	m.Games++
+	streak, screwed, flooded := 0, false, false
+	for i, r := range rows {
+		turn := i + 1
+		m.Turns++
+		switch r.MissedDrop {
+		case "no_land":
+			m.MissedNoLand++
+		case "held":
+			m.MissedHeld++
+		}
+		m.UnusedMana += r.ManaAvailable - r.ManaSpent
+		if r.ManaSpent >= min(turn, DeckCurveTop) {
+			m.CurveTurnsMet++
+		}
+		if turn <= ScrewWindow {
+			if r.LandsInPlay < min(turn, ScrewCurveCap) {
+				streak++
+				if streak >= ScrewConsecutiveTurns {
+					screwed = true
+				}
+			} else {
+				streak = 0
+			}
+		}
+		if turn > FloodStartTurn && r.LandsInPlay+r.LandsInHand > min(turn, DeckCurveTop)+FloodExcess &&
+			r.ManaAvailable-r.ManaSpent >= FloodSlack {
+			flooded = true
+		}
+	}
+	if screwed {
+		m.ScrewGames++
+	}
+	if flooded {
+		m.FloodGames++
+	}
 }
 
 // Summarize streams a run's rows into a Summary. Tenure rows name the seat,
 // the game row (read first in a game's rows) names that seat's deck.
 func Summarize(r *store.Reader) (Summary, error) {
-	s := Summary{Matchups: map[MatchupKey]*Matchup{}, Cards: map[string]map[string]*CardStat{}}
+	s := Summary{Matchups: map[MatchupKey]*Matchup{}, Cards: map[string]map[string]*CardStat{}, Mana: map[string]*ManaStat{}}
 	decks := map[int][2]string{} // game -> decks
 	var tenures []TenureRow
+	type seatKey struct{ game, seat int }
+	manaRows := map[seatKey][]ManaRow{}
+	var manaOrder []seatKey
 	err := r.Each(func(row store.Row) error {
 		switch row.Kind {
 		case KindGame:
@@ -110,6 +194,16 @@ func Summarize(r *store.Reader) (Summary, error) {
 				return err
 			}
 			tenures = append(tenures, t)
+		case KindMana:
+			var m ManaRow
+			if err := json.Unmarshal(row.Data, &m); err != nil {
+				return err
+			}
+			k := seatKey{m.Game, m.Seat}
+			if _, seen := manaRows[k]; !seen {
+				manaOrder = append(manaOrder, k)
+			}
+			manaRows[k] = append(manaRows[k], m)
 		default:
 			return fmt.Errorf("telemetry: unknown row kind %q", row.Kind)
 		}
@@ -124,6 +218,18 @@ func Summarize(r *store.Reader) (Summary, error) {
 			return Summary{}, fmt.Errorf("telemetry: tenure of game %d seat %d has no game row", t.Game, t.Seat)
 		}
 		s.addTenure(d[t.Seat-1], t)
+	}
+	for _, k := range manaOrder {
+		d, ok := decks[k.game]
+		if !ok || k.seat < 1 || k.seat > 2 {
+			return Summary{}, fmt.Errorf("telemetry: mana sample of game %d seat %d has no game row", k.game, k.seat)
+		}
+		st := s.Mana[d[k.seat-1]]
+		if st == nil {
+			st = &ManaStat{}
+			s.Mana[d[k.seat-1]] = st
+		}
+		st.foldMana(manaRows[k])
 	}
 	return s, nil
 }

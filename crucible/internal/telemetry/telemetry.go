@@ -5,19 +5,22 @@
 //
 // The castability probe (MET-5, MET-6) runs at the start of each active
 // player's combat phase, which is the end of their precombat main phase with an
-// empty stack, and fills the TurnsBlocked columns of hand tenure. Not yet
-// recorded: the per-turn mana sample (MET-10 to MET-19).
+// empty stack, and fills the TurnsBlocked columns of hand tenure. The mana
+// sample (MET-10 to MET-15) is taken per turn of the active player: the sources
+// they could tap after their untap step, and at the end step what is left.
 package telemetry
 
 import (
 	"sort"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // SchemaVersion is stamped on every shard (ADR-0013); it moves when a row
 // gains a field or a kind.
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // MetricsVersion is MET-1's version of the metric definitions the rows were
 // folded under.
@@ -27,7 +30,33 @@ const MetricsVersion = 1
 const (
 	KindGame   = "game"
 	KindTenure = "tenure"
+	KindMana   = "mana"
 )
+
+// ManaRow is one turn's mana sample for the active player (MET-10 to MET-15).
+type ManaRow struct {
+	Game int `json:"game"`
+	Seat int `json:"seat"`
+	Turn int `json:"turn"`
+	// LandsInPlay and LandsInHand are counted at the end step.
+	LandsInPlay int `json:"lands_in_play"`
+	LandsInHand int `json:"lands_in_hand"`
+	// NonLandSources are permanents other than lands that could make mana
+	// after the untap step.
+	NonLandSources int `json:"nonland_sources"`
+	// ManaAvailable is how many sources could be tapped for mana after the
+	// untap step; ManaSpent how many of them were tapped by the end step. A
+	// source tapped for something other than mana (an attacking mana creature)
+	// counts as spent: the sample reads the board, not the mana pool.
+	ManaAvailable int      `json:"mana_available"`
+	ManaSpent     int      `json:"mana_spent"`
+	Colors        []string `json:"colors,omitempty"`
+	// LandPlayed is whether a land was played this turn; MissedDrop says why
+	// not when none was: "no_land" (none in hand) or "held" (one was kept,
+	// MET-14's AI or sequencing case).
+	LandPlayed bool   `json:"land_played"`
+	MissedDrop string `json:"missed_drop,omitempty"`
+}
 
 // GameRow is one game's outcome.
 type GameRow struct {
@@ -79,14 +108,22 @@ type openTenure struct {
 	reasons         [8]int
 }
 
-// Recorder is an engine.Sink that keeps hand tenures.
+// Recorder is an engine.Sink that keeps hand tenures and mana samples.
 type Recorder struct {
 	g     *engine.Game
 	game  int
 	open  map[engine.CardID]openTenure
 	order []engine.CardID // open cards in the order they entered, for a stable close
 	rows  []TenureRow
+	// The active player's sources after their untap step, waiting for the end
+	// step to close the sample.
+	upkeepSources []engine.ManaSource
+	upkeepSeat    int
+	mana          []ManaRow
 }
+
+// ManaRows are the mana samples taken so far, in turn order.
+func (r *Recorder) ManaRows() []ManaRow { return r.mana }
 
 // NewRecorder records game number game of g.
 func NewRecorder(g *engine.Game, game int) *Recorder {
@@ -95,8 +132,15 @@ func NewRecorder(g *engine.Game, game int) *Recorder {
 
 // Emit implements engine.Sink.
 func (r *Recorder) Emit(e engine.Event) {
-	if e.Kind == engine.PhaseBegan && e.Phase == engine.CombatBegin {
-		r.probe(e.Active)
+	if e.Kind == engine.PhaseBegan {
+		switch e.Phase {
+		case engine.CombatBegin:
+			r.probe(e.Active)
+		case engine.Upkeep:
+			r.upkeepSources, r.upkeepSeat = r.g.ManaSources(e.Active), int(e.Active)
+		case engine.EndOfTurn:
+			r.sampleMana(e.Active, int(e.Turn))
+		}
 		return
 	}
 	if e.Kind != engine.ZoneChanged || e.From == e.To {
@@ -147,6 +191,54 @@ func (r *Recorder) probe(pid engine.PlayerID) {
 		}
 		r.open[p.Card] = t
 	}
+}
+
+// sampleMana closes the turn's mana sample at the active player's end step.
+func (r *Recorder) sampleMana(pid engine.PlayerID, turn int) {
+	if r.upkeepSeat != int(pid) {
+		return
+	}
+	row := ManaRow{Game: r.game, Seat: int(pid), Turn: turn, ManaAvailable: len(r.upkeepSources)}
+	still := map[engine.CardID]bool{}
+	for _, s := range r.g.ManaSources(pid) {
+		still[s.Card] = true
+	}
+	var colors mana.Colors
+	seen := map[engine.CardID]bool{}
+	for _, s := range r.upkeepSources {
+		colors |= s.Colors
+		if !still[s.Card] {
+			row.ManaSpent++
+		}
+		if !seen[s.Card] && !r.g.Card(s.Card).Type().Has(cardtype.Land) {
+			row.NonLandSources++
+		}
+		seen[s.Card] = true
+	}
+	for _, c := range [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+		if colors&c != 0 {
+			row.Colors = append(row.Colors, c.String())
+		}
+	}
+	for _, id := range r.g.Zone(engine.Battlefield, pid).Cards() {
+		if r.g.Card(id).Type().Has(cardtype.Land) {
+			row.LandsInPlay++
+		}
+	}
+	for _, id := range r.g.Zone(engine.Hand, pid).Cards() {
+		if r.g.Card(id).Type().Has(cardtype.Land) {
+			row.LandsInHand++
+		}
+	}
+	row.LandPlayed = r.g.Player(pid).LandsPlayed > 0
+	if !row.LandPlayed {
+		row.MissedDrop = "no_land"
+		if row.LandsInHand > 0 {
+			row.MissedDrop = "held"
+		}
+	}
+	r.mana = append(r.mana, row)
+	r.upkeepSources, r.upkeepSeat = nil, 0
 }
 
 func exitName(to engine.ZoneType) string {

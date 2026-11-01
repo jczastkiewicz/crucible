@@ -223,11 +223,11 @@ func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
 		go func() {
 			defer wg.Done()
 			for i := range next {
-				res, rows := playGame(plan, i)
+				res, rows, mana := playGame(plan, i)
 				results[i] = res
 				played[i] = true
 				if plan.Store != nil {
-					commit <- finished{idx: i, res: res, rows: rows}
+					commit <- finished{idx: i, res: res, rows: rows, mana: mana}
 				}
 			}
 		}()
@@ -260,6 +260,7 @@ type finished struct {
 	idx  int
 	res  GameResult
 	rows []telemetry.TenureRow
+	mana []telemetry.ManaRow
 }
 
 // commitRows writes games' rows to the store in game order: a game waits
@@ -301,6 +302,11 @@ func commitRows(plan Plan, in <-chan finished) error {
 				return
 			}
 		}
+		for _, m := range f.mana {
+			if firstErr = sh.Write(telemetry.KindMana, m); firstErr != nil {
+				return
+			}
+		}
 	}
 	pending := map[int]finished{}
 	nextIdx := 0
@@ -334,34 +340,36 @@ func commitRows(plan Plan, in <-chan finished) error {
 }
 
 // playGame runs game index with its timeout and panic isolation.
-func playGame(plan Plan, index int) (GameResult, []telemetry.TenureRow) {
+func playGame(plan Plan, index int) (GameResult, []telemetry.TenureRow, []telemetry.ManaRow) {
 	seed := SeedFor(plan.BaseSeed, index)
 	type out struct {
 		res  GameResult
 		rows []telemetry.TenureRow
+		mana []telemetry.ManaRow
 	}
 	done := make(chan out, 1)
 	go func() {
 		res := GameResult{Index: index, Seed: seed}
 		var rows []telemetry.TenureRow
+		var mana []telemetry.ManaRow
 		defer func() {
 			if r := recover(); r != nil {
 				res.Outcome = Panicked
 				res.Detail = fmt.Sprintf("%v\n%s", r, debug.Stack())
 			}
-			done <- out{res, rows}
+			done <- out{res, rows, mana}
 		}()
-		rows = runOne(plan, plan.Jobs[index], index, seed, &res)
+		rows, mana = runOne(plan, plan.Jobs[index], index, seed, &res)
 	}()
 	if plan.GameTimeout <= 0 {
 		o := <-done
-		return o.res, o.rows
+		return o.res, o.rows, o.mana
 	}
 	select {
 	case o := <-done:
-		return o.res, o.rows
+		return o.res, o.rows, o.mana
 	case <-time.After(plan.GameTimeout):
-		return GameResult{Index: index, Seed: seed, Outcome: Hung, Detail: "no result within " + plan.GameTimeout.String()}, nil
+		return GameResult{Index: index, Seed: seed, Outcome: Hung, Detail: "no result within " + plan.GameTimeout.String()}, nil, nil
 	}
 }
 
@@ -377,7 +385,7 @@ func (f firstPlayer) ChooseStartingPlayer(*engine.Game, engine.PlayerID, bool) e
 
 // runOne plays one game to its end and fills res. It returns the hand
 // tenures when the plan stores rows.
-func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) []telemetry.TenureRow {
+func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telemetry.TenureRow, []telemetry.ManaRow) {
 	g := engine.NewGame(plan.DB, javarand.New(seed), []string{job.Decks[0].Name, job.Decks[1].Name})
 	for seat, d := range job.Decks {
 		pid := g.Players()[seat]
@@ -418,7 +426,7 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) []teleme
 		}
 	}
 	if rec == nil {
-		return nil
+		return nil, nil
 	}
-	return rec.Finish(res.Turns)
+	return rec.Finish(res.Turns), rec.ManaRows()
 }

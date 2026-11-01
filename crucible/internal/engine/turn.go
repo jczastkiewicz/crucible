@@ -594,7 +594,7 @@ func (g *Game) drawEvent(controller PlayerController, pid PlayerID) bool {
 	if g.cantDraw(pid) {
 		return false
 	}
-	if g.drawPrevented(pid) {
+	if g.drawPrevented(controller, pid) {
 		return true
 	}
 	if g.drawReplaced(controller, pid) {

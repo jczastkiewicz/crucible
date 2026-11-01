@@ -105,6 +105,11 @@ func TestRunStoresAGauntletAndReportReadsItBack(t *testing.T) {
 	if mountain == nil || mountain.PlayableUnusedTurns == 0 || mountain.BlockedTurns != 0 {
 		t.Errorf("reds' Mountain %+v, want playable-unused turns and no blocked turns", mountain)
 	}
+	// The controller never plays a land: every game is mana-screwed and every
+	// missed drop is one with a land held.
+	if m := sum.Mana["reds"]; m == nil || m.Games != 4 || m.ScrewGames != 4 || m.MissedHeld == 0 || m.MissedNoLand != 0 {
+		t.Errorf("reds' mana %+v, want 4 screwed games with land drops held", m)
+	}
 	// With no land ever played, a Lightning Bolt is blocked on quantity.
 	bolt := sum.Cards["reds"]["Lightning Bolt"]
 	if bolt == nil || bolt.BlockedTurns == 0 || bolt.Blocks["InsufficientMana"] == 0 {

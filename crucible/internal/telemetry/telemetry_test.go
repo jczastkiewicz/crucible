@@ -7,6 +7,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/store"
 	"github.com/jczastkiewicz/crucible/internal/telemetry"
@@ -228,5 +229,78 @@ func TestSummarizeFoldsTheProbeColumnsSeparately(t *testing.T) {
 	}
 	if (telemetry.CardStat{}).DeadRate() != 0 {
 		t.Error("an empty stat has a dead rate")
+	}
+}
+
+func TestSummarizeFoldsManaHealthPerDeck(t *testing.T) {
+	t.Parallel()
+	r := writeRun(t, func(sh *store.Shard) {
+		_ = sh.Write(telemetry.KindGame, telemetry.GameRow{Game: 0, Decks: [2]string{"A", "B"}, Outcome: "won", Winner: 1})
+		// A: one land then stuck on it (screwed on turns 2 and 3).
+		for turn, lands := range []int{1, 1, 1} {
+			_ = sh.Write(telemetry.KindMana, telemetry.ManaRow{Game: 0, Seat: 1, Turn: 2*turn + 1, LandsInPlay: lands, ManaAvailable: lands, ManaSpent: lands, MissedDrop: map[bool]string{true: "", false: "no_land"}[turn == 0]})
+		}
+		// B: seven turns, flooding from its sixth turn on.
+		for turn := 1; turn <= 7; turn++ {
+			row := telemetry.ManaRow{Game: 0, Seat: 2, Turn: 2 * turn, LandsInPlay: turn, ManaAvailable: turn, ManaSpent: min(turn, 3), LandPlayed: true}
+			if turn >= 6 {
+				row.LandsInHand = 3
+			}
+			_ = sh.Write(telemetry.KindMana, row)
+		}
+	})
+	s, err := telemetry.Summarize(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := s.Mana["A"], s.Mana["B"]
+	if a == nil || a.Games != 1 || a.ScrewGames != 1 || a.FloodGames != 0 || a.MissedNoLand != 2 || a.Turns != 3 {
+		t.Errorf("A %+v, want one screwed game, two drops missed with no land, three turns", a)
+	}
+	if b == nil || b.ScrewGames != 0 || b.FloodGames != 1 || a.ScrewRate() != 1 || b.FloodRate() != 1 {
+		t.Errorf("B %+v, want one flooded game", b)
+	}
+	if b.UnusedMana != 0+0+0+1+2+3+4 || b.CurveTurnsMet != 3 {
+		t.Errorf("B unused %d curve %d, want 10 and 3", b.UnusedMana, b.CurveTurnsMet)
+	}
+	if (telemetry.ManaStat{}).ScrewRate() != 0 {
+		t.Error("an empty mana stat has a rate")
+	}
+	orphan := writeRun(t, func(sh *store.Shard) {
+		_ = sh.Write(telemetry.KindMana, telemetry.ManaRow{Game: 3, Seat: 1})
+	})
+	if _, err := telemetry.Summarize(orphan); err == nil {
+		t.Error("a mana sample with no game row did not fail")
+	}
+}
+
+// The recorder samples the active player's sources after the untap step and
+// closes the sample at their end step (MET-10 to MET-15).
+func TestRecorderSamplesManaPerTurn(t *testing.T) {
+	t.Parallel()
+	land, err := compile.Compile(&carddb.Card{Filename: "L", Faces: [carddb.NumFaces]carddb.Face{{Present: true, Name: "L", Type: cardtype.ParseToken("Basic").Union(cardtype.ParseToken("Land")).Union(cardtype.ParseToken("Forest"))}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := engine.NewGame(compile.NewDB(map[string]*compile.Card{"L": land}), javarand.New(1), []string{"a", "b"})
+	p := g.Players()[0]
+	a := g.NewCard(land, p, engine.Battlefield)
+	g.NewCard(land, p, engine.Battlefield)
+	g.NewCard(land, p, engine.Hand)
+	rec := telemetry.NewRecorder(g, 2)
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.Upkeep, Active: p, Turn: 3})
+	g.Card(a).Tapped = true
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.EndOfTurn, Active: p, Turn: 3})
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.EndOfTurn, Active: g.Players()[1], Turn: 4}) // no upkeep sample
+	rows := rec.ManaRows()
+	if len(rows) != 1 {
+		t.Fatalf("rows %+v, want one sample", rows)
+	}
+	r := rows[0]
+	if r.Game != 2 || r.Seat != 1 || r.Turn != 3 || r.LandsInPlay != 2 || r.LandsInHand != 1 || r.ManaAvailable != 2 || r.ManaSpent != 1 {
+		t.Errorf("sample %+v, want 2 lands in play, 1 in hand, 2 available, 1 spent", r)
+	}
+	if r.LandPlayed || r.MissedDrop != "held" || len(r.Colors) != 1 || r.NonLandSources != 0 {
+		t.Errorf("sample %+v, want a held land drop and one colour", r)
 	}
 }

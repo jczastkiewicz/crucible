@@ -265,6 +265,16 @@ func printSummary(w io.Writer, s telemetry.Summary, top int) {
 		decks = append(decks, d)
 	}
 	sort.Strings(decks)
+	manaDecks := make([]string, 0, len(s.Mana))
+	for d := range s.Mana {
+		manaDecks = append(manaDecks, d)
+	}
+	sort.Strings(manaDecks)
+	for _, d := range manaDecks {
+		m := s.Mana[d]
+		_, _ = fmt.Fprintf(w, "%s mana: %d games, screw %.0f%%, flood %.0f%% (MET-10/11); %d turns, missed land drops %d with none in hand and %d with one held; unused mana %d; curve met %d turns\n",
+			d, m.Games, 100*m.ScrewRate(), 100*m.FloodRate(), m.Turns, m.MissedNoLand, m.MissedHeld, m.UnusedMana, m.CurveTurnsMet)
+	}
 	for _, d := range decks {
 		type row struct {
 			name string

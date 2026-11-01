@@ -1281,7 +1281,7 @@ func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a 
 // other 36 real Draw lines name ReplaceWith$ instead of Prevent$ -- a real
 // substitution (DrawTwo/Dig/ExileTop/...), no single shape anywhere near
 // Moved's own 618-line concentration, not resolved.
-func (g *Game) drawPrevented(player PlayerID) bool {
+func (g *Game) drawPrevented(controller PlayerController, player PlayerID) bool {
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {
@@ -1299,6 +1299,12 @@ func (g *Game) drawPrevented(player PlayerID) bool {
 							if !recognized || !matched {
 								continue
 							}
+						}
+						// Optional$ (Obstinate Familiar): the drawing player is
+						// asked first (ReplacementHandler.java:364-380); declined,
+						// the draw goes ahead.
+						if !g.confirmOptionalReplacement(controller, player, replacementCandidate{host: h, rule: r}) {
+							continue
 						}
 						return true
 					}
@@ -1326,7 +1332,7 @@ func drawPreventionMatches(g *Game, r *compile.Ability, host CardID, hostZone Zo
 	}
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
-		case "event", "prevent", "description", "validplayer", "activezones", "secondary",
+		case "event", "prevent", "description", "validplayer", "activezones", "secondary", "optional", "aichecksvar", "aisvarcompare",
 			"playerturn", "activephases", "checksvar", "svarcompare",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
 		default:

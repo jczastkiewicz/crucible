@@ -30,6 +30,7 @@ Column meaning:
 | [`internal/engine`](../../../crucible/internal/engine)                 | The rules core: the arena every handle indexes into, cards and their parts, players, zones, effect dispatch, the controller interface, state-based actions, turn structure, mulligans, the stack, valid-string evaluation | `forge.game.Game`, `Card`, `Player`, `zone.Zone`, `zone.ZoneType`, `zone.MagicStack`, `player.PlayerController`, `GameAction`, `phase.PhaseHandler`, `mulligan.*`, `card.CardProperty` | [`game-state.md`](../porting/port-log/game-state.md), [`valid-strings.md`](../porting/port-log/valid-strings.md) |
 | [`internal/fixture`](../../../crucible/internal/fixture)               | Forge's `GameState` text format: parses it, builds a `*engine.Game` from it, writes one back, and runs a scenario's `actions.log` against it                                                                              | `forge.game.GameState` (`parse`, `processCardsForZone`, `applyGameOnThread`, `toString`)                                                                                               | [`game-state-fixture.md`](../porting/port-log/game-state-fixture.md)                                             |
 | [`internal/smoke`](../../../crucible/internal/smoke)                   | Plays one card at a time through a fixed two-player board with a default-answer controller and reports what the engine refuses, per cause; the measure of "how many cards play" (ADR-0011)                                | — new code                                                                                                                                                                             | [`smoke-probe.md`](../porting/port-log/smoke-probe.md)                                                           |
+| [`internal/sim`](../../../crucible/internal/sim)                       | Batches of games: worker pool, per-game seeds, turn cap, panic and hang isolation                                                                                                                                         | —                                                                                                                                                                                      | —                                                                                                                |
 | [`internal/valid`](../../../crucible/internal/valid)                   | Valid strings: the predicates deciding what an ability may target, affect or count                                                                                                                                        | `forge.game.card.CardProperty`, `forge.util.Expressions`                                                                                                                               | [`valid-strings.md`](../porting/port-log/valid-strings.md)                                                       |
 | [`internal/keyword`](../../../crucible/internal/keyword)               | `K:` lines: the head, its positional details, and the enum entry saying how they are shaped                                                                                                                               | `forge.game.keyword.Keyword` and its `KeywordInstance` subclasses                                                                                                                      | [`keywords.md`](../porting/port-log/keywords.md)                                                                 |
 | [`internal/boosters`](../../../crucible/internal/boosters)             | Booster packs as Forge makes them: edition files, the card pool, print sheets in `ConcurrentHashMap` order, and `BoosterGenerator` (ADR-0049)                                                                             | `forge.card.CardEdition`, `forge.card.CardDb.initialize`, `forge.card.PrintSheet`, `forge.item.generation.BoosterGenerator`                                                            | [`booster-generation.md`](../porting/port-log/booster-generation.md)                                             |
@@ -49,7 +50,7 @@ Column meaning:
 | [`tools/genregistry`](../../../crucible/tools/genregistry)             | Generates `internal/engine`'s `NewRegistry` (`registry_gen.go`) from the package's `*Effect` types; `-check` fails on a stale file or a wrong resolved-API count in the docs (ADR-0017)                                   | — new code                                                                                                                                                                             | —                                                                                                                |
 | [`tools/landporter`](../../../crucible/tools/landporter)               | Lands a worktree porter's branch: merge, remeasure `card-smoke`, rewrite every doc that quotes the measurement, docs commit, cleanup                                                                                      | — new code                                                                                                                                                                             | —                                                                                                                |
 
-**Twenty-five packages: two in `pkg/`, twelve in `internal/`, one `cmd/`, ten in `tools/`.** The split follows
+**Twenty-six packages: two in `pkg/`, thirteen in `internal/`, one `cmd/`, ten in `tools/`.** The split follows
 [ADR-0003](../adr/0003-go-project-layout.md): `pkg/` is reserved for code with no Crucible semantics, and an ordered set
 and a generator port qualify; `tools/` holds build-time commands the engine never imports; everything with rules
 meaning, `mana` and `cardtype` included, goes in `internal/` where nothing outside the module can import it.
@@ -100,12 +101,12 @@ flowchart LR
 Listed so the gap between this map and [ADR-0003](../adr/0003-go-project-layout.md)'s layout is visible rather than
 inferred. Each lands with its milestone (ARCH-2).
 
-| Package                                                | Milestone |
-| ------------------------------------------------------ | --------- |
-| `internal/valid`, `internal/expr`                      | M6        |
-| `internal/ai`                                          | M7        |
-| `internal/sim`, `internal/telemetry`, `internal/store` | M8        |
-| `internal/report`, `cmd/crucible`                      | M9        |
+| Package                                | Milestone |
+| -------------------------------------- | --------- |
+| `internal/valid`, `internal/expr`      | M6        |
+| `internal/ai`                          | M7        |
+| `internal/telemetry`, `internal/store` | M8        |
+| `internal/report`, `cmd/crucible`      | M9        |
 
 ## Invalidated by
 

@@ -291,6 +291,9 @@ type movedPost struct {
 	host    *Card
 	amounts map[string]expr.Amount
 	chain   *compile.Ability
+	// rule is the Moved line that applied, for a caller that offers it as
+	// one candidate of a CR 616.1 choice (discardReplaced).
+	rule *compile.Ability
 	// exiledWith is the card an exiled card is marked as exiled with
 	// (ExiledWithEffectSource$), NoCard for none.
 	exiledWith CardID
@@ -383,7 +386,7 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Destination$ %q not resolvable yet", h.Def.Name, to))
 			return false
 		}
-		p := &movedPost{host: h, amounts: amounts}
+		p := &movedPost{host: h, amounts: amounts, rule: r}
 		if pos, ok := sub.Param("LibraryPosition"); ok {
 			n, err := strconv.Atoi(pos)
 			if err != nil || (n != 0 && n != -1) || z != Library {

@@ -183,8 +183,8 @@ type Card struct {
 	// (PhaseHandler.java:477-481, CombatUtil.java:387, PhaseHandler.java:783).
 	notAttacked, notBlocked uint32
 	enteredTurn             int
-	// embalmed is Card.isEmbalmed: the token Embalm makes. Embalm is not
-	// ported, so nothing sets it; Clone's Embalm$ reads it (CardFactory.java:555).
+	// embalmed is Card.isEmbalmed: the token an Embalm ability made
+	// (copypermanenteffect.go), which Clone's Embalm$ reads.
 	embalmed bool
 	// zoneEntered, zoneEntryTurn and zoneEntryFrom record how the card last
 	// entered the zone it sits in by a move: the turn and the zone it came from

@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -138,6 +139,11 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 				}
 				id := g.createToken(controller, spec)
 				created = append(created, id)
+				if keyword.Parse(a.Params.Keyword).Name == "Embalm" {
+					// Card.isEmbalmed: the token an Embalm ability spawned
+					// (Card.java:6510-6513), read by Clone's Embalm$.
+					g.Card(id).embalmed = true
+				}
 				if hasAttach && g.Card(id).Zone == Battlefield {
 					if attachCard != NoCard && tokenCanAttach(g, a, spec, attachCard) {
 						g.attachTo(controller, id, attachCard)

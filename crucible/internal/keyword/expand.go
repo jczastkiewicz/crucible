@@ -195,6 +195,22 @@ func Expand(k Keyword) (Expansion, bool) {
 			Replacements: []string{line},
 			SVars:        []SVarDef{{"KWEtbCounter" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + args[0] + " | ETB$ True | CounterNum$ " + args[1]}},
 		}, true
+	case "Embalm", "Eternalize":
+		// CardFactoryUtil.java:2822-2834 and :2914-2941: exile this card from
+		// your graveyard and pay the cost to create a token copy of it, as a
+		// sorcery, with no mana cost: a white Zombie (Embalm) or a black 4/4
+		// Zombie (Eternalize).
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		line := "AB$ CopyPermanent | Cost$ " + args[0] + " ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | SorcerySpeed$ True | RemoveCost$ True | AddTypes$ Zombie | Defined$ Self"
+		if k.Name == "Embalm" {
+			line += " | SetColor$ White"
+		} else {
+			line += " | SetColor$ Black | SetPower$ 4 | SetToughness$ 4"
+		}
+		return Expansion{Abilities: []string{line}}, true
 	case "Rebound":
 		// CardFactoryUtil.java:2422-2451: a spell cast from your hand that
 		// resolves (Fizzle$ False: a countered spell carries no Fizzle key) is

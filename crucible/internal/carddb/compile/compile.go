@@ -311,6 +311,7 @@ func compileFace(face *carddb.Face) (Face, error) {
 			*group.target = append(*group.target, ability)
 		}
 	}
+	out.Statics = splitStaticModes(out.Statics)
 	for _, kw := range face.Keywords {
 		if rest, ok := strings.CutPrefix(kw, "ETBReplacement:"); ok {
 			r, err := c.etbReplacement(rest)
@@ -831,6 +832,45 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 // here once, as keyword expansion is (ADR-0038), so no script text is read at
 // runtime (PORT-2). The engine grants it to the host and resolves it
 // (ignoreeffect.go).
+// splitStaticModes gives a static whose Mode$ lists several modes
+// (Pacifism's `Mode$ CantAttack,CantBlock`, 87 corpus S: lines) one Ability per
+// mode, in the order written. Java's Mode is a set (StaticAbility.java:257,
+// StaticAbilityMode.java:233-237) and each mode's check asks whether the set
+// holds it; one Ability per mode lets every engine check keep comparing Name.
+// The pieces share params and subs, with Mode$ narrowed to the piece's own
+// mode, except the IgnoreEffectCost$ ability, which only the Continuous piece
+// keeps (StaticAbilityContinuous.java:516-518 builds it from the Continuous
+// mode alone).
+func splitStaticModes(statics []*Ability) []*Ability {
+	var out []*Ability
+	for _, st := range statics {
+		if !strings.Contains(st.Name, ",") {
+			out = append(out, st)
+			continue
+		}
+		for _, mode := range splitTrim(st.Name, ",") {
+			cp := *st
+			cp.Name = mode
+			cp.Params = make([]vocab.Param, len(st.Params))
+			copy(cp.Params, st.Params)
+			for i := range cp.Params {
+				if strings.EqualFold(cp.Params[i].Key, "Mode") {
+					cp.Params[i].Value = mode
+				}
+			}
+			cp.Subs = nil
+			for _, sub := range st.Subs {
+				if strings.EqualFold(sub.Key, "IgnoreEffectCost") && !strings.EqualFold(mode, "Continuous") {
+					continue
+				}
+				cp.Subs = append(cp.Subs, sub)
+			}
+			out = append(out, &cp)
+		}
+	}
+	return out
+}
+
 func ignoreEffectSub(cost string) SubRef {
 	return SubRef{Key: "IgnoreEffectCost", Ability: &Ability{
 		Record: Activated,

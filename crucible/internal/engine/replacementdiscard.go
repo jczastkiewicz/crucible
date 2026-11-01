@@ -49,9 +49,8 @@ type discardLine struct {
 // instead", Library of Leng's "you may put it on top of your library",
 // Nephalia Academy's reveal first) runs that chain, as ReplaceMoved's
 // overriding ability does. A chain that moves nothing else is a pending
-// error, and so is a discard line together with a graveyard replacement that
-// would also apply (Rest in Peace): the discard walk does not offer the
-// graveyard lines as candidates of the same CR 616.1 choice.
+// error. A graveyard replacement that would also apply (Rest in Peace) is
+// offered as one more candidate of the same choice.
 func (g *Game) discardReplaced(controller PlayerController, id CardID, cause discardCause) bool {
 	c := g.Card(id)
 	var lines []discardLine
@@ -98,10 +97,10 @@ func (g *Game) discardReplaced(controller PlayerController, id CardID, cause dis
 			return false
 		}
 	}
-	if dest, _ := g.movedGraveyardDestination(id); dest != Graveyard {
-		g.recordPendingError(fmt.Errorf("engine: %q: a discard replacement and a graveyard replacement both apply: CR 616.1 order not resolvable yet", c.Def.Name))
-		return false
-	}
+	// A graveyard replacement that would also apply (Rest in Peace) is one more
+	// candidate of the same CR 616.1 choice (ReplacementHandler.java:256-279):
+	// the discarding player picks, and whichever replaces first ends the walk.
+	_, grave := g.movedGraveyardDestination(id)
 	from := c.Zone
 	return g.runReplacements(controller, c.Controller(), func() []replacementCandidate {
 		cands := make([]replacementCandidate, 0, len(lines))
@@ -121,6 +120,14 @@ func (g *Game) discardReplaced(controller PlayerController, id CardID, cause dis
 				if g.Card(id).Zone == from {
 					// The chain did not move the card: the discard's own move
 					// still happens.
+					return replacementNotReplaced
+				}
+				return replacementReplaced
+			}})
+		}
+		if grave != nil && grave.rule != nil {
+			cands = append(cands, replacementCandidate{host: grave.host, rule: grave.rule, apply: func() replacementResult {
+				if dest, _ := g.moveToGraveyard(controller, id); dest == Graveyard {
 					return replacementNotReplaced
 				}
 				return replacementReplaced

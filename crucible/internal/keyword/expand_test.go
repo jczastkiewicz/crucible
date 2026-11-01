@@ -24,6 +24,10 @@ func TestExpand(t *testing.T) {
 		{"Equip", false, ""},
 		{"Cycling:2", true, "AB$ Draw | Cost$ 2 Discard<1/CARDNAME> | ActivationZone$ Hand"},
 		{"Cycling", false, ""},
+		{"Station:6", true, "AB$ PutCounter | Cost$ tapXType<1/Creature.Other> | Defined$ Self | CounterType$ CHARGE | CounterNum$ StationX{n} | SorcerySpeed$ True"},
+		{"Embalm:3 W", true, "AB$ CopyPermanent | Cost$ 3 W ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | SorcerySpeed$ True | RemoveCost$ True | AddTypes$ Zombie | Defined$ Self | SetColor$ White"},
+		{"Eternalize:2 B B", true, "SetColor$ Black | SetPower$ 4 | SetToughness$ 4"},
+		{"Embalm", false, ""},
 		{"Specialize:2", true, "Mode$ Specialize | SorcerySpeed$ True | ActivationZone$ Hand"},
 		{"Specialize:2:Flavor:Condition:ActivationLimit$ 1", true, "| ActivationLimit$ 1"},
 		{"Specialize", false, ""},
@@ -161,6 +165,7 @@ func TestExpandReplacements(t *testing.T) {
 		{"Devour", false, ""},
 		{"Madness:X R", true, "Event$ Moved | ActiveZones$ Hand | ValidCard$ Card.Self | Discard$ True | Secondary$ True | ReplaceWith$ KWMadnessExile{n}"},
 		{"Madness", false, ""},
+		{"Rebound", true, "Event$ Moved | ValidLKI$ Card.Self+wasCastFromHand+YouOwn+YouCtrl | Origin$ Stack | Destination$ Graveyard | Fizzle$ False | ReplaceWith$ KWReboundExile{n}"},
 	} {
 		t.Run(tc.line, func(t *testing.T) {
 			t.Parallel()

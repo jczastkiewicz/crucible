@@ -162,3 +162,27 @@ func TestThroneOfTheGrimCaptainCraftsWithOneOfEachType(t *testing.T) {
 		}
 	}
 }
+
+// The XMin of a Craft cost is a floor on the announced X
+// (AbilityUtils.getAnnouncementBounds): Paleontologist's Pick-Axe will not
+// craft with X = 0, which would exile no creature.
+func TestCraftRefusesAnXBelowItsMinimum(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	axe := g.NewCard(corpusCard(t, "Paleontologist's Pick-Axe"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Serra Angel"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Red, 6)
+	for range 6 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	c.QueuePayX(0)
+	if g.ActivateAbility(p, axe, craftIndex(g, axe), c) {
+		t.Fatal("Craft activated with X = 0 under XMin1")
+	}
+	_ = g.TakePendingError()
+	if z := g.Card(axe).Zone; z != engine.Battlefield {
+		t.Errorf("Pick-Axe in %v after the refusal, want Battlefield", z)
+	}
+}

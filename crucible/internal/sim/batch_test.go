@@ -223,6 +223,34 @@ func TestDeckFromListRepeatsEachCopy(t *testing.T) {
 	}
 }
 
+// The Stickers section becomes the deck's sheets (CR 123.2a); a batch checks
+// their names against the database like the main deck's, and seats them.
+func TestDeckStickerSheetsAreReadCheckedAndSeated(t *testing.T) {
+	t.Parallel()
+	d := deck.Parse("t.dck", []byte("[Main]\n1 Island\n[Stickers]\n2 Sheet\n1 Other Sheet\n"))
+	if got, want := sim.DeckFromList("T", d).Stickers, []string{"Sheet", "Sheet", "Other Sheet"}; !slices.Equal(got, want) {
+		t.Errorf("stickers %v, want %v", got, want)
+	}
+
+	s := spec(t)
+	s.DB = blankDB(t, "Blank", "Sheet")
+	s.Decks[0].Stickers = []string{"Sheet", "Sheet", "Sheet", "Sheet"}
+	got, err := sim.RunBatch(context.Background(), s, 2, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range got {
+		if r.Outcome != sim.Won {
+			t.Errorf("game %d with sticker sheets: %v %q, want a win by decking", r.Index, r.Outcome, r.Detail)
+		}
+	}
+
+	s.Decks[0].Stickers = []string{"No Such Sheet"}
+	if _, err := sim.RunBatch(context.Background(), s, 1, 1); err == nil || !strings.Contains(err.Error(), "No Such Sheet") {
+		t.Errorf("unknown sheet: err = %v, want it named", err)
+	}
+}
+
 func TestGauntletAlternatesSeatsAndTurnOrder(t *testing.T) {
 	t.Parallel()
 	gt := sim.Gauntlet{

@@ -178,8 +178,9 @@ func deckPaths(list string) ([]string, error) {
 	return out, nil
 }
 
-// loadSimDeck reads a .dck and resolves each main-deck name to the database's
-// spelling. A name the database lacks is an error naming every such card.
+// loadSimDeck reads a .dck and resolves each main-deck and sticker-sheet name
+// to the database's spelling. A name the database lacks is an error naming
+// every such card.
 func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -192,17 +193,22 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 	}
 	out := sim.Deck{Name: d.Name}
 	var missing []string
-	for _, e := range d.Cards(deck.Main) {
-		name, ok := byLower[strings.ToLower(e.Name)]
-		if !ok {
-			name, ok = byLower[strings.ToLower(carddb.NormalizeName(e.Name))]
-		}
-		if !ok {
-			missing = append(missing, e.Name)
-			continue
-		}
-		for i := 0; i < e.Count; i++ {
-			out.Cards = append(out.Cards, name)
+	for _, sec := range []struct {
+		section deck.Section
+		into    *[]string
+	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}} {
+		for _, e := range d.Cards(sec.section) {
+			name, ok := byLower[strings.ToLower(e.Name)]
+			if !ok {
+				name, ok = byLower[strings.ToLower(carddb.NormalizeName(e.Name))]
+			}
+			if !ok {
+				missing = append(missing, e.Name)
+				continue
+			}
+			for i := 0; i < e.Count; i++ {
+				*sec.into = append(*sec.into, name)
+			}
 		}
 	}
 	if len(missing) > 0 {

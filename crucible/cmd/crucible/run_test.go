@@ -33,6 +33,10 @@ func TestLoadSimDeckResolvesNamesAndNamesTheMissing(t *testing.T) {
 	if d.Name != "burn" || len(d.Cards) != 5 || d.Cards[0] != "Lightning Bolt" || d.Cards[4] != "Mountain" {
 		t.Errorf("deck %+v, want 2 Lightning Bolt then 3 Mountain, no sideboard", d)
 	}
+	stickered := writeDeckFile(t, dir, "stickered", "[Main]\n1 Mountain\n[Stickers]\n1 unstable robot dragon\n")
+	if d, err := loadSimDeck(db, stickered); err != nil || len(d.Stickers) != 1 || d.Stickers[0] != "Unstable Robot Dragon" {
+		t.Errorf("sticker sheets %+v (err %v), want Unstable Robot Dragon", d.Stickers, err)
+	}
 	bad := writeDeckFile(t, dir, "bad", "[Main]\n1 Not A Real Card\n1 Also Fake\n")
 	if _, err := loadSimDeck(db, bad); err == nil || !strings.Contains(err.Error(), "Not A Real Card") || !strings.Contains(err.Error(), "Also Fake") {
 		t.Errorf("missing cards: err = %v, want both named", err)

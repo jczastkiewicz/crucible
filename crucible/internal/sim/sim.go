@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -50,18 +51,26 @@ var outcomeNames = [...]string{"won", "draw", "turn cap", "errored", "panicked",
 
 func (o Outcome) String() string { return outcomeNames[o] }
 
-// Deck is one side's main deck, one entry per card (copies repeated).
+// Deck is one side's main deck, one entry per card (copies repeated), and
+// its sticker sheets (the Stickers section, CR 123.2a), seated at the start
+// of each game.
 type Deck struct {
-	Name  string
-	Cards []string
+	Name     string
+	Cards    []string
+	Stickers []string
 }
 
-// DeckFromList flattens a parsed decklist's main section.
+// DeckFromList flattens a parsed decklist's main and Stickers sections.
 func DeckFromList(name string, d *deck.Deck) Deck {
 	out := Deck{Name: name}
 	for _, e := range d.Cards(deck.Main) {
 		for i := 0; i < e.Count; i++ {
 			out.Cards = append(out.Cards, e.Name)
+		}
+	}
+	for _, e := range d.Cards(deck.Stickers) {
+		for i := 0; i < e.Count; i++ {
+			out.Stickers = append(out.Stickers, e.Name)
 		}
 	}
 	return out
@@ -202,7 +211,7 @@ func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
 				continue
 			}
 			checked[d.Name] = true
-			for _, name := range d.Cards {
+			for _, name := range append(slices.Clone(d.Cards), d.Stickers...) {
 				if _, ok := plan.DB.Card(name); !ok {
 					return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
 				}
@@ -392,6 +401,16 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 		for _, name := range d.Cards {
 			def, _ := plan.DB.Card(name)
 			g.NewCard(def, pid, engine.Library)
+		}
+		// Player.initVariantsZones (Player.java:3072-3079): three of the
+		// deck's sheets, at random, into the StickerSheets zone.
+		if len(d.Stickers) > 0 {
+			sheets := make([]*compile.Card, 0, len(d.Stickers))
+			for _, name := range d.Stickers {
+				def, _ := plan.DB.Card(name)
+				sheets = append(sheets, def)
+			}
+			g.SeatStickerSheets(pid, sheets)
 		}
 	}
 	var rec *telemetry.Recorder

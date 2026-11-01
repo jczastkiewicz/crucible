@@ -3882,9 +3882,9 @@ func (g *Game) becomesTargetSourceObjects(by *Ability) triggeredObjects {
 // against by, the spell or ability that chose the target, as it sits on the
 // stack, read from the watcher's point of view. by's kind tells Spell,
 // Activated and Triggered apart (Ability.causeKind) and Instant/Sorcery read
-// its card's type. A spec this port cannot evaluate (Ability.Backup,
-// numTargets EQ1) matches nothing: the line does not fire (GO-7, the same
-// fail-closed answer the trigger's other unreadable params get).
+// its card's type. A spec this port cannot evaluate (Ability.Backup) matches
+// nothing: the line does not fire (GO-7, the same fail-closed answer the
+// trigger's other unreadable params get).
 func (g *Game) becomesTargetSourceMatches(by *Ability, watcher *Card, amounts map[string]expr.Amount, spec string) bool {
 	matched, recognized := g.spellAbilityMatches(by, spec, watcher, watcher.Controller(), amounts)
 	return matched && recognized

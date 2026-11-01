@@ -357,3 +357,65 @@ func TestCrewRefusesInsufficientPower(t *testing.T) {
 		t.Error("Crew 1 was paid with a 0-power creature")
 	}
 }
+
+// Assimilation Aegis: its ETB exiles a creature until it leaves; equipped to a
+// creature, that creature becomes a copy of the exiled card for as long as the
+// Aegis stays attached (Clone Duration$ UntilUnattached), and is itself again
+// once the Aegis moves on.
+func TestAssimilationAegisCopiesTheExiledCreatureWhileAttached(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	angel := g.NewCard(corpusCard(t, "Serra Angel"), other, engine.Battlefield)
+	first := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	second := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+
+	aegis := g.NewCard(corpusCard(t, "Assimilation Aegis"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.White, 2)
+	g.Player(p).ManaPool.Add(mana.Blue, 1)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(angel)})
+	if !g.CastSpell(p, aegis, c) {
+		t.Fatalf("CastSpell: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(angel).Zone; z != engine.Exile {
+		t.Fatalf("Serra Angel in %v, want Exile", z)
+	}
+
+	equip := func(target engine.CardID) {
+		t.Helper()
+		g.Player(p).ManaPool.Add(mana.White, 2)
+		c := engine.NewScriptedController()
+		c.QueuePayGeneric(mana.ShardW)
+		c.QueuePayGeneric(mana.ShardW)
+		c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+		c.QueueCardChoice([]engine.CardID{angel})
+		if !g.ActivateAbility(p, aegis, 0, c) {
+			t.Fatalf("Equip: %v", g.TakePendingError())
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		sba(g)
+	}
+
+	equip(first)
+	if name := g.Card(first).Def.Name; name != "Serra Angel" {
+		t.Errorf("equipped Bears is %q, want a copy of Serra Angel", name)
+	}
+	if pw, _ := g.Card(first).Power(); pw != 4 {
+		t.Errorf("equipped Bears power = %d, want Serra Angel's 4", pw)
+	}
+	equip(second)
+	if name := g.Card(first).Def.Name; name != "Grizzly Bears" {
+		t.Errorf("unequipped Bears is %q, want itself again", name)
+	}
+	if name := g.Card(second).Def.Name; name != "Serra Angel" {
+		t.Errorf("newly equipped Bears is %q, want a copy of Serra Angel", name)
+	}
+}

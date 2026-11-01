@@ -44,3 +44,34 @@ func TestDayboundTransformsWithDayAndNight(t *testing.T) {
 		t.Errorf("by day the card is still %q, want Bird Admirer", g.Card(admirer).Name())
 	}
 }
+
+// Curse of Leeches: by night it is Leeching Lurker; when day comes it
+// transforms back into an Aura Curse, and its Transform replacement attaches
+// it to a player its controller chooses (CR 701.28f).
+func TestCurseOfLeechesAttachesToAChosenPlayerAsItTransformsBack(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	curse := g.NewCard(corpusCard(t, "Curse of Leeches"), p, engine.Battlefield)
+	g.AttachToPlayer(curse, p)
+	c := engine.NewScriptedController()
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ DayTime | Value$ Night"); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if !g.Card(curse).InTransformedState() || g.Card(curse).Name() != "Leeching Lurker" {
+		t.Fatalf("at night (%v) the card is %q in %v, want Leeching Lurker", g.DayTime(), g.Card(curse).Name(), g.Card(curse).Zone)
+	}
+
+	c.QueuePlayerChoice(other)
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ DayTime | Value$ Day"); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	cc := g.Card(curse)
+	if cc.InTransformedState() || cc.Zone != engine.Battlefield {
+		t.Fatalf("by day the card is %q in %v, want Curse of Leeches on the battlefield", cc.Name(), cc.Zone)
+	}
+	if pid, ok := cc.AttachedToPlayer(); !ok || pid != other {
+		t.Errorf("Curse of Leeches attached to player %v (%v), want the chosen opponent", pid, ok)
+	}
+}

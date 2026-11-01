@@ -11,12 +11,15 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/store"
+	"github.com/jczastkiewicz/crucible/internal/telemetry"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
@@ -64,11 +67,60 @@ func DeckFromList(name string, d *deck.Deck) Deck {
 	return out
 }
 
-// Spec is one batch.
-type Spec struct {
-	DB *compile.DB
-	// Decks seat 1 and seat 2.
-	Decks [2]Deck
+// Job is one game of a plan: the decks in seat order and who goes first.
+type Job struct {
+	// Matchup numbers the deck pair the game belongs to, for reports.
+	Matchup int
+	Decks   [2]Deck
+	// OnPlay is the seat that goes first, 1 or 2; 0 leaves it to the coin
+	// flip.
+	OnPlay int
+}
+
+// Opponent is one deck a gauntlet plays its target against, and how many
+// games.
+type Opponent struct {
+	Deck  Deck
+	Games int
+}
+
+// Gauntlet is the target deck against a list of opponents (R23b). Seats and
+// turn order alternate game by game within a matchup, so each deck plays and
+// draws equally often whatever the games count's parity allows.
+type Gauntlet struct {
+	Name      string
+	Target    Deck
+	Opponents []Opponent
+}
+
+// Jobs is the gauntlet's schedule, matchup by matchup in the order listed.
+// Game g of a matchup seats the target first when g is even and puts the target
+// on the play when (g/2) is even, so the four combinations of seat and turn
+// order cycle.
+func (gt Gauntlet) Jobs() []Job {
+	var jobs []Job
+	for m, o := range gt.Opponents {
+		for g := 0; g < o.Games; g++ {
+			j := Job{Matchup: m, Decks: [2]Deck{gt.Target, o.Deck}}
+			if g%2 == 1 {
+				j.Decks = [2]Deck{o.Deck, gt.Target}
+			}
+			targetSeat := 1 + g%2
+			if (g/2)%2 == 0 {
+				j.OnPlay = targetSeat
+			} else {
+				j.OnPlay = 3 - targetSeat
+			}
+			jobs = append(jobs, j)
+		}
+	}
+	return jobs
+}
+
+// Plan is a batch to run.
+type Plan struct {
+	DB   *compile.DB
+	Jobs []Job
 	// NewController makes the controller one game uses; it answers for both
 	// seats and is not shared between games.
 	NewController func() engine.PlayerController
@@ -79,6 +131,20 @@ type Spec struct {
 	MaxTurns int
 	// GameTimeout bounds one game's wall-clock time; 0 means none.
 	GameTimeout time.Duration
+	// Store, when set, receives each game's rows. Rows reach their shard in
+	// game order whatever the worker count, so the files are reproducible.
+	Store *store.Run
+}
+
+// Spec is one batch of the same deck pair, the simple case of a Plan.
+type Spec struct {
+	DB    *compile.DB
+	Decks [2]Deck
+	// NewController is Plan.NewController.
+	NewController func() engine.PlayerController
+	BaseSeed      int64
+	MaxTurns      int
+	GameTimeout   time.Duration
 }
 
 // GameResult is one game's record.
@@ -103,28 +169,53 @@ func SeedFor(base int64, index int) int64 {
 	return int64(z ^ (z >> 31))
 }
 
-// RunBatch plays n games on workers goroutines and returns their results
+// RunBatch plays n games of one deck pair on workers goroutines and returns
+// their results ordered by game index.
+func RunBatch(ctx context.Context, spec Spec, n, workers int) ([]GameResult, error) {
+	jobs := make([]Job, n)
+	for i := range jobs {
+		jobs[i] = Job{Decks: spec.Decks}
+	}
+	return Run(ctx, Plan{
+		DB: spec.DB, Jobs: jobs, NewController: spec.NewController, BaseSeed: spec.BaseSeed,
+		MaxTurns: spec.MaxTurns, GameTimeout: spec.GameTimeout,
+	}, workers)
+}
+
+// Run plays a plan's games on workers goroutines and returns their results
 // ordered by game index. A cancelled ctx stops handing out games; games
 // already started finish, and the unplayed ones are left out of the result.
-func RunBatch(ctx context.Context, spec Spec, n, workers int) ([]GameResult, error) {
-	if spec.DB == nil || spec.NewController == nil || spec.MaxTurns < 1 {
+func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
+	if plan.DB == nil || plan.NewController == nil || plan.MaxTurns < 1 {
 		return nil, fmt.Errorf("sim: a batch needs a database, a controller factory and a turn cap")
 	}
 	if workers < 1 {
 		workers = 1
 	}
-	for i, d := range spec.Decks {
-		if len(d.Cards) == 0 {
-			return nil, fmt.Errorf("sim: deck %d (%q) is empty", i+1, d.Name)
-		}
-		for _, name := range d.Cards {
-			if _, ok := spec.DB.Card(name); !ok {
-				return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
+	checked := map[string]bool{}
+	for i, j := range plan.Jobs {
+		for _, d := range j.Decks {
+			if len(d.Cards) == 0 {
+				return nil, fmt.Errorf("sim: game %d: deck %q is empty", i, d.Name)
+			}
+			if checked[d.Name] {
+				continue
+			}
+			checked[d.Name] = true
+			for _, name := range d.Cards {
+				if _, ok := plan.DB.Card(name); !ok {
+					return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
+				}
 			}
 		}
 	}
+	n := len(plan.Jobs)
 	results := make([]GameResult, n)
 	played := make([]bool, n)
+	commit := make(chan finished)
+	committed := make(chan error, 1)
+	go func() { committed <- commitRows(plan, commit) }()
+
 	next := make(chan int)
 	var wg sync.WaitGroup
 	for w := 0; w < workers; w++ {
@@ -132,8 +223,12 @@ func RunBatch(ctx context.Context, spec Spec, n, workers int) ([]GameResult, err
 		go func() {
 			defer wg.Done()
 			for i := range next {
-				results[i] = playGame(spec, i)
+				res, rows := playGame(plan, i)
+				results[i] = res
 				played[i] = true
+				if plan.Store != nil {
+					commit <- finished{idx: i, res: res, rows: rows}
+				}
 			}
 		}()
 	}
@@ -147,6 +242,10 @@ feed:
 	}
 	close(next)
 	wg.Wait()
+	close(commit)
+	if err := <-committed; err != nil {
+		return nil, err
+	}
 	out := results[:0]
 	for i, r := range results {
 		if played[i] {
@@ -156,63 +255,170 @@ feed:
 	return out, nil
 }
 
+// finished is one game's result and rows on their way to the store.
+type finished struct {
+	idx  int
+	res  GameResult
+	rows []telemetry.TenureRow
+}
+
+// commitRows writes games' rows to the store in game order: a game waits
+// until every earlier game has been written, so a shard's bytes do not depend
+// on which worker finished first.
+func commitRows(plan Plan, in <-chan finished) error {
+	if plan.Store == nil {
+		for range in {
+		}
+		return nil
+	}
+	shards := plan.Store.Manifest().Shards
+	open := map[int]*store.Shard{}
+	var firstErr error
+	write := func(f finished) {
+		if firstErr != nil {
+			return
+		}
+		n := store.ShardOf(f.idx, shards)
+		sh := open[n]
+		if sh == nil {
+			var err error
+			if sh, err = plan.Store.Shard(n); err != nil {
+				firstErr = err
+				return
+			}
+			open[n] = sh
+		}
+		job := plan.Jobs[f.idx]
+		row := telemetry.GameRow{
+			Game: f.idx, Matchup: job.Matchup, Seed: f.res.Seed, Decks: [2]string{job.Decks[0].Name, job.Decks[1].Name},
+			OnPlay: job.OnPlay, Outcome: f.res.Outcome.String(), Winner: f.res.Winner, Turns: f.res.Turns,
+		}
+		if firstErr = sh.Write(telemetry.KindGame, row); firstErr != nil {
+			return
+		}
+		for _, t := range f.rows {
+			if firstErr = sh.Write(telemetry.KindTenure, t); firstErr != nil {
+				return
+			}
+		}
+	}
+	pending := map[int]finished{}
+	nextIdx := 0
+	for f := range in {
+		pending[f.idx] = f
+		for {
+			p, ok := pending[nextIdx]
+			if !ok {
+				break
+			}
+			write(p)
+			delete(pending, nextIdx)
+			nextIdx++
+		}
+	}
+	// Games skipped by a cancelled run leave gaps; the rest go out in order.
+	rest := make([]int, 0, len(pending))
+	for idx := range pending {
+		rest = append(rest, idx)
+	}
+	sort.Ints(rest)
+	for _, idx := range rest {
+		write(pending[idx])
+	}
+	for _, sh := range open {
+		if err := sh.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
 // playGame runs game index with its timeout and panic isolation.
-func playGame(spec Spec, index int) GameResult {
-	seed := SeedFor(spec.BaseSeed, index)
-	done := make(chan GameResult, 1)
+func playGame(plan Plan, index int) (GameResult, []telemetry.TenureRow) {
+	seed := SeedFor(plan.BaseSeed, index)
+	type out struct {
+		res  GameResult
+		rows []telemetry.TenureRow
+	}
+	done := make(chan out, 1)
 	go func() {
 		res := GameResult{Index: index, Seed: seed}
+		var rows []telemetry.TenureRow
 		defer func() {
 			if r := recover(); r != nil {
 				res.Outcome = Panicked
 				res.Detail = fmt.Sprintf("%v\n%s", r, debug.Stack())
 			}
-			done <- res
+			done <- out{res, rows}
 		}()
-		runOne(spec, seed, &res)
+		rows = runOne(plan, plan.Jobs[index], index, seed, &res)
 	}()
-	if spec.GameTimeout <= 0 {
-		return <-done
+	if plan.GameTimeout <= 0 {
+		o := <-done
+		return o.res, o.rows
 	}
 	select {
-	case res := <-done:
-		return res
-	case <-time.After(spec.GameTimeout):
-		return GameResult{Index: index, Seed: seed, Outcome: Hung, Detail: "no result within " + spec.GameTimeout.String()}
+	case o := <-done:
+		return o.res, o.rows
+	case <-time.After(plan.GameTimeout):
+		return GameResult{Index: index, Seed: seed, Outcome: Hung, Detail: "no result within " + plan.GameTimeout.String()}, nil
 	}
 }
 
-// runOne plays one game to its end and fills res.
-func runOne(spec Spec, seed int64, res *GameResult) {
-	g := engine.NewGame(spec.DB, javarand.New(seed), []string{spec.Decks[0].Name, spec.Decks[1].Name})
-	for seat, d := range spec.Decks {
+// firstPlayer makes a controller start the seat a job names.
+type firstPlayer struct {
+	engine.PlayerController
+	seat engine.PlayerID
+}
+
+func (f firstPlayer) ChooseStartingPlayer(*engine.Game, engine.PlayerID, bool) engine.PlayerID {
+	return f.seat
+}
+
+// runOne plays one game to its end and fills res. It returns the hand
+// tenures when the plan stores rows.
+func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) []telemetry.TenureRow {
+	g := engine.NewGame(plan.DB, javarand.New(seed), []string{job.Decks[0].Name, job.Decks[1].Name})
+	for seat, d := range job.Decks {
 		pid := g.Players()[seat]
 		for _, name := range d.Cards {
-			def, _ := spec.DB.Card(name)
+			def, _ := plan.DB.Card(name)
 			g.NewCard(def, pid, engine.Library)
 		}
 	}
-	ctl := spec.NewController()
+	var rec *telemetry.Recorder
+	if plan.Store != nil {
+		rec = telemetry.NewRecorder(g, index)
+		g.SetSink(rec)
+	}
+	ctl := plan.NewController()
+	if job.OnPlay != 0 {
+		ctl = firstPlayer{PlayerController: ctl, seat: g.Players()[job.OnPlay-1]}
+	}
 	first := engine.DealOpeningHands(g, ctl)
 	engine.PerformMulligans(g, ctl, first)
 	g.StartTurn(first, ctl)
-	if err := g.Run(engine.NewRegistry(), ctl, spec.MaxTurns); err != nil {
-		res.Outcome, res.Detail = Errored, err.Error()
-		return
-	}
+	err := g.Run(engine.NewRegistry(), ctl, plan.MaxTurns)
 	res.Turns = g.Turn()
-	if err := g.TakePendingError(); err != nil {
+	switch {
+	case err != nil:
 		res.Outcome, res.Detail = Errored, err.Error()
-		return
-	}
-	if !g.Over() {
-		res.Outcome = TurnCap
-		return
-	}
-	res.Outcome = Draw
-	for seat, pid := range g.Players() {
-		if g.Player(pid).Won {
-			res.Outcome, res.Winner = Won, seat+1
+	default:
+		if perr := g.TakePendingError(); perr != nil {
+			res.Outcome, res.Detail = Errored, perr.Error()
+		} else if !g.Over() {
+			res.Outcome = TurnCap
+		} else {
+			res.Outcome = Draw
+			for seat, pid := range g.Players() {
+				if g.Player(pid).Won {
+					res.Outcome, res.Winner = Won, seat+1
+				}
+			}
 		}
 	}
+	if rec == nil {
+		return nil
+	}
+	return rec.Finish(res.Turns)
 }

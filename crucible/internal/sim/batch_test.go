@@ -1,7 +1,11 @@
 package sim_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -14,6 +18,8 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/sim"
 	"github.com/jczastkiewicz/crucible/internal/smoke"
+	"github.com/jczastkiewicz/crucible/internal/store"
+	"github.com/jczastkiewicz/crucible/internal/telemetry"
 )
 
 func blankDB(t *testing.T, names ...string) *compile.DB {
@@ -214,5 +220,161 @@ func TestDeckFromListRepeatsEachCopy(t *testing.T) {
 	got := sim.DeckFromList("T", d)
 	if want := []string{"Island", "Island", "Mountain"}; !slices.Equal(got.Cards, want) || got.Name != "T" {
 		t.Errorf("deck %+v, want main cards %v", got, want)
+	}
+}
+
+func TestGauntletAlternatesSeatsAndTurnOrder(t *testing.T) {
+	t.Parallel()
+	gt := sim.Gauntlet{
+		Name:   "g",
+		Target: sim.Deck{Name: "T", Cards: []string{"Blank"}},
+		Opponents: []sim.Opponent{
+			{Deck: sim.Deck{Name: "X", Cards: []string{"Blank"}}, Games: 4},
+			{Deck: sim.Deck{Name: "Y", Cards: []string{"Blank"}}, Games: 1},
+		},
+	}
+	jobs := gt.Jobs()
+	if len(jobs) != 5 {
+		t.Fatalf("%d jobs, want 5", len(jobs))
+	}
+	type want struct {
+		matchup, targetSeat, onPlay int
+	}
+	for i, w := range []want{{0, 1, 1}, {0, 2, 2}, {0, 1, 2}, {0, 2, 1}, {1, 1, 1}} {
+		j := jobs[i]
+		seat := 1
+		if j.Decks[1].Name == "T" {
+			seat = 2
+		}
+		if j.Matchup != w.matchup || seat != w.targetSeat || j.OnPlay != w.onPlay {
+			t.Errorf("job %d: matchup %d, target seat %d, on play %d; want %+v", i, j.Matchup, seat, j.OnPlay, w)
+		}
+	}
+	// Over four games the target plays and draws twice from each seat order.
+	var play int
+	for _, j := range jobs[:4] {
+		seat := 1
+		if j.Decks[1].Name == "T" {
+			seat = 2
+		}
+		if j.OnPlay == seat {
+			play++
+		}
+	}
+	if play != 2 {
+		t.Errorf("the target is on the play in %d of 4 games, want 2", play)
+	}
+}
+
+func TestPlanForcesWhoGoesFirst(t *testing.T) {
+	t.Parallel()
+	s := spec(t)
+	var jobs []sim.Job
+	for i := 0; i < 4; i++ {
+		jobs = append(jobs, sim.Job{Decks: s.Decks, OnPlay: 1 + i%2})
+	}
+	dir := t.TempDir()
+	run, err := store.Create(dir, store.Manifest{RunID: "r", SchemaVersion: telemetry.SchemaVersion, MetricsVersion: telemetry.MetricsVersion, Shards: 2, Games: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = sim.Run(context.Background(), sim.Plan{DB: s.DB, Jobs: jobs, NewController: s.NewController, BaseSeed: 3, MaxTurns: 200, Store: run}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := store.Open(dir, telemetry.SchemaVersion, telemetry.MetricsVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var winners, games int
+	_ = r.Each(func(row store.Row) error {
+		if row.Kind != telemetry.KindGame {
+			return nil
+		}
+		var g telemetry.GameRow
+		if err := json.Unmarshal(row.Data, &g); err != nil {
+			t.Fatal(err)
+		}
+		games++
+		// Blank decks: the player on the draw draws first and so empties the
+		// library first; the player on the play wins.
+		if g.Winner == g.OnPlay {
+			winners++
+		}
+		return nil
+	})
+	if games != 4 || winners != 4 {
+		t.Errorf("%d games, the player on the play won %d, want 4 and 4", games, winners)
+	}
+}
+
+// Rows reach the shards in game order, so the files are the same whatever the
+// worker count.
+func TestStoredShardsDoNotDependOnWorkers(t *testing.T) {
+	t.Parallel()
+	read := func(workers int) map[string][]byte {
+		s := spec(t)
+		dir := t.TempDir()
+		run, err := store.Create(dir, store.Manifest{RunID: "r", SchemaVersion: 1, MetricsVersion: 1, Shards: 3, Games: 9})
+		if err != nil {
+			t.Fatal(err)
+		}
+		jobs := make([]sim.Job, 9)
+		for i := range jobs {
+			jobs[i] = sim.Job{Decks: s.Decks}
+		}
+		if _, err := sim.Run(context.Background(), sim.Plan{DB: s.DB, Jobs: jobs, NewController: s.NewController, BaseSeed: 11, MaxTurns: 200, Store: run}, workers); err != nil {
+			t.Fatal(err)
+		}
+		out := map[string][]byte{}
+		files, _ := filepath.Glob(filepath.Join(dir, "shards", "*"))
+		for _, f := range files {
+			b, _ := os.ReadFile(f)
+			out[filepath.Base(f)] = b
+		}
+		return out
+	}
+	a, b := read(1), read(5)
+	if len(a) != 3 || len(b) != 3 {
+		t.Fatalf("%d and %d shards, want 3 each", len(a), len(b))
+	}
+	for name, bytesA := range a {
+		if !bytes.Equal(bytesA, b[name]) {
+			t.Errorf("%s differs between one and five workers", name)
+		}
+	}
+}
+
+// The recorder turns zone changes into hand tenures: every drawn card of a
+// blank game is held until the game ends or it is discarded.
+func TestRecorderKeepsHandTenures(t *testing.T) {
+	t.Parallel()
+	s := spec(t)
+	dir := t.TempDir()
+	run, _ := store.Create(dir, store.Manifest{RunID: "r", SchemaVersion: 1, MetricsVersion: 1, Shards: 1, Games: 1})
+	if _, err := sim.Run(context.Background(), sim.Plan{DB: s.DB, Jobs: []sim.Job{{Decks: s.Decks}}, NewController: s.NewController, BaseSeed: 2, MaxTurns: 200, Store: run}, 1); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := store.Open(dir, 0, 0)
+	sum, err := telemetry.Summarize(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stat := sum.Cards["A"]["Blank"]
+	if stat == nil || stat.Tenures < 7 {
+		t.Fatalf("A's Blank tenures %+v, want at least the opening seven", stat)
+	}
+	if stat.Stuck == 0 {
+		t.Errorf("A's Blank %+v: cards still in hand at the end should be counted as stuck", *stat)
+	}
+	rows := 0
+	_ = r.Each(func(row store.Row) error {
+		if row.Kind == telemetry.KindTenure {
+			rows++
+		}
+		return nil
+	})
+	if rows == 0 {
+		t.Error("no tenure rows stored")
 	}
 }

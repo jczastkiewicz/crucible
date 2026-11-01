@@ -1,0 +1,13 @@
+# CardFactoryUtil.java:4119-4128, SpellAbilityRestriction.java:359-361: a
+# Vengeance half (Dark Tutor, {1}{B}{B}) is cast only from the graveyard and is
+# exiled as it leaves the stack. It tutors a card to hand and costs 3 life.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+queue paygeneric B
+queue cardchoice 5
+queue confirmeffect true
+castspell human 1 face
+resolvestack

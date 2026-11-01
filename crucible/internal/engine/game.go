@@ -1277,6 +1277,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		g.Player(owner).DescendedThisTurn = true
 		g.Player(owner).descended++
 	}
+	if from != kind && kind != Battlefield {
+		// Java copies the card on any move but one to the battlefield
+		// (GameAction.java:207), and the copy has a fresh damage history.
+		c.damageDealtThisTurn = 0
+	}
 	g.recordEntered(c, &before, from, kind)
 
 	g.sink.Emit(Event{
@@ -1388,6 +1393,9 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	}
 	if from == Stack {
 		c.leaveRoom()
+	}
+	if from != Library {
+		c.damageDealtThisTurn = 0
 	}
 	g.recordEntered(c, &before, from, Library)
 

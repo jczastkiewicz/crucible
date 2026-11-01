@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Glyph of Delusion|Id:1
+humanbattlefield=Island|Id:2;Wall of Stone|Id:3
+aibattlefield=Grizzly Bears|Id:4

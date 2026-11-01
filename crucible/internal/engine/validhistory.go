@@ -9,6 +9,7 @@
 package engine
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -159,16 +160,28 @@ func thisTurnEnteredKnown(name string) bool {
 	return known
 }
 
-// blockedValidMatches is CardProperty.java:1617-1646's restriction half: one
-// of the cards c blocked (or was blocked by) this turn matches spec, read with
-// c's controller as the source controller. Java then also tries spec as a
-// Defined$ list (Targeted, ParentTarget); that needs the ability in context,
-// which this evaluator is not given, so those names match nothing here, as
-// "AttachedTo"'s own Defined fallback does not (valid.go).
+// blockedValidMatches is CardProperty.java:1620-1649: one of the cards c blocked
+// (or was blocked by) this turn matches spec, read with c's controller as the
+// source controller, or spec read as a Defined$ list in the ability in context
+// (Targeted, ParentTarget: Glyph of Delusion, Sewers of Estark) names one of
+// them.
 func blockedValidMatches(g *Game, c *Card, list []CardID, spec string, source CardID) bool {
 	parsed := valid.Parse(spec)
 	for _, id := range list {
 		if Matches(g, g.Card(id), parsed, c.Controller(), source) {
+			return true
+		}
+	}
+	a := g.resolving
+	if a == nil || len(list) == 0 || source == NoCard {
+		return false
+	}
+	defined, err := definedCards(g.Card(source), spec, a.refs())
+	if err != nil {
+		return false
+	}
+	for _, id := range defined {
+		if slices.Contains(list, id) {
 			return true
 		}
 	}

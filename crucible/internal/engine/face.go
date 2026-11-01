@@ -86,12 +86,30 @@ func (g *Game) CastFace(pid PlayerID, card CardID, controller PlayerController) 
 	if c.faceDef != nil || !faceCastable(c.Def) {
 		return false
 	}
+	if faceGraveyardOnly(c.Def) && c.Zone != Graveyard {
+		return false
+	}
 	c.castAsFace()
 	if g.castFromHand(pid, card, DoorLeft, controller) {
 		return true
 	}
 	if c.Zone != Stack {
 		c.undoCastAsFace()
+	}
+	return false
+}
+
+// faceGraveyardOnly reports whether def'"'"'s second face is cast only from the
+// graveyard: a Vengeance half or one with K:Aftermath
+// (SpellAbilityRestriction.java:359-361).
+func faceGraveyardOnly(def *compile.Card) bool {
+	if def.SplitType == carddb.SplitVengeance {
+		return true
+	}
+	for _, line := range def.Faces[carddb.FaceAlternate].Keywords {
+		if keyword.Parse(line).Name == "Aftermath" {
+			return true
+		}
 	}
 	return false
 }
@@ -131,6 +149,9 @@ func (g *Game) faceZoneCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 	}
 	switch {
 	case c.faceDef != nil && c.Zone == Graveyard:
+		if c.faceDef.SplitType == carddb.SplitVengeance {
+			return c.manaCost(), true
+		}
 		for _, line := range c.KeywordLines() {
 			if keyword.Parse(line).Name == "Aftermath" {
 				return c.manaCost(), true

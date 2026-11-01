@@ -17,7 +17,12 @@ npx markdownlint-cli2 "CLAUDE.md" "docs/crucible/**/*.md"   # semantic lint
 cd crucible && gofmt -l . && go vet ./...
 cd crucible && go test -race ./...
 cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/covergate -profile cover.out   # TEST-12 floors
+# The floor is per package (90% for internal/* and pkg/*): new code in a package, a new fixture verb, a new keyword
+# template, needs its own test in that package, or the commit hook stops on covergate.
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json   # new engine file → new group + allow-list
+# A new internal/engine file either gets a group in enginelint.json or carries its own `//enginelint:allow <groups>` line
+# under `package engine`; enginelint names the groups it references that are missing. A package-level identifier that
+# shares a name with a local elsewhere (`need`) is read as a reference to it: give new types distinct names.
 cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible            # DOC-12 docs land with code
 cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
 # R19 worklist: params a Java effect reads, cards write, and the Go effect never names (absent rows first)

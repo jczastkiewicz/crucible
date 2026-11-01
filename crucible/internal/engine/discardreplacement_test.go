@@ -11,9 +11,11 @@ import (
 // The discard replacement walk (ReplaceMoved's Discard$ True, Player.discard)
 // refuses what it cannot order or check rather than guessing (GO-7).
 
-// A discard paid as a cost carries no cause the walk knows: Loxodon Smiter's
-// EffectOnly$/ValidCause$ line cannot be decided, and is refused.
-func TestDiscardReplacementWithUnknownCauseIsAnError(t *testing.T) {
+// A discard paid as a spell's cost is not an effect (PlaySpellAbility.java:683
+// builds the cost's decision maker with ability.isTrigger()), so Loxodon
+// Smiter's EffectOnly$/ValidCause$ line does not apply and the Smiter goes to
+// the graveyard.
+func TestDiscardPaidAsASpellCostIsNotAnEffect(t *testing.T) {
 	t.Parallel()
 	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
 	voice := g.NewCard(corpusCard(t, "Tormenting Voice"), p, engine.Hand)
@@ -27,9 +29,11 @@ func TestDiscardReplacementWithUnknownCauseIsAnError(t *testing.T) {
 	if !g.CastSpell(p, voice, c) {
 		t.Fatal("could not cast Tormenting Voice")
 	}
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "cause is not known") {
-		t.Errorf("err = %v, want the Smiter's cause check refused", err)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(smiter).Zone; got != engine.Graveyard {
+		t.Errorf("Loxodon Smiter is in %v, want the graveyard", got)
 	}
 }
 

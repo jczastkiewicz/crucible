@@ -84,7 +84,7 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 				nonLands++
 			}
 		}
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, effectDiscardCause(a))
 
 		if nonLands > 0 && g.Card(id).Zone == Battlefield {
 			// The conniver's controller places (ConniveEffect.java:64, :99).

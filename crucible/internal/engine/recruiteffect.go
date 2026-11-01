@@ -40,7 +40,7 @@ func (recruitEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			return fmt.Errorf("engine: Recruit: %w", err)
 		}
 		nonland := !g.Card(chosen[0]).Type().Has(cardtype.Land)
-		discardCards(g, controller, chosen, p)
+		discardCards(g, controller, chosen, p, effectDiscardCause(a))
 		if !nonland {
 			continue
 		}

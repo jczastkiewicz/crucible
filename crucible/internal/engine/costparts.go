@@ -330,7 +330,7 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 	}
 	if uc.discardLast {
 		last := g.Player(pid).lastDrawn
-		discardCards(g, controller, []CardID{last}, pid)
+		discardCards(g, controller, []CardID{last}, pid, costDiscardCause(a))
 		if rec != nil {
 			rec.discarded = append(rec.discarded, last)
 		}
@@ -341,7 +341,7 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 		if !isSubset(chosen, options) || len(chosen) != uc.discardTypeN {
 			chosen = options[:uc.discardTypeN]
 		}
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, costDiscardCause(a))
 		if rec != nil {
 			rec.discarded = append(rec.discarded, chosen...)
 		}

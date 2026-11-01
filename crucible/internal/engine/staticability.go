@@ -290,9 +290,18 @@ func (g *Game) landwalkIgnored(attacker, blocker CardID, line string) bool {
 // staticParamsKnown reports whether static line s names only params in known
 // or the conditions staticConditionsMet reads (staticConditionParams): a
 // reader that checks those conditions reads every param s carries.
+// siblingModeParams are params one mode of a multi-mode static reads and its
+// other modes ignore (Lost in Thought's Affected$ is the Continuous mode's,
+// ValidSA$ the CantBeActivated mode's): a split piece tolerates them, as
+// Java's per-mode check never reads them.
+var siblingModeParams = map[string]bool{
+	"affected": true, "affecteddefined": true, "affectedzone": true, "ignoreeffectcost": true,
+	"validsa": true, "activator": true, "caster": true, "player": true,
+}
+
 func staticParamsKnown(s *compile.Ability, known map[string]bool) bool {
 	for _, p := range s.Params {
-		if k := strings.ToLower(p.Key); !known[k] && !staticConditionParams[k] {
+		if k := strings.ToLower(p.Key); !known[k] && !staticConditionParams[k] && (s.SplitFrom == nil || !siblingModeParams[k]) {
 			return false
 		}
 	}

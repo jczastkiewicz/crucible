@@ -121,7 +121,7 @@ func (g *Game) payCostCards(controller PlayerController, pid PlayerID, chosen ch
 		a.paid.exiled = append(a.paid.exiled, id)
 	}
 	if discard := in(Hand, chosen.discard); len(discard) > 0 {
-		discardCards(g, controller, discard, pid)
+		discardCards(g, controller, discard, pid, costDiscardCause(a))
 		a.paid.discarded = append(a.paid.discarded, discard...)
 	}
 }

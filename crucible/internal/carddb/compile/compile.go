@@ -100,6 +100,10 @@ type Ability struct {
 	// Subs are the abilities this one names, resolved. Order is the order the
 	// params appear in, so it is the script's.
 	Subs []SubRef
+	// SplitFrom is the static a multi-mode Mode$ line was split from
+	// (splitStaticModes), so the engine can tell the pieces of one static
+	// apart from separate statics; nil for every other ability.
+	SplitFrom *Ability
 	// Keyword is the `K:` line this ability was synthesized from (ADR-0038),
 	// empty for a line the card wrote itself.
 	Keyword string
@@ -851,6 +855,7 @@ func splitStaticModes(statics []*Ability) []*Ability {
 		for _, mode := range splitTrim(st.Name, ",") {
 			cp := *st
 			cp.Name = mode
+			cp.SplitFrom = st
 			cp.Params = make([]vocab.Param, len(st.Params))
 			copy(cp.Params, st.Params)
 			for i := range cp.Params {

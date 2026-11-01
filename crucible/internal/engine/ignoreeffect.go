@@ -71,8 +71,21 @@ func (g *Game) ignoreActivatorValid(pid PlayerID, host *Card, ab *compile.Abilit
 	if !ok {
 		return false
 	}
-	matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec)
-	return recognized && matched
+	if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); recognized {
+		return matched
+	}
+	// A card spec (Lost in Thought's Affected$ Creature): the controllers of
+	// the affected cards may activate (StaticAbilityContinuous.java:991-993).
+	cards, ok := g.staticAffected(host, s)
+	if !ok {
+		return false
+	}
+	for _, id := range cards {
+		if g.Card(id).Controller() == pid {
+			return true
+		}
+	}
+	return false
 }
 
 // ignoredEffect is one resolved ignore-effect: players who ignore the static
@@ -83,6 +96,10 @@ type ignoredEffect struct {
 	stamp   uint64
 	static  *compile.Ability
 	players []PlayerID
+	// cards are the static's affected cards when the effect was ignored
+	// (StaticAbilityContinuous.java:997-999, ignoreEffectCards), read by the
+	// CantAttack, CantBlock and CantBeActivated pieces.
+	cards []CardID
 }
 
 // cloneIgnores is Game.Clone's copy: the player lists must not alias.
@@ -93,6 +110,7 @@ func cloneIgnores(src []ignoredEffect) []ignoredEffect {
 	out := make([]ignoredEffect, len(src))
 	for i, e := range src {
 		e.players = append([]PlayerID(nil), e.players...)
+		e.cards = append([]CardID(nil), e.cards...)
 		out[i] = e
 	}
 	return out
@@ -102,7 +120,7 @@ func cloneIgnores(src []ignoredEffect) []ignoredEffect {
 // (StaticAbilityContinuous.java:1023 removes them from the affected players).
 func (g *Game) playerIgnores(pid PlayerID, host *Card, s *compile.Ability) bool {
 	for _, e := range g.ignores {
-		if e.static != s || e.host != host.ID || e.stamp != host.zoneStamp {
+		if staticLine(e.static) != staticLine(s) || e.host != host.ID || e.stamp != host.zoneStamp {
 			continue
 		}
 		for _, p := range e.players {
@@ -136,6 +154,32 @@ func (internalIgnoreEffectEffect) Resolve(g *Game, a *Ability, _ PlayerControlle
 			return nil
 		}
 	}
-	g.ignores = append(g.ignores, ignoredEffect{host: host.ID, stamp: host.zoneStamp, static: s, players: []PlayerID{a.Controller}})
+	cards, _ := g.staticAffected(host, s)
+	g.ignores = append(g.ignores, ignoredEffect{host: host.ID, stamp: host.zoneStamp, static: s, players: []PlayerID{a.Controller}, cards: cards})
 	return nil
+}
+
+// cardIgnores reports whether card is one of the cards an ignored s affected
+// (StaticAbilityCantAttackBlock.java:77, :178, StaticAbilityCantBeActivated:
+// the static skips them until the effect is no longer ignored).
+func (g *Game) cardIgnores(card CardID, host *Card, s *compile.Ability) bool {
+	for _, e := range g.ignores {
+		if staticLine(e.static) != staticLine(s) || e.host != host.ID || e.stamp != host.zoneStamp {
+			continue
+		}
+		for _, c := range e.cards {
+			if c == card {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// staticLine is the static s is a piece of, or s itself.
+func staticLine(s *compile.Ability) *compile.Ability {
+	if s != nil && s.SplitFrom != nil {
+		return s.SplitFrom
+	}
+	return s
 }

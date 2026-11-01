@@ -71,7 +71,7 @@ func (g *Game) cantAttack(attacker CardID, target EntityID) bool {
 }
 
 func (g *Game) cantAttackApplies(c *Card, target EntityID, host *Card, s *compile.Ability) bool {
-	if !staticParamsKnown(s, cantAttackParams) || !g.staticConditionsMet(host, s) {
+	if !staticParamsKnown(s, cantAttackParams) || !g.staticConditionsMet(host, s) || g.cardIgnores(c.ID, host, s) {
 		return false
 	}
 	if v, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(v), host.Controller(), host.ID) {
@@ -171,7 +171,7 @@ func (g *Game) cantBlock(blocker CardID) bool {
 		}
 		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
-				if !strings.EqualFold(s.Name, "CantBlock") || !staticParamsKnown(s, cantBlockParams) || !g.staticConditionsMet(h, s) {
+				if !strings.EqualFold(s.Name, "CantBlock") || !staticParamsKnown(s, cantBlockParams) || !g.staticConditionsMet(h, s) || g.cardIgnores(b.ID, h, s) {
 					continue
 				}
 				if v, ok := s.Param("ValidCard"); !ok || Matches(g, b, valid.Parse(v), h.Controller(), h.ID) {

@@ -53,9 +53,14 @@ func (g *Game) cantBeCast(pid PlayerID, card CardID) bool {
 
 func (g *Game) cantBeCastApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
 	for _, p := range s.Params {
-		if !cantBeCastParams[strings.ToLower(p.Key)] {
+		if k := strings.ToLower(p.Key); !cantBeCastParams[k] && (s.SplitFrom == nil || !siblingModeParams[k]) {
 			return false
 		}
+	}
+	// StaticAbilityCantBeCast.java:107: a player ignoring the static's effect
+	// is not stopped (Damping Engine).
+	if g.playerIgnores(pid, host, s) {
+		return false
 	}
 	if !g.staticConditionsMet(host, s) {
 		return false
@@ -145,7 +150,7 @@ func (g *Game) cantBeActivated(pid PlayerID, card *Card, isMana, isLoyalty bool)
 }
 
 func (g *Game) cantBeActivatedApplies(pid PlayerID, c, host *Card, s *compile.Ability, isMana, isLoyalty bool) bool {
-	if !staticParamsKnown(s, cantBeActivatedParams) || !g.staticConditionsMet(host, s) {
+	if !staticParamsKnown(s, cantBeActivatedParams) || !g.staticConditionsMet(host, s) || g.cardIgnores(c.ID, host, s) {
 		return false
 	}
 	if validCard, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID) {
@@ -226,7 +231,7 @@ func (g *Game) cantPlayLand(pid PlayerID, card CardID) bool {
 }
 
 func (g *Game) cantPlayLandApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
-	if !staticParamsKnown(s, cantPlayLandParams) || !g.staticConditionsMet(host, s) {
+	if !staticParamsKnown(s, cantPlayLandParams) || !g.staticConditionsMet(host, s) || g.playerIgnores(pid, host, s) {
 		return false
 	}
 	if validCard, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID) {

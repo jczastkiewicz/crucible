@@ -1101,7 +1101,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.discardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, uc.discardN)
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, costDiscardCause(a))
 		if rec != nil {
 			for _, id := range chosen {
 				if g.Card(id).Zone != Hand {
@@ -1116,7 +1116,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		for _, i := range g.randomSample(len(hand), uc.discardRandomN) {
 			chosen = append(chosen, hand[i])
 		}
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, costDiscardCause(a))
 		if rec != nil {
 			for _, id := range chosen {
 				if g.Card(id).Zone != Hand {
@@ -1128,7 +1128,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	if uc.discardHand {
 		// Discard<N/Hand> (CostDiscard's "Hand" type): the payer discards the
 		// whole hand, no choice, and an empty hand pays it too.
-		discardCards(g, controller, slices.Clone(g.Zone(Hand, pid).Cards()), pid)
+		discardCards(g, controller, slices.Clone(g.Zone(Hand, pid).Cards()), pid, costDiscardCause(a))
 	}
 	if uc.sacN > 0 || uc.sacAll {
 		picks := candidates

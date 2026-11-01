@@ -359,13 +359,30 @@ func discardValidResolvable(g *Game, spec string, controller PlayerID, source Ca
 // (ActivateAbility, activateability.go) and the other cost sites discard
 // through it; the effect above runs the same steps across several players.
 // A discard replacement may send a card elsewhere (discardToGraveyard,
-// Madness); its cause is not known here, so a line that asks for it is
-// refused there.
-func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID) {
+// Madness); cause says whether an effect made the discard (EffectOnly$,
+// Player.discard's effect flag), unknown where the caller cannot tell.
+func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID, cause discardCause) {
 	for _, id := range ids {
-		g.discardToGraveyard(controller, id, discardCause{})
+		g.discardToGraveyard(controller, id, cause)
 		g.checkDiscardedTriggers(controller, id, pid)
 		g.checkLeftZoneTriggers(controller, []CardID{id}, Hand)
 	}
 	g.checkDiscardedAllTriggers(controller, pid, ids)
+}
+
+// costDiscardCause is the cause of a discard paid as a's cost: an effect only
+// when a is a triggered ability (PlaySpellAbility.java:683 builds the cost's
+// decision maker with ability.isTrigger(), CostDiscard.java:204-214), so a
+// spell's or an activated ability's discard cost is not one Library of Leng's
+// EffectOnly$ line sees.
+func costDiscardCause(a *Ability) discardCause {
+	if a == nil {
+		return discardCause{}
+	}
+	return discardCause{known: true, effect: a.isTrigger, controller: a.Controller}
+}
+
+// effectDiscardCause is the cause of a discard an effect of a makes.
+func effectDiscardCause(a *Ability) discardCause {
+	return discardCause{known: true, effect: true, controller: a.Controller}
 }

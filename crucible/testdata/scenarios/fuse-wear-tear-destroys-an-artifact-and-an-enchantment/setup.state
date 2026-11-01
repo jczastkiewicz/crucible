@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Wear|Id:1
+humanbattlefield=Mountain|Id:2;Mountain|Id:3;Plains|Id:4
+aibattlefield=Sol Ring|Id:5;Propaganda|Id:6

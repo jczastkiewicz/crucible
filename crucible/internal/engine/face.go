@@ -7,9 +7,12 @@
 package engine
 
 import (
+	"strings"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -161,6 +164,112 @@ func (g *Game) resolvedFaceSpell(controller PlayerController, id CardID, resolve
 		g.MoveToLibraryTop(id, owner)
 		g.shuffleLibrary(controller, owner, nil)
 		return true
+	}
+	return false
+}
+
+// fuseView is the spell a Split card with Fuse is when both halves are cast
+// (AbilityFactory.buildFusedAbility, :383-415): the combined name, cost, types
+// and colors (CardFactory.java:301-313), the left half's spell with the right
+// half's spell as the last link of its sub-ability chain, and both halves'
+// amounts. ok is false for a card that is not a Fuse Split card of one
+// A:SP$ line per half with no Cost$ of its own (this port pays the combined
+// mana only).
+func fuseView(printed *compile.Card) (*compile.Card, bool) {
+	left, right := printed.Faces[carddb.FacePrimary], printed.Faces[carddb.FaceAlternate]
+	if printed.SplitType != carddb.SplitSplit || isRoomDef(printed) || right.Name == "" {
+		return nil, false
+	}
+	fuse := false
+	for _, line := range left.Keywords {
+		fuse = fuse || keyword.Parse(line).Name == "Fuse"
+	}
+	if !fuse {
+		return nil, false
+	}
+	leftSpell, leftAt := onlySpell(left)
+	rightSpell, _ := onlySpell(right)
+	if leftSpell == nil || rightSpell == nil {
+		return nil, false
+	}
+	for _, sp := range []*compile.Ability{leftSpell, rightSpell} {
+		if _, has := sp.Param("Cost"); has {
+			return nil, false
+		}
+	}
+	tail := *rightSpell
+	tail.Record = compile.SubAbility
+	v := &compile.Card{Filename: printed.Filename, Name: left.Name + " // " + right.Name}
+	v.Faces[0] = left
+	v.Faces[0].Name = v.Name
+	v.Faces[0].Type = left.Type.Union(right.Type)
+	shards := append(append([]mana.Shard(nil), left.ManaCost.Shards()...), right.ManaCost.Shards()...)
+	v.Faces[0].ManaCost = mana.FromShards(shards, left.ManaCost.Generic()+right.ManaCost.Generic())
+	if left.HasColors || right.HasColors {
+		v.Faces[0].Colors = faceColors(left) | faceColors(right)
+		v.Faces[0].HasColors = true
+	}
+	v.Faces[0].Abilities = append([]*compile.Ability(nil), left.Abilities...)
+	v.Faces[0].Abilities[leftAt] = chainWith(leftSpell, &tail)
+	amounts := map[string]expr.Amount{}
+	for k, a := range right.Amounts {
+		amounts[k] = a
+	}
+	for k, a := range left.Amounts {
+		amounts[k] = a
+	}
+	v.Faces[0].Amounts = amounts
+	return v, true
+}
+
+// onlySpell is the one A:SP$ line of f and its index, nil when there is not
+// exactly one.
+func onlySpell(f compile.Face) (*compile.Ability, int) {
+	var found *compile.Ability
+	at := -1
+	for i, ab := range f.Abilities {
+		if ab.Record != compile.Spell {
+			continue
+		}
+		if found != nil {
+			return nil, -1
+		}
+		found, at = ab, i
+	}
+	return found, at
+}
+
+// chainWith is a copy of a whose sub-ability chain ends in tail
+// (SpellAbility.appendSubAbility), the shared AST left untouched.
+func chainWith(a, tail *compile.Ability) *compile.Ability {
+	cp := *a
+	cp.Subs = append([]compile.SubRef(nil), a.Subs...)
+	for i := range cp.Subs {
+		if strings.EqualFold(cp.Subs[i].Key, "SubAbility") {
+			cp.Subs[i].Ability = chainWith(cp.Subs[i].Ability, tail)
+			return &cp
+		}
+	}
+	cp.Subs = append(cp.Subs, compile.SubRef{Key: "SubAbility", Ability: tail})
+	return &cp
+}
+
+// CastFused casts a Fuse Split card's two halves together from the hand.
+func (g *Game) CastFused(pid PlayerID, card CardID, controller PlayerController) bool {
+	c := g.Card(card)
+	if c.faceDef != nil || c.Zone != Hand {
+		return false
+	}
+	view, ok := fuseView(c.Def)
+	if !ok {
+		return false
+	}
+	c.faceDef, c.Def, c.castDoor = c.Def, view, DoorLeft
+	if g.castFromHand(pid, card, DoorLeft, controller) {
+		return true
+	}
+	if c.Zone != Stack {
+		c.undoCastAsFace()
 	}
 	return false
 }

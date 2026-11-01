@@ -376,6 +376,10 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			l.Game.CastFace(pid, ids[0], c)
 			break
 		}
+		if len(args) > 2 && args[2] == "fuse" {
+			l.Game.CastFused(pid, ids[0], c)
+			break
+		}
 		l.Game.CastSpell(pid, ids[0], c)
 
 	case "resolvestack":

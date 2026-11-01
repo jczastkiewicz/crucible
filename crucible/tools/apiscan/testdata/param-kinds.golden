@@ -1525,7 +1525,7 @@ ChooseCard	ImprintChosen	18	-	-	bool:18
 ChooseCard	IncludeSpellsOnStack	5	-	-	bool:5
 ChooseCard	LockInText	6	-	-	bool:6
 ChooseCard	Mandatory	275	-	-	bool:275
-ChooseCard	MinAmount	40	int:1	-	int:40
+ChooseCard	MinAmount	44	int:1	-	int:44
 ChooseCard	ModeCost	1	-	-	int:1
 ChooseCard	Optional	4	-	-	bool:4
 ChooseCard	OrString	1	-	-	prose:1
@@ -1740,7 +1740,7 @@ ClassLevelUp	Cost	76	-	-	prose:70,token:6
 ClassLevelUp	SorcerySpeed	76	-	-	bool:76
 ClassLevelUp	SpellDescription	76	-	-	prose:76
 ClassLevelUp	StackDescription	76	-	-	token:76
-Cleanup	ClearChosenCard	283	-	-	bool:283
+Cleanup	ClearChosenCard	285	-	-	bool:285
 Cleanup	ClearChosenColor	11	-	-	bool:11
 Cleanup	ClearChosenPlayer	54	-	-	bool:54
 Cleanup	ClearChosenType	4	-	-	bool:4
@@ -1752,13 +1752,13 @@ Cleanup	ClearTriggered	3	-	-	bool:3
 Cleanup	ConditionCompare	1	-	-	token:1
 Cleanup	ConditionDefined	1	-	-	token:1
 Cleanup	ConditionPresent	1	-	valid:1	prose:1
-Cleanup	DB	3423	-	-	token:3423
+Cleanup	DB	3425	-	-	token:3425
 Cleanup	ForgetDefined	5	defined:1	-	token:5
 Cleanup	Log	34	-	-	bool:34
 Cleanup	ShowCurrentCard	1	-	defined:2	token:1
 Cleanup	SpellDescription	10	-	-	prose:8,token:2
 Cleanup	StackDescription	4	-	-	token:4
-Cleanup	SubAbility	101	-	-	token:101
+Cleanup	SubAbility	104	-	-	token:104
 Cleanup	UnlessCost	1	-	amount:1	int:1
 Cleanup	UnlessPayer	1	-	-	token:1
 Cleanup	UnlessSwitched	1	-	-	bool:1
@@ -6854,7 +6854,7 @@ Untap	ShowCurrentCard	4	-	defined:2	token:4
 Untap	SorcerySpeed	4	-	-	bool:4
 Untap	SpellDescription	212	-	-	prose:212
 Untap	StackDescription	7	-	-	prose:5,token:2
-Untap	SubAbility	135	-	-	token:135
+Untap	SubAbility	134	-	-	token:134
 Untap	TargetMax	40	-	-	int:33,token:7
 Untap	TargetMin	40	-	-	int:35,token:5
 Untap	TargetUnique	1	-	-	bool:1

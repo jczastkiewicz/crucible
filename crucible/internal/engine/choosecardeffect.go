@@ -98,6 +98,10 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		minAmount = n
 	}
 	if maxAmount <= 0 {
+		// Choosing nothing clears any prior choice, so a RepeatEach over
+		// ChosenCard cannot reuse a stale card (ChooseCardEffect.java:95-99,
+		// upstream 2026-11: Magnetic Mountain, Dream Tides).
+		source.Memory.ClearChosen()
 		return nil
 	}
 	rawMin := minAmount

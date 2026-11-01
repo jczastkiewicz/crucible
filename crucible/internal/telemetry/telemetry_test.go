@@ -175,3 +175,58 @@ func TestRecorderNamesHowACardEnteredAndLeftTheHand(t *testing.T) {
 		t.Errorf("the opening card was held %d turns, want 9", rows[len(rows)-3].TurnsHeld)
 	}
 }
+
+// At the start of the active player's combat phase the recorder runs the
+// castability probe and tallies it against every card still in that player's
+// hand (MET-5, MET-7). A blank card costs nothing and is castable, so each
+// probe adds a playable-unused turn and no blocked one.
+func TestRecorderTalliesTheProbeAgainstOpenTenures(t *testing.T) {
+	t.Parallel()
+	c, err := compile.Compile(&carddb.Card{Filename: "C", Faces: [carddb.NumFaces]carddb.Face{{Present: true, Name: "C"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := engine.NewGame(compile.NewDB(map[string]*compile.Card{"C": c}), javarand.New(1), []string{"a", "b"})
+	p := g.Players()[0]
+	g.SetTurnState(2, p, engine.CombatBegin)
+	id := g.NewCard(c, p, engine.Hand)
+	rec := telemetry.NewRecorder(g, 0)
+	g.SetSink(rec)
+	rec.Emit(engine.Event{Kind: engine.ZoneChanged, Source: id, Actor: p, From: engine.Library, To: engine.Hand, Turn: 1})
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.CombatBegin, Active: p, Turn: 2})
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.CombatBegin, Active: p, Turn: 3})
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.Main1, Active: p, Turn: 3}) // not a probe point
+	rows := rec.Finish(4)
+	if len(rows) != 1 || rows[0].TurnsPlayableUnused != 2 || rows[0].TurnsBlocked != 0 || len(rows[0].BlockedBy) != 0 || rows[0].DominantBlock != "" {
+		t.Fatalf("rows %+v, want one tenure playable-unused two turns and never blocked", rows)
+	}
+	// Nothing open: the probe has nobody to tally and does not run.
+	empty := telemetry.NewRecorder(g, 1)
+	empty.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.CombatBegin, Active: p})
+	if len(empty.Finish(1)) != 0 {
+		t.Error("a probe with no open tenure made rows")
+	}
+}
+
+func TestSummarizeFoldsTheProbeColumnsSeparately(t *testing.T) {
+	t.Parallel()
+	r := writeRun(t, func(sh *store.Shard) {
+		_ = sh.Write(telemetry.KindGame, telemetry.GameRow{Game: 0, Decks: [2]string{"A", "B"}, Outcome: "won", Winner: 1})
+		_ = sh.Write(telemetry.KindTenure, telemetry.TenureRow{Game: 0, Seat: 1, Card: "X", TurnsBlocked: 3, TurnsPlayableUnused: 1, DominantBlock: "ColorUnavailable"})
+		_ = sh.Write(telemetry.KindTenure, telemetry.TenureRow{Game: 0, Seat: 1, Card: "X", TurnsBlocked: 1, TurnsPlayableUnused: 4, DominantBlock: "InsufficientMana"})
+	})
+	s, err := telemetry.Summarize(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := s.Cards["A"]["X"]
+	if x.BlockedTurns != 4 || x.PlayableUnusedTurns != 5 || x.DeadTenures != 1 || x.DeadRate() != 0.5 {
+		t.Errorf("X %+v, want 4 blocked and 5 playable-unused turns, one dead tenure of two", *x)
+	}
+	if x.Blocks["ColorUnavailable"] != 1 || x.Blocks["InsufficientMana"] != 1 {
+		t.Errorf("blocks %v", x.Blocks)
+	}
+	if (telemetry.CardStat{}).DeadRate() != 0 {
+		t.Error("an empty stat has a dead rate")
+	}
+}

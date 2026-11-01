@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/sim"
+	"github.com/jczastkiewicz/crucible/internal/store"
 	"github.com/jczastkiewicz/crucible/internal/telemetry"
 )
 
@@ -75,7 +76,7 @@ func TestRunStoresAGauntletAndReportReadsItBack(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
 	decks := t.TempDir()
-	target := writeDeckFile(t, decks, "reds", "[Main]\n40 Mountain\n")
+	target := writeDeckFile(t, decks, "reds", "[Main]\n30 Mountain\n10 Lightning Bolt\n")
 	vs := writeDeckFile(t, decks, "blues", "[Main]\n40 Island\n")
 	out := filepath.Join(t.TempDir(), "run1")
 	args := []string{
@@ -89,6 +90,25 @@ func TestRunStoresAGauntletAndReportReadsItBack(t *testing.T) {
 	}
 	if err := reportCmd([]string{"-run", out}); err != nil {
 		t.Fatalf("report: %v", err)
+	}
+	reader, err := store.Open(out, telemetry.SchemaVersion, telemetry.MetricsVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum, err := telemetry.Summarize(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The controller never plays a land, so a Mountain in hand is castable
+	// every turn the probe runs and never blocked.
+	mountain := sum.Cards["reds"]["Mountain"]
+	if mountain == nil || mountain.PlayableUnusedTurns == 0 || mountain.BlockedTurns != 0 {
+		t.Errorf("reds' Mountain %+v, want playable-unused turns and no blocked turns", mountain)
+	}
+	// With no land ever played, a Lightning Bolt is blocked on quantity.
+	bolt := sum.Cards["reds"]["Lightning Bolt"]
+	if bolt == nil || bolt.BlockedTurns == 0 || bolt.Blocks["InsufficientMana"] == 0 {
+		t.Errorf("reds' Lightning Bolt %+v, want blocked turns dominated by InsufficientMana", bolt)
 	}
 	if err := runCmd(args); err == nil {
 		t.Error("a second run over the same directory did not fail")

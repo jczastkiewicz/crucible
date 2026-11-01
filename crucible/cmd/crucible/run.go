@@ -286,8 +286,9 @@ func printSummary(w io.Writer, s telemetry.Summary, top int) {
 		}
 		_, _ = fmt.Fprintf(w, "%s: cards held longest (mean turns in hand)\n", d)
 		for _, r := range rows {
-			_, _ = fmt.Fprintf(w, "  %-32s %5.1f  held %d, cast %d, played %d, discarded %d, in hand at the end %d\n",
-				r.name, r.stat.MeanTurnsHeld(), r.stat.Tenures, r.stat.Cast, r.stat.Played, r.stat.Discarded, r.stat.Stuck)
+			_, _ = fmt.Fprintf(w, "  %-32s %5.1f  held %d, cast %d, played %d, discarded %d, in hand at the end %d; blocked turns %d, playable unused turns %d, dead %.0f%%\n",
+				r.name, r.stat.MeanTurnsHeld(), r.stat.Tenures, r.stat.Cast, r.stat.Played, r.stat.Discarded, r.stat.Stuck,
+				r.stat.BlockedTurns, r.stat.PlayableUnusedTurns, 100*r.stat.DeadRate())
 		}
 	}
 }

@@ -54,6 +54,25 @@ type CardStat struct {
 	Discarded int
 	// Stuck are tenures still open when the game ended.
 	Stuck int
+	// BlockedTurns and PlayableUnusedTurns total the probe columns; they are
+	// reported side by side and never added (MET-8).
+	BlockedTurns, PlayableUnusedTurns int
+	// DeadTenures are tenures blocked at least DeadThresholdTurns turns (MET-9).
+	DeadTenures int
+	// Blocks counts tenures by the reason that dominated them.
+	Blocks map[string]int
+}
+
+// DeadThresholdTurns is MET-9's default: a card is dead in a game when the
+// probe blocked it for at least this many turns.
+const DeadThresholdTurns = 2
+
+// DeadRate is the share of the card's tenures that were dead (MET-9).
+func (c CardStat) DeadRate() float64 {
+	if c.Tenures == 0 {
+		return 0
+	}
+	return float64(c.DeadTenures) / float64(c.Tenures)
 }
 
 // MeanTurnsHeld is the mean of TurnsHeld over the card's tenures.
@@ -161,6 +180,17 @@ func (s *Summary) addTenure(deck string, t TenureRow) {
 	}
 	c.Tenures++
 	c.HeldTotal += t.TurnsHeld
+	c.BlockedTurns += t.TurnsBlocked
+	c.PlayableUnusedTurns += t.TurnsPlayableUnused
+	if t.TurnsBlocked >= DeadThresholdTurns {
+		c.DeadTenures++
+	}
+	if t.DominantBlock != "" {
+		if c.Blocks == nil {
+			c.Blocks = map[string]int{}
+		}
+		c.Blocks[t.DominantBlock]++
+	}
 	switch t.Exit {
 	case "cast":
 		c.Cast++

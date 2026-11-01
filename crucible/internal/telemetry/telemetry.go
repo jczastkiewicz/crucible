@@ -3,9 +3,10 @@
 // prints (R23d). The recorder runs synchronously in the game's goroutine: it
 // has no queue, so a run's output cannot depend on machine load.
 //
-// Not yet recorded, because the engine does not yet emit what they need: the
-// castability probe (MET-5, MET-6) and the per-turn mana sample (MET-10 to
-// MET-19). Hand tenure therefore carries no TurnsBlocked columns.
+// The castability probe (MET-5, MET-6) runs at the start of each active
+// player's combat phase, which is the end of their precombat main phase with an
+// empty stack, and fills the TurnsBlocked columns of hand tenure. Not yet
+// recorded: the per-turn mana sample (MET-10 to MET-19).
 package telemetry
 
 import (
@@ -16,7 +17,7 @@ import (
 
 // SchemaVersion is stamped on every shard (ADR-0013); it moves when a row
 // gains a field or a kind.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // MetricsVersion is MET-1's version of the metric definitions the rows were
 // folded under.
@@ -57,6 +58,15 @@ type TenureRow struct {
 	// Exit is how it left: cast, played, discarded, exiled, tucked, other, or
 	// end (still in hand when the game ended).
 	Exit string `json:"exit"`
+	// TurnsBlocked and TurnsPlayableUnused are MET-7's probe columns: turns the
+	// castability probe said the card could not be cast, and turns it said it
+	// could and it stayed in hand. They are never summed (MET-8).
+	TurnsBlocked        int `json:"turns_blocked"`
+	TurnsPlayableUnused int `json:"turns_playable_unused"`
+	// BlockedBy is the union of the block reasons, DominantBlock the one that
+	// blocked it most turns ("" when it was never blocked).
+	BlockedBy     []string `json:"blocked_by,omitempty"`
+	DominantBlock string   `json:"dominant_block,omitempty"`
 }
 
 type openTenure struct {
@@ -64,6 +74,9 @@ type openTenure struct {
 	card   string
 	turn   int
 	source string
+	// The probe's tally over the turns the card sat in hand.
+	blocked, unused int
+	reasons         [8]int
 }
 
 // Recorder is an engine.Sink that keeps hand tenures.
@@ -82,6 +95,10 @@ func NewRecorder(g *engine.Game, game int) *Recorder {
 
 // Emit implements engine.Sink.
 func (r *Recorder) Emit(e engine.Event) {
+	if e.Kind == engine.PhaseBegan && e.Phase == engine.CombatBegin {
+		r.probe(e.Active)
+		return
+	}
 	if e.Kind != engine.ZoneChanged || e.From == e.To {
 		return
 	}
@@ -107,6 +124,31 @@ func (r *Recorder) Emit(e engine.Event) {
 	r.close(e.Source, t, int(e.Turn), exitName(e.To))
 }
 
+// probe runs the castability probe for the active player and tallies each card
+// still open in their hand.
+func (r *Recorder) probe(pid engine.PlayerID) {
+	if len(r.open) == 0 {
+		return
+	}
+	for _, p := range r.g.CastabilityProbe(pid) {
+		t, ok := r.open[p.Card]
+		if !ok {
+			continue
+		}
+		if p.Castable {
+			t.unused++
+		} else {
+			t.blocked++
+			for i := range t.reasons {
+				if p.Blocked&(1<<uint(i)) != 0 {
+					t.reasons[i]++
+				}
+			}
+		}
+		r.open[p.Card] = t
+	}
+}
+
 func exitName(to engine.ZoneType) string {
 	switch to {
 	case engine.Stack:
@@ -125,10 +167,23 @@ func exitName(to engine.ZoneType) string {
 
 func (r *Recorder) close(id engine.CardID, t openTenure, turn int, exit string) {
 	delete(r.open, id)
-	r.rows = append(r.rows, TenureRow{
+	row := TenureRow{
 		Game: r.game, Seat: t.seat, Card: t.card, EnteredTurn: t.turn, ExitTurn: turn,
 		TurnsHeld: turn - t.turn, Source: t.source, Exit: exit,
-	})
+		TurnsBlocked: t.blocked, TurnsPlayableUnused: t.unused,
+	}
+	most := 0
+	for i, n := range t.reasons {
+		if n == 0 {
+			continue
+		}
+		name := engine.CastBlock(1 << uint(i)).Names()[0]
+		row.BlockedBy = append(row.BlockedBy, name)
+		if n > most {
+			most, row.DominantBlock = n, name
+		}
+	}
+	r.rows = append(r.rows, row)
 }
 
 // Finish closes the tenures still open at the end of the game on turn and

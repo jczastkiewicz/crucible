@@ -192,6 +192,11 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString(s)
 		}
 	}
+	if c.OnAdventure() {
+		// GameState.java:443-447 writes this for every exiled Adventure card (its
+		// own TODO); only a card actually on an adventure is written here.
+		b.WriteString("|OnAdventure")
+	}
 	// GameState.java:445-450: last, left then right, in any zone -- only a
 	// Room on the battlefield has any.
 	for _, d := range c.UnlockedDoors() {

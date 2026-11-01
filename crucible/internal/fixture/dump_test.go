@@ -487,3 +487,29 @@ func TestDumpWritesATokenAsItsScriptName(t *testing.T) {
 		t.Errorf("dump does not name the token by script:\n%s", buf.String())
 	}
 }
+
+// OnAdventure loads onto an exiled card, dumps back, and is refused anywhere
+// but exile (GameState.java:1366, :443-447).
+func TestOnAdventureRoundTripsAndNeedsExile(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Beast", "Mountain")
+	l := load(t, db, "humanexile=Beast|Id:1|OnAdventure;Beast|Id:2\nailife=20\n")
+	if !l.Game.Card(l.CardByFixtureID[1]).OnAdventure() || l.Game.Card(l.CardByFixtureID[2]).OnAdventure() {
+		t.Fatal("OnAdventure did not mark exactly the first card")
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(buf.String(), "OnAdventure"); got != 1 {
+		t.Errorf("dump wrote OnAdventure %d times, want once:\n%s", got, buf.String())
+	}
+	st, err := fixture.Parse(strings.NewReader("humanhand=Mountain|Id:1|OnAdventure\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil || !strings.Contains(err.Error(), "OnAdventure") {
+		t.Errorf("OnAdventure in a hand: err = %v, want it refused", err)
+	}
+}

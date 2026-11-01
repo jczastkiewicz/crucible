@@ -281,6 +281,13 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.Tapped = true
 		case strings.HasPrefix(info, "SummonSick"):
 			c.SummonSick = true
+		case strings.HasPrefix(info, "OnAdventure"):
+			// GameState.java:1366: an exiled Adventure card that may be cast
+			// as its creature.
+			if kind != engine.Exile {
+				return fmt.Errorf("%s: OnAdventure: not in exile", name)
+			}
+			c.SetOnAdventure(true)
 		case strings.HasPrefix(info, "Flipped"):
 			ld.game.Flip(id)
 		case strings.HasPrefix(info, "Transformed"):

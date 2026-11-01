@@ -1,0 +1,11 @@
+# GameState.java:1366: OnAdventure puts a card in exile on an adventure, so the
+# creature half can be cast from there for its own {2}{G} (Card.isOnAdventure).
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack

@@ -294,3 +294,11 @@ func (g *Game) CastFused(pid PlayerID, card CardID, controller PlayerController)
 	}
 	return false
 }
+
+// OnAdventure reports whether c is an Adventure card in exile that may be cast as
+// its creature (Card.isOnAdventure).
+func (c *Card) OnAdventure() bool { return c.onAdventure && c.Zone == Exile }
+
+// SetOnAdventure marks an exiled Adventure card as on an adventure, for a
+// fixture's `OnAdventure` annotation (GameState.java:1366).
+func (c *Card) SetOnAdventure(on bool) { c.onAdventure = on }

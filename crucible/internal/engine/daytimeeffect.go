@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
@@ -38,9 +39,6 @@ func (dayTimeEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
-	}
-	if g.daynightBoundInPlay() || battlefieldStaticNames(g, "CantChangeDayTime") {
-		return fmt.Errorf("engine: DayTime: daybound/nightbound permanents or CantChangeDayTime not resolvable yet")
 	}
 	value, _ := a.Params.Param("Value")
 	switch value {
@@ -79,6 +77,9 @@ func (g *Game) dayTimeAtUntap(controller PlayerController) {
 // fires when the value flips between day and night. Going from neither
 // (Java's null) to a value is not a change, so the first day is silent.
 func (g *Game) setDayTime(controller PlayerController, v DayTime) {
+	if g.cantChangeDayTime(v) {
+		return
+	}
 	prev := g.dayTime
 	g.dayTime = v
 	if prev == DayNeither || prev == v {
@@ -90,14 +91,26 @@ func (g *Game) setDayTime(controller PlayerController, v DayTime) {
 	g.pushTriggeredAbilities(controller, matches)
 }
 
-// daynightBoundInPlay reports whether a daybound or nightbound permanent is
-// on the battlefield.
-func (g *Game) daynightBoundInPlay() bool {
+// cantChangeDayTime is StaticAbilityCantChangeDayTime: a live Mode$
+// CantChangeDayTime static whose NewTime$ names v (or names none) stops the
+// change ("It can't become night").
+func (g *Game) cantChangeDayTime(v DayTime) bool {
+	want := map[DayTime]string{Day: "Day", Night: "Night"}[v]
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			c := g.Card(id)
-			if c.HasKeyword("Daybound") || c.HasKeyword("Nightbound") {
-				return true
+			h := g.Card(id)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.traitFaces() {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantChangeDayTime") || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if nt, ok := s.Param("NewTime"); !ok || strings.EqualFold(nt, want) {
+						return true
+					}
+				}
 			}
 		}
 	}

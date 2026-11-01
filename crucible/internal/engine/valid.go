@@ -211,6 +211,12 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			return false
 		}
 		return g.mostProminentColors().HasAny(color)
+	case name == "FrontSide":
+		// CardProperty.java:132-139: a transformed permanent shows its back
+		// side (Card.isBackSide); a modal back face never sets it.
+		return !c.InTransformedState()
+	case name == "BackSide":
+		return c.InTransformedState()
 	case name == "token":
 		// CardProperty.java:1346-1347: isToken() || isTokenCard(); its
 		// "tokenCreated..." suffixes fall through to the type fallback below,

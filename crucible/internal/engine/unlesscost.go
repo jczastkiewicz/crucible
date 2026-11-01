@@ -120,6 +120,10 @@ type unlessCost struct {
 	// (Cost.java:487-492).
 	exileEitherN    int
 	exileEitherSpec string
+	// moreExileEither are the further ExileCtrlOrGrave parts of a cost with
+	// several (Throne of the Grim Captain's Craft: a Dinosaur, a Merfolk, a
+	// Pirate and a Vampire), each paid in turn like moreExile.
+	moreExileEither []specCount
 	// addCounterN/addCounterType are AddCounter<N/Type>: put N counters of a
 	// kind on the source itself (CostPutCounter's CARDNAME shape, Fabricate).
 	addCounterN    int
@@ -437,6 +441,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.movedToGraveN, uc.movedToGraveSpec = n, p.Field(1)
 		case p.Name == "ExileCtrlOrGrave" && uc.exileEitherN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileEitherN, uc.exileEitherSpec = n, p.Field(1)
+		case p.Name == "ExileCtrlOrGrave" && uc.exileEitherN != 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.moreExileEither = append(uc.moreExileEither, specCount{n, p.Field(1)})
 		case p.Name == "RevealOrChoose" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec, uc.revealBattlefield = n, p.Field(1), true
 		case p.Name == "ChooseCard" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):

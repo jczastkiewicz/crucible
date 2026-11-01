@@ -118,3 +118,47 @@ func TestDinosaurHeaddressCopiesACreatureUsedToCraftIt(t *testing.T) {
 		t.Errorf("equipped Bears power = %d, want 4", pw)
 	}
 }
+
+// Throne of the Grim Captain crafts with four ExileCtrlOrGrave parts, one card
+// of each type, paid part by part; without a Pirate it cannot be crafted.
+func TestThroneOfTheGrimCaptainCraftsWithOneOfEachType(t *testing.T) {
+	t.Parallel()
+	for _, withPirate := range []bool{true, false} {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		throne := g.NewCard(corpusCard(t, "Throne of the Grim Captain"), p, engine.Battlefield)
+		var materials []engine.CardID
+		for _, name := range []string{"Colossal Dreadmaw", "Merfolk of the Pearl Trident", "Fathom Fleet Cutthroat", "Vampire Interloper"} {
+			if name == "Fathom Fleet Cutthroat" && !withPirate {
+				continue
+			}
+			materials = append(materials, g.NewCard(corpusCard(t, name), p, engine.Graveyard))
+		}
+		c := engine.NewScriptedController()
+		g.Player(p).ManaPool.Add(mana.Black, 4)
+		for range 4 {
+			c.QueuePayGeneric(mana.ShardB)
+		}
+		for _, m := range materials {
+			c.QueueCardChoice([]engine.CardID{m})
+		}
+		ok := g.ActivateAbility(p, throne, craftIndex(g, throne), c)
+		if ok != withPirate {
+			t.Fatalf("with a Pirate %v: Craft activated %v (%v)", withPirate, ok, g.TakePendingError())
+		}
+		if !ok {
+			continue
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatal(err)
+		}
+		if name := g.Card(throne).Name(); name != "The Grim Captain" || g.Card(throne).Zone != engine.Battlefield {
+			t.Errorf("crafted card %q in %v, want The Grim Captain on the battlefield", name, g.Card(throne).Zone)
+		}
+		for _, m := range materials {
+			if z := g.Card(m).Zone; z != engine.Exile {
+				t.Errorf("material %q in %v, want Exile", g.Card(m).Name(), z)
+			}
+		}
+	}
+}

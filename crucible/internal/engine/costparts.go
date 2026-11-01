@@ -256,6 +256,12 @@ func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) boo
 	if uc.exileEitherN > 0 && len(g.exileEitherCandidates(pid, source, uc.exileEitherSpec)) < uc.exileEitherN {
 		return false
 	}
+	// Each part is checked on its own (CostPart.canPay), as Java does.
+	for _, m := range uc.moreExileEither {
+		if len(g.exileEitherCandidates(pid, source, m.spec)) < m.n {
+			return false
+		}
+	}
 	if uc.exileTopN > 0 && g.Zone(Library, pid).Len() < uc.exileTopN {
 		return false
 	}
@@ -363,6 +369,14 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 	if uc.exileEitherN > 0 {
 		options := g.exileEitherCandidates(pid, a.Source, uc.exileEitherSpec)
 		picks := g.chosenUnlessCards(controller, pid, a.Source, options, uc.exileEitherN, uc.exileEitherN)
+		exiled := g.exileCostCards(controller, a.Source, picks)
+		if rec != nil {
+			rec.exiled = append(rec.exiled, exiled...)
+		}
+	}
+	for _, m := range uc.moreExileEither {
+		options := g.exileEitherCandidates(pid, a.Source, m.spec)
+		picks := g.chosenUnlessCards(controller, pid, a.Source, options, m.n, m.n)
 		exiled := g.exileCostCards(controller, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)

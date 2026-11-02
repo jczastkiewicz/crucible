@@ -213,3 +213,28 @@ func TestUndiscoveredParadiseReturnsToHandAtTheNextUntapStep(t *testing.T) {
 		t.Errorf("land is in %v, want hand", got)
 	}
 }
+
+// TestMutablePupaGainsTheEnteringCreaturesKeywords runs Mutable Pupa's Pump:
+// SharedRestrictions$ Card.TriggeredCard keeps, of the listed keywords, the
+// ones the entering creature has (PumpEffect.java:312-316).
+func TestMutablePupaGainsTheEnteringCreaturesKeywords(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	pupa := g.NewCard(corpusCard(t, "Mutable Pupa"), p, engine.Battlefield)
+	entering := g.NewCard(creatureWithKeywords(t, "1", "1", "Flying"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	if !g.CastSpell(p, entering, c) {
+		t.Fatal("cast failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !g.Card(pupa).HasKeyword("Flying") {
+		t.Error("Mutable Pupa lacks Flying")
+	}
+	if g.Card(pupa).HasKeyword("Trample") {
+		t.Error("Mutable Pupa has Trample, which the entering creature lacks")
+	}
+}

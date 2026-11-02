@@ -160,7 +160,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	if err != nil {
 		return err
 	}
-	if grant.keywords, err = pumpSharedKeywords("Pump", g, source, a.Params, grant.keywords); err != nil {
+	if grant.keywords, err = pumpSharedKeywords("Pump", g, source, a, grant.keywords); err != nil {
 		return err
 	}
 	if err := g.pumpChooseKeyword(controller, a, source, &grant); err != nil {
@@ -609,23 +609,50 @@ func pumpKeywords(effect string, a *compile.Ability) (pumpGrant, error) {
 // pumpSharedKeywords is PumpEffect.java:312-316 and PumpAllEffect.java:151-157:
 // SharedKeywordsZone$ keeps, of the granted keywords, the ones a card in those
 // zones that SharedRestrictions$ accepts carries (layerSharedKeywords, the
-// static layer's CardFactoryUtil.sharedKeywords). A restriction naming the
-// trigger's card is not resolvable here (GO-7); IsRemembered reads the host's
-// own remembered list (Priest of Possibility's PeekAndReveal), as
-// CardFactoryUtil.sharedKeywords passes the host.
-func pumpSharedKeywords(effect string, g *Game, host *Card, a *compile.Ability, keywords []string) ([]string, error) {
-	zones, ok := a.Param("SharedKeywordsZone")
+// static layer's CardFactoryUtil.sharedKeywords). IsRemembered reads the
+// host's own remembered list (Priest of Possibility's PeekAndReveal), as
+// CardFactoryUtil.sharedKeywords passes the host. Card.TriggeredCard (Mutable
+// Pupa) is the trigger's card when it is in one of the zones
+// (CardProperty's TriggeredCard, the ability's own Defined$ TriggeredCard); any
+// other restriction naming it is not resolvable here (GO-7).
+func pumpSharedKeywords(effect string, g *Game, host *Card, a *Ability, keywords []string) ([]string, error) {
+	zones, ok := a.Params.Param("SharedKeywordsZone")
 	if !ok {
 		return keywords, nil
 	}
-	if r, _ := a.Param("SharedRestrictions"); strings.Contains(r, "TriggeredCard") {
+	if r, _ := a.Params.Param("SharedRestrictions"); r == "Card.TriggeredCard" {
+		return pumpSharedWithTriggered(effect, g, host, a, keywords, zones)
+	} else if strings.Contains(r, "TriggeredCard") {
 		return nil, fmt.Errorf("engine: %s: SharedRestrictions$ %q not resolvable yet", effect, r)
 	}
-	shared, ok := layerSharedKeywords(g, host, a, keywords, zones)
+	shared, ok := layerSharedKeywords(g, host, a.Params, keywords, zones)
 	if !ok {
 		return nil, fmt.Errorf("engine: %s: SharedKeywordsZone$ %q not resolvable yet", effect, zones)
 	}
 	return shared, nil
+}
+
+// pumpSharedWithTriggered is pumpSharedKeywords for SharedRestrictions$
+// Card.TriggeredCard: the keywords the trigger's card carries, if it is in one
+// of the SharedKeywordsZone$ zones.
+func pumpSharedWithTriggered(effect string, g *Game, host *Card, a *Ability, keywords []string, zonesRaw string) ([]string, error) {
+	ids, err := definedCards(host, "TriggeredCard", a.refs())
+	if err != nil {
+		return nil, fmt.Errorf("engine: %s: %w", effect, err)
+	}
+	var cards []*Card
+	for _, name := range strings.Split(zonesRaw, ",") {
+		z, ok := ZoneByName(strings.TrimSpace(name))
+		if !ok {
+			return nil, fmt.Errorf("engine: %s: SharedKeywordsZone$ %q not resolvable yet", effect, zonesRaw)
+		}
+		for _, id := range ids {
+			if c := g.Card(id); c.Zone == z && !slices.Contains(cards, c) {
+				cards = append(cards, c)
+			}
+		}
+	}
+	return sharedKeywordsOf(cards, keywords), nil
 }
 
 // pumpChooseKeyword is PumpEffect.java:296-301: a line with KWChoice$ and no KW$

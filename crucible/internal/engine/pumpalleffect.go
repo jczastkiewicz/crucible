@@ -112,7 +112,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err != nil {
 		return err
 	}
-	if grant.keywords, err = pumpSharedKeywords("PumpAll", g, source, a.Params, grant.keywords); err != nil {
+	if grant.keywords, err = pumpSharedKeywords("PumpAll", g, source, a, grant.keywords); err != nil {
 		return err
 	}
 	if perpetual && (len(grant.hidden) > 0 || grant.switched) {

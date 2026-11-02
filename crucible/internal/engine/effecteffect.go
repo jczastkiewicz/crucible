@@ -17,17 +17,9 @@ import (
 // walks (quirks.md).
 //
 // effectUnresolvedParams are EffectEffect params this port does not model,
-// each its own further mechanic: granted activated abilities (Abilities$),
-// remembering a spell, a last-known copy or keywords rather than objects
-// (RememberKeywords$ and its SharedKeywordsZone$/
-// SharedRestrictions$), the counter-driven forget/exile triggers
-// (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), a
-// standalone forget-on-cast (ForgetOnCast$ without RememberObjects$), the
-// Boon one-shot (Boon$, TriggerHandler removes the effect after its first
-// trigger), imprinting the effect
-// on its host (ImprintOnHost$), the Adventure name, and the
-// SpellAbilityCondition shapes subAbilityConditionMet does not cover
-// (ConditionZone$, and a Condition$ value rejectUnreadCondition refuses).
+// each its own further mechanic: remembering keywords rather than objects
+// (RememberKeywords$ and its SharedKeywordsZone$/SharedRestrictions$), the
+// counter-driven exile trigger (ExileOnCounter$) and the Adventure name.
 var effectUnresolvedParams = [...]string{
 	"RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
 	"ExileOnCounter",

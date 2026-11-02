@@ -74,9 +74,9 @@ func validFamilyValue(g *Game, sourceController PlayerID, source CardID, count e
 // into a different property (refused). Checked in handlePaid's own order so a
 // name one earlier branch would catch never reaches a later one.
 //
-// Not measured, each false (GO-7): AllTypes; CreatureType/PlaneswalkerType/
-// LandType need the database's subtype vocabulary and are false without it. A property this does not recognize
-// must not fall back to a plain match count: that would be a real but wrong
+// CreatureType/PlaneswalkerType/LandType need the database's subtype
+// vocabulary and are false without it (GO-7). A property this does not
+// recognize must not fall back to a plain match count: that would be a real but wrong
 // number. CardPower and CardToughness are read only outside a layer pass
 // (Game.layering): inside one another permanent's power is itself mid-rebuild.
 func handlePaid(g *Game, amounts map[string]expr.Amount, sourceController PlayerID, source CardID, cards []*Card, def string, op *expr.Op, depth int) (int, bool) {

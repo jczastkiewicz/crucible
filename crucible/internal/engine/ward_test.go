@@ -10,17 +10,17 @@ import (
 // permanent with two or more Ward instances has each fire on its own --
 // protectionEach's own "check every line" precedent (ADR-0027's
 // implementing pack), reused for checkWardTriggers (trigger.go, ADR-0028).
-// Tomakul Honor Guard's own printed Ward:1 plus a second, granted Ward:2
-// (Card.KeywordMod, the identical Layer 6 shape a real continuous grant
-// would use) push two separate Counter-shaped abilities onto the stack
-// above the spell that targeted it, not one.
+// A printed Ward:1 plus a second Ward:2 granted by a Mode$ Continuous
+// AddKeyword$ static on the card itself push two separate Counter-shaped
+// abilities onto the stack above the spell that targeted it, not one.
 func TestCastSpellWardEachInstanceFiresIndependently(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p, opp := g.Players()[0], g.Players()[1]
-	target := g.NewCard(creatureDefPTKeywords(t, "3", "1", "Ward:1"), p, engine.Battlefield)
-	g.Card(target).KeywordMod.Add(engine.KeywordEffect{AddKeywords: []string{"Ward:2"}})
+	target := g.NewCard(scriptDef(t, "Test Warded", "Creature Elf", "K:Ward:1",
+		"S:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ Ward:2 | Description$ x"), p, engine.Battlefield)
+	checkSBA(g)
 	spell := g.NewCard(instantDefWithAbility(t, "Test Bolt", "0", "SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3"), opp, engine.Hand)
 	g.SetTurnState(1, p, engine.Main1)
 

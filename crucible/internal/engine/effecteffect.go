@@ -568,14 +568,6 @@ func (g *Game) effectCardsSeeMove(moved CardID, from, to ZoneType) {
 			g.exileEffect(id)
 			continue
 		}
-		if to == Stack && life.forgetCastSpec != "" &&
-			Matches(g, g.Card(moved), valid.Parse(life.forgetCastSpec), e.Controller(), e.ID) {
-			e.Memory.Forget(CardEntity(moved))
-			if !effectRemembersAnyCard(e) {
-				g.exileEffect(id)
-			}
-			continue
-		}
 		if !effectRemembers(e, moved) {
 			continue
 		}
@@ -590,6 +582,27 @@ func (g *Game) effectCardsSeeMove(moved CardID, from, to ZoneType) {
 			continue
 		}
 		e.Memory.Forget(CardEntity(moved))
+		if !effectRemembersAnyCard(e) {
+			g.exileEffect(id)
+		}
+	}
+}
+
+// effectsSeeCast is the standalone ForgetOnCast$ trigger
+// (addForgetOnCastTrigger, a static SpellCast trigger): every effect whose
+// spec matches the cast spell forgets it and, remembering no card, is exiled.
+// It runs once the spell's SpellCast triggers are collected, so a keyword the
+// effect grants the spell (Crackling Spellslinger's Storm, Bigger on the
+// Inside's Cascade) still triggers, as Java collects them before the static
+// effects are checked again.
+func (g *Game) effectsSeeCast(cast CardID) {
+	for _, id := range g.effectCards() {
+		e := g.Card(id)
+		spec := e.effectLife.forgetCastSpec
+		if e.Zone != Command || spec == "" || !Matches(g, g.Card(cast), valid.Parse(spec), e.Controller(), e.ID) {
+			continue
+		}
+		e.Memory.Forget(CardEntity(cast))
 		if !effectRemembersAnyCard(e) {
 			g.exileEffect(id)
 		}

@@ -514,6 +514,11 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // waiting list before MagicStack.add ran the cast modes (TriggerHandler.java:
 // 264, MagicStack.java:331-400), and the whole list is ordered as one batch.
 func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, activator PlayerID, held []Ability) {
+	// MagicStack.java:349: the static abilities are checked again once the
+	// spell is on the stack, so a keyword an AffectedZone$ Stack static grants
+	// it (Crackling Spellslinger's Storm, Bigger on the Inside's Cascade)
+	// is there when its SpellCast trigger is collected.
+	g.refreshLayers()
 	matches := held
 	c := g.Card(cast)
 	// AbilityKey.SpellAbility: the spell just pushed, read before any
@@ -532,6 +537,7 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	// Delayed triggers run after every collected card trigger
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:356-361).
 	matches = append(matches, g.delayedSpellCastMatches(c, activator, spellID)...)
+	g.effectsSeeCast(cast)
 	g.pushTriggeredAbilities(controller, matches)
 }
 

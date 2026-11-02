@@ -411,29 +411,70 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 // keyword abilities appear on the receiver. They are compiled here once, in
 // the granting face's namespace, and hung on the static as `AddKeyword` subs
 // that the engine's trait overlay (applyOneContinuousTraits) reads by Record.
-// A keyword with no template stays inert (GO-7).
+// The face's own S: lines and every static an SVar reaches (an Effect's
+// StaticAbilities$, Crackling Spellslinger's GrantStorm) are expanded. A
+// keyword with no template stays inert (GO-7).
 func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
+	seen := map[*Ability]bool{}
 	for si, st := range out.Statics {
-		if !strings.EqualFold(st.Name, "Continuous") {
-			continue
+		seen[st] = true
+		if strings.EqualFold(st.Name, "Continuous") {
+			if err := c.expandGrant(out, st, "g"+strconv.Itoa(si)+"x"); err != nil {
+				return err
+			}
 		}
-		raw, ok := st.Param("AddKeyword")
+	}
+	n := 0
+	var walk func(a *Ability) error
+	walk = func(a *Ability) error {
+		for _, sub := range a.Subs {
+			b := sub.Ability
+			if b == nil || seen[b] {
+				continue
+			}
+			seen[b] = true
+			if b.Record == StaticEffect && strings.EqualFold(b.Name, "Continuous") {
+				if err := c.expandGrant(out, b, "v"+strconv.Itoa(n)+"x"); err != nil {
+					return err
+				}
+				n++
+			}
+			if err := walk(b); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, group := range [][]*Ability{out.Abilities, out.Triggers, out.Statics, out.Replacements} {
+		for _, a := range group {
+			if err := walk(a); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// expandGrant hangs the expansion of each keyword st's AddKeyword$ names on
+// st as `AddKeyword` subs; prefix plus the keyword's index keeps their SVars
+// unique.
+func (c *faceCompiler) expandGrant(out *Face, st *Ability, prefix string) error {
+	raw, ok := st.Param("AddKeyword")
+	if !ok {
+		return nil
+	}
+	for ki, line := range strings.Split(raw, " & ") {
+		exp, ok := keyword.Expand(keyword.Parse(line))
 		if !ok {
 			continue
 		}
-		for ki, line := range strings.Split(raw, " & ") {
-			exp, ok := keyword.Expand(keyword.Parse(line))
-			if !ok {
-				continue
-			}
-			built, err := c.buildExpansion(out, line, "g"+strconv.Itoa(si)+"x"+strconv.Itoa(ki), exp)
-			if err != nil {
-				return err
-			}
-			for _, group := range [][]*Ability{built.abilities, built.triggers, built.statics, built.replacements} {
-				for _, ability := range group {
-					st.Subs = append(st.Subs, SubRef{Key: "AddKeyword", SVar: line, Ability: ability})
-				}
+		built, err := c.buildExpansion(out, line, prefix+strconv.Itoa(ki), exp)
+		if err != nil {
+			return err
+		}
+		for _, group := range [][]*Ability{built.abilities, built.triggers, built.statics, built.replacements} {
+			for _, ability := range group {
+				st.Subs = append(st.Subs, SubRef{Key: "AddKeyword", SVar: line, Ability: ability})
 			}
 		}
 	}

@@ -1626,6 +1626,9 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 		return nil
 	}
 	stickerGrants = append(stickerGrants, abilityGrants...)
+	for i := range stickerGrants {
+		stickerGrants[i].grantor = s
+	}
 	granting := len(grant.triggers) > 0 || len(grant.abilities) > 0 || len(grant.statics) > 0 || len(grant.replacements) > 0 || len(stickerGrants) > 0
 	if !granting && removal == removalNone {
 		return nil
@@ -1639,6 +1642,7 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 	}
 	grant.amounts = amounts
 	grant.origin = host.ID
+	grant.grantor = s
 	var added []layerStatic
 	for _, id := range affected {
 		c := g.Card(id)

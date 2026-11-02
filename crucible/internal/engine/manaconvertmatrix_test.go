@@ -167,3 +167,38 @@ func TestManaConvertAbstruseAppropriationCast(t *testing.T) {
 		t.Error("colorless mana did not pay {B} on the exiled card cast through the effect")
 	}
 }
+
+// An activated ability a Continuous static granted pays under that static's
+// own ManaConversion$ (PlaySpellAbility.java:653-656; Grell Philosopher's
+// Blue->AnyColor, Drana and Linvala's AnyType->AnyColor): blue mana pays the
+// granted ability's {R}; the creature's own {R} ability is not converted.
+func TestManaConvertOnGrantingStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, conversion := range []string{"Blue->AnyColor", "AnyType->AnyColor"} {
+		t.Run(conversion, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			g.SetTurnState(1, p, engine.Main1)
+			g.NewCard(scriptDef(t, "Test Grantor", "Enchantment",
+				"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddAbility$ ABPing | ManaConversion$ "+conversion,
+				"SVar:ABPing:AB$ GainLife | Cost$ R | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+			pinger := g.NewCard(creatureDefWithAbility(t, "Red Pinger", "AB$ GainLife | Cost$ R | Defined$ You | LifeAmount$ 2"), p, engine.Battlefield)
+			sba(g)
+			g.Player(p).ManaPool.Add(mana.Blue, 1)
+			if g.ActivateAbility(p, pinger, 0, engine.NewScriptedController()) {
+				t.Error("blue mana paid the printed {R} ability")
+			}
+			c := engine.NewScriptedController()
+			if conversion == "Blue->AnyColor" {
+				c.QueueHybridManaColor(mana.Blue)
+			} else {
+				c.QueuePayGeneric(mana.ShardU)
+			}
+			if !g.ActivateAbility(p, pinger, 1, c) {
+				t.Errorf("blue mana did not pay the granted {R} ability: %v", g.TakePendingError())
+			}
+		})
+	}
+}

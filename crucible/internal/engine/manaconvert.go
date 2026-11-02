@@ -277,7 +277,34 @@ func (g *Game) manaConvertFor(pid PlayerID, card CardID, spell *Ability, control
 			}
 		}
 	}
+	// PlaySpellAbility.java:653-656: an activated ability a static granted
+	// pays under that static's own ManaConversion$ (Drana and Linvala,
+	// Scheming Fence; Grell Philosopher's per-color line is manaColorMatrix's).
+	if grantor := grantorConversion(c, spell); grantor != nil {
+		switch readManaConversion(grantor) {
+		case conversionAnyType:
+			anyType = true
+		case conversionAnyColor:
+			anyColor = true
+		}
+	}
 	return anyType, anyColor
+}
+
+// grantorConversion is the static that granted a, an activated ability of c,
+// when it carries ManaConversion$; nil otherwise.
+func grantorConversion(c *Card, a *Ability) *compile.Ability {
+	if a == nil || !a.activated || a.Params == nil {
+		return nil
+	}
+	grantor := c.grantorStatic(a.Params)
+	if grantor == nil {
+		return nil
+	}
+	if _, ok := grantor.Param("ManaConversion"); !ok {
+		return nil
+	}
+	return grantor
 }
 
 // manaColorMatrix is the per-color part of StaticAbilityManaConvert.manaConvert
@@ -316,6 +343,11 @@ func (g *Game) manaColorMatrix(pid PlayerID, card CardID, sa *Ability) colorMatr
 				m.apply(steps)
 			}
 		}
+	}
+	if grantor := grantorConversion(c, sa); grantor != nil && readManaConversion(grantor) == conversionMatrix {
+		v, _ := grantor.Param("ManaConversion")
+		steps, _ := parseManaConversion(strings.TrimSpace(v))
+		m.apply(steps)
 	}
 	return m
 }

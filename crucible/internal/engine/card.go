@@ -740,6 +740,10 @@ type traitGrant struct {
 	// granted trigger's ability (SpellAbility.getOriginalHost, the card state
 	// the granting StaticAbility holds), read by Defined$/Object$ OriginalHost.
 	origin CardID
+	// grantor is the Mode$ Continuous static that granted these traits
+	// (SpellAbility.getGrantorStatic), nil for a grant no static made; its
+	// ManaConversion$ applies to the granted abilities' activation costs.
+	grantor *compile.Ability
 }
 
 // Name is Card.getName: the printed name, or the one a Layer 3 SetName$ gave a
@@ -883,6 +887,17 @@ func (c *Card) grantOrigin(ability *compile.Ability) CardID {
 		}
 	}
 	return NoCard
+}
+
+// grantorStatic is SpellAbility.getGrantorStatic for ability, one of c's
+// abilities: the static that granted it, nil for a printed one.
+func (c *Card) grantorStatic(ability *compile.Ability) *compile.Ability {
+	for _, grant := range c.traitGrants {
+		if slices.Contains(grant.abilities, ability) {
+			return grant.grantor
+		}
+	}
+	return nil
 }
 
 // abilityCount is how many indices abilityAt answers for, printed lines and

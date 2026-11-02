@@ -154,3 +154,46 @@ func TestPlayCastsASplitCardsLeftHalfAsThatHalf(t *testing.T) {
 		t.Errorf("Ornithopter in %v, Glorious Anthem in %v, want only the artifact destroyed", g.Card(artifact).Zone, g.Card(enchantment).Zone)
 	}
 }
+
+// A named half matches the whole split card off the stack (CardProperty.java:
+// 70-78 reads sharesNameWith): after naming Fire, Card.NamedCard finds Fire
+// // Ice in a hand.
+func TestNamedHalfMatchesTheSplitCardInHand(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	fire := g.NewCard(corpusCard(t, "Fire"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueOption(0)
+	resolveLine(t, g, p, c, "DB$ NameCard | Defined$ You | ChooseFromList$ Fire | SubAbility$ DBExile",
+		"DBExile", "DB$ ChangeZoneAll | ChangeType$ Card.NamedCard | Origin$ Hand | Destination$ Exile")
+	if got := g.Card(fire).Zone; got != engine.Exile {
+		t.Errorf("Fire // Ice in %v, want exiled as the named Fire", got)
+	}
+}
+
+// A cast half that leaves the stack for a hand or a library is the whole
+// split card there again (GameAction.java:246-250 sets Original).
+func TestSplitHalfLeavingTheStackCombinesAgain(t *testing.T) {
+	t.Parallel()
+	for _, to := range []engine.ZoneType{engine.Hand, engine.Library} {
+		g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		fire := g.NewCard(corpusCard(t, "Fire"), p, engine.Hand)
+		g.Player(p).ManaPool.Add(mana.Red, 2)
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp)})
+		c.QueuePayGeneric(mana.ShardR)
+		if !g.CastSpell(p, fire, c) {
+			t.Fatalf("Fire not cast: %v", g.TakePendingError())
+		}
+		if to == engine.Library {
+			g.MoveToLibraryTop(fire, p)
+		} else {
+			g.Move(fire, to, p)
+		}
+		if got, name := g.Card(fire).CMC(), g.Card(fire).Name(); got != 4 || name != "Fire // Ice" {
+			t.Errorf("in the %v %q has mana value %d, want Fire // Ice with 4", to, name, got)
+		}
+	}
+}

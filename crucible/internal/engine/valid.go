@@ -379,14 +379,21 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		if !ok || c.Def == nil {
 			return false
 		}
-		return containsString(sc.Memory.NamedCards(), c.Name())
+		// CardProperty.java:70-78: sharesNameWith, so "Fire" matches Fire //
+		// Ice in a hand as well as a cast Fire.
+		for _, named := range sc.Memory.NamedCards() {
+			if sharesName(c, named) {
+				return true
+			}
+		}
+		return false
 	case name == "NamedByRememberedPlayer":
 		sc, ok := sourceCard(g, source)
 		if !ok || c.Def == nil {
 			return false
 		}
 		for _, e := range sc.Memory.Remembered() {
-			if p, isPlayer := e.AsPlayer(); isPlayer && g.Player(p).NamedCard != c.Name() {
+			if p, isPlayer := e.AsPlayer(); isPlayer && !sharesName(c, g.Player(p).NamedCard) {
 				return false
 			}
 		}

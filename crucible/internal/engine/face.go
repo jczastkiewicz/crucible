@@ -275,17 +275,23 @@ func chainWith(a, tail *compile.Ability) *compile.Ability {
 	return &cp
 }
 
-// CastFused casts a Fuse Split card's two halves together from the hand.
-func (g *Game) CastFused(pid PlayerID, card CardID, controller PlayerController) bool {
-	c := g.Card(card)
-	if c.faceDef != nil || c.Zone != Hand {
-		return false
-	}
+// castAsFused makes c the fused spell of a Fuse Split card (fuseView);
+// undoCastAsFace reverses it. False, with c unchanged, for any other card.
+func (c *Card) castAsFused() bool {
 	view, ok := fuseView(c.Def)
 	if !ok {
 		return false
 	}
 	c.faceDef, c.Def, c.castDoor = c.Def, view, DoorLeft
+	return true
+}
+
+// CastFused casts a Fuse Split card's two halves together from the hand.
+func (g *Game) CastFused(pid PlayerID, card CardID, controller PlayerController) bool {
+	c := g.Card(card)
+	if c.faceDef != nil || c.Zone != Hand || !c.castAsFused() {
+		return false
+	}
 	if g.castFromHand(pid, card, DoorLeft, controller) {
 		return true
 	}

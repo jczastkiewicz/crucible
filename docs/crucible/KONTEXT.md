@@ -27,6 +27,10 @@ this file only points at them (DOC-11).
 | `B6` Dakkon `PlayLandVariant`                        | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
 | `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
 
+Unconfirmed PORT-8 candidate, JUnit probe first: `Cost.add` merges a plain mana part into the cost's mana and takes
+`maxWaterbend` from the incoming part only (`Cost.java:1019`), so a tax merged by `CostAdjustment.adjust` (`:90`,
+`:103`) may drop a Waterbend cost's tap (Hama's grant under Thalia). Go keeps the tap.
+
 ## Working lessons
 
 | Lesson                                                                                                                              | Reason                                                                                                                                               |

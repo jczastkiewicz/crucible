@@ -258,11 +258,12 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			g.Card(pick).IsToken = true
 		}
 
-		opt, ok, err := playOptionFor(g, a, caster, pick, validSA, hasValidSA)
+		opt, ok, err := playOptionFor(g, controller, a, caster, pick, validSA, hasValidSA)
 		if err != nil {
 			return err
 		}
-		pickCMC := g.Card(pick).manaCost().CMC()
+		var pickCMC int
+		withPlayView(g, pick, opt, func() { pickCMC = g.Card(pick).manaCost().CMC() })
 		if ok && hasBudget && !opt.land && pickCMC > budget {
 			ok = false // PlayEffect.java:306-311: no spell fits what is left
 		}
@@ -275,8 +276,11 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			continue
 		}
 		origin := g.Card(pick).Zone
-		faced := opt.face && g.Card(pick).faceDef == nil
-		if faced {
+		faced := (opt.face || opt.fused) && g.Card(pick).faceDef == nil
+		if faced && opt.fused {
+			// CastFused's view: both halves as one spell.
+			g.Card(pick).castAsFused()
+		} else if faced {
 			g.Card(pick).castAsFace()
 		}
 		undoFace := func() {
@@ -542,6 +546,50 @@ type playOption struct {
 	// face is the card's second face (ADR-0052): cast, or played as a land,
 	// through a one-face view of the printed card.
 	face bool
+	// fused is a Fuse Split card's two halves cast together (fuseView): from
+	// the hand only, the one zone Fuse allows (SpellAbilityRestriction.java:364,
+	// the only check left once Play clears the zone restriction,
+	// AbilityUtils.java:2995).
+	fused bool
+}
+
+// withPlayView runs fn while card shows opt's characteristics, as Java's
+// option is its own SpellAbility on its own state: the second face
+// (castAsFace) or the fused spell (fuseView); the front is the card as it
+// is. ValidSA$, WithTotalCMC$ and the label read the option this way, so the
+// right half of Fire // Ice is judged on Ice's cost, not Fire's.
+func withPlayView(g *Game, card CardID, opt playOption, fn func()) {
+	c := g.Card(card)
+	if c.faceDef == nil {
+		switch {
+		case opt.face:
+			c.castAsFace()
+			defer c.undoCastAsFace()
+		case opt.fused:
+			if c.castAsFused() {
+				defer c.undoCastAsFace()
+			}
+		}
+	}
+	fn()
+}
+
+// playOptionLabel names opt for the controller's choice among a card's play
+// options (PlayerController.getAbilityToPlay).
+func playOptionLabel(g *Game, card CardID, opt playOption) string {
+	var label string
+	withPlayView(g, card, opt, func() {
+		name := g.Card(card).Name()
+		switch {
+		case opt.land:
+			label = "Play " + name
+		case opt.fused:
+			label = "Cast " + name + " fused"
+		default:
+			label = "Cast " + name
+		}
+	})
+	return label
 }
 
 // playOptionsOf is AbilityUtils.getSpellsFromPlayEffect for card: a land's
@@ -556,9 +604,9 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 		return nil, false
 	}
 	if c.faceDef == nil && faceCastable(c.Def) {
-		// Both faces' options, the front first: Java asks the controller to
-		// choose among them (chooseSpellAbilityToPlay), this port takes the
-		// front when it has one (quirks.md).
+		// Both faces' options, the front first; playOptionFor asks the
+		// controller to choose among those ValidSA$ admits
+		// (getAbilityToPlay).
 		front, _ := playOptionsOfFace(g, caster, card)
 		c.castAsFace()
 		face, _ := playOptionsOfFace(g, caster, card)
@@ -566,7 +614,18 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 		for i := range face {
 			face[i].face = true
 		}
-		return append(front, face...), true
+		opts := append(append([]playOption(nil), front...), face...)
+		if c.Zone == Hand && c.castAsFused() {
+			// Java's order: Left, Right, then the fused spell (CardState.java:
+			// 495-502, Card.java:3471-3477).
+			fused, _ := playOptionsOfFace(g, caster, card)
+			c.undoCastAsFace()
+			for i := range fused {
+				fused[i].fused = true
+			}
+			opts = append(opts, fused...)
+		}
+		return opts, true
 	}
 	return playOptionsOfFace(g, caster, card)
 }
@@ -644,7 +703,9 @@ func cardHasPlayOption(g *Game, a *Ability, caster PlayerID, card CardID, validS
 		return true, nil
 	}
 	for _, opt := range opts {
-		matched, err := validSAMatches(g, a, caster, card, opt, validSA)
+		var matched bool
+		var err error
+		withPlayView(g, card, opt, func() { matched, err = validSAMatches(g, a, caster, card, opt, validSA) })
 		if err != nil || matched {
 			return matched, err
 		}
@@ -653,26 +714,47 @@ func cardHasPlayOption(g *Game, a *Ability, caster PlayerID, card CardID, validS
 }
 
 // playOptionFor is the option Play uses for the chosen card, and whether it
-// has one; a spell this port cannot cast is an error (GO-7).
-func playOptionFor(g *Game, a *Ability, caster PlayerID, card CardID, validSA string, hasValidSA bool) (playOption, bool, error) {
+// has one: each option ValidSA$ admits, judged under its own view
+// (withPlayView), and the controller's pick when several are (ChooseOption,
+// labelled by playOptionLabel). A spell this port cannot cast is an error
+// (GO-7).
+func playOptionFor(g *Game, controller PlayerController, a *Ability, caster PlayerID, card CardID, validSA string, hasValidSA bool) (playOption, bool, error) {
 	opts, ok := playOptionsOf(g, caster, card)
 	if !ok {
 		c := g.Card(card)
 		return playOption{}, false, fmt.Errorf("engine: Play: casting %q (%s) not resolvable yet", c.Def.Name, playCastGap(c))
 	}
+	var offered []playOption
 	for _, opt := range opts {
-		if !hasValidSA {
-			return opt, true, nil
-		}
-		matched, err := validSAMatches(g, a, caster, card, opt, validSA)
-		if err != nil {
-			return playOption{}, false, err
+		matched := true
+		if hasValidSA {
+			var err error
+			withPlayView(g, card, opt, func() { matched, err = validSAMatches(g, a, caster, card, opt, validSA) })
+			if err != nil {
+				return playOption{}, false, err
+			}
 		}
 		if matched {
-			return opt, true, nil
+			offered = append(offered, opt)
 		}
 	}
-	return playOption{}, false, nil
+	switch len(offered) {
+	case 0:
+		return playOption{}, false, nil
+	case 1:
+		return offered[0], true, nil
+	}
+	// PlayEffect.java:323: the controller picks one of the card's spells
+	// (getAbilityToPlay; Java's AI takes the first).
+	labels := make([]string, len(offered))
+	for i, opt := range offered {
+		labels[i] = playOptionLabel(g, card, opt)
+	}
+	i := controller.ChooseOption(g, caster, a.Source, labels)
+	if i < 0 || i >= len(offered) {
+		return playOption{}, false, fmt.Errorf("engine: Play: option %d of %d", i, len(offered))
+	}
+	return offered[i], true, nil
 }
 
 // validSAMatches is SpellAbility.isValid (SpellAbility.java:2206-2274) for

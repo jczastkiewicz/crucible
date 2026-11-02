@@ -72,6 +72,14 @@ func (drawEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		times[pid]++
 	}
+	// The draws' cause is a, or the replaced draw's when a runs as a
+	// replacement's ability (Player.java:1198-1201).
+	outerCause := g.drawCause
+	g.drawCause = a
+	if a.replacing != nil {
+		g.drawCause = a.replacing.cause
+	}
+	defer func() { g.drawCause = outerCause }()
 	for _, pid := range order {
 		if g.Player(pid).Lost {
 			continue // DrawEffect.java:70-72: !p.isInGame()

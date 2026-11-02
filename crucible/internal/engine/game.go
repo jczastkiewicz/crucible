@@ -169,6 +169,12 @@ type Game struct {
 	// drawRecord collects the cards drawOneCard draws while a Draw effect
 	// with RememberDrawn$ is resolving; nil otherwise.
 	drawRecord *[]CardID
+	// drawCause is the ability whose Draw effect is drawing now, the Cause
+	// Java's Player.drawCards puts on each Draw replacement's run params
+	// (DrawEffect.java:100, Player.java:1198-1206); nil for the turn's draw
+	// and every other draw. Event$ Draw's ValidCause$ matches it and
+	// Defined$ ReplacedSource is its host (Unpredictable Cyclone).
+	drawCause *Ability
 	// pendingErr is a static trigger's error from a site with no error
 	// return (resolveStaticTriggers, statictrigger.go), waiting for the
 	// nearest boundary that has one -- Registry.Resolve, ResolveStack,

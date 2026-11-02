@@ -46,10 +46,14 @@ type replacementEvent struct {
 	vars map[string]int
 
 	// affected is the damaged object (DamageDone's Affected); source the card
-	// dealing it (DamageSource, Defined$ ReplacedSourceController), NoCard when
+	// dealing it (DamageSource, Defined$ ReplacedSourceController) or the host
+	// of a draw's cause (Draw's Source, Defined$ ReplacedSource), NoCard when
 	// the event records none.
 	affected EntityID
 	source   CardID
+	// cause is a Draw event's Cause, the ability whose draw was replaced
+	// (Game.drawCause): the substitute's own draws keep it.
+	cause *Ability
 	// redirect and redirectAmount are the split-off half ReplaceSplitDamage
 	// adds: redirectAmount of the damage goes to redirect instead.
 	redirect       EntityID

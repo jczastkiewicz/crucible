@@ -8,6 +8,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // replacementEnchantmentDefWithSVar is replacementEnchantmentDef's own
@@ -405,5 +406,60 @@ func TestDrawNotReplacedByNotionThiefShapeOnOpponentsOwnFirstDraw(t *testing.T) 
 	}
 	if got := len(g.Zone(engine.Hand, p).Cards()); got != 0 {
 		t.Errorf("p's hand has %d cards, want 0 -- the replacement must not have fired", got)
+	}
+}
+
+// Unpredictable Cyclone (Event$ Draw | ValidCause$ Activated.Cycling+nonLand):
+// a cycled creature's draw becomes a dig until a card sharing a type with it
+// (Card.sharesCardTypeWith ReplacedSource, the cycled card,
+// ReplaceDraw.java:79-87). Grizzly Bears is cast free, Shock goes to the
+// bottom, nothing is drawn. The cause is the cycling ability
+// (DrawEffect.java:100), so a spell's draw is not replaced.
+func TestUnpredictableCycloneReplacesOnlyACyclingDraw(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Unpredictable Cyclone"), p, engine.Battlefield)
+	cycler := g.NewCard(scriptDef(t, "Cycling Beast", "Creature Beast", "K:Cycling:1"), p, engine.Hand)
+	shock := g.NewCard(corpusCard(t, "Shock"), p, engine.Library)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Library)
+	filler := libraryCards(t, g, p, 2)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueueConfirmEffect(true)
+	if !g.ActivateAbility(p, cycler, 0, c) {
+		t.Fatalf("cycling not activated: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 0 {
+		t.Errorf("%d cards in hand, want the draw replaced", got)
+	}
+	if got := g.Card(bears).Zone; got != engine.Battlefield {
+		t.Errorf("Grizzly Bears in %v, want cast free and resolved", got)
+	}
+	lib := g.Zone(engine.Library, p).Cards()
+	if len(lib) == 0 || lib[len(lib)-1] != shock {
+		t.Errorf("library %v, want Shock at the bottom", lib)
+	}
+
+	// Divination's draws have a spell as their cause: drawn, not replaced.
+	g.NewCard(corpusCard(t, "Island"), p, engine.Library)
+	div := g.NewCard(corpusCard(t, "Divination"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 3)
+	for range 2 {
+		c.QueuePayGeneric(mana.ShardU)
+	}
+	if !g.CastSpell(p, div, c) {
+		t.Fatalf("Divination not cast: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 2 {
+		t.Errorf("%d cards in hand, want Divination's 2 drawn (filler %v)", got, filler)
 	}
 }

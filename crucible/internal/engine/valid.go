@@ -2031,6 +2031,14 @@ func (g *Game) sharesWithAny(c *Card, restriction string, sourceController Playe
 	case "ChosenCard":
 		// AbilityUtils.java:276-279: the host's chosen cards (Stroke of Luck).
 		return anyShares(sc.Memory.Chosen())
+	case "ReplacedSource":
+		// AbilityUtils.java:200-205: the replaced event's Source, a Draw
+		// replacement's cycled card (Unpredictable Cyclone).
+		a := g.resolving
+		if a == nil || a.Source != source || a.refs().replacedSource == NoCard {
+			break
+		}
+		return anyShares([]CardID{a.refs().replacedSource})
 	case "Targeted":
 		// AbilityUtils.java:146-151: every target of the chain
 		// (getAllTargetChoices), the resolving ability's own then its

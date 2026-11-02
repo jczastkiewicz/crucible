@@ -474,7 +474,8 @@ type abilityRefs struct {
 	// Target from Affected; Defined$ ReplacedTarget); NoEntity otherwise.
 	replacedTarget EntityID
 	// replacedSource is that replacement's DamageSource (Defined$
-	// ReplacedSourceController); NoCard otherwise.
+	// ReplacedSourceController), or a Draw replacement's cause's host (Defined$
+	// ReplacedSource, ReplaceDraw.java:79-87); NoCard otherwise.
 	replacedSource CardID
 	// shieldTarget is Ability.shieldTarget (Defined$ ShieldEffectTarget).
 	shieldTarget EntityID
@@ -496,10 +497,9 @@ func (a *Ability) refs() abilityRefs {
 		choosing: a.choosing, hasChoosing: a.hasChoosing}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer
-		r.replacedCards = a.replacing.cards
+		r.replacedCards, r.replacedSource = a.replacing.cards, a.replacing.source
 		if a.replacing.amountName == "DamageAmount" {
 			r.replacedTarget = a.replacing.affected
-			r.replacedSource = a.replacing.source
 		}
 	}
 	return r

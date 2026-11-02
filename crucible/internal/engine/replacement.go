@@ -1572,10 +1572,22 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 			if notFirstCardInDrawStepExempts(g, r, player) || !firstExtraCardDrawnMatches(g, r, player) {
 				return
 			}
+			if !drawCauseMatches(g, r, h, amounts) {
+				return
+			}
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
 				sub := replaceWithSub(r)
 				if sub == nil {
 					return replacementNotReplaced
+				}
+				// The substitute's own draws keep the replaced draw's cause
+				// (Player.doDraw unwraps a replacement ability's Cause,
+				// Player.java:1198-1201): a cycling draw Thought Reflection
+				// doubles is still a cycling draw for Unpredictable Cyclone.
+				// ReplacedSource is that cause's host (ReplaceDraw.java:79-87).
+				ev := &replacementEvent{result: replacementReplaced, player: player, cause: g.drawCause}
+				if g.drawCause != nil {
+					ev.source = g.drawCause.Source
 				}
 				if applyDrawReplacement(g, controller, h, sub, amounts) {
 					return replacementReplaced
@@ -1587,7 +1599,7 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 				// ReplacementHandler.executeReplacement plays it. An error stops
 				// the draw: the substitute could not run, so the card is not drawn
 				// as if nothing replaced it (GO-7).
-				if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: replacementReplaced, player: player}); err != nil {
+				if err := g.runReplacementChain(controller, h, amounts, sub, ev); err != nil {
 					g.recordPendingError(err)
 				}
 				return replacementReplaced
@@ -1617,12 +1629,29 @@ func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone Z
 		case "event", "replacewith", "description", "validplayer", "activezones", "secondary",
 			"playerturn", "activephases", "checksvar", "svarcompare", "hellbent",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined",
-			"notfirstcardindrawstep", "firstextracarddrawnthisturn", "optional", "optionaldecider":
+			"notfirstcardindrawstep", "firstextracarddrawnthisturn", "optional", "optionaldecider", "validcause":
 		default:
 			return false
 		}
 	}
 	return hostInActiveZones(g.Card(host), r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// drawCauseMatches is ReplaceDraw.canReplace's ValidCause$ (ReplaceDraw.java:54):
+// the ability whose Draw effect is drawing (Game.drawCause) must match the
+// SpellAbility spec, its card properties read off its host (Unpredictable
+// Cyclone's Activated.Cycling+nonLand). A draw with no cause (the turn's draw)
+// matches no ValidCause$ (CardTraitBase.matchesValid(null) is false).
+func drawCauseMatches(g *Game, r *compile.Ability, h *Card, amounts map[string]expr.Amount) bool {
+	spec, ok := r.Param("ValidCause")
+	if !ok {
+		return true
+	}
+	if g.drawCause == nil {
+		return false
+	}
+	matched, recognized := g.spellAbilityMatches(g.drawCause, spec, h, h.Controller(), amounts)
+	return recognized && matched
 }
 
 // notFirstCardInDrawStepExempts is ReplaceDraw.canReplace's own

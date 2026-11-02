@@ -124,6 +124,10 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		x = xAnnounced{value: n, announced: true}
 	}
 
+	if generic > 0 || len(cost.Shards()) > 0 {
+		g.manaPaymentWindow(decider, cost, controller)
+	}
+
 	var xPaid [5]int
 	for _, pure := range resolved {
 		for i, col := range [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
@@ -312,4 +316,26 @@ func xColorMask(ab *compile.Ability) mana.Colors {
 		}
 	}
 	return mask
+}
+
+// manaPaymentWindow is PlayerController.payManaCost's mana-ability half (CR
+// 605.3a, ADR-0054): decider names, once per payment, the mana abilities to
+// activate before the pool pays cost, and the engine activates each in order,
+// skipping one that is not legal now. A mana ability with a mana cost of its
+// own opens a nested window through its own payment; payingFor restores the
+// outer payment's context after it. Mana produced for a payment that then
+// fails stays in the pool (quirks.md).
+func (g *Game) manaPaymentWindow(decider PlayerID, cost mana.Cost, controller PlayerController) {
+	paidFor := NoCard
+	if g.payFor != nil && g.payFor.item != nil {
+		paidFor = g.payFor.item.Source
+	}
+	for _, a := range controller.PayManaCost(g, decider, cost, paidFor) {
+		switch a.Kind {
+		case ActionTapForMana:
+			g.TapLandForMana(decider, a.Card, a.Color, controller)
+		case ActionManaAbility:
+			g.ActivateManaAbility(decider, a.Card, a.AbilityIndex, controller)
+		}
+	}
 }

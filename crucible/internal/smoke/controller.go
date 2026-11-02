@@ -153,6 +153,12 @@ func attackRestricted(g *engine.Game) bool {
 	return false
 }
 
+// PayManaCost activates nothing: the probe fills the pools itself, and
+// choosing sources is the M7 AI's decision (ComputerUtilMana, ADR-0054).
+func (*Controller) PayManaCost(*engine.Game, engine.PlayerID, mana.Cost, engine.CardID) []engine.Action {
+	return nil
+}
+
 // ExertAttackers exerts nothing.
 func (*Controller) ExertAttackers(*engine.Game, engine.PlayerID, []engine.CardID) []engine.CardID {
 	return nil

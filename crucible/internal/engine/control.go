@@ -119,6 +119,13 @@ type PlayerController interface {
 	// empty return is legal, the player declining every offer.
 	ExertAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 
+	// PayManaCost is PlayerController.payManaCost's mana-ability half (CR
+	// 605.3a, ADR-0054), asked once for every mana payment: the mana
+	// abilities payer activates, in order, before the pool pays toPay for
+	// paidFor (NoCard for an effect's payment). Only ActionTapForMana and
+	// ActionManaAbility answers are read; nil activates nothing.
+	PayManaCost(g *Game, payer PlayerID, toPay mana.Cost, paidFor CardID) []Action
+
 	// ChooseAttackTarget decides what a single declared attacker is
 	// attacking -- the defending player, or one of the planeswalkers/battles
 	// they control (CR 508.1b, Game.chooseAttackTargets, attack.go). eligible
@@ -696,6 +703,8 @@ type ScriptedController struct {
 	// left nil means "nothing queued for this player yet," the same as an
 	// empty slice.
 	actionQueue []*[]Action
+	// payManaCost is PayManaCost's queue (ADR-0054).
+	payManaCost [][]Action
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -885,6 +894,23 @@ func (c *ScriptedController) DeclareCombatAttackers(_ *Game, _ PlayerID, _ []Car
 	}
 	v := c.attackers[0]
 	c.attackers = c.attackers[1:]
+	return v
+}
+
+// QueuePayManaCost appends the answer to the next PayManaCost call.
+func (c *ScriptedController) QueuePayManaCost(actions []Action) {
+	c.payManaCost = append(c.payManaCost, actions)
+}
+
+// PayManaCost returns the next answer QueuePayManaCost queued, or none when
+// the queue is empty: like TakeAction's pass (ADR-0019), "activate nothing
+// more" is what a test that fills the pool itself means (ADR-0054).
+func (c *ScriptedController) PayManaCost(_ *Game, _ PlayerID, _ mana.Cost, _ CardID) []Action {
+	if len(c.payManaCost) == 0 {
+		return nil
+	}
+	v := c.payManaCost[0]
+	c.payManaCost = c.payManaCost[1:]
 	return v
 }
 

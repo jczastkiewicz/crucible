@@ -31,8 +31,8 @@
 // ManaRestriction$, Named$, CostDesc$, an XAlternative$ other than
 // Count$CardManaCost, a ConvertedManaCost cost) is not offered, never cast
 // at the wrong price (GO-7). An Activated.* line with Cost$ 0 (the equip,
-// power-up and unearth freebies) is freeActivationCost's. Not ported: the
-// cycling and crew alternative costs and other-hosted lines on casts that are
+// power-up and unearth freebies, Gavi's and New Perspectives' cycling) is
+// freeActivationCost's. Not ported: the crew alternative cost and other-hosted lines on casts that are
 // not from the hand (game-state.md).
 
 package engine
@@ -190,7 +190,7 @@ func hasNonManaParts(uc unlessCost) bool {
 // activated ability may carry: altCostParams plus the zones Highway Reaver's
 // unearth freebie is written with.
 var altActivationParams = func() map[string]bool {
-	m := map[string]bool{"affectedzone": true}
+	m := map[string]bool{"affectedzone": true, "costdesc": true}
 	for k := range altCostParams {
 		m[k] = true
 	}
@@ -198,7 +198,8 @@ var altActivationParams = func() map[string]bool {
 }()
 
 // freeActivationCost reports whether a live AlternativeCost static lets pid
-// pay {0} rather than the mana cost of activated (Forge Anew, Bruenor
+// pay {0} (or, for cycling, only the discard) rather than the mana cost of
+// activated (Forge Anew, Gavi, New Perspectives, Bruenor
 // Battlehammer, Kili, Advancing the Spirit, Highway Reaver:
 // "Activated.Equip", "Activated.PowerUp", "Activated.Unearth" lines with
 // Cost$ 0 and a CheckSVar$ for the first activation of the turn). Java builds
@@ -217,11 +218,17 @@ func (g *Game) freeActivationCost(pid PlayerID, card CardID, activated *Ability)
 					!staticHostZoneOK(host, s) || !g.staticConditionsMet(host, s) {
 					continue
 				}
-				if text, _ := s.Param("Cost"); strings.TrimSpace(text) != "0" {
-					continue
-				}
 				sa, ok := s.Param("ValidSA")
 				if !ok || !strings.HasPrefix(sa, "Activated") {
+					continue
+				}
+				// Cost$ 0, or for cycling (Gavi, New Perspectives) the
+				// Discard<1/CARDNAME> the cycling ability already carries, which
+				// is all that is left of its cost once the mana goes.
+				switch text, _ := s.Param("Cost"); {
+				case strings.TrimSpace(text) == "0":
+				case strings.TrimSpace(text) == "Discard<1/CARDNAME>" && sa == "Activated.Cycling":
+				default:
 					continue
 				}
 				if matched, recognized := g.spellAbilityMatches(activated, sa, host, host.Controller(), host.abilityAmounts(s)); !recognized || !matched {

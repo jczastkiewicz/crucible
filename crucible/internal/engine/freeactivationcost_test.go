@@ -42,3 +42,30 @@ func TestAlternativeCostMakesTheFirstEquipFree(t *testing.T) {
 		t.Errorf("paid second equip failed: %v", g.TakePendingError())
 	}
 }
+
+// Gavi, Nest Warden (Activated.Cycling, Cost$ Discard<1/CARDNAME>): the first
+// card cycled each turn costs only its discard; the second pays its cycling cost.
+func TestAlternativeCostMakesTheFirstCyclingFree(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Gavi, Nest Warden"), p, engine.Battlefield)
+	g.NewCard(creatureDefCost(t, "Library Card", "1"), p, engine.Library)
+	g.NewCard(creatureDefCost(t, "Library Card", "1"), p, engine.Library)
+	first := g.NewCard(scriptDef(t, "Cycler One", "Instant", "K:Cycling:2"), p, engine.Hand)
+	second := g.NewCard(scriptDef(t, "Cycler Two", "Instant", "K:Cycling:2"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	if !g.ActivateAbility(p, first, 0, c) {
+		t.Fatalf("free cycling not activated: %v", g.TakePendingError())
+	}
+	if g.Card(first).Zone != engine.Graveyard {
+		t.Errorf("cycled card in %v, want Graveyard", g.Card(first).Zone)
+	}
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	if g.ActivateAbility(p, second, 0, c) {
+		t.Error("second cycling of the turn was free")
+	}
+}

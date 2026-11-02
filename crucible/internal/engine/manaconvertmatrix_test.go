@@ -202,3 +202,25 @@ func TestManaConvertOnGrantingStatic(t *testing.T) {
 		})
 	}
 }
+
+// A mana ability's own mana cost pays under ManaConvert too
+// (PlaySpellAbility.java:658, mana abilities included): with an
+// AnyType->AnyColor line, blue mana pays a filter's {R}.
+func TestManaConvertPaysAManaAbilityCost(t *testing.T) {
+	t.Parallel()
+
+	for _, withRule := range []bool{true, false} {
+		g, p, _ := newTwoPlayerGame(t)
+		g.SetTurnState(1, p, engine.Main1)
+		if withRule {
+			g.NewCard(scriptDef(t, "Test Rule", "Enchantment", "S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ AnyType->AnyColor"), p, engine.Battlefield)
+		}
+		filter := g.NewCard(creatureDefWithAbility(t, "Red Filter", "AB$ Mana | Cost$ R | Produced$ G"), p, engine.Battlefield)
+		g.Player(p).ManaPool.Add(mana.Blue, 1)
+		c := engine.NewScriptedController()
+		c.QueuePayGeneric(mana.ShardU)
+		if got := g.ActivateManaAbility(p, filter, 0, c); got != withRule {
+			t.Errorf("rule %v: blue paid the {R} mana ability = %v", withRule, got)
+		}
+	}
+}

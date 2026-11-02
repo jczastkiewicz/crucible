@@ -452,7 +452,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			return false
 		}
 	} else {
-		restore := g.payingFor(&payContext{item: &Ability{API: APIMana, Source: card, Controller: pid, activated: true}, cost: costMana})
+		item := &Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true}
+		// PlaySpellAbility.java:653-664: a mana ability pays under the
+		// ManaConvert statics and its grantor's ManaConversion$ too.
+		costMana = g.manaConvertForActivation(pid, card, item, costMana)
+		restore := g.payingFor(&payContext{item: item, cost: costMana})
 		paid := g.PayManaCost(pid, costMana, controller)
 		restore()
 		if !paid {

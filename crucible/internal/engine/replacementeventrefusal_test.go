@@ -8,7 +8,7 @@ import (
 )
 
 // TestEffectsRefuseWhileTheirReplacementEventIsLive proves
-// Proliferate, AssembleContraption and Tap fail while a replacement for their event is in
+// Proliferate and Tap fail while a replacement for their event is in
 // play, instead of ignoring it (GO-7).
 func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
 	t.Parallel()
@@ -18,7 +18,6 @@ func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
 		zone        engine.ZoneType
 	}{
 		{"Proliferate", "DB$ Proliferate", engine.Battlefield},
-		{"AssembleContraption", "DB$ AssembleContraption", engine.Battlefield},
 		{"Tap", "DB$ Tap | Defined$ Self", engine.Battlefield},
 	}
 	for _, tt := range tests {

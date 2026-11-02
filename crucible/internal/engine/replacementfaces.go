@@ -260,3 +260,47 @@ func (g *Game) exploreReplaced(controller PlayerController, event, validParam st
 	})
 	return res == replacementReplaced
 }
+
+// assembleReplaced is ReplaceAssembleContraption (Event$ AssembleContraption):
+// player is about to assemble one Contraption, cause the card assembling it
+// (NoCard when the assembler is a player, AssembleContraptionEffect.java:
+// 124-127). ValidPlayer$ matches player and ValidCause$ the cause card; a
+// line whose ValidCause$ meets a player cause does not apply. The ReplaceWith$
+// ability reads the cause as Defined$ ReplacedCause (Steamflogger Boss), and
+// the nested assemble is not replaced again by the same line (runReplacements'
+// hasRun guard). Reports whether a line replaced it.
+func (g *Game) assembleReplaced(controller PlayerController, player PlayerID, cause CardID) bool {
+	res := g.runReplacements(controller, player, func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			sub := replaceWithSub(r)
+			if sub == nil || !strings.EqualFold(r.Name, "AssembleContraption") || !hostInActiveZones(h, r, z) {
+				return
+			}
+			if !onlyParams(r, "validplayer", "validcause") {
+				g.recordPendingError(fmt.Errorf("engine: %q: Event$ AssembleContraption: a param is not resolvable yet", h.Def.Name))
+				return
+			}
+			if v, ok := r.Param("ValidPlayer"); ok {
+				if matched, recognized := matchesPlayerSpec(g, player, h.Controller(), h.ID, v); !recognized || !matched {
+					return
+				}
+			}
+			if v, ok := r.Param("ValidCause"); ok && (cause == NoCard || !Matches(g, g.Card(cause), valid.Parse(v), h.Controller(), h.ID)) {
+				return
+			}
+			if !replacementRequirementsCheck(g, h, amounts, r) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: replacementReplaced, card: cause, player: player}); err != nil {
+					g.recordPendingError(err)
+					return replacementNotReplaced
+				}
+				return replacementReplaced
+			}})
+		})
+		return out
+	})
+	return res == replacementReplaced
+}

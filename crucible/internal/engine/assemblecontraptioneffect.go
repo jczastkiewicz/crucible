@@ -2,7 +2,11 @@ package engine
 
 //enginelint:allow ability amount card condition control effecthelpers game id memory parts zone zonemove
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+)
 
 // assembleContraptionEffect is AssembleContraptionEffect.java (Unfinity's
 // "assemble the Contraption," CR 725): the assembler puts the top Amount$
@@ -17,34 +21,43 @@ import "fmt"
 // dial" shape this port does not build (rejected below, GO-7/PORT-8's
 // "reject, don't guess").
 //
-// DefinedAssembler$'s own real corpus values are Self (2 lines) and
-// ReplacedCause (1, a ReplacementType$ AssembleContraption's own "and
-// assembles two instead" rewrite -- replacement types this port does not
-// dispatch by name, effecthelpers.go's own gap); every other real line
-// (20 of 23) names none and gets Java's own default, host.isCreature() ?
-// "Self" : "You". Both resolve to the same player here: the ability's own
-// Controller (a.Controller) is always the creature/spell's own controller
-// at the one point this effect runs (an ETB/damage/cast trigger on the
-// assembling permanent itself, or the spell's own activator) -- ValidTgts$-
-// shaped assemblers (letting a different player's creature assemble) are 0
-// real corpus lines, so "You" and "Self" never need to diverge here.
+// DefinedAssembler$ is Java's default, host.isCreature() ? "Self" : "You"
+// (AssembleContraptionEffect.java:75-77), or ReplacedCause, the card a
+// ReplacementType$ AssembleContraption replaced (Steamflogger Boss's "it
+// assembles two instead"). A card assembler assembles for its controller and
+// is the replacement's cause; a player assembler leaves no cause card.
 type assembleContraptionEffect struct{}
 
 func (assembleContraptionEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectParams(a, "AssembleContraption", "DefinedContraption", "Reassemble"); err != nil {
 		return err
 	}
-	if assembler, ok := a.Params.Param("DefinedAssembler"); ok && assembler != "Self" && assembler != "You" {
-		return fmt.Errorf("engine: AssembleContraption: DefinedAssembler$ %q not resolvable yet", assembler)
-	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	// Steamflogger Boss's Event$ AssembleContraption replacement
-	// (AssembleContraptionEffect.java:135) is not dispatched: refuse, GO-7.
-	if liveReplacementEvent(g, "AssembleContraption") {
-		return fmt.Errorf("engine: AssembleContraption: AssembleContraption replacement effects not resolvable yet")
+	assembler := "You"
+	if source.Type().Has(cardtype.Creature) {
+		assembler = "Self"
+	}
+	if v, ok := a.Params.Param("DefinedAssembler"); ok {
+		assembler = v
+	}
+	player, cause := a.Controller, NoCard
+	switch assembler {
+	case "You":
+	case "Self":
+		cause = a.Source
+	case "ReplacedCause":
+		if a.replacing == nil || a.replacing.card == NoCard {
+			return nil
+		}
+		cause = a.replacing.card
+	default:
+		return fmt.Errorf("engine: AssembleContraption: DefinedAssembler$ %q not resolvable yet", assembler)
+	}
+	if cause != NoCard {
+		player = g.Card(cause).Controller()
 	}
 
 	amount := 1
@@ -57,9 +70,13 @@ func (assembleContraptionEffect) Resolve(g *Game, a *Ability, controller PlayerC
 	}
 	remember := hasParam(a, "Remember")
 
-	player := a.Controller
 	var assembled []CardID
 	for i := 0; i < amount; i++ {
+		// AssembleContraptionEffect.java:135-137: each assemble is its own
+		// replacement event.
+		if g.assembleReplaced(controller, player, cause) {
+			continue
+		}
 		deck := g.Zone(ContraptionDeck, player)
 		cards := deck.Cards()
 		if len(cards) == 0 {

@@ -1624,7 +1624,7 @@ func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string, cont
 	if len(cards) == 0 {
 		return "", errUnlessNoCost
 	}
-	mc := g.Card(cards[0]).Def.Faces[0].ManaCost
+	mc := g.Card(cards[0]).printedManaCost()
 	if mc.IsNoCost() || mc.CountX() > 0 {
 		return "", fmt.Errorf("engine: UnlessCost$ %q: the card's mana cost is not a plain cost", text)
 	}

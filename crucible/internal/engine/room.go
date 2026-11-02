@@ -247,14 +247,20 @@ func roomView(printed *compile.Card, doors doorSet) *compile.Card {
 	v.Faces[0] = left
 	v.Faces[0].Name = v.Name
 	v.Faces[0].Type = left.Type.Union(right.Type)
-	shards := append(append([]mana.Shard(nil), left.ManaCost.Shards()...), right.ManaCost.Shards()...)
-	v.Faces[0].ManaCost = mana.FromShards(shards, left.ManaCost.Generic()+right.ManaCost.Generic())
+	v.Faces[0].ManaCost = combinedManaCost(left.ManaCost, right.ManaCost)
 	if left.HasColors || right.HasColors {
 		v.Faces[0].Colors = faceColors(left) | faceColors(right)
 		v.Faces[0].HasColors = true
 	}
 	v.Faces[DoorRight] = right
 	return v
+}
+
+// combinedManaCost is two halves' mana costs as one (CardRules' combined
+// split cost, CardFactory.java:335): every shard of both, generic summed.
+func combinedManaCost(left, right mana.Cost) mana.Cost {
+	shards := append(append([]mana.Shard(nil), left.Shards()...), right.Shards()...)
+	return mana.FromShards(shards, left.Generic()+right.Generic())
 }
 
 // faceColors is a face's printed color: its Colors: override, else its mana

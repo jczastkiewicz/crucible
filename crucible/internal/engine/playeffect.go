@@ -277,11 +277,15 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		origin := g.Card(pick).Zone
 		faced := (opt.face || opt.fused) && g.Card(pick).faceDef == nil
-		if faced && opt.fused {
+		switch {
+		case faced && opt.fused:
 			// CastFused's view: both halves as one spell.
 			g.Card(pick).castAsFused()
-		} else if faced {
+		case faced:
 			g.Card(pick).castAsFace()
+		case !opt.land:
+			// A Split card's plain option is its left half's spell.
+			faced = g.Card(pick).castAsLeftHalf()
 		}
 		undoFace := func() {
 			if faced && g.Card(pick).Zone != Stack && g.Card(pick).Zone != Battlefield {
@@ -555,8 +559,8 @@ type playOption struct {
 
 // withPlayView runs fn while card shows opt's characteristics, as Java's
 // option is its own SpellAbility on its own state: the second face
-// (castAsFace) or the fused spell (fuseView); the front is the card as it
-// is. ValidSA$, WithTotalCMC$ and the label read the option this way, so the
+// (castAsFace), the fused spell (fuseView), or a Split card's left half
+// (castAsLeftHalf); any other front is the card as it is. ValidSA$, WithTotalCMC$ and the label read the option this way, so the
 // right half of Fire // Ice is judged on Ice's cost, not Fire's.
 func withPlayView(g *Game, card CardID, opt playOption, fn func()) {
 	c := g.Card(card)
@@ -567,6 +571,10 @@ func withPlayView(g *Game, card CardID, opt playOption, fn func()) {
 			defer c.undoCastAsFace()
 		case opt.fused:
 			if c.castAsFused() {
+				defer c.undoCastAsFace()
+			}
+		case !opt.land:
+			if c.castAsLeftHalf() {
 				defer c.undoCastAsFace()
 			}
 		}
@@ -607,7 +615,11 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 		// Both faces' options, the front first; playOptionFor asks the
 		// controller to choose among those ValidSA$ admits
 		// (getAbilityToPlay).
+		left := c.castAsLeftHalf()
 		front, _ := playOptionsOfFace(g, caster, card)
+		if left {
+			c.undoCastAsFace()
+		}
 		c.castAsFace()
 		face, _ := playOptionsOfFace(g, caster, card)
 		c.undoCastAsFace()

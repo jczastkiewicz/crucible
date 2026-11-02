@@ -61,6 +61,24 @@ func (c *Card) castAsFace() {
 
 func (c *Card) undoCastAsFace() { c.leaveFace() }
 
+// castAsLeftHalf makes a Split card that is not a Room the spell of its left
+// half, as castAsFace does for the right one: Card.setSplitStateToPlayAbility
+// (PlaySpellAbility.java:104, MagicStack.java:276). Off the stack the card
+// has both halves' characteristics (splitOriginal); the spell, and every
+// check made while casting it, reads the left half's -- Java's checks read an
+// LKI copy in that half's state (Spell.getAlternateHost, Spell.java:158-200),
+// so Incubation, a sorcery, is not cast at instant speed for Incongruity's
+// type. Reports whether it switched; undoCastAsFace reverses it.
+func (c *Card) castAsLeftHalf() bool {
+	if c.faceDef != nil || c.Def == nil || !splitOriginal(c.Def) || isRoomDef(c.Def) {
+		return false
+	}
+	c.faceDef = c.Def
+	c.Def = doorView(c.faceDef, DoorLeft)
+	c.castDoor = DoorLeft
+	return true
+}
+
 // leaveFace restores the printed card as c leaves the stack or the battlefield.
 func (c *Card) leaveFace() {
 	if c.faceDef == nil {
@@ -224,8 +242,7 @@ func fuseView(printed *compile.Card) (*compile.Card, bool) {
 	v.Faces[0] = left
 	v.Faces[0].Name = v.Name
 	v.Faces[0].Type = left.Type.Union(right.Type)
-	shards := append(append([]mana.Shard(nil), left.ManaCost.Shards()...), right.ManaCost.Shards()...)
-	v.Faces[0].ManaCost = mana.FromShards(shards, left.ManaCost.Generic()+right.ManaCost.Generic())
+	v.Faces[0].ManaCost = combinedManaCost(left.ManaCost, right.ManaCost)
 	if left.HasColors || right.HasColors {
 		v.Faces[0].Colors = faceColors(left) | faceColors(right)
 		v.Faces[0].HasColors = true

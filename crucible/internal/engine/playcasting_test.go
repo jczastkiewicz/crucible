@@ -831,9 +831,13 @@ func TestPlayCastsAFuseCardFusedFromTheHand(t *testing.T) {
 	if got := g.Card(card).Zone; got != engine.Graveyard {
 		t.Errorf("Wear // Tear in %v, want the graveyard", got)
 	}
-	// Off the stack the card is the printed one again, not the fused view.
-	if got := g.Card(card).Name(); got != "Wear" {
+	// Off the stack the card is the printed one again, not the fused view,
+	// and has both halves' names (CR 709.4).
+	if got := g.Card(card).Def.Name; got != "Wear" {
 		t.Errorf("card in the graveyard is %q, want the printed Wear", got)
+	}
+	if got := g.Card(card).Name(); got != "Wear // Tear" {
+		t.Errorf("card in the graveyard is named %q, want Wear // Tear", got)
 	}
 }
 

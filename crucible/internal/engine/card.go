@@ -748,7 +748,8 @@ type traitGrant struct {
 
 // Name is Card.getName: the printed name, or the one a Layer 3 SetName$ gave a
 // permanent (changedName; only a battlefield card is ever renamed). A card
-// without a definition has none.
+// without a definition has none. A Split card off the stack has both halves'
+// names joined (splitOriginal).
 func (c *Card) Name() string {
 	if c.changedName != "" && c.Zone == Battlefield {
 		return c.changedName
@@ -759,7 +760,21 @@ func (c *Card) Name() string {
 	if c.Def == nil {
 		return ""
 	}
+	if splitOriginal(c.Def) {
+		return c.Def.Name + " // " + c.Def.Faces[carddb.FaceAlternate].Name
+	}
 	return c.Def.Name
+}
+
+// splitOriginal reports whether def is a printed Split card, a Room
+// included: Java's CardStateName.Original, whose name, mana cost, color and
+// type combine both halves' (CardFactory.java:330-339, CR 709.4) and which
+// every Card getter reads off the stack (Card.java:975, :2071, :4042,
+// :4204, :7372). Every view of a split card -- one half cast (doorView), the
+// fused spell (fuseView), a Room permanent (roomView) -- has no SplitType,
+// so a printed Split definition is a split card off the stack.
+func splitOriginal(def *compile.Card) bool {
+	return def.SplitType == carddb.SplitSplit && def.Faces[carddb.FaceAlternate].Name != ""
 }
 
 // grantFaces is faces plus one pseudo-face per trait grant that carries statics
@@ -991,7 +1006,11 @@ func (c *Card) Type() cardtype.Line {
 	if c.copyNonLegendary {
 		effects = append([]TypeEffect{{RemoveTypes: cardtype.ParseToken("Legendary")}}, effects...)
 	}
-	return foldType(c.Def.Faces[0].Type, effects)
+	base := c.Def.Faces[0].Type
+	if splitOriginal(c.Def) {
+		base = base.Union(c.Def.Faces[carddb.FaceAlternate].Type)
+	}
+	return foldType(base, effects)
 }
 
 // isSick is Card.isSick (Card.java:3651-3653): summoning sickness
@@ -1114,10 +1133,9 @@ func (c *Card) Colors() mana.Colors {
 	if c.Def == nil {
 		return 0
 	}
-	f := c.Def.Faces[0]
-	base := f.ManaCost.Colors()
-	if f.HasColors {
-		base = f.Colors
+	base := faceColors(c.Def.Faces[0])
+	if splitOriginal(c.Def) {
+		base |= faceColors(c.Def.Faces[carddb.FaceAlternate])
 	}
 	for _, inc := range c.incorporated {
 		base |= inc.Colors()
@@ -1125,10 +1143,19 @@ func (c *Card) Colors() mana.Colors {
 	return foldColor(base, c.ColorMod.effects)
 }
 
-// manaCost is Card.getManaCost: the printed cost with every incorporated cost
-// added (Card.addChangedManaCost, additional).
+// printedManaCost is the mana cost c's state prints: its primary face's, or
+// both halves' for a Split card off the stack (splitOriginal).
+func (c *Card) printedManaCost() mana.Cost {
+	if splitOriginal(c.Def) {
+		return combinedManaCost(c.Def.Faces[0].ManaCost, c.Def.Faces[carddb.FaceAlternate].ManaCost)
+	}
+	return c.Def.Faces[0].ManaCost
+}
+
+// manaCost is Card.getManaCost: the printed cost (printedManaCost) with every
+// incorporated cost added (Card.addChangedManaCost, additional).
 func (c *Card) manaCost() mana.Cost {
-	base := c.Def.Faces[0].ManaCost
+	base := c.printedManaCost()
 	if c.costOverride != nil {
 		base = *c.costOverride
 	}

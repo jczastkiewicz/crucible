@@ -95,8 +95,19 @@ func castableAsInstantOrSorcery(c *Card) bool {
 // Java's own checkTriggerEffects call sits.
 //
 // A Room card casts as its left half (DoorLeft); CastRoomDoor picks either.
+// Any other Split card casts as its left half too (castAsLeftHalf), CastFace
+// as its right one.
 func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController) bool {
-	return g.castFromHand(pid, card, DoorLeft, controller)
+	if !g.Card(card).castAsLeftHalf() {
+		return g.castFromHand(pid, card, DoorLeft, controller)
+	}
+	if g.castFromHand(pid, card, DoorLeft, controller) {
+		return true
+	}
+	if c := g.Card(card); c.Zone != Stack {
+		c.undoCastAsFace()
+	}
+	return false
 }
 
 // CastRoomDoor is CastSpell for a Room card cast as its half d (CR 709.3,

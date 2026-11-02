@@ -349,7 +349,7 @@ func costSubstitutedGrant(grant traitGrant, c *Card) traitGrant {
 	if c.Def == nil {
 		return grant
 	}
-	short := c.Def.Faces[0].ManaCost.ShortString()
+	short := c.printedManaCost().ShortString()
 	cmc := strconv.Itoa(c.CMC())
 	out := grant
 	out.abilities = substituteBodies(grant.abilities, short, cmc)

@@ -3,6 +3,7 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -67,5 +68,36 @@ func TestAlternativeCostMakesTheFirstCyclingFree(t *testing.T) {
 	c.QueuePayGeneric(mana.ShardG)
 	if g.ActivateAbility(p, second, 0, c) {
 		t.Error("second cycling of the turn was free")
+	}
+}
+
+// Heart of Kiran (Activated.Crew+Vehicle, Cost$ SubCounter<1/LOYALTY/
+// Planeswalker.YouCtrl>): the crew cost may be paid by removing a loyalty
+// counter from a planeswalker its controller controls, with no creature
+// tapped; the Vehicle becomes an artifact creature.
+func TestAlternativeCostCrewsHeartOfKiranWithLoyalty(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	heart := g.NewCard(corpusCard(t, "Heart of Kiran"), p, engine.Battlefield)
+	pw := g.NewCard(planeswalkerDefWithAbility(t, "Test Walker", "3",
+		"AB$ GainLife | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 3)
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	c.QueueCardChoice([]engine.CardID{pw})
+	if !g.ActivateAbility(p, heart, 0, c) {
+		t.Fatalf("crew for a loyalty counter not activated: %v", g.TakePendingError())
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 2 {
+		t.Errorf("loyalty = %d, want 2", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	sba(g)
+	if !g.Card(heart).Type().Has(cardtype.Creature) {
+		t.Error("Heart of Kiran is not a creature after crewing")
 	}
 }

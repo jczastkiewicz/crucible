@@ -17,6 +17,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 )
 
 // activateGeneral is ActivateAbility for a cost the shape reader refused, from
@@ -51,6 +52,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
 		activationIndex: index + 1,
 	}
+	activated.crew = keyword.Parse(ability.Keyword).Name == "Crew"
 	rest := withoutTapSymbols(costText)
 	uc := unlessCost{}
 	if xMin > 0 && costNamesX(rest) && g.nonManaXMax(pid, card, rest) < xMin {

@@ -30,10 +30,10 @@
 // the hand. A line naming a param this port does not read (Announce$,
 // ManaRestriction$, Named$, CostDesc$, an XAlternative$ other than
 // Count$CardManaCost, a ConvertedManaCost cost) is not offered, never cast
-// at the wrong price (GO-7). An Activated.* line with Cost$ 0 (the equip,
-// power-up and unearth freebies, Gavi's and New Perspectives' cycling) is
-// freeActivationCost's. Not ported: the crew alternative cost and other-hosted lines on casts that are
-// not from the hand (game-state.md).
+// at the wrong price (GO-7). An Activated.* line (the equip, power-up and
+// unearth freebies, Gavi's and New Perspectives' cycling, Heart of Kiran's
+// crew) is activationAltCost's. Not ported: other-hosted lines on casts that
+// are not from the hand (game-state.md).
 
 package engine
 
@@ -197,16 +197,16 @@ var altActivationParams = func() map[string]bool {
 	return m
 }()
 
-// freeActivationCost reports whether a live AlternativeCost static lets pid
-// pay {0} (or, for cycling, only the discard) rather than the mana cost of
-// activated (Forge Anew, Gavi, New Perspectives, Bruenor
-// Battlehammer, Kili, Advancing the Spirit, Highway Reaver:
-// "Activated.Equip", "Activated.PowerUp", "Activated.Unearth" lines with
-// Cost$ 0 and a CheckSVar$ for the first activation of the turn). Java builds
-// the alternative as the ability copied with its mana cost replaced
-// (StaticAbilityAlternativeCost.alternativeCosts, Cost.copyWithNoMana), so
-// the ability's other cost parts stay.
-func (g *Game) freeActivationCost(pid PlayerID, card CardID, activated *Ability) bool {
+// activationAltCost is StaticAbilityAlternativeCost.alternativeCosts for an
+// activated ability: the Cost$ of a live AlternativeCost static that lets pid
+// pay it instead of activated's whole cost. Java copies the ability with that
+// cost (SpellAbility.copyWithDefinedCost, StaticAbilityAlternativeCost.java:43):
+// Forge Anew, Bruenor Battlehammer, Kili, Advancing the Spirit and Highway
+// Reaver's Cost$ 0 equip, power-up and unearth freebies (with a CheckSVar$ for
+// the first activation of the turn), Gavi's and New Perspectives' cycling for
+// Discard<1/CARDNAME> alone, Heart of Kiran's crew for a planeswalker's loyalty
+// counter. A ConvertedManaCost cost is not offered (GO-7).
+func (g *Game) activationAltCost(pid PlayerID, card CardID, activated *Ability) (string, bool) {
 	for _, hid := range g.staticHostsWith(card) {
 		host := g.Card(hid)
 		if host.Def == nil {
@@ -222,13 +222,8 @@ func (g *Game) freeActivationCost(pid PlayerID, card CardID, activated *Ability)
 				if !ok || !strings.HasPrefix(sa, "Activated") {
 					continue
 				}
-				// Cost$ 0, or for cycling (Gavi, New Perspectives) the
-				// Discard<1/CARDNAME> the cycling ability already carries, which
-				// is all that is left of its cost once the mana goes.
-				switch text, _ := s.Param("Cost"); {
-				case strings.TrimSpace(text) == "0":
-				case strings.TrimSpace(text) == "Discard<1/CARDNAME>" && sa == "Activated.Cycling":
-				default:
+				text, ok := s.Param("Cost")
+				if text = strings.TrimSpace(text); !ok || strings.Contains(text, "ConvertedManaCost") {
 					continue
 				}
 				if matched, recognized := g.spellAbilityMatches(activated, sa, host, host.Controller(), host.abilityAmounts(s)); !recognized || !matched {
@@ -239,9 +234,9 @@ func (g *Game) freeActivationCost(pid PlayerID, card CardID, activated *Ability)
 						continue
 					}
 				}
-				return true
+				return text, true
 			}
 		}
 	}
-	return false
+	return "", false
 }

@@ -39,8 +39,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "SetState", "RevealFirst", "ValidNewFace", "NewState",
-		"ETB"); err != nil {
+	if err := rejectParams(a, "SetState", "NewState", "ETB"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -109,6 +108,17 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		}
 		if mode == "Transform" && id == a.Source && a.hasHostTransforms && c.Transforms != a.hostTransforms {
 			continue
+		}
+		// SetStateEffect.java:97-103: RevealFirst$ reveals the card face up
+		// (no state here) and ValidNewFace$ is matched on that face; a card
+		// that fails it is skipped (Hauntwoods Shrieker: "if it's a creature
+		// card, you may turn it face up").
+		if spec, ok := a.Params.Param("ValidNewFace"); ok && hasParam(a, "RevealFirst") {
+			lki := *c
+			lki.turnFaceUp()
+			if !Matches(g, &lki, valid.Parse(spec), a.Controller, a.Source) {
+				continue
+			}
 		}
 		if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			return nil

@@ -265,3 +265,36 @@ func TestAttachObjectRefusals(t *testing.T) {
 		}
 	}
 }
+
+// TestRevealFirstTurnsUpOnlyANewFaceThatMatches runs Hauntwoods Shrieker's
+// line: a face-down card is revealed and may be turned face up only if its
+// face-up side is a creature card; a noncreature card is skipped before the
+// "you may" question is asked.
+func TestRevealFirstTurnsUpOnlyANewFaceThatMatches(t *testing.T) {
+	t.Parallel()
+
+	for name, typeLine := range map[string]string{"creature": "Creature Bear", "instant": "Instant"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			g.NewCard(scriptDef(t, "Test Hidden", typeLine), p, engine.Library)
+			card := manifestTop(t, g, p)
+			def := etbChainDef(t, "Test Shrieker",
+				"DB$ SetState | ValidTgts$ Card.faceDown | Mode$ TurnFaceUp | Optional$ True | RevealFirst$ True | ValidNewFace$ Creature")
+			host := g.NewCard(def, p, engine.Battlefield)
+			c := engine.NewScriptedController()
+			creature := typeLine != "Instant"
+			if creature {
+				c.QueueConfirmEffect(true)
+			}
+			g.PushAbility(engine.Ability{API: engine.APISetState, Source: host, Controller: p,
+				Params: def.Faces[0].Triggers[0].Subs[0].Ability, Targets: []engine.EntityID{engine.CardEntity(card)}})
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Card(card).IsFaceDown(); got == creature {
+				t.Errorf("face down = %v, want %v", got, !creature)
+			}
+		})
+	}
+}

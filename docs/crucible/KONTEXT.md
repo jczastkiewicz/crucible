@@ -35,12 +35,14 @@ Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardMan
 Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`
 and `StaticAbilityContinuous` substitutes no `CardManaCost` (only `PumpEffect.java:458` does). Go offers no such cast.
 
-Next: Bestow (43 cards, task row in `game-state.md`). Java keeps the bestowed state into play: a move to the battlefield
-keeps the same `Card` object (`GameAction.java:171-172`, `copied = c`), so `animateBestow`'s timestamped type and
-`Enchant:Creature` change stays until `unattachFromEntity` reverts it (`Card.java:4003-4004`). Two Go checks decide
-whether it needs an ADR: whether a removable type and keyword record survives `Move` from the stack (an Animate made off
-the battlefield does, `quirks.md`), and whether an Aura's enchant restriction is read from `K:Enchant` or the
-`SP$ Attach` line. Model the cast on `castMutate`, the revert on `Game.Unattach`.
+Next: Bestow (43 cards, task row in `game-state.md`), a port, no ADR. Java keeps the bestowed state into play: a move to
+the battlefield keeps the same `Card` object (`GameAction.java:171-172`, `copied = c`), so `animateBestow`'s timestamped
+type and `Enchant:Creature` change stays until `unattachFromEntity` reverts it (`Card.java:4003-4004`). Go has both
+pieces: an `animateRecord` (Types and keywords at a timestamp, kept from the stack into play, removable by timestamp as
+`endAnimateRevert` does), and `enchantSpec` reads `KeywordLines()`, so a granted `Enchant:Creature` restricts the
+attach. Plan: a `castOption` flag and cast modelled on `castMutate` (the `SP$ Attach | ValidTgts$ Creature` spell, the
+bestow cost), Java's `bestowTimestamp` on `Card`, the gone-target path of `resolveMutate` for CR 702.103e (unanimate,
+resolve as a creature), unanimate in `Game.Unattach` (702.103f) and on a counter (`CounterEffect.java:261`).
 
 ## Working lessons
 

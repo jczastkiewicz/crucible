@@ -31,6 +31,15 @@ Unconfirmed PORT-8 candidate, JUnit probe first: `Cost.add` merges a plain mana 
 `maxWaterbend` from the incoming part only (`Cost.java:1019`), so a tax merged by `CostAdjustment.adjust` (`:90`,
 `:103`) may drop a Waterbend cost's tap (Hama's grant under Thalia). Go keeps the tap.
 
+Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardManaCost:<valid>` (Henzie, The Caldaia,
+Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`
+and `StaticAbilityContinuous` substitutes no `CardManaCost` (only `PumpEffect.java:458` does). Go offers no such cast.
+
+Next: Bestow (43 cards, task row in `game-state.md`). Three checks decide whether it needs an ADR: whether Java's
+bestowed state survives the stack-to-battlefield copy (`AttachEffect.java:154-170`, `CardFactory.java:105-115`); whether
+a removable Go type and keyword record exists for the Aura change; whether an Aura's enchant restriction is read from
+`K:Enchant` or the `SP$ Attach` line. Model the cast on `castMutate`, the revert on `Game.Unattach`.
+
 ## Working lessons
 
 | Lesson                                                                                                                              | Reason                                                                                                                                               |
@@ -41,4 +50,6 @@ Unconfirmed PORT-8 candidate, JUnit probe first: `Cost.add` merges a plain mana 
 | Commit nothing while the background gate run is going                                                                               | `git push origin master` pushes whatever `master` is at the end, including commits the race run never saw                                            |
 | Re-pad a table row to its old cell widths after editing a cell                                                                      | Claude-only tables are not reformatted by Prettier, and MD060 fails a misaligned row                                                                 |
 | Avoid a bare `X$` token next to a backticked `Y$` in one table cell                                                                 | markdownlint reads the `$...$` pair as math and reports MD038                                                                                        |
+| `go test ./... \| grep -v '^ok'` under `set -o pipefail` exits 1 when every package passes                                          | `grep -v` selects no line; read the output, not the status                                                                                           |
+| On "no space left on device" in the commit hook, run `go clean -cache`                                                              | The Go build cache grows to the whole disk allowance (28 GB this session)                                                                            |
 | Mutation-check each new Go test: revert the fix, see it fail                                                                        | Two tests in this loop passed for the wrong reason until checked                                                                                     |

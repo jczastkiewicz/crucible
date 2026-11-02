@@ -532,7 +532,9 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 		// A card outside play watches from the zones its TriggerZones$ names
 		// (Vengevine, Cantor of the Refrain from the graveyard): Java collects
 		// every card's triggers in every zone (TriggerHandler.java:193-201).
-		for _, z := range [...]ZoneType{Graveyard, Exile, Hand, Library} {
+		// Hands and libraries are not walked on every cast for the one line
+		// naming them (Summitfest Closing Ceremony, game-state.md).
+		for _, z := range [...]ZoneType{Graveyard, Exile} {
 			for _, host := range g.Zone(z, pid).Cards() {
 				matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false, spellCastModes, castCounts)
 			}
@@ -571,8 +573,8 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 // Lae'zel, Githyanki Warrior; Drowner of Truth) print it on the front face,
 // and their other faces are melded, specialized or a land, never cast.
 //
-// A host outside play (offZone: graveyard, exile, hand, library) fires only
-// from a zone its TriggerZones$ names.
+// A host outside play (offZone: graveyard, exile) fires only from a zone its
+// TriggerZones$ names.
 func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool, modes []string, counts triggerCounts) []Ability {
 	h := g.Card(host)
 	if h.Def == nil {

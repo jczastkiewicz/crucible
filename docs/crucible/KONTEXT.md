@@ -35,10 +35,12 @@ Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardMan
 Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`
 and `StaticAbilityContinuous` substitutes no `CardManaCost` (only `PumpEffect.java:458` does). Go offers no such cast.
 
-Next: Bestow (43 cards, task row in `game-state.md`). Three checks decide whether it needs an ADR: whether Java's
-bestowed state survives the stack-to-battlefield copy (`AttachEffect.java:154-170`, `CardFactory.java:105-115`); whether
-a removable Go type and keyword record exists for the Aura change; whether an Aura's enchant restriction is read from
-`K:Enchant` or the `SP$ Attach` line. Model the cast on `castMutate`, the revert on `Game.Unattach`.
+Next: Bestow (43 cards, task row in `game-state.md`). Java keeps the bestowed state into play: a move to the battlefield
+keeps the same `Card` object (`GameAction.java:171-172`, `copied = c`), so `animateBestow`'s timestamped type and
+`Enchant:Creature` change stays until `unattachFromEntity` reverts it (`Card.java:4003-4004`). Two Go checks decide
+whether it needs an ADR: whether a removable type and keyword record survives `Move` from the stack (an Animate made off
+the battlefield does, `quirks.md`), and whether an Aura's enchant restriction is read from `K:Enchant` or the
+`SP$ Attach` line. Model the cast on `castMutate`, the revert on `Game.Unattach`.
 
 ## Working lessons
 

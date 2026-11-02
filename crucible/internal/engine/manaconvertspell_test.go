@@ -8,8 +8,9 @@ import (
 )
 
 // Mode$ ManaConvert AnyType->AnyColor lets green mana pay a {R} creature spell,
-// for the player and the spells the line's ValidPlayer$ and ValidCard$ name; a
-// line with a conversion or param this port does not read changes nothing.
+// for the player and the spells the line's ValidPlayer$ and ValidCard$ name;
+// Green->Red does the same through the color matrix, and a line with a
+// conversion or param this port does not read changes nothing.
 func TestManaConvertSpendsAnyColorOnNamedSpells(t *testing.T) {
 	t.Parallel()
 
@@ -25,7 +26,8 @@ func TestManaConvertSpendsAnyColorOnNamedSpells(t *testing.T) {
 		{"planeswalker spells only", "S:Mode$ ManaConvert | ValidPlayer$ You | ValidCard$ Planeswalker.YouCtrl | ValidSA$ Spell | ManaConversion$ AnyType->AnyColor", false},
 		{"opponents only", "S:Mode$ ManaConvert | ValidPlayer$ Opponent | ManaConversion$ AnyType->AnyColor", false},
 		{"activated abilities only", "S:Mode$ ManaConvert | ValidPlayer$ You | ValidSA$ Activated | ManaConversion$ AnyType->AnyColor", false},
-		{"one color to another is unread", "S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ Green->Red", false},
+		{"green may pay as red", "S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ Green->Red", true},
+		{"an unknown type is unread", "S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ Purple->Red", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -36,6 +38,7 @@ func TestManaConvertSpendsAnyColorOnNamedSpells(t *testing.T) {
 			g.Player(p).ManaPool.Add(mana.Green, 1)
 			c := engine.NewScriptedController()
 			c.QueuePayGeneric(mana.ShardG)
+			c.QueueHybridManaColor(mana.Green)
 			if got := g.CastSpell(p, spell, c); got != tc.want {
 				t.Errorf("casting {R} with green = %v, want %v", got, tc.want)
 			}

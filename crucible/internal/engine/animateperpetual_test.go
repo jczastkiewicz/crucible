@@ -71,7 +71,7 @@ func TestAnimateStaticAbilitiesGrantsAContinuousStatic(t *testing.T) {
 	}
 }
 
-// A mode nothing reads (here a ManaConvert shape castCost does not apply) is
+// A mode nothing reads (here a ManaConvert naming no mana type) is
 // refused rather than granted inert.
 func TestAnimateStaticAbilitiesRefusesAModeNothingReads(t *testing.T) {
 	t.Parallel()
@@ -80,9 +80,9 @@ func TestAnimateStaticAbilitiesRefusesAModeNothingReads(t *testing.T) {
 	victim := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 	_, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(victim)},
 		"DB$ Animate | ValidTgts$ Creature | staticAbilities$ Spend | Duration$ Permanent",
-		"Spend", "Mode$ ManaConvert | ValidCard$ Card.Self | ManaConversion$ White->Red")
+		"Spend", "Mode$ ManaConvert | ValidCard$ Card.Self | ManaConversion$ Purple->Red")
 	if err == nil {
-		t.Error("a per-color ManaConvert grant was accepted, want a refusal")
+		t.Error("a ManaConvert grant of an unknown type was accepted, want a refusal")
 	}
 }
 

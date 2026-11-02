@@ -202,6 +202,19 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		}
 	}
 
+	// ManaConvert's per-color matrix (ManaPool.canPayForShardWithColor):
+	// each colored or colorless requirement becomes the mana that may pay it.
+	// A generic unit is paid by any type either way, so it is left out.
+	if m := g.payMatrix(decider); !m.isIdentity() {
+		for i, s := range resolved {
+			conv, ok := g.convertShard(m, s, decider, controller)
+			if !ok {
+				return xAnnounced{}, false
+			}
+			resolved[i] = conv
+		}
+	}
+
 	for i := 0; i < generic; i++ {
 		resolved = append(resolved, controller.ChoosePayGeneric(g, decider))
 	}

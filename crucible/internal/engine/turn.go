@@ -469,11 +469,13 @@ func (g *Game) emptyManaPools(controller PlayerController) {
 // Paradise's Pump) returns to its owner's hand before anything untaps, the
 // moves batched for ChangesZoneAll.
 func (g *Game) untapStepBounce(controller PlayerController) {
-	var moved []CardID
+	var bounce, moved []CardID
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
-		if !g.Card(id).hasKeywordText(untapBounceKeyword) {
-			continue
+		if g.Card(id).hasKeywordText(untapBounceKeyword) {
+			bounce = append(bounce, id)
 		}
+	}
+	for _, id := range bounce {
 		g.moveByEffect(controller, id, Hand, 0, NoPlayer, false)
 		if g.Card(id).Zone == Hand {
 			moved = append(moved, id)

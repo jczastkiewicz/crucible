@@ -607,7 +607,13 @@ func (g *Game) payManaAbilityGeneral(controller PlayerController, act *Ability, 
 		g.checkTapAllTriggers(controller, []CardID{act.Source})
 	}
 	if parsed.Untap {
+		// CostUntap.payAsDecided (CostUntap.java:88-95): Card.untap's triggers
+		// and untap commands, then UntapAll for the activator. The flag
+		// cleared before the other parts were paid, so the Untaps check sees
+		// it untapped (quirks.md).
 		g.checkUntapsTriggers(controller, act.Source)
+		g.runUntapCommands(controller, act.Source)
+		g.pushTriggeredAbilities(controller, g.untapAllMatches(pid, []CardID{act.Source}))
 	}
 	return true
 }

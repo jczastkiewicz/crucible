@@ -331,7 +331,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 				if dest1 != Battlefield {
 					return fmt.Errorf("engine: Dig: FaceDown$ with DestinationZone$ %v not resolvable yet", dest1)
 				}
-				if g.turnFaceDown(id) {
+				if g.turnFaceDown(id, true) {
 					if err := g.setFaceDownState(a, source, g.Card(id)); err != nil {
 						return fmt.Errorf("engine: Dig: %w", err)
 					}

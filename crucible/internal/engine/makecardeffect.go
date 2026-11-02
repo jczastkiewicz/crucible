@@ -163,7 +163,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				if g.Card(id).Zone == Exile {
 					g.turnFaceDownInExile(id)
 				} else {
-					g.turnFaceDown(id)
+					g.turnFaceDown(id, true)
 				}
 			}
 			if hasParam(a, "RememberMade") {

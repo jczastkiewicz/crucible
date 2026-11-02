@@ -111,3 +111,18 @@ func TestDigPutsCardsFaceDownUnderTheActivatorsControl(t *testing.T) {
 		}
 	}
 }
+
+// TestDigFaceDownTurnsADoubleFacedCard proves Dig's turnFaceDown(true)
+// (DigEffect.java:390): the override skips the double-faced check, so a
+// transform card enters face down too.
+func TestDigFaceDownTurnsADoubleFacedCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	dfc := g.NewCard(corpusCard(t, "Delver of Secrets"), p, engine.Library)
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Battlefield | FaceDown$ True")
+	if card := g.Card(dfc); card.Zone != engine.Battlefield || !card.IsFaceDown() {
+		t.Errorf("Delver: zone %v, face down %v; want face down on the battlefield", card.Zone, card.IsFaceDown())
+	}
+}

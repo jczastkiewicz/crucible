@@ -138,7 +138,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		case mode == "Unspecialize":
 			changed = g.unspecialize(id)
 		case mode == "TurnFaceDown":
-			if changed = g.turnFaceDown(id); changed {
+			if changed = g.turnFaceDown(id, false); changed {
 				if err := g.setFaceDownState(a, source, c); err != nil {
 					return err
 				}
@@ -199,15 +199,17 @@ func (g *Game) turnFaceDownCheck(id CardID) error {
 // facedown commands run -- the UntilFacedown copy effects it hosts end
 // (endCopiesOnFaceDown), here before the face changes so the face-down state
 // covers the card's own values. A face-down or double-faced permanent does
-// not turn (Java's !isDoubleFaced and oldState checks). Reports whether it
-// turned.
-func (g *Game) turnFaceDown(id CardID) bool {
+// not turn (Java's !isDoubleFaced and oldState checks) unless override, Java's
+// turnFaceDown(true) (ChangeZone, Dig and MakeCard FaceDown$), which skips the
+// double-faced check; a transformed permanent still does not turn, since none
+// of those effects moves one. Reports whether it turned.
+func (g *Game) turnFaceDown(id CardID, override bool) bool {
 	c := g.Card(id)
 	if c.IsFaceDown() || c.frontDef != nil {
 		return false
 	}
 	// Card.isDoubleFaced reads the card's own rules, not a copied state.
-	if own := c.UncopiedDef(); own != nil {
+	if own := c.UncopiedDef(); own != nil && !override {
 		switch own.SplitType {
 		case carddb.SplitTransform, carddb.SplitMeld, carddb.SplitModal:
 			return false

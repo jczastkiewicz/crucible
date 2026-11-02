@@ -660,7 +660,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			if dest != Battlefield {
 				return fmt.Errorf("engine: ChangeZone: FaceDown$ with Destination$ %v not resolvable yet", dest)
 			}
-			if g.turnFaceDown(id) {
+			if g.turnFaceDown(id, true) {
 				if err := g.setFaceDownState(a, source, g.Card(id)); err != nil {
 					return err
 				}

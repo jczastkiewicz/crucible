@@ -484,3 +484,29 @@ func TestChooseCardWithDifferentManaValuesDropsTheChosenValue(t *testing.T) {
 		}
 	})
 }
+
+// Running Is Useless as printed: Amount$ Max is Count$Valid
+// Creature$DifferentCardManaCost (the number of mana values among creatures,
+// AbilityUtils.java:3854-3860), so two creatures of different mana values
+// are chosen and destroyed.
+func TestRunningIsUselessDestroysCreaturesOfDifferentManaValues(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Running Is Useless"), p, engine.SchemeDeck)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	angel := g.NewCard(corpusCard(t, "Serra Angel"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{bears})
+	c.QueueCardChoice([]engine.CardID{angel})
+	c.QueueCardChoice(nil) // a further optional pick, declined
+	resolveLine(t, g, p, c, "DB$ SetInMotion")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []engine.CardID{bears, angel} {
+		if z := g.Card(id).Zone; z != engine.Graveyard {
+			t.Errorf("%s in %v, want Graveyard", g.Card(id).Name(), z)
+		}
+	}
+}

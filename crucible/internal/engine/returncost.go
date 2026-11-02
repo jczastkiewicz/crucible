@@ -37,6 +37,9 @@ func returnCards(g *Game, controller PlayerController, ids []CardID) {
 		if c.Zone != Battlefield {
 			continue
 		}
+		if g.redirectMove(controller, id, Hand) {
+			continue
+		}
 		g.Move(id, Hand, c.Owner)
 		g.checkReturnedTriggers(controller, id)
 		returned = append(returned, id)

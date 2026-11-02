@@ -1323,8 +1323,8 @@ func (c *Card) stackX() int {
 }
 
 // isCommander is Card.isCommander: set by Player.addCommander (commander.go),
-// which AlterAttribute's Commander attribute calls (ADR-0051). A Commander game
-// setup and GameState's |IsCommander option are not ported.
+// which AlterAttribute's Commander attribute and the fixture's |IsCommander
+// option call (ADR-0051, ADR-0053). A Commander game setup is not ported.
 func (c *Card) isCommander() bool { return c.commander }
 
 // shortManaCost is Card.getManaCost().getShortString(), what a granted

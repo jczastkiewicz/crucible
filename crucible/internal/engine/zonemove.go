@@ -54,10 +54,12 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 	var melded CardID
 	// A Moved replacement for leaving the battlefield (LeaveBattlefield$'s
 	// effect card, Realmbreaker's "exile it instead") redirects any destination
-	// but the graveyard, whose moves moveToGraveyard reads it for.
+	// but the graveyard, whose moves moveToGraveyard reads it for; one bound
+	// for the hand or library is read from any origin (the Commander Effect,
+	// ADR-0053).
 	var redirected *movedPost
-	if origin == Battlefield && dest != Battlefield && dest != Graveyard {
-		dest, redirected = g.movedDestination(id, dest)
+	if origin == Battlefield && dest != Battlefield && dest != Graveyard || dest == Hand || dest == Library {
+		dest, redirected = g.movedDestination(controller, id, dest)
 	}
 	switch dest {
 	case Battlefield:

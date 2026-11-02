@@ -72,6 +72,12 @@ type Player struct {
 	surveilThisTurn int
 	// commanders is Player.getCommanders in designation order (ADR-0051).
 	commanders []CardID
+	// commanderEffect is the Commander Effect card addCommander made in this
+	// player's Command zone (Player.commanderEffect, ADR-0053), NoCard before.
+	commanderEffect CardID
+	// commanderCasts is Player.commanderCast (Player.java:190): per commander,
+	// how many times this player cast it from the Command zone.
+	commanderCasts []commanderCastCount
 	// expendThisTurn is Player.expentThisTurn (Player.java:3995-4000): the mana
 	// this player spent on spells this turn, what Mode$ ManaExpend counts.
 	expendThisTurn int
@@ -458,4 +464,11 @@ func (p *Player) Attachments() []CardID {
 		return nil
 	}
 	return p.attachments.All()
+}
+
+// commanderCastCount is one entry of Player.commanderCast (Player.java:190):
+// how many times the player cast commander from the Command zone.
+type commanderCastCount struct {
+	commander CardID
+	n         int
 }

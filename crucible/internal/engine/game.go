@@ -1533,6 +1533,11 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	if hiddenZone(kind) {
 		c.stickers = nil
 	}
+	if kind == Command && c.commander {
+		// Zone.java:106-114: a commander entering the Command zone goes first.
+		g.Zone(kind, owner).cards.Prepend(id)
+		return
+	}
 	g.Zone(kind, owner).cards.Add(id)
 }
 
@@ -1794,6 +1799,7 @@ func (g *Game) Clone() *Game {
 			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
 		}
 		out.players[i].commanders = append([]CardID(nil), g.players[i].commanders...)
+		out.players[i].commanderCasts = append([]commanderCastCount(nil), g.players[i].commanderCasts...)
 		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
 		out.players[i].attackedThisTurn = append([]CardID(nil), g.players[i].attackedThisTurn...)
 		out.players[i].attackedPlayersThisTurn = append([]PlayerID(nil), g.players[i].attackedPlayersThisTurn...)

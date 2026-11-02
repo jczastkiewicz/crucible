@@ -288,6 +288,9 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: OnAdventure: not in exile", name)
 			}
 			c.SetOnAdventure(true)
+		case strings.HasPrefix(info, "IsCommander"):
+			// GameState.java:1377: the section's player, the card's owner.
+			ld.game.AddCommander(owner, id)
 		case strings.HasPrefix(info, "Flipped"):
 			ld.game.Flip(id)
 		case strings.HasPrefix(info, "Transformed"):

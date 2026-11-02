@@ -644,6 +644,12 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	if g.playerStatic(pid, "DrawFromBottom", nil) {
 		id = lib.Cards()[lib.Len()-1]
 	}
+	if g.redirectMove(controller, id, Hand) {
+		// A Moved replacement took the card elsewhere (a commander to the
+		// Command zone): it left the library but was not drawn.
+		g.checkLeftZoneTriggers(controller, []CardID{id}, Library)
+		return true
+	}
 	g.Move(id, Hand, pid)
 	// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
 	// says a card moved, CardDrawn says why, which is what makes a draw

@@ -21,20 +21,42 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
-// commanderCasts is Player.getTotalCommanderCast (Player.java:2894-2900) for
-// any player, and Player.getCommanderCast(card) (:2875-2877) for any card: how
-// many times the player cast a commander of theirs from the Command zone, the
-// record MagicStack.java:346-349 keeps as the spell is cast and commander tax
-// reads (CostAdjustment.java:57-61). The increment needs Card.isCommander
-// (card.go's isCommander, also the IsCommander property's answer), which only
-// Player.addCommander sets -- the Commander game setup and the
-// GameState |IsCommander card option (GameState.java:1377), neither ported:
-// the fixture loader reports |IsCommander unapplied. So no card here is a
-// commander, every player's record is empty, and the answer is 0 -- Java's
-// own for a game without commanders, not a guess. A Commander setup (the
-// designation, the Commander Effect's cast permission, replacement and tax,
-// Player.createCommanderEffect) must replace this with the record it keeps.
-func (*Game) commanderCasts() int { return 0 }
+// commanderCastsOf is Player.getCommanderCast (Player.java:2904-2906): how
+// many times pid cast commander from the Command zone (ADR-0053).
+func (g *Game) commanderCastsOf(pid PlayerID, commander CardID) int {
+	for _, e := range g.Player(pid).commanderCasts {
+		if e.commander == commander {
+			return e.n
+		}
+	}
+	return 0
+}
+
+// totalCommanderCasts is Player.getTotalCommanderCast (Player.java:2924-2930).
+func (g *Game) totalCommanderCasts(pid PlayerID) int {
+	n := 0
+	for _, e := range g.Player(pid).commanderCasts {
+		n += e.n
+	}
+	return n
+}
+
+// noteCommanderCast is the MagicStack.java:385-387 increment: card, a
+// commander pid owns, was cast by pid from the Command zone.
+func (g *Game) noteCommanderCast(pid PlayerID, card CardID) {
+	c := g.Card(card)
+	if !c.isCommander() || c.castFrom != Command || c.Owner != pid {
+		return
+	}
+	p := g.Player(pid)
+	for i := range p.commanderCasts {
+		if p.commanderCasts[i].commander == card {
+			p.commanderCasts[i].n++
+			return
+		}
+	}
+	p.commanderCasts = append(p.commanderCasts, commanderCastCount{commander: card, n: 1})
+}
 
 // recordSpellCast counts card as cast by pid and adds it to the turn's
 // history. Called with the card already on the stack: from is where the cast
@@ -44,6 +66,7 @@ func (g *Game) recordSpellCast(pid PlayerID, card CardID) {
 	g.Player(pid).spellsCastThisGame++
 	c := g.Card(card)
 	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp})
+	g.noteCommanderCast(pid, card)
 }
 
 // thisTurnCastCount is Count$ThisTurnCast_<spec>: the spells cast so far this

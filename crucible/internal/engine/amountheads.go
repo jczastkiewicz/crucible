@@ -489,10 +489,14 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		return startingLife, true
 	case "YourSpeed":
 		return g.Player(sourceController).Speed, true
-	case "TotalCommanderCastFromCommandZone", "CommanderCastFromCommandZone":
-		// AbilityUtils.java:2363-2369: the controller's commander casts from
-		// the Command zone, in total or of the host (Opal Palace).
-		return g.commanderCasts(), true
+	case "TotalCommanderCastFromCommandZone":
+		// AbilityUtils.java:2351-2353: the controller's commander casts from
+		// the Command zone, in total.
+		return g.totalCommanderCasts(sourceController), true
+	case "CommanderCastFromCommandZone":
+		// AbilityUtils.java:2347-2350: the controller's casts of the host
+		// (Opal Palace's commander, Liesa herself).
+		return g.commanderCastsOf(sourceController, source), true
 	case "TopOfLibraryCMC":
 		// AbilityUtils.java:2505-2509: the top card's mana value, 0 for an
 		// empty library.

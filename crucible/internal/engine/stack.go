@@ -395,7 +395,9 @@ func (g *Game) moveResolvedSpellToGraveyard(controller PlayerController, a Abili
 		// Stack -> Graveyard, Fizzle$ False, ValidStackSa$ Spell.Buyback, becomes
 		// a move to the hand. A countered spell carries no Fizzle key, so it
 		// keeps going to the graveyard.
-		g.Move(a.Source, Hand, c.Owner)
+		if !g.redirectMove(controller, a.Source, Hand) {
+			g.Move(a.Source, Hand, c.Owner)
+		}
 		return
 	}
 	if a.spell && !fizzled && !c.IsCopiedSpell && g.reboundResolved(controller, a, c) {

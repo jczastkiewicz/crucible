@@ -63,6 +63,11 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 	}
 	c := g.Card(card)
 	generic := base.Generic()
+	if act == nil {
+		// Commander tax, CostAdjustment.adjust's first step for a spell
+		// (CostAdjustment.java:56-61), before any RaiseCost or ReduceCost.
+		generic += g.commanderTax(pid, c)
+	}
 	shards := append([]mana.Shard(nil), base.Shards()...)
 
 	type line struct {
@@ -283,7 +288,15 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	// checkRequirement tests the static's conditions first
 	// (CostAdjustment.java:514-516), so a line whose condition fails skips
 	// before any param this port cannot evaluate refuses the cast.
-	if !g.staticConditionsMet(host, s) {
+	// The spell being cast is on the stack while its cost is adjusted
+	// (Java moves it there first); Go-side it is still where it was cast
+	// from, so its own lines are read as from the Stack (Liesa's EffectZone$
+	// Stack reduction and raise).
+	if act == nil && host.ID == c.ID {
+		if !staticZoneOK(Stack, s) || !g.staticOtherConditionsMet(host, s) {
+			return costModSkips
+		}
+	} else if !g.staticConditionsMet(host, s) {
 		return costModSkips
 	}
 	wantType := "Spell"

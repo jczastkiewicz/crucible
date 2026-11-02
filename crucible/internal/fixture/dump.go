@@ -120,6 +120,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 	}
 	b.WriteString("|Id:")
 	b.WriteString(strconv.FormatUint(uint64(id), 10))
+	// GameState.java:305-307: every zone.
+	if g.IsCommander(id) {
+		b.WriteString("|IsCommander")
+	}
 
 	if c.Zone == engine.Battlefield {
 		if c.Owner != c.Controller() {

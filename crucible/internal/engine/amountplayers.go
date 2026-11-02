@@ -268,10 +268,10 @@ func playerXCount(g *Game, amounts map[string]expr.Amount, controller PlayerID, 
 	switch {
 	case strings.HasPrefix(body, "TotalCommanderCastFromCommandZone"):
 		// AbilityUtils.java:3366-3372: every player's total, summed, the
-		// operator applied to the sum (commanderCasts: 0 for every player).
+		// operator applied to the sum.
 		n := 0
-		for range players {
-			n += g.commanderCasts()
+		for _, p := range players {
+			n += g.totalCommanderCasts(p)
 		}
 		return math(n)
 	case strings.HasPrefix(body, "Highest"), strings.HasPrefix(body, "Lowest"):

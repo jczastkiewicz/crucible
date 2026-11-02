@@ -100,7 +100,8 @@ func (g *Game) discardReplaced(controller PlayerController, id CardID, cause dis
 	// A graveyard replacement that would also apply (Rest in Peace) is one more
 	// candidate of the same CR 616.1 choice (ReplacementHandler.java:256-279):
 	// the discarding player picks, and whichever replaces first ends the walk.
-	_, grave := g.movedGraveyardDestination(id)
+	// A probe: an Optional$ line is not asked here (nil controller).
+	_, grave := g.movedGraveyardDestination(nil, id)
 	from := c.Zone
 	return g.runReplacements(controller, c.Controller(), func() []replacementCandidate {
 		cands := make([]replacementCandidate, 0, len(lines))

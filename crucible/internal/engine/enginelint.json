@@ -618,7 +618,7 @@
       "altcost",
       "unlesscost"
     ],
-    "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability"],
+    "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability", "player"],
     "playerproperty": [
       "id",
       "zone",

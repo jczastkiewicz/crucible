@@ -288,18 +288,28 @@ func TestLoadUnappliedAnnotationsAreRecorded(t *testing.T) {
 	}
 }
 
-// TestLoadReportsIsCommanderUnapplied pins what the engine's commander-cast
-// count rests on (engine.Game.commanderCasts): |IsCommander
-// (GameState.java:1377, Player.addCommander) designates no commander here --
-// no Commander setup is ported -- so it is reported, never silently taken.
-// Supporting it means porting the Commander Effect and the cast record with it.
-func TestLoadReportsIsCommanderUnapplied(t *testing.T) {
+// |IsCommander (GameState.java:1377) makes the card its section player's
+// commander through Player.addCommander, which also puts that player's
+// Commander Effect in the Command zone (ADR-0053); the dump writes the option
+// back and leaves the effect card out, as it does every designation card.
+func TestLoadAppliesIsCommander(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t, "Grizzly Bears")
 	l := load(t, db, "humancommand=Grizzly Bears|IsCommander\n")
-	if len(l.Unapplied) != 1 || !strings.Contains(l.Unapplied[0], "IsCommander") {
-		t.Errorf("Unapplied %v, want the one IsCommander annotation", l.Unapplied)
+	if len(l.Unapplied) != 0 {
+		t.Errorf("Unapplied %v, want none", l.Unapplied)
+	}
+	human := l.Game.Players()[0]
+	commanders := l.Game.Commanders(human)
+	if len(commanders) != 1 || !l.Game.IsCommander(commanders[0]) {
+		t.Fatalf("commanders %v, want the Bears", commanders)
+	}
+	if got := l.Game.Zone(engine.Command, human).Len(); got != 2 {
+		t.Errorf("Command zone holds %d cards, want the Bears and the Commander Effect", got)
+	}
+	if got := fixture.Dump(l).Players[0].Command; !strings.Contains(got, "Grizzly Bears|Id:") || !strings.HasSuffix(got, "|IsCommander") || strings.Contains(got, ";") {
+		t.Errorf("dumped command zone %q, want the Bears alone with |IsCommander", got)
 	}
 }
 

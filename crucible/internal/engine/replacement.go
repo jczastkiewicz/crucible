@@ -253,7 +253,7 @@ func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType
 	if g.resolvedFaceSpell(controller, id, false) {
 		return g.Card(id).Zone, NoCard
 	}
-	dest, post := g.movedGraveyardDestination(id)
+	dest, post := g.movedGraveyardDestination(controller, id)
 	owner := g.Card(id).Owner
 	var melded CardID
 	if dest == Library && (post == nil || post.libPos == 0) {
@@ -280,6 +280,26 @@ func (g *Game) finishMoved(controller PlayerController, id CardID, owner PlayerI
 		}
 		g.runMovedChain(controller, post)
 	}
+}
+
+// redirectMove runs the Moved replacements for a card a raw move (a draw, a
+// Return cost, Buyback) is about to put into dest, the hand or a library, and
+// makes the move a replacement asks for instead. It reports whether one did;
+// the caller makes its own move otherwise.
+func (g *Game) redirectMove(controller PlayerController, id CardID, dest ZoneType) bool {
+	to, post := g.movedDestination(controller, id, dest)
+	if post == nil {
+		return false
+	}
+	owner := g.Card(id).Owner
+	var melded CardID
+	if to == Library && post.libPos == 0 {
+		melded = g.MoveToLibraryTop(id, owner)
+	} else {
+		melded = g.Move(id, to, owner)
+	}
+	g.finishMoved(controller, id, owner, post, melded)
+	return true
 }
 
 // movedPost is what a Moved replacement's ReplaceWith$ ChangeZone adds to
@@ -329,15 +349,18 @@ func (g *Game) runMovedChain(controller PlayerController, post *movedPost) {
 // param is an unmodelled consequence, so the line is not applied and the
 // game's pending error is set (GO-7), never a half-replacement. The first
 // match wins, CR 616's simplification this file already makes.
-func (g *Game) movedGraveyardDestination(id CardID) (ZoneType, *movedPost) {
-	return g.movedDestination(id, Graveyard)
+func (g *Game) movedGraveyardDestination(controller PlayerController, id CardID) (ZoneType, *movedPost) {
+	return g.movedDestination(controller, id, Graveyard)
 }
 
 // movedDestination is movedGraveyardDestination for a card about to go to
 // dest: a line names its Destination$ (or, with an Origin$ and no Destination$,
 // every destination -- "if it would leave the battlefield") less its
-// ExcludeDestination$ zones (the LeaveBattlefield$ effect's own, Exile).
-func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost) {
+// ExcludeDestination$ zones (the LeaveBattlefield$ effect's own, Exile). An
+// Optional$ line (the Commander Effect's, ADR-0053) applies only when its
+// OptionalDecider$ confirms through controller; with a nil controller it does
+// not apply. Its override may send the card to the Command zone.
+func (g *Game) movedDestination(controller PlayerController, id CardID, dest ZoneType) (ZoneType, *movedPost) {
 	c := g.Card(id)
 	result := dest
 	var post *movedPost
@@ -345,6 +368,11 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 		_, hasDest := r.Param("Destination")
 		_, hasOrigin := r.Param("Origin")
 		if !hasDest && !hasOrigin {
+			return false
+		}
+		if _, found := r.Param("FoundSearchingLibrary"); found {
+			// Applies only to a card a library search found, a key this move
+			// does not carry (foundSearchReplaced runs those lines).
 			return false
 		}
 		if hasDest && !replacementZoneMatches(r, "Destination", dest) {
@@ -356,7 +384,7 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 		if !replacementZoneMatches(r, "Origin", c.Zone) {
 			return false
 		}
-		if !onlyParams(r, "destination", "origin", "validcard", "validlki", "excludedestination") {
+		if !onlyParams(r, "destination", "origin", "validcard", "validlki", "excludedestination", "optional", "optionaldecider", "commandermovereplacement") {
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: a param not resolvable yet", h.Def.Name))
 			return false
 		}
@@ -382,8 +410,11 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 		}
 		to, _ := sub.Param("Destination")
 		z, ok := ZoneByName(to)
-		if !ok || (z != Exile && z != Hand && z != Library) {
+		if !ok || (z != Exile && z != Hand && z != Library && z != Command) {
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Destination$ %q not resolvable yet", h.Def.Name, to))
+			return false
+		}
+		if !g.confirmOptionalReplacement(controller, h.Controller(), replacementCandidate{host: h, rule: r}) {
 			return false
 		}
 		p := &movedPost{host: h, amounts: amounts, rule: r}

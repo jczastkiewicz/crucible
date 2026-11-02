@@ -84,3 +84,103 @@ func TestCitadelLifeAndAsForetoldZeroStayTwoOptions(t *testing.T) {
 		t.Errorf("paid %d life for the {0} option, want 0", got)
 	}
 }
+
+// Hama, the Bloodbender: the exiled card is cast by waterbending {X}, X its
+// mana value (MayPlayAltManaCost$ Waterbend<ConvertedManaCost>). Waterbend is
+// mana, so the caster may tap artifacts and creatures for its generic
+// (CostWaterbend, CostAdjustment.adjustCostByWaterbend): Divination is cast
+// with no mana by tapping Hama and two Bears.
+func TestHamaCastsTheExiledCardByWaterbending(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	hama := g.NewCard(corpusCard(t, "Hama, the Bloodbender"), p, engine.Hand)
+	div := g.NewCard(corpusCard(t, "Divination"), opp, engine.Graveyard)
+	libraryCards(t, g, opp, 3)
+	libraryCards(t, g, p, 3)
+	g.Player(p).ManaPool.Add(mana.Blue, 5)
+	c := engine.NewScriptedController()
+	for range 3 {
+		c.QueueHybridManaColor(mana.Blue)
+	}
+	for range 2 {
+		c.QueuePayGeneric(mana.ShardU)
+	}
+	if !g.CastSpell(p, hama, c) {
+		t.Fatalf("Hama not cast: %v", g.TakePendingError())
+	}
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp)})
+	c.QueueConfirmEffect(true)
+	c.QueueCardChoice([]engine.CardID{div})
+	for range 2 {
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+	}
+	sba(g)
+	if got := g.Card(div).Zone; got != engine.Exile {
+		t.Fatalf("Divination in %v, want exiled by Hama's trigger", got)
+	}
+	bears := []engine.CardID{
+		g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield),
+		g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield),
+	}
+	tappers := append([]engine.CardID{hama}, bears...)
+	c.QueueCardChoice(tappers)
+	if !g.CastSpell(p, div, c) {
+		t.Fatalf("Divination not cast by waterbending: %v", g.TakePendingError())
+	}
+	for _, id := range tappers {
+		if !g.Card(id).Tapped {
+			t.Errorf("%s untapped, want tapped to waterbend", g.Card(id).Def.Name)
+		}
+	}
+}
+
+// Marshland Bloodcaster: the next spell costs life equal to its mana value
+// instead of its mana cost (Cost$ PayLife<ConvertedManaCost>, the spell's mana
+// value substituted, StaticAbilityAlternativeCost.java:40-41), X counted as 0
+// (CR 107.3b): Blaze cast this way costs 1 life and deals 0, and the spell
+// after it costs its mana again.
+func TestMarshlandBloodcasterCastsTheNextSpellForLife(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	caster := g.NewCard(corpusCard(t, "Marshland Bloodcaster"), p, engine.Battlefield)
+	blaze := g.NewCard(corpusCard(t, "Blaze"), p, engine.Hand)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Black, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardB)
+	if !g.ActivateAbility(p, caster, 0, c) {
+		t.Fatalf("Marshland Bloodcaster's ability not activated: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	life, oppLife := g.Player(p).Life, g.Player(opp).Life
+	c.QueueOptionNamed("Cast Blaze for its alternative cost PayLife<1>")
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp)})
+	if !g.CastSpell(p, blaze, c) {
+		t.Fatalf("Blaze not cast for life: %v", g.TakePendingError())
+	}
+	if got := life - g.Player(p).Life; got != 1 {
+		t.Errorf("paid %d life, want 1", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(opp).Life; got != oppLife {
+		t.Errorf("opponent at %d life, want %d: X is 0", got, oppLife)
+	}
+	g.Player(p).ManaPool.Add(mana.Green, 2)
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.CastSpell(p, bears, c) {
+		t.Fatalf("Grizzly Bears not cast for its mana: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("%d mana left, want {1}{G} paid", got)
+	}
+}

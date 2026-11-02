@@ -29,8 +29,7 @@
 // the static's zone, StaticAbilityAlternativeCost.java:60-65), never from
 // the hand. A line naming a param this port does not read (Announce$,
 // ManaRestriction$, Named$, CostDesc$, an XAlternative$ other than
-// Count$CardManaCost, a ConvertedManaCost cost) is not offered, never cast
-// at the wrong price (GO-7). An Activated.* line (the equip, power-up and
+// Count$CardManaCost) is not offered, never cast at the wrong price (GO-7). An Activated.* line (the equip, power-up and
 // unearth freebies, Gavi's and New Perspectives' cycling, Heart of Kiran's
 // crew) is activationAltCost's. A cast from another zone through a MayPlay
 // option gets the lines too (altCostThroughGrants), and so does a Play
@@ -147,10 +146,12 @@ func (g *Game) altCostOption(pid PlayerID, c, host *Card, s *compile.Ability) (c
 		!staticHostZoneOK(host, s) || !g.staticConditionsMet(host, s) {
 		return castOption{}, false
 	}
+	// ConvertedManaCost is the spell's mana value as the option is offered
+	// (StaticAbilityAlternativeCost.java:40-41), its X counted as 0: an
+	// alternative cost without X fixes X at 0 (CR 107.3b), so Marshland
+	// Bloodcaster's life for a {X}{R} spell is 1.
 	text, _ := s.Param("Cost")
-	if strings.Contains(text, "ConvertedManaCost") {
-		return castOption{}, false
-	}
+	text = strings.ReplaceAll(text, "ConvertedManaCost", strconv.Itoa(c.CMC()))
 	o := castOption{hasAlt: true, altStatic: true, altOwn: host.ID == c.ID, altText: text}
 	if xAlt, ok := s.Param("XAlternative"); ok {
 		// Kentaro: Cost$ X, X the spell's mana value, never announced.
@@ -243,16 +244,28 @@ func (g *Game) activationAltCost(pid PlayerID, card CardID, activated *Ability) 
 }
 
 // grantAltExtra is the part of a MayPlayAltManaCost$ grant's cost past its
-// mana (Bolas's Citadel's PayLife), paid as an UnlessCost's parts are; false
-// when the cost is mana alone.
-func grantAltExtra(text string) (unlessCost, bool) {
+// mana (Bolas's Citadel's PayLife), paid as an UnlessCost's parts are; has is
+// false when the cost is mana alone. waterbend is its Waterbend<N>, which is
+// mana, not an extra: Java parses it as CostWaterbend, a CostPartMana of N
+// generic the caster may pay by tapping artifacts and creatures
+// (Cost.java:597-599, CostAdjustment.java:329-334), so Hama, the
+// Bloodbender's grant costs {N} with the tap offered (waterbendCast).
+func grantAltExtra(text string) (extra unlessCost, has bool, waterbend int) {
 	if text == "" {
-		return unlessCost{}, false
+		return unlessCost{}, false, 0
 	}
 	uc, ok := parseUnlessCost(text)
 	if !ok {
-		return unlessCost{}, false
+		return unlessCost{}, false, 0
 	}
-	uc.hasMana, uc.mana, uc.manaTokens = false, mana.Cost{}, nil
-	return uc, hasNonManaParts(uc)
+	waterbend = uc.waterbendN
+	uc.hasMana, uc.mana, uc.manaTokens, uc.waterbendN = false, mana.Cost{}, nil, 0
+	parts := uc.parsed.Parts[:0:0]
+	for _, part := range uc.parsed.Parts {
+		if part.Name != "Waterbend" {
+			parts = append(parts, part)
+		}
+	}
+	uc.parsed.Parts = parts
+	return uc, hasNonManaParts(uc), waterbend
 }

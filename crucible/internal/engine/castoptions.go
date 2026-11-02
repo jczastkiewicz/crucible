@@ -62,6 +62,9 @@ type castOption struct {
 	altExtra    unlessCost
 	hasAltExtra bool
 	altText     string
+	// altWaterbend is the grant's Waterbend<N> (grantAltExtra): N of alt's
+	// generic the caster may pay by tapping artifacts and creatures.
+	altWaterbend int
 	// altKeyword is "Surge" or "Freerunning" for those keyword casts
 	// (altkeywords.go): alt is the keyword's cost.
 	altKeyword string
@@ -73,7 +76,7 @@ func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
 		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altOwn == p.altOwn && o.altText == p.altText && o.altKeyword == p.altKeyword &&
-		o.hasAltExtra == p.hasAltExtra
+		o.hasAltExtra == p.hasAltExtra && o.altWaterbend == p.altWaterbend
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -94,11 +97,11 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		o := castOption{withoutMana: gr.WithoutManaCost, hasAlt: gr.HasAltCost, alt: gr.AltCost, anyType: gr.AnyType, flash: gr.WithFlash,
 			anyColor: gr.AnyColor && !gr.AnyType, snowAnyColor: gr.SnowAnyColor, raise: gr.RaiseText,
 			replaceExile: gr.ReplaceExile, grantor: gr.LimitKey.Host}
-		o.altExtra, o.hasAltExtra = grantAltExtra(gr.AltText)
-		if o.hasAltExtra {
-			if !g.unlessPayable(pid, card, o.altExtra) {
-				continue
-			}
+		o.altExtra, o.hasAltExtra, o.altWaterbend = grantAltExtra(gr.AltText)
+		if o.hasAltExtra && !g.unlessPayable(pid, card, o.altExtra) {
+			continue
+		}
+		if o.hasAltExtra || o.altWaterbend > 0 {
 			// The whole cost names the option, and tells it from a mana-only
 			// grant of the same mana (As Foretold's {0} beside Citadel's).
 			o.altText = gr.AltText
@@ -202,7 +205,8 @@ func (g *Game) altCostThroughGrants(pid PlayerID, c *Card, grants []castOption) 
 			}
 			combined := alt
 			if o.hasAlt {
-				combined.alt = o.alt
+				// A grant's Waterbend is mana too, so it replaces the line's.
+				combined.alt, combined.altWaterbend = o.alt, o.altWaterbend
 				combined.altText = alt.altText + " with its mana replaced by " + o.alt.String()
 			}
 			combined.flash, combined.limits, combined.grantor = o.flash, o.limits, o.grantor

@@ -206,7 +206,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			opts.extra, opts.hasExtra = way.altExtra, true
 		}
 		if way.hasAlt {
-			opts.altCost, opts.hasAltCost = way.alt, true
+			opts.altCost, opts.hasAltCost, opts.altWaterbend = way.alt, true, way.altWaterbend
 		}
 		if way.raise != "" {
 			// MayPlay's RaiseCost$ was checked payable-in-shape when the grant was
@@ -492,6 +492,10 @@ type castOpts struct {
 	// flashback cost, CR 702.34a).
 	altCost    mana.Cost
 	hasAltCost bool
+	// altWaterbend is the alternative cost's Waterbend<N>: N of its generic
+	// the caster may pay by tapping artifacts and creatures (Hama, the
+	// Bloodbender's grant; castOption.altWaterbend).
+	altWaterbend int
 	// kickers are the kicker costs chosen (kicker1, kicker2 bits), paid on top
 	// of the cost (CR 601.2b, 702.33a).
 	kickers uint8
@@ -887,7 +891,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 		total = reducedByEmerge(g, total, emerged)
 	}
 	total, assist := g.assistCost(controller, pid, c, total)
-	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN+g.staticRaiseWaterbend(pid, c))
+	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN+opts.altWaterbend+g.staticRaiseWaterbend(pid, c))
 	g.snowAnyColor = opts.snowAnyColor
 	restore := g.payingFor(&payContext{item: &Ability{Source: c.ID, Controller: pid, spell: true}, cost: total})
 	if sp := firstSpellAbility(c); sp != nil {

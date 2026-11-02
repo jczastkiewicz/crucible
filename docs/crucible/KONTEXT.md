@@ -27,9 +27,6 @@ this file only points at them (DOC-11).
 | `B6` Dakkon `PlayLandVariant`                        | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
 | `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
 
-Small open item, no owner input needed: a MayPlay alternative cost with a Waterbend part (Hama, the Bloodbender) still
-drops its grant (`game-state.md`, the `Mode$ AlternativeCost` row).
-
 ## Working lessons
 
 | Lesson                                                                                                                              | Reason                                                                                                                                               |

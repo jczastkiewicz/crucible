@@ -189,3 +189,30 @@ func TestMoonmistCannotTransformADayboundHuman(t *testing.T) {
 		t.Errorf("Bird Admirer is %q, want untransformed by Moonmist", g.Card(admirer).Name())
 	}
 }
+
+// With neither day nor night Daybound's replacement does not apply (DayTime$
+// Night): Bird Admirer enters as itself, and then makes it day.
+func TestDayboundEntersAsItsFrontFaceWhenItIsNotNight(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	admirer := g.NewCard(corpusCard(t, "Bird Admirer"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.CastSpell(p, admirer, c) {
+		t.Fatalf("Bird Admirer not cast: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	a := g.Card(admirer)
+	if a.Zone != engine.Battlefield || a.InTransformedState() {
+		t.Fatalf("card is %q in %v (transformed %v), want Bird Admirer", a.Name(), a.Zone, a.InTransformedState())
+	}
+	if g.DayTime() != engine.Day {
+		t.Errorf("daytime = %v, want Day", g.DayTime())
+	}
+}

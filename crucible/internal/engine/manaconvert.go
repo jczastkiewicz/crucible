@@ -132,8 +132,9 @@ func (g *Game) manaConvertApplies(pid PlayerID, c, host *Card, s *compile.Abilit
 	// The card being cast is on the stack when its mana is paid, though Go-side
 	// it is still in hand until the spell is put there; its own statics are read
 	// from the Stack, every other host from where it is.
+	// An activated ability's own host stays where it is.
 	zone := host.Zone
-	if host.ID == c.ID {
+	if host.ID == c.ID && spell.spell {
 		zone = Stack
 	}
 	if !staticZoneOK(zone, s) || !g.staticOtherConditionsMet(host, s) {

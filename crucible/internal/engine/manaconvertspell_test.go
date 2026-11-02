@@ -159,3 +159,23 @@ func TestManaConvertSpendsAnyColorOnActivations(t *testing.T) {
 		})
 	}
 }
+
+// A ValidCard$ Card.Self | ValidSA$ Activated line on the ability's own card
+// (Manascape Refractor, Sharkey) is read where the card is, not on the Stack
+// as its own spell's line is.
+func TestManaConvertOnTheAbilitysOwnCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	def := creatureDefWithAbility(t, "Red Pinger", "AB$ GainLife | Cost$ R | Defined$ You | LifeAmount$ 1")
+	def.Faces[0].Statics = append(def.Faces[0].Statics,
+		scriptDef(t, "x", "Enchantment", "S:Mode$ ManaConvert | ValidPlayer$ You | ValidCard$ Card.Self | ValidSA$ Activated | ManaConversion$ AnyType->AnyColor").Faces[0].Statics...)
+	pinger := g.NewCard(def, p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.ActivateAbility(p, pinger, 0, c) {
+		t.Error("green mana did not pay the {R} activation of the card whose own static converts it")
+	}
+}

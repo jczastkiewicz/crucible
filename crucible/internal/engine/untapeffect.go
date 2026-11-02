@@ -72,9 +72,7 @@ func (untapEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if c.Zone != Battlefield || c.IsPhasedOut() || !c.Tapped {
 			continue
 		}
-		g.runUntapCommands(controller, id)
-		c.Tapped = false
-		g.checkUntapsTriggers(controller, id)
+		g.untapCard(controller, id)
 	}
 	return nil
 }
@@ -134,9 +132,7 @@ func untapChoosePermanents(g *Game, a *Ability, controller PlayerController, sou
 			if !c.Tapped {
 				continue
 			}
-			g.runUntapCommands(controller, id)
-			c.Tapped = false
-			g.checkUntapsTriggers(controller, id)
+			g.untapCard(controller, id)
 		}
 	}
 	return nil

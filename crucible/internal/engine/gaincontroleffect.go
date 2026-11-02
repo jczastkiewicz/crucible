@@ -109,9 +109,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		ts := g.timestamp
 		c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: ts, Controller: newController})
 		if untap && c.Tapped {
-			g.runUntapCommands(controller, id)
-			c.Tapped = false
-			g.checkUntapsTriggers(controller, id)
+			g.untapCard(controller, id)
 		}
 		if len(keywords) > 0 {
 			// addChangedCardKeywords at ts, removed by a command at end of

@@ -534,12 +534,13 @@ func (g *Game) untapStep(controller PlayerController) {
 	g.endNextUntapStepKeyword()
 }
 
-// untapCard untaps a tapped permanent: its untap commands, then the tapped
-// flag, then the Untaps triggers (Go runs them after the flag; Java before).
+// untapCard untaps a tapped permanent in Card.untap's order (Card.java:
+// 4839-4842): the Untaps triggers are checked while it is still tapped, then
+// its untap commands run, then the tapped flag clears.
 func (g *Game) untapCard(controller PlayerController, id CardID) {
+	g.checkUntapsTriggers(controller, id)
 	g.runUntapCommands(controller, id)
 	g.Card(id).Tapped = false
-	g.checkUntapsTriggers(controller, id)
 }
 
 // drawStep draws one card for the active player, ported from

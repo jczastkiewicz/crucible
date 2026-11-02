@@ -39,7 +39,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "SetState", "NewState", "ETB"); err != nil {
+	if err := rejectParams(a, "SetState", "NewState"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -50,9 +50,11 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" && mode != "Specialize" && mode != "Unspecialize" {
 		return fmt.Errorf("engine: SetState: Mode$ %q not resolvable yet", mode)
 	}
-	if mode == "Transform" && battlefieldStaticMode(g, "CantTransform") {
-		return fmt.Errorf("engine: SetState: CantTransform statics not resolvable yet")
-	}
+	// ETB$ is an "enters transformed" replacement's (Daybound at night): the
+	// card turns over before it moves, so it is not on the battlefield yet
+	// (SetStateEffect.java:92-93), and no Transformed trigger fires
+	// (Card.java:714-717).
+	_, etb := a.Params.Param("ETB")
 	var cards []CardID
 	if spec, ok := a.Params.Param("Choices"); ok {
 		parsed := valid.Parse(spec)
@@ -103,7 +105,12 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	for _, id := range cards {
 		c := g.Card(id)
-		if mode == "Transform" && c.Zone != Battlefield {
+		if mode == "Transform" && c.Zone != Battlefield && !etb {
+			continue
+		}
+		// Card.canTransform's in-play check (Card.java:960-971): a CantTransform
+		// static stops it (SetStateEffect.java:148).
+		if mode == "Transform" && c.Zone == Battlefield && g.cantTransform(c, a) {
 			continue
 		}
 		if mode == "Transform" && id == a.Source && a.hasHostTransforms && c.Transforms != a.hostTransforms {
@@ -157,7 +164,9 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			switch mode {
 			case "Transform":
 				g.faceChangeReplaced(controller, "Transform", id)
-				g.checkTransformedTriggers(controller, id)
+				if !etb {
+					g.checkTransformedTriggers(controller, id)
+				}
 			case "TurnFaceUp":
 				g.faceChangeReplaced(controller, "TurnFaceUp", id)
 				g.checkTurnedFaceUpTriggers(controller, id, a)

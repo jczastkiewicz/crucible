@@ -212,25 +212,32 @@ func Expand(k Keyword) (Expansion, bool) {
 		// neither day nor night, a daybound permanent makes it day (a
 		// nightbound one night, unless a daybound permanent is out); as it
 		// becomes night a front-face daybound permanent transforms, as it
-		// becomes day a back-face nightbound one does. Daybound's "enters
-		// transformed at night" replacement (:2201-2208) is not expanded: the
-		// night trigger turns it over right after it enters.
+		// becomes day a back-face nightbound one does. Each keyword's static
+		// lets only its own ability transform the creature (:3867-3868,
+		// :3950-3951), and Daybound's replacement has it enter transformed at
+		// night (:2201-2208).
 		day, set, side := "Night", "Day", "FrontSide"
 		guard := ""
 		if k.Name == "Nightbound" {
 			day, set, side = "Day", "Night", "BackSide"
 			guard = " | IsPresent$ Card.Daybound | PresentCompare$ EQ0"
 		}
-		return Expansion{
+		exp := Expansion{
 			Triggers: []string{
 				"Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Neither" + guard + " | Secondary$ True | Execute$ KWDayBoundSet" + Slot,
 				"Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ " + day + " | IsPresent$ Card.Self+" + side + " | Secondary$ True | Execute$ KWDayBoundTransform" + Slot,
 			},
+			Statics: []string{"Mode$ CantTransform | ValidCard$ Creature.Self | ExceptCause$ SpellAbility." + k.Name + " | Secondary$ True"},
 			SVars: []SVarDef{
 				{"KWDayBoundSet" + Slot, "DB$ DayTime | Value$ " + set},
 				{"KWDayBoundTransform" + Slot, "DB$ SetState | Mode$ Transform"},
 			},
-		}, true
+		}
+		if k.Name == "Daybound" {
+			exp.Replacements = []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | DayTime$ Night | Secondary$ True | Layer$ Transform | ReplacementResult$ Updated | ReplaceWith$ KWDayBoundETB" + Slot}
+			exp.SVars = append(exp.SVars, SVarDef{"KWDayBoundETB" + Slot, "DB$ SetState | Defined$ ReplacedCard | Mode$ Transform | ETB$ True"})
+		}
+		return exp, true
 	case "Embalm", "Eternalize":
 		// CardFactoryUtil.java:2822-2834 and :2914-2941: exile this card from
 		// your graveyard and pay the cost to create a token copy of it, as a

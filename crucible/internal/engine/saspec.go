@@ -27,7 +27,7 @@ var saKeywordProperties = map[string][]string{
 	"Crew": {"Crew"}, "Saddle": {"Saddle"}, "Station": {"Station"}, "Cycling": {"Cycling", "TypeCycling"},
 	"Unearth": {"Unearth"}, "Modular": {"Modular"}, "Equip": {"Equip"}, "Exhaust": {"Exhaust"},
 	"Outlast": {"Outlast"}, "PowerUp": {"PowerUp"}, "Boast": {"Boast"}, "Monstrosity": {"Monstrosity"},
-	"Craft": {"Craft"},
+	"Craft": {"Craft"}, "Daybound": {"Daybound"}, "Nightbound": {"Nightbound"},
 }
 
 // saUnresolvedProperties are SpellAbility properties that read state this
@@ -37,8 +37,7 @@ var saUnresolvedPrefixes = []string{
 	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Dash",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
-	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
-	"Nightbound", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
+	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
 	"paidPhyrexianMana", "ManaSpent", "ManaFrom",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }

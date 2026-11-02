@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -1295,6 +1296,37 @@ func (g *Game) cantDiscard(pid PlayerID, cause *Ability, effect bool) bool {
 	})
 }
 
+// cantTransform is Card.canTransform's static check for c, a permanent
+// (StaticAbilityCantTransform.cantTransform): a live Mode$ CantTransform line
+// whose ValidCard$ matches c, unless its ExceptCause$ admits cause, the
+// ability transforming it. Immerwolf stops non-Human Werewolves; a daybound
+// or nightbound creature turns over only by its own keyword's ability
+// (CardFactoryUtil.java:3867-3868, 3950-3951). No cause matches no
+// ExceptCause$ (CardTraitBase.matchesValid(null)); one this port cannot
+// evaluate stops the transform and records why (GO-7).
+func (g *Game) cantTransform(c *Card, cause *Ability) bool {
+	return g.anyStatic("CantTransform", cantTransformParams, func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidCard")
+		if !ok || !Matches(g, c, valid.Parse(spec), h.Controller(), h.ID) {
+			return false
+		}
+		except, ok := s.Param("ExceptCause")
+		if !ok || cause == nil {
+			return true
+		}
+		matched, recognized := g.spellAbilityMatches(cause, except, h, h.Controller(), h.abilityAmounts(s))
+		if !recognized {
+			g.recordPendingError(fmt.Errorf("engine: %q: CantTransform ExceptCause$ %q not resolvable yet", h.Def.Name, except))
+			return true
+		}
+		return !matched
+	})
+}
+
+// cantTransformParams are the params a Mode$ CantTransform line may carry
+// that cantTransform reads.
+var cantTransformParams = map[string]bool{"validcard": true, "exceptcause": true}
+
 // cantDiscardParams are the params a Mode$ CantDiscard line may carry that
 // cantDiscard reads.
 var cantDiscardParams = map[string]bool{"validplayer": true, "forcost": true, "validcause": true}
@@ -1948,9 +1980,12 @@ func (g *Game) anyStatic(mode string, known map[string]bool, apply func(h *Card,
 	return false
 }
 
-// hostStatic is anyStatic for the lines of one host.
+// hostStatic is anyStatic for the lines of one host: its current state's
+// only (liveTraitFaces), as Card.getStaticAbilities reads currentState, so a
+// transforming card's back-face static is not live while it is face up
+// (Nightbound's CantTransform on Bird Admirer's front).
 func (g *Game) hostStatic(h *Card, mode string, known map[string]bool, apply func(h *Card, s *compile.Ability) bool) bool {
-	for _, face := range h.traitFaces() {
+	for _, face := range h.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, mode) || !g.staticConditionsMet(h, s) {
 				continue

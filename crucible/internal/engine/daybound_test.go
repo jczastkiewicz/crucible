@@ -106,3 +106,86 @@ func TestLudevicsTestSubjectHatchesOnTheFifthCounter(t *testing.T) {
 		}
 	}
 }
+
+// Daybound's replacement (CardFactoryUtil.java:2201-2208): at night a daybound
+// permanent enters transformed, turned over before it moves (SetState ETB$,
+// the Transform layer), so it never enters as its front face and no
+// Transformed trigger fires (Card.java:714-717).
+func TestDayboundEntersTransformedAtNight(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	c := engine.NewScriptedController()
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ DayTime | Value$ Night"); err != nil {
+		t.Fatal(err)
+	}
+	g.NewCard(scriptDef(t, "Transform Watcher", "Enchantment",
+		"T:Mode$ Transformed | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigGain",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	admirer := g.NewCard(corpusCard(t, "Bird Admirer"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 3)
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.CastSpell(p, admirer, c) {
+		t.Fatalf("Bird Admirer not cast: %v", g.TakePendingError())
+	}
+	life := g.Player(p).Life
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	a := g.Card(admirer)
+	if a.Zone != engine.Battlefield || !a.InTransformedState() || a.Name() != "Wing Shredder" {
+		t.Fatalf("card is %q in %v (transformed %v), want Wing Shredder on the battlefield", a.Name(), a.Zone, a.InTransformedState())
+	}
+	if got := g.Player(p).Life; got != life {
+		t.Errorf("life %d, want %d: entering transformed is not transforming", got, life)
+	}
+}
+
+// Moonmist transforms every Human, but a daybound one can be transformed only
+// by its daybound ability (Mode$ CantTransform | ExceptCause$
+// SpellAbility.Daybound, CardFactoryUtil.java:3867-3868): Gatstaf Shepherd
+// turns over, Bird Admirer does not. One Transformed trigger fires; without
+// the static Bird Admirer would turn over and, by day, straight back.
+func TestMoonmistCannotTransformADayboundHuman(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	c := engine.NewScriptedController()
+	admirer := g.NewCard(corpusCard(t, "Bird Admirer"), p, engine.Battlefield)
+	shepherd := g.NewCard(corpusCard(t, "Gatstaf Shepherd"), p, engine.Battlefield)
+	g.NewCard(scriptDef(t, "Transform Watcher", "Enchantment",
+		"T:Mode$ Transformed | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigGain",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	engine.CheckStateBasedActions(g, c)
+	life := g.Player(p).Life
+	moonmist := g.NewCard(corpusCard(t, "Moonmist"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 2)
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.CastSpell(p, moonmist, c) {
+		t.Fatalf("Moonmist not cast: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life - life; got != 1 {
+		t.Errorf("%d Transformed triggers, want 1 (Gatstaf Shepherd's)", got)
+	}
+	if !g.Card(shepherd).InTransformedState() {
+		t.Errorf("Gatstaf Shepherd is %q, want transformed", g.Card(shepherd).Name())
+	}
+	if g.Card(admirer).InTransformedState() {
+		t.Errorf("Bird Admirer is %q, want untransformed by Moonmist", g.Card(admirer).Name())
+	}
+}

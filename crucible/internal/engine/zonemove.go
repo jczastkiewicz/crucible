@@ -113,6 +113,14 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 	if origin == Hand || origin == Library || origin == Exile {
 		g.checkLeftZoneTriggers(controller, []CardID{id}, origin)
 	}
+	if origin == Stack && dest != Graveyard && !c.IsCopiedSpell {
+		// A spell an effect moves off the stack anywhere but the graveyard
+		// (countered into exile, Dissipate; returned to hand, Remand): the
+		// Origin$ Stack lines see it (Goblin Artisans', Geth's Summons'
+		// Destination$ Any cleanups). The graveyard path fires them itself
+		// (moveResolvedSpellToGraveyard, stack.go).
+		g.checkLeftZoneTriggers(controller, []CardID{id}, Stack)
+	}
 	if origin != Battlefield {
 		return melded
 	}

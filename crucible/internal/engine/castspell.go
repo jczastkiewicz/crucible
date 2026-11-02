@@ -152,6 +152,16 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			opts.hasExtra, opts.escape = ok, ok
 		}
 		if !ok {
+			// A spell's own EffectZone$ Graveyard AlternativeCost line (Squee,
+			// Worldheart Phoenix; altcost.go): its cast from the graveyard.
+			var o castOption
+			if o, ok = g.graveyardAltCost(pid, c); ok {
+				cost = o.alt
+				opts.altStatic, opts.altOwn = true, true
+				opts.extra, opts.hasExtra = o.altExtra, o.hasAltExtra
+			}
+		}
+		if !ok {
 			cost, opts.extra, ok = g.beamMeUpCost(pid, c)
 			if !ok {
 				return false
@@ -187,7 +197,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		if way.altStatic {
 			// The static's cost past its mana is paid as Escape's other parts
 			// are (altcost.go).
-			opts.altStatic = true
+			opts.altStatic, opts.altOwn = true, way.altOwn
 			opts.extra, opts.hasExtra = way.altExtra, way.hasAltExtra
 		}
 		if way.hasAlt {
@@ -516,10 +526,11 @@ type castOpts struct {
 	// payCastCost has the caster sacrifice a permanent of this valid type,
 	// its mana value off the generic part, recorded in castOptional.emerged.
 	emerge string
-	// altStatic is a cast for the card's own Mode$ AlternativeCost static
-	// (altcost.go): altCost is its mana, extra the rest, and the cast records
-	// OptionalCost.AltCost (optAltCost).
+	// altStatic is a cast for a Mode$ AlternativeCost static (altcost.go):
+	// altCost is its mana, extra the rest. altOwn says the static is the
+	// spell's own, and then the cast records OptionalCost.AltCost (optAltCost).
 	altStatic bool
+	altOwn    bool
 	// madness is a cast by Madness's trigger for the madness cost
 	// (PlayEffect.java:420-422, AlternativeCost.Madness): altCost is that cost,
 	// and the cast records it (castOptional.madness, Count$Madness).
@@ -584,7 +595,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	}
 	opts.optional = optional
 	kinds := optional.kinds
-	if opts.altStatic {
+	if opts.altOwn {
 		kinds |= optAltCost
 	}
 	kinds |= altKeywordKind(opts.altKeyword)

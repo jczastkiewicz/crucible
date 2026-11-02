@@ -50,11 +50,12 @@ type castOption struct {
 	// its mana, and a permanent of this valid type is sacrificed, its mana
 	// value off the generic part.
 	emerge string
-	// altStatic is the card's own Mode$ AlternativeCost static (altcost.go):
-	// alt is its cost's mana (or {0}), altExtra, when hasAltExtra, the rest
-	// of it, and the cast records OptionalCost.AltCost. altText is the
-	// static's Cost$, the label's.
+	// altStatic is a Mode$ AlternativeCost static (altcost.go): alt is its
+	// cost's mana (or {0}), altExtra, when hasAltExtra, the rest of it.
+	// altOwn says the static is the spell's own, and only then does the cast
+	// record OptionalCost.AltCost. altText is the static's Cost$, the label's.
 	altStatic   bool
+	altOwn      bool
 	altExtra    unlessCost
 	hasAltExtra bool
 	altText     string
@@ -68,7 +69,7 @@ type castOption struct {
 func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
-		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altText == p.altText && o.altKeyword == p.altKeyword
+		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altOwn == p.altOwn && o.altText == p.altText && o.altKeyword == p.altKeyword
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -135,7 +136,8 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		if o, ok := g.emergeOption(pid, c); ok {
 			out = append(out, o)
 		}
-		// The card's own Mode$ AlternativeCost statics (altcost.go).
+		// Mode$ AlternativeCost statics, the card's own and other hosts'
+		// (altcost.go).
 		out = append(out, g.altCostOptions(pid, c)...)
 		out = append(out, g.altKeywordOptions(pid, c)...)
 	}

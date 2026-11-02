@@ -186,3 +186,36 @@ func TestCraftRefusesAnXBelowItsMinimum(t *testing.T) {
 		t.Errorf("Pick-Axe in %v after the refusal, want Battlefield", z)
 	}
 }
+
+// Eye of Ojer Taq crafts with two permanents that share a card type
+// (ExileCtrlOrGrave<2/Permanent.Other+withSharedCardType>, CostExile.java:
+// 209-257): a creature and an artifact do not; two creatures do.
+func TestCraftWithSharedCardTypeNeedsACommonType(t *testing.T) {
+	t.Parallel()
+	for _, shared := range []bool{false, true} {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		eye := g.NewCard(corpusCard(t, "Eye of Ojer Taq"), p, engine.Battlefield)
+		bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+		other := g.NewCard(corpusCard(t, "Sol Ring"), p, engine.Graveyard)
+		if shared {
+			other = g.NewCard(corpusCard(t, "Serra Angel"), p, engine.Graveyard)
+		}
+		c := engine.NewScriptedController()
+		g.Player(p).ManaPool.Add(mana.Red, 6)
+		for range 6 {
+			c.QueuePayGeneric(mana.ShardR)
+		}
+		c.QueueCardChoice([]engine.CardID{bears, other})
+		if got := g.ActivateAbility(p, eye, craftIndex(g, eye), c); got != shared {
+			t.Fatalf("shared type %v: Craft activated = %v (%v)", shared, got, g.TakePendingError())
+		}
+		if shared {
+			for _, id := range []engine.CardID{bears, other} {
+				if z := g.Card(id).Zone; z != engine.Exile {
+					t.Errorf("%s in %v, want Exile", g.Card(id).Name(), z)
+				}
+			}
+		}
+	}
+}

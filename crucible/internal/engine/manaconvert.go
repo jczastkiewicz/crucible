@@ -8,11 +8,12 @@
 //
 // Activated-ability costs read the same lines (manaConvertForActivation).
 // Not read: the per-color conversions (White->Red, C->AnyColor, ...), which
-// need a conversion matrix in the payment rather than a cost rewrite, and the
-// Optional$ choice; a line carrying one of those is skipped and the card pays
-// as printed (game-state.md, "Not ported yet").
+// need a conversion matrix in the payment rather than a cost rewrite; a line
+// carrying one is skipped and the card pays as printed (game-state.md, "Not
+// ported yet"). Optional$ (North Star) is asked as the spell's cost is paid
+// (StaticAbilityManaConvert.java:41-47).
 
-//enginelint:allow ability id zone card game valid player continuous staticability zonemove cantbecast saspec castspell castoptions
+//enginelint:allow ability id zone card game valid player continuous staticability zonemove cantbecast saspec castspell castoptions control
 
 package engine
 
@@ -25,9 +26,9 @@ import (
 )
 
 // manaConvertParams are the params a ManaConvert line may carry that this
-// port evaluates; Optional$, AffectedZone$ and the rest make the line unread.
+// port evaluates; AffectedZone$ and the rest make the line unread.
 var manaConvertParams = map[string]bool{
-	"mode": true, "validplayer": true, "validcard": true, "validsa": true, "manaconversion": true,
+	"mode": true, "validplayer": true, "validcard": true, "validsa": true, "manaconversion": true, "optional": true,
 	"effectzone": true, "condition": true, "description": true, "secondary": true,
 }
 
@@ -72,8 +73,11 @@ func manaConvertSupported(s *compile.Ability) bool {
 // manaConvertForSpell is the ManaConvert statics' verdict on pid casting card:
 // mana of any type pays the whole cost (anyType), or a colored part
 // (anyColor). AnyType wins when both apply.
-func (g *Game) manaConvertForSpell(pid PlayerID, card CardID) (anyType, anyColor bool) {
-	return g.manaConvertFor(pid, card, &Ability{Source: card, Controller: pid, spell: true})
+//
+// controller is nil while the cost is only measured; when the cost is paid it
+// answers an Optional$ line, which applies only on a yes.
+func (g *Game) manaConvertForSpell(pid PlayerID, card CardID, controller PlayerController) (anyType, anyColor bool) {
+	return g.manaConvertFor(pid, card, &Ability{Source: card, Controller: pid, spell: true}, controller)
 }
 
 // manaConvertForActivation is cost rewritten by the same verdict for an
@@ -82,7 +86,7 @@ func (g *Game) manaConvertForSpell(pid PlayerID, card CardID) (anyType, anyColor
 // (Manascape Refractor, Agatha's Soul Cauldron) and lines naming no ValidSA$
 // (Chromatic Orrery) reach it.
 func (g *Game) manaConvertForActivation(pid PlayerID, card CardID, a *Ability, cost mana.Cost) mana.Cost {
-	switch anyType, anyColor := g.manaConvertFor(pid, card, a); {
+	switch anyType, anyColor := g.manaConvertFor(pid, card, a, nil); {
 	case anyType:
 		return anyTypeCost(cost)
 	case anyColor:
@@ -93,7 +97,7 @@ func (g *Game) manaConvertForActivation(pid PlayerID, card CardID, a *Ability, c
 
 // manaConvertFor is the shared walk: every live ManaConvert line that
 // applies to sa, the spell or activated ability of card being paid.
-func (g *Game) manaConvertFor(pid PlayerID, card CardID, spell *Ability) (anyType, anyColor bool) {
+func (g *Game) manaConvertFor(pid PlayerID, card CardID, spell *Ability, controller PlayerController) (anyType, anyColor bool) {
 	c := g.Card(card)
 	// Prismatic (CardFactoryUtil.java:3953-3955) is a ManaConvert static on the
 	// card itself: EffectZone$ Stack, ValidPlayer$ You, ValidCard$ Card.Self,
@@ -113,6 +117,16 @@ func (g *Game) manaConvertFor(pid PlayerID, card CardID, spell *Ability) (anyTyp
 				if !strings.EqualFold(s.Name, "ManaConvert") || !manaConvertSupported(s) ||
 					!g.manaConvertApplies(pid, c, h, s, spell) {
 					continue
+				}
+				if _, optional := s.Param("Optional"); optional && controller != nil {
+					// StaticAbilityManaConvert.java:41-47: the host forgets,
+					// asks, and on a yes remembers the spell (North Star's
+					// ForgetOnCast$ Card.IsRemembered then ends its effect).
+					h.Memory.ClearRemembered()
+					if !controller.ConfirmEffect(g, pid, host) {
+						continue
+					}
+					h.Memory.Remember(CardEntity(card))
 				}
 				if readManaConversion(s) == conversionAnyType {
 					anyType = true

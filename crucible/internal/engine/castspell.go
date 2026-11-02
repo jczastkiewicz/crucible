@@ -725,8 +725,9 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 
 // castCost is the mana cost pid pays to cast c under opts: the printed (or
 // alternative) cost with the chosen kicker costs added, then every cost
-// modification applied (spellCost; paying as there).
-func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana.Cost, bool) {
+// modification applied (spellCost; paying as there). controller answers an
+// Optional$ ManaConvert as the cost is paid, nil when it is only measured.
+func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool, controller PlayerController) (mana.Cost, bool) {
 	base := c.manaCost()
 	switch {
 	case opts.withoutManaCost:
@@ -748,7 +749,7 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana
 	// (castExtraCost) on every path but Mutate's, which does not pay it.
 	total, ok := g.spellCost(pid, c.ID, base, paying, !opts.mutate)
 	total = opts.optional.reduced(total)
-	staticType, staticColor := g.manaConvertForSpell(pid, c.ID)
+	staticType, staticColor := g.manaConvertForSpell(pid, c.ID, controller)
 	switch {
 	case opts.anyType || staticType:
 		total = anyTypeCost(total)
@@ -783,7 +784,7 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 	if opts.paysNoMana() {
 		return true
 	}
-	total, ok := g.castCost(pid, c, opts, false)
+	total, ok := g.castCost(pid, c, opts, false, nil)
 	if !ok {
 		return true
 	}
@@ -862,7 +863,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	if opts.paysNoMana() {
 		return xAnnounced{}, true
 	}
-	total, ok := g.castCost(pid, c, opts, true)
+	total, ok := g.castCost(pid, c, opts, true, controller)
 	if !ok {
 		return xAnnounced{}, false
 	}

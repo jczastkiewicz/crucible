@@ -99,7 +99,7 @@ func (g *Game) probeBlocks(pid PlayerID, c *Card) CastBlock {
 	if sp != nil && !g.timingRestrictionsMet(pid, sp) {
 		b |= BlockTimingRestriction
 	}
-	total, ok := g.castCost(pid, c, castOpts{}, false)
+	total, ok := g.castCost(pid, c, castOpts{}, false, nil)
 	switch {
 	case !ok:
 		b |= BlockZoneOrStateRestriction

@@ -3,13 +3,14 @@
 
 package engine
 
-//enginelint:allow id zone card game player ability defined condition control parts amount effecthelpers controlcommands ateot untilcommand
+//enginelint:allow id zone card game player ability defined condition control parts amount effecthelpers controlcommands ateot untilcommand valid
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // ExileOnLost$ is accepted and does nothing: the trigger it adds sits on an
@@ -414,6 +415,11 @@ type effectLifetime struct {
 	exileOnMoved  zoneMask
 	forgetOnMoved zoneMask
 	forgetOnCast  bool
+	// forgetCastSpec is a standalone ForgetOnCast$ (EffectEffect.java:253-254,
+	// an effect that remembers no list): a cast spell it matches is forgotten
+	// and, the effect then remembering no card, the effect is exiled
+	// (addForgetOnCastTrigger, getForgetSpellAbility).
+	forgetCastSpec string
 	// forgetOnPhasedIn forgets a remembered card as it phases in
 	// (effectCardsSeePhaseIn, phasing.go).
 	forgetOnPhasedIn bool
@@ -479,6 +485,10 @@ func effectMoveWatch(a *Ability, life *effectLifetime) error {
 		}
 		onCast, _ := a.Params.Param("ForgetOnCast")
 		life.forgetOnCast = v != "Stack" && !strings.EqualFold(onCast, "False")
+	}
+	if spec, ok := a.Params.Param("ForgetOnCast"); ok && !hasParam(a, "RememberObjects") && !hasParam(a, "RememberLKI") &&
+		!strings.EqualFold(spec, "False") {
+		life.forgetCastSpec = spec
 	}
 	return nil
 }
@@ -556,6 +566,14 @@ func (g *Game) effectCardsSeeMove(moved CardID, from, to ZoneType) {
 		if from == Battlefield && life.host == moved &&
 			(life.duration == effectUntilHostLeavesPlay || life.duration == effectUntilHostLeavesPlayOrEOT) {
 			g.exileEffect(id)
+			continue
+		}
+		if to == Stack && life.forgetCastSpec != "" &&
+			Matches(g, g.Card(moved), valid.Parse(life.forgetCastSpec), e.Controller(), e.ID) {
+			e.Memory.Forget(CardEntity(moved))
+			if !effectRemembersAnyCard(e) {
+				g.exileEffect(id)
+			}
 			continue
 		}
 		if !effectRemembers(e, moved) {

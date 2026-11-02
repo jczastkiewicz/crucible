@@ -464,9 +464,28 @@ func (g *Game) emptyManaPools(controller PlayerController) {
 // the wasTapped check below rather than inside checkUntapsTriggers itself,
 // since a card already untapped is not an event to check triggers against
 // at all.
+// untapStepBounce is doUntap's first pass (Untap.java:91-98): every
+// permanent of the active player with untapBounceKeyword (Undiscovered
+// Paradise's Pump) returns to its owner's hand before anything untaps, the
+// moves batched for ChangesZoneAll.
+func (g *Game) untapStepBounce(controller PlayerController) {
+	var moved []CardID
+	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
+		if !g.Card(id).hasKeywordText(untapBounceKeyword) {
+			continue
+		}
+		g.moveByEffect(controller, id, Hand, 0, NoPlayer, false)
+		if g.Card(id).Zone == Hand {
+			moved = append(moved, id)
+		}
+	}
+	g.checkChangesZoneAllTriggers(controller, moved, Battlefield, Hand)
+}
+
 func (g *Game) untapStep(controller PlayerController) {
 	g.untapStepPhasing(controller)
 	g.dayTimeAtUntap(controller)
+	g.untapStepBounce(controller)
 	// Exert and summoning sickness clear for every permanent the active player
 	// controls, whether or not it untaps (Untap.java:167-169).
 	exerted := map[CardID]bool{}

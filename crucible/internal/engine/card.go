@@ -37,6 +37,10 @@ const optionalUntapKeyword = "You may choose not to untap CARDNAME during your u
 
 const untapNextStepKeyword = "This card doesn't untap during your next untap step."
 
+// untapBounceKeyword is the hidden keyword Untap.doUntap returns to hand
+// (Untap.java:93).
+const untapBounceKeyword = "During your next untap step, as you untap your permanents, return CARDNAME to its owner's hand."
+
 // Card is one card in one game.
 //
 // It holds no back-reference: no *Game, no *Player. Its controller is a

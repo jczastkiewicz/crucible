@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // Pump/PumpAll KW$ "HIDDEN " lines: PumpEffect.applyPump (PumpEffect.java:48-73)
@@ -181,5 +182,34 @@ func TestPumpHiddenRejectsWhatNothingReads(t *testing.T) {
 				t.Errorf("ResolveStack = %v, want an error containing %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// TestUndiscoveredParadiseReturnsToHandAtTheNextUntapStep taps the real card
+// for mana: its Pump grants the hidden bounce line, and the controller's next
+// untap step returns it to hand before anything untaps (Untap.java:91-98).
+func TestUndiscoveredParadiseReturnsToHandAtTheNextUntapStep(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(corpusCard(t, "Undiscovered Paradise"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Green)
+	if !g.ActivateManaAbility(p, land, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	checkSBA(g)
+	if g.Card(land).Zone != engine.Battlefield {
+		t.Fatalf("land left the battlefield at once: %v", g.Card(land).Zone)
+	}
+	g.SetTurnState(2, opp, engine.Cleanup)
+	g.AdvancePhase(c)
+	if g.ActivePlayer() != p || g.ActivePhase() != engine.Untap {
+		t.Fatalf("setup: turn is %v in %v, want p's untap step", g.ActivePlayer(), g.ActivePhase())
+	}
+	if got := g.Card(land).Zone; got != engine.Hand {
+		t.Errorf("land is in %v, want hand", got)
 	}
 }

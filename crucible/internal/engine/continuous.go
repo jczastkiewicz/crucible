@@ -1195,7 +1195,7 @@ func hiddenKeywordRead(line string) bool {
 	case "CARDNAME can't block.", "CARDNAME can't attack.", "CARDNAME can't attack or block.",
 		"All creatures able to block CARDNAME do so.", "CARDNAME must be blocked if able.",
 		"CARDNAME can't attack alone.", "CARDNAME can only attack alone.",
-		untapNextStepKeyword, noRedirectKeyword:
+		untapNextStepKeyword, untapBounceKeyword, noRedirectKeyword:
 		return true
 	}
 	// "CARDNAME count as <name>." is read by a valid string's hasKeyword

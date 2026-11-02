@@ -125,3 +125,37 @@ func TestPrismaticSpendsAnyColorOnItsOwnCast(t *testing.T) {
 		})
 	}
 }
+
+// ManaConvert reaches activated-ability costs too (PlaySpellAbility.java:
+// 644-658): green mana pays an {R} activation under a line with no ValidSA$
+// (Chromatic Orrery) or ValidSA$ Activated (Manascape Refractor), not under a
+// ValidSA$ Spell one.
+func TestManaConvertSpendsAnyColorOnActivations(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		line string
+		want bool
+	}{
+		{"none", "S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 0", false},
+		{"any color, every cost", "S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ AnyType->AnyColor", true},
+		{"activated abilities", "S:Mode$ ManaConvert | ValidPlayer$ You | ValidSA$ Activated | ManaConversion$ AnyType->AnyColor", true},
+		{"spells only", "S:Mode$ ManaConvert | ValidPlayer$ You | ValidSA$ Spell | ManaConversion$ AnyType->AnyColor", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			g.SetTurnState(1, p, engine.Main1)
+			g.NewCard(scriptDef(t, "Test Rule", "Enchantment", tc.line), p, engine.Battlefield)
+			pinger := g.NewCard(creatureDefWithAbility(t, "Red Pinger", "AB$ GainLife | Cost$ R | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			c := engine.NewScriptedController()
+			c.QueuePayGeneric(mana.ShardG)
+			if got := g.ActivateAbility(p, pinger, 0, c); got != tc.want {
+				t.Errorf("activating {R} with green = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

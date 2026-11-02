@@ -6,9 +6,11 @@
 // MayPlayIgnoreColor$/MayPlayIgnoreType$ grant does (anyColorCost,
 // anyTypeCost), so the payment code stays one path.
 //
-// Not read: the per-color conversions (White->Red, C->AnyColor, ...), the
-// Optional$ choice and activated-ability costs; a line carrying one of those is
-// skipped and the card pays as printed (game-state.md, "Not ported yet").
+// Activated-ability costs read the same lines (manaConvertForActivation).
+// Not read: the per-color conversions (White->Red, C->AnyColor, ...), which
+// need a conversion matrix in the payment rather than a cost rewrite, and the
+// Optional$ choice; a line carrying one of those is skipped and the card pays
+// as printed (game-state.md, "Not ported yet").
 
 //enginelint:allow ability id zone card game valid player continuous staticability zonemove cantbecast saspec castspell castoptions
 
@@ -18,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -70,16 +73,36 @@ func manaConvertSupported(s *compile.Ability) bool {
 // mana of any type pays the whole cost (anyType), or a colored part
 // (anyColor). AnyType wins when both apply.
 func (g *Game) manaConvertForSpell(pid PlayerID, card CardID) (anyType, anyColor bool) {
+	return g.manaConvertFor(pid, card, &Ability{Source: card, Controller: pid, spell: true})
+}
+
+// manaConvertForActivation is cost rewritten by the same verdict for an
+// activated ability of card: Java applies ManaConvert to every cost paid through
+// PlaySpellAbility.payManaCost (:644-658), so ValidSA$ Activated lines
+// (Manascape Refractor, Agatha's Soul Cauldron) and lines naming no ValidSA$
+// (Chromatic Orrery) reach it.
+func (g *Game) manaConvertForActivation(pid PlayerID, card CardID, a *Ability, cost mana.Cost) mana.Cost {
+	switch anyType, anyColor := g.manaConvertFor(pid, card, a); {
+	case anyType:
+		return anyTypeCost(cost)
+	case anyColor:
+		return anyColorCost(cost)
+	}
+	return cost
+}
+
+// manaConvertFor is the shared walk: every live ManaConvert line that
+// applies to sa, the spell or activated ability of card being paid.
+func (g *Game) manaConvertFor(pid PlayerID, card CardID, spell *Ability) (anyType, anyColor bool) {
 	c := g.Card(card)
 	// Prismatic (CardFactoryUtil.java:3953-3955) is a ManaConvert static on the
 	// card itself: EffectZone$ Stack, ValidPlayer$ You, ValidCard$ Card.Self,
 	// ValidSA$ Spell, AnyType->AnyColor. The cards gain it perpetually through
 	// Animate Keywords$, which grants no keyword statics here, so the keyword
 	// is read directly.
-	if c.HasKeyword("Prismatic") {
+	if spell.spell && c.HasKeyword("Prismatic") {
 		anyColor = true
 	}
-	spell := &Ability{Source: card, Controller: pid, spell: true}
 	for _, host := range g.staticHostsWith(card) {
 		h := g.Card(host)
 		if h.Def == nil {

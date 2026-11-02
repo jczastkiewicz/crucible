@@ -148,6 +148,7 @@ func (g *Game) payActivatedUnlessCost(controller PlayerController, a *Ability, p
 		mc, taps = g.waterbendReduce(controller, pid, a.Source, uc)
 	}
 	if uc.hasMana {
+		mc = g.manaConvertForActivation(pid, a.Source, a, mc)
 		restore := g.payingFor(&payContext{item: a, cost: mc})
 		x, paid := g.payManaCostX(pid, mc, controller)
 		restore()

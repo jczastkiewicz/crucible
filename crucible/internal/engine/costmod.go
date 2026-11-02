@@ -309,7 +309,7 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	if v, ok := s.Param("ValidSpell"); ok {
 		switch {
 		case act == nil:
-			matched, recognized := validSpellForSpell(v)
+			matched, recognized := validSpellForSpell(v, c)
 			if !recognized {
 				return costModUnresolvable
 			}
@@ -469,17 +469,23 @@ func raiseScaledByShards(c *Card, s *compile.Ability, text string) string {
 // validSpellForSpell evaluates a ValidSpell$ spec against a spell being cast
 // (SpellAbility.isValid, SpellAbility.java:2200-2250): comma-separated
 // alternatives, of which "Spell" matches and "Activated", "Static" and
-// "Triggered" never do. A property on Spell (Flashback, ...) or any other base
-// is not evaluated here: recognized is false and the line stays unresolvable.
-func validSpellForSpell(spec string) (matched, recognized bool) {
+// "Triggered" never do. Spell.Dash and Spell.Blitz match c's cast for that
+// keyword's cost (castFor, recorded before the cost is read: Warbringer,
+// Henzie). Any other property on Spell (Flashback, ...) or other base is not
+// evaluated here: recognized is false and the line stays unresolvable.
+func validSpellForSpell(spec string, c *Card) (matched, recognized bool) {
 	for _, alt := range strings.Split(spec, ",") {
 		base, props, _ := strings.Cut(alt, ".")
 		switch base {
 		case "Spell":
-			if props != "" {
+			switch props {
+			case "":
+				matched = true
+			case "Dash", "Blitz":
+				matched = matched || c.castFor(props)
+			default:
 				return false, false
 			}
-			matched = true
 		case "Activated", "Static", "Triggered":
 		default:
 			return false, false

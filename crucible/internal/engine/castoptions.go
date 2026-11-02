@@ -65,8 +65,9 @@ type castOption struct {
 	// altWaterbend is the grant's Waterbend<N> (grantAltExtra): N of alt's
 	// generic the caster may pay by tapping artifacts and creatures.
 	altWaterbend int
-	// altKeyword is "Surge" or "Freerunning" for those keyword casts
-	// (altkeywords.go): alt is the keyword's cost.
+	// altKeyword is "Surge", "Freerunning", "Dash" or "Blitz" for those
+	// keyword casts (altkeywords.go): alt is the keyword's mana, altExtra
+	// (when hasAltExtra) the rest of a Blitz cost.
 	altKeyword string
 }
 

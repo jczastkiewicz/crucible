@@ -1,6 +1,10 @@
 // Surge (CR 702.117) and Freerunning (CR 702.173): "you may cast this spell
 // for <cost> if <history gate>" -- one more cast option of the card's own
-// spell, whose cost replaces its mana cost. Java builds a copy of the first
+// spell, whose cost replaces its mana cost. Dash (CR 702.109) and Blitz (CR
+// 702.152) are such casts with no gate; the permanent leaves at the next end
+// step (permanentEffect) and has haste (and Blitz's "when this dies, draw a
+// card") while it carries that cast, through the keyword's static
+// (keyword.Expand: Card.Self+dashed / +blitzed). Java builds a copy of the first
 // spell ability with the keyword's cost and marks it AlternativeCost.Surge /
 // Freerunning (CardFactoryUtil.java:3038-3065 Freerunning, :3535-3546 Surge);
 // SpellAbilityRestriction.java:388-392, :413-417 gate it on
@@ -63,8 +67,9 @@ func (g *Game) hasFreerunning(pid PlayerID) bool {
 	return false
 }
 
-// altKeywordOptions are the Surge and Freerunning ways pid may cast c from
-// the hand: those whose keyword c has and whose history gate holds.
+// altKeywordOptions are the Surge, Freerunning, Dash and Blitz ways pid may
+// cast c from the hand: those whose keyword c has and, for the first two,
+// whose history gate holds.
 func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	var out []castOption
 	if c.Type().Has(cardtype.Land) {
@@ -76,7 +81,50 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	if mc, ok := altKeywordCost(c, "Freerunning"); ok && g.hasFreerunning(pid) {
 		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Freerunning"})
 	}
+	for _, name := range [...]string{"Dash", "Blitz"} {
+		if o, ok := g.keywordCastOption(pid, c, name); ok {
+			out = append(out, o)
+		}
+	}
 	return out
+}
+
+// keywordCastOption is the cast for c's keyword name (Dash or Blitz): its
+// cost in place of the mana cost, Java's copyWithDefinedCost for Dash
+// (CardFactoryUtil.java:2744-2764) and copyWithManaCostReplaced for Blitz
+// (:2690-2713), alike for a spell with no Cost$ of its own. A part past the
+// mana (Blitz's PayLife<2>, Discard<1/Card>) is paid as an alternative
+// cost's other parts are. ok is false without the keyword, for an X, for a
+// cost part this port cannot pay, and for a Blitz with a third field (its
+// ValidAfterStack$, Henzie's and The Caldaia's grants, whose cost is
+// CardManaCost too): not offered, never cast for a guessed cost (GO-7).
+func (g *Game) keywordCastOption(pid PlayerID, c *Card, name string) (castOption, bool) {
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != name {
+			continue
+		}
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return castOption{}, false
+		}
+		uc, ok := parseUnlessCost(k.Details)
+		if !ok || (uc.hasMana && uc.mana.CountX() > 0) {
+			return castOption{}, false
+		}
+		o := castOption{hasAlt: true, alt: mana.MustParse("0"), altKeyword: name}
+		if uc.hasMana {
+			o.alt = uc.mana
+		}
+		uc.hasMana, uc.mana, uc.manaTokens = false, mana.Cost{}, nil
+		if hasNonManaParts(uc) {
+			if !g.unlessPayable(pid, c.ID, uc) {
+				return castOption{}, false
+			}
+			o.altExtra, o.hasAltExtra = uc, true
+		}
+		return o, true
+	}
+	return castOption{}, false
 }
 
 // altKeywordKind is the optionalKinds bit a cast by the keyword records.

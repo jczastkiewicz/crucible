@@ -1589,7 +1589,16 @@ type castOptional struct {
 	// 553): the permanent sacrificed for the Emerge cost, read as it last was
 	// (emerge.go); NoCard for a cast that did not emerge.
 	emerged CardID
+	// altKeyword is the keyword whose cost the cast paid instead of the mana
+	// cost (SpellAbility.getAlternativeCost for Surge, Freerunning, Dash and
+	// Blitz; altkeywords.go), "" for any other cast.
+	altKeyword string
 }
+
+// castFor reports whether c was cast for its keyword name's cost and still
+// carries that cast: SpellAbility.isDash/isBlitz on Card.getCastSA, which
+// the permanent the spell became keeps (GameAction.java:229).
+func (c *Card) castFor(name string) bool { return c.wasCast && c.castOpt.altKeyword == name }
 
 // has reports whether the cast paid an optional cost of kind k.
 func (o castOptional) has(k optionalKinds) bool { return o.kinds&k != 0 }

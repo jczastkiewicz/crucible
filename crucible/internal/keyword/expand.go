@@ -335,6 +335,31 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | Execute$ KWExploit" + Slot},
 			SVars:    []SVarDef{{"KWExploit" + Slot, "DB$ Sacrifice | SacValid$ Creature | Optional$ True"}},
 		}, true
+	case "Dash":
+		// CardFactoryUtil.java:3864-3867: a permanent cast for its dash cost
+		// has haste. The cast itself is the engine's (altkeywords.go), which
+		// makes it for a lone cost field only; another shape stays inert, as
+		// its cast is never offered.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{Statics: []string{"Mode$ Continuous | Affected$ Card.Self+dashed+castKeyword | AddKeyword$ Haste"}}, true
+	case "Blitz":
+		// CardFactoryUtil.java:3767-3786: a permanent cast for its blitz cost
+		// has haste and "When this creature dies, draw a card." A third field
+		// (ValidAfterStack$, the CardManaCost grants of Henzie, The Caldaia and
+		// Riveteers Provocateur) is a cast the engine does not offer, so it
+		// stays inert rather than add a second static to a blitzed creature.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ Continuous | Affected$ Card.Self+blitzed+castKeyword | AddKeyword$ Haste | AddTrigger$ KWBlitzDies" + Slot + " | Secondary$ True"},
+			SVars: []SVarDef{
+				{"KWBlitzDies" + Slot, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ KWBlitzDraw" + Slot + " | Secondary$ True"},
+				{"KWBlitzDraw" + Slot, "DB$ Draw"},
+			},
+		}, true
 	case "Echo":
 		// CardFactoryUtil.java:963: at the beginning of your upkeep, if this
 		// came under your control since your last upkeep, sacrifice it unless

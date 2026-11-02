@@ -423,6 +423,18 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			return c.kicker&kicker2 != 0
 		}
 		return c.kickerMagnitude() > 0
+	case name == "dashed":
+		// CardProperty.java:1738-1755: the card's cast was for its Dash or
+		// Blitz cost. The cast record ends as the card changes zones other
+		// than stack to battlefield, Java's isUnlinkedFromCastSA.
+		return c.castFor("Dash")
+	case name == "blitzed":
+		return c.castFor("Blitz")
+	case name == "castKeyword":
+		// CardProperty.java:1900-1912: the static is the one of the keyword
+		// the card was cast for. This port cannot tell two same-named
+		// keywords apart (quirks.md): any keyword cast matches.
+		return c.wasCast && c.castOpt.altKeyword != ""
 	case name == "escaped":
 		// CardProperty.java:1751-1755: the card's cast was for its Escape
 		// cost ("CARDNAME escapes with ..." counters, Kroxa's "unless it

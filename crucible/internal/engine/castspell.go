@@ -577,7 +577,7 @@ type castOpts struct {
 	// CardFactoryUtil.abilityCastFaceDown builds): the spell is the face-down
 	// 2/2 of CR 708.2a.
 	faceDown bool
-	// altKeyword is "Surge" or "Freerunning" for a cast for that keyword's
+	// altKeyword is "Surge", "Freerunning", "Dash" or "Blitz" for a cast for that keyword's
 	// cost (altkeywords.go): altCost is that cost.
 	altKeyword string
 }
@@ -634,7 +634,8 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 		kinds |= optAltCost
 	}
 	kinds |= altKeywordKind(opts.altKeyword)
-	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
+	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness,
+		altKeyword: opts.altKeyword}
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	chosen, ok := g.chooseKeywordAmounts(controller, pid, g.Card(card))
@@ -1401,6 +1402,18 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		// GameAction.java:571: the half the Room was cast as unlocks for
 		// its caster as it enters, firing its "when you unlock this door".
 		g.unlockDoor(controller, a.Source, a.Controller, door)
+	}
+	// CR 608.3g, PermanentEffect.java:41-51: a permanent cast for its Dash
+	// cost returns to its owner's hand, one cast for its Blitz cost is
+	// sacrificed, at the beginning of the next end step.
+	if c := g.Card(a.Source); c.Zone == Battlefield {
+		for _, leave := range [...]struct{ keyword, location string }{{"Dash", "Hand"}, {"Blitz", "Sacrifice"}} {
+			if c.castFor(leave.keyword) {
+				if err := g.registerDelayedLeave(c.ID, a.Controller, nil, leave.keyword, leave.location, "", []CardID{c.ID}); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	g.checkETBTriggers(controller, a.Source, origin)
 	// A lone entry is a batch of one for Mode$ ChangesZoneAll (GameAction's

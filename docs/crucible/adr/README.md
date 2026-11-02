@@ -64,10 +64,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0051](0051-commander-is-a-designation-on-the-player.md)    | A commander is a designation on the player, no format     | Accepted                  |
 | [0052](0052-casting-a-card-as-one-of-its-faces.md)          | Casting a card as one of its faces                        | Accepted                  |
 | [0053](0053-commander-casting-from-the-command-zone.md)     | A commander is cast through Java's Commander Effect card  | Accepted                  |
+| [0054](0054-mana-abilities-during-a-mana-payment.md)        | Mana abilities inside a mana payment, one decision        | Proposed                  |
 
 ## Numbering
 
-No gap and no missing number: 0001-0053, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0054, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

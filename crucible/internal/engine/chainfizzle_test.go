@@ -7,6 +7,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // chainActivatedDef builds a 2/2 whose one activated ability is head, with
@@ -77,5 +78,37 @@ func TestSubAbilityTargetsAreRecheckedAtResolution(t *testing.T) {
 				t.Errorf("victim in graveyard = %v", killed)
 			}
 		})
+	}
+}
+
+// Mutual Destruction targeting the creature it sacrifices as its cost is cast
+// and fizzles on resolution. Java's MagicStack.add re-checks only the target
+// count before the spell is cast (hasLegalTargeting, MagicStack.java:787-795,
+// abortIllegalAddition); legality waits for hasFizzled (:797-820, CR 608.2b).
+func TestSpellTargetingItsOwnSacrificeIsCastAndFizzles(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	spell := g.NewCard(corpusCard(t, "Mutual Destruction"), p, engine.Hand)
+	bear := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(bear)})
+	c.QueueSacrificeChoice([]engine.CardID{bear})
+	if !g.CastSpell(p, spell, c) {
+		t.Fatalf("Mutual Destruction not cast: %v", g.TakePendingError())
+	}
+	if got := g.Card(spell).Zone; got != engine.Stack {
+		t.Fatalf("Mutual Destruction in %v, want on the stack", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(spell).Zone; got != engine.Graveyard {
+		t.Errorf("Mutual Destruction in %v, want the graveyard", got)
+	}
+	if got := g.Card(bear).Zone; got != engine.Graveyard {
+		t.Errorf("Grizzly Bears in %v, want sacrificed", got)
 	}
 }

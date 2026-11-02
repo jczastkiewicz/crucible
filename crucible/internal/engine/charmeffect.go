@@ -180,6 +180,7 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 			facer = decider
 		}
 		g.Player(facer).dilemmasFacedThisTurn++
+		g.checkFacesDilemmaTriggers(controller, facer, hasRandom)
 	}
 
 	// chainAbilities appends each chosen mode, its own SubAbility$ chain with

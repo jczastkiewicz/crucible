@@ -203,3 +203,30 @@ func TestModalChoiceCountsAsAFacedDilemma(t *testing.T) {
 		t.Errorf("%d tokens made, want 1 (one dilemma faced)", got)
 	}
 }
+
+// Seven of Nine (Mode$ FacesDilemma, CharmEffect.faceDilemma :208-215):
+// choosing a modal spell's modes fires "whenever you face a dilemma, draw a
+// card".
+func TestModalChoiceFiresFacesDilemma(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Seven of Nine"), p, engine.Battlefield)
+	libraryCards(t, g, p, 2)
+	charm := g.NewCard(corpusCard(t, "Boros Charm"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	c := engine.NewScriptedController()
+	c.QueueModeChoice([]int{0})
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	c.QueuePayGeneric(mana.ShardR)
+	if !g.CastSpell(p, charm, c) {
+		t.Fatalf("cast failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand holds %d cards, want 1 (Seven of Nine drew for the dilemma)", got)
+	}
+}

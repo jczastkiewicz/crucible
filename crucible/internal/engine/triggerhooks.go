@@ -1,7 +1,7 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
 // that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
 // ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered,
-// AbilityResolves, ManaAdded, Championed, Enlisted and Unattached. Each is a player event with a few params tested against it,
+// AbilityResolves, ManaAdded, Championed, Enlisted, Unattached and FacesDilemma. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
@@ -27,6 +27,7 @@ var (
 	voteParams              = effectEventParams("list")
 	becomesTargetOnceParams = effectEventParams("validtarget", "validsource", "validcause")
 	tapAllParams            = effectEventParams("validcards")
+	facesDilemmaParams      = effectEventParams("validplayer", "random")
 	abilityTriggeredParams  = effectEventParams("validmode", "validdestination", "validspellability", "validsource", "validcause", "triggeredownability")
 	abilityResolvesParams   = effectEventParams("validspellability", "validsource")
 	manaAddedParams         = effectEventParams("validsource", "validsa", "player", "produced", "static")
@@ -54,6 +55,23 @@ func (g *Game) checkClashedTriggers(controller PlayerController, pid PlayerID, w
 			return triggeredObjects{}, false
 		}
 		return triggeredObjects{}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkFacesDilemmaTriggers is Mode$ FacesDilemma (TriggerFacesDilemma.java:
+// 15-25, 2 real lines), run as a player faces a dilemma choosing modes
+// (CharmEffect.faceDilemma, :208-215): ValidPlayer$ against the chooser;
+// Random$ (Chira) only when the modes were chosen at random.
+func (g *Game) checkFacesDilemmaTriggers(controller PlayerController, pid PlayerID, random bool) {
+	matches := g.scanTriggers([]string{"FacesDilemma"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, facesDilemmaParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("Random"); ok && !random {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

@@ -1045,6 +1045,10 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q outside a replacement of a card's entry", defined)
 		}
 		return []CardID{refs.replaced}, nil
+	case "ReplacedCards":
+		// AbilityUtils.java's "Replaced" branch over AbilityKey.Cards: the cards
+		// a cascade moved (Averna, the Chaos Bloom's ReplacedCards.Land).
+		return append([]CardID(nil), refs.replacedCards...), nil
 	case "Convoked":
 		// AbilityUtils.java:303-304: the creatures that convoked the host.
 		return append([]CardID(nil), host.convoked...), nil

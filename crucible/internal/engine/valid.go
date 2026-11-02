@@ -780,6 +780,16 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		}
 		id, ok := a.triggered.target.AsCard()
 		return ok && id == c.ID
+	case name == "TriggeredDefender":
+		// CardProperty.java:2048-2063 over AbilityKey.Defender: c is the
+		// planeswalker or battle the root ability's attacker attacks (Myr
+		// Battlesphere's Valid Planeswalker.TriggeredDefender).
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source || a.refs().triggered.attacker == NoCard {
+			return false
+		}
+		defender, _ := triggeredDefender(g, a.refs())
+		return len(defender) == 1 && defender[0] == CardEntity(c.ID)
 	case name == "TriggeredAttackers":
 		// CardProperty.java:2045-2063: c is in the root ability's
 		// AbilityKey.Attackers; false with no ability of source's in context

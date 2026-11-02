@@ -1187,9 +1187,15 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.ColorMod.Clear()
 		c.KeywordMod.Clear()
 		// A grant made to the card in hand, a graveyard or on the stack ends
-		// with that object too (CR 400.7); a Perpetual one stays.
+		// with that object too (CR 400.7); a Perpetual one stays. An Animate
+		// stays into the battlefield: Java's changeZone keeps the same object
+		// for a battlefield destination (GameAction.java:170-172) and copies
+		// it for any other (GameAction.java:207), so Takklemaggot's
+		// graveyard Animate is the permanent's.
 		if from != Battlefield {
-			g.clearAnimates(id)
+			if kind != Battlefield {
+				g.clearAnimates(id)
+			}
 			// A PumpZone$ pump of a card in another zone ends with the object
 			// too (pumpRecord.InZone); a Perpetual one stays.
 			g.clearPumps(id)

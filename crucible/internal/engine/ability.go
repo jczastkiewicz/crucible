@@ -461,6 +461,9 @@ type abilityRefs struct {
 	// replaced is the card a Moved replacement's ReplaceWith$ ability is
 	// replacing the entry of (Defined$ ReplacedCard); NoCard otherwise.
 	replaced CardID
+	// replacedCards is a Cascade replacement's Cards (Defined$ ReplacedCards);
+	// nil otherwise.
+	replacedCards []CardID
 	// replacedPlayer and replacedDefendingPlayer are a DeclareBlocker
 	// replacement's Player and DefendingPlayer (Defined$ ReplacedPlayer,
 	// Defined$ ReplacedDefendingPlayer); NoPlayer otherwise.
@@ -493,6 +496,7 @@ func (a *Ability) refs() abilityRefs {
 		choosing: a.choosing, hasChoosing: a.hasChoosing}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer
+		r.replacedCards = a.replacing.cards
 		if a.replacing.amountName == "DamageAmount" {
 			r.replacedTarget = a.replacing.affected
 			r.replacedSource = a.replacing.source

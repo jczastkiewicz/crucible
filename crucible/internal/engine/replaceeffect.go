@@ -66,6 +66,10 @@ type replacementEvent struct {
 	// event.
 	card CardID
 
+	// cards is Cascade's Cards: what the cascade's dig moved, what Defined$
+	// ReplacedCards names (ReplaceCascade.java). Nil for every other event.
+	cards []CardID
+
 	// player and defendingPlayer are DeclareBlocker's two replacing objects
 	// (ReplaceDeclareBlocker.setReplacingObjects): AbilityKey.Player, who
 	// declares the blocks (Defined$ ReplacedPlayer), and AbilityKey.Affected

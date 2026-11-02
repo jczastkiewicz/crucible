@@ -10,6 +10,8 @@
 //     instead". loseManaConversion.
 //   - BeginTurn (5): "that player skips that extra turn instead", Skip$ True
 //     with ExtraTurn$ True. beginTurnSkipped.
+//   - Cascade (1): Averna, the Chaos Bloom's land from among the cards a
+//     cascade exiled. cascadeReplaced.
 //
 // Ported from forge-game/src/main/java/forge/game/replacement/{ReplaceCounter,
 // ReplaceBeginPhase,ReplaceLifeReduced,ReplaceLoseMana,ReplaceBeginTurn}.java
@@ -495,4 +497,52 @@ func (g *Game) loseManaConversion(controller PlayerController, pid PlayerID) (co
 		return out
 	})
 	return color, colorless, res == replacementReplaced
+}
+
+// cascadeReplaced is ReplacementType.Cascade's run after a cascade's dig
+// moved its cards and shuffled (DigUntilEffect.java:321-325,
+// ReplaceCascade.java): every Event$ Cascade line whose ValidPlayer$ matches
+// the cascading player runs its ReplaceWith$ with those cards as
+// ReplacedCards. A sequential dig (both destinations Exile, as Cascade's are)
+// moves every revealed card, the found one included, so Averna, the Chaos
+// Bloom sees each exiled land. ReplacementResult$ Updated: the cascade goes on
+// and each line applies once (CR 616.1). A line naming a param this cannot
+// check, or a ReplaceWith$ that fails, records a pending error (GO-7).
+func (g *Game) cascadeReplaced(controller PlayerController, player PlayerID, moved []CardID) {
+	g.runReplacements(controller, player, func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			if !strings.EqualFold(r.Name, "Cascade") || !hostInActiveZones(h, r, z) {
+				return
+			}
+			sub := replaceWithSub(r)
+			result, _ := r.Param("ReplacementResult")
+			if !onlyParams(r, "validplayer", "replacementresult") || sub == nil || !strings.EqualFold(result, "Updated") {
+				g.recordPendingError(fmt.Errorf("engine: %q: Event$ Cascade line not resolvable yet", h.Def.Name))
+				return
+			}
+			if v, ok := r.Param("ValidPlayer"); ok {
+				matched, recognized := matchesPlayerSpec(g, player, h.Controller(), h.ID, v)
+				if !recognized {
+					g.recordPendingError(fmt.Errorf("engine: %q: Event$ Cascade: ValidPlayer$ %q not resolvable yet", h.Def.Name, v))
+					return
+				}
+				if !matched {
+					return
+				}
+			}
+			if !replacementRequirementsCheck(g, h, amounts, r) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				ev := replacementEvent{player: player, cards: append([]CardID(nil), moved...)}
+				if err := g.runReplaceWithEffect(controller, h, amounts, sub, &ev); err != nil {
+					g.recordPendingError(err)
+					return replacementNotReplaced
+				}
+				return replacementUpdated
+			}})
+		})
+		return out
+	})
 }

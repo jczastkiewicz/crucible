@@ -743,9 +743,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// a game here never has: no card carries the noted color. A card's border
 		// color is not in the database: none is silver-bordered.
 		return false
-	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned).
+	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned) for the
+	// Beam me up spell source (Scotty).
 	case name == "canBeBeamedUp":
-		return !g.cantBeBeamedUp(c)
+		return !g.cantBeBeamedUp(c, source)
 	case name == "wasDealtDamageByThisGame":
 		// CardProperty.java:1168-1176: the source has dealt this very card (same
 		// zoneStamp) damage this game.
@@ -2085,8 +2086,13 @@ func (g *Game) resolvingAttackedTargets(source CardID, prop string) (attacked []
 }
 
 // cantBeBeamedUp is StaticAbilityCantBeBeamedUp.cantBeBeamedUp: a battlefield
-// Mode$ CantBeBeamedUp static whose ValidCard$ matches c.
-func (g *Game) cantBeBeamedUp(c *Card) bool {
+// Mode$ CantBeBeamedUp static whose ValidCard$ matches c and whose ValidSA$
+// matches the Beam me up spell cast from spell. Java walks
+// STATIC_ABILITIES_SOURCE_ZONES; both corpus lines (Marooned, Scotty) only
+// cover a creature on the battlefield, the one zone a returned creature is in.
+// ValidSA$ Spell.KeywordSource (SpellAbilityProperty.java:213-217) is the
+// corpus's one form: the spell's Beam me up was granted by this static's host.
+func (g *Game) cantBeBeamedUp(c *Card, spell CardID) bool {
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
 			h := g.Card(host)
@@ -2098,10 +2104,19 @@ func (g *Game) cantBeBeamedUp(c *Card) bool {
 					if !strings.EqualFold(s.Name, "CantBeBeamedUp") {
 						continue
 					}
-					spec, ok := s.Param("ValidCard")
-					if !ok || Matches(g, c, valid.Parse(spec), h.Controller(), host) {
-						return true
+					if spec, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(spec), h.Controller(), host) {
+						continue
 					}
+					if sa, ok := s.Param("ValidSA"); ok {
+						if sa != "Spell.KeywordSource" {
+							g.recordPendingError(fmt.Errorf("engine: CantBeBeamedUp: ValidSA$ %q not resolvable yet", sa))
+							continue
+						}
+						if sc := g.Card(spell); sc == nil || sc.KeywordMod.grantSource("Beam me up") != host {
+							continue
+						}
+					}
+					return true
 				}
 			}
 		}

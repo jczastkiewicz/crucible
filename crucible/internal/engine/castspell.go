@@ -360,22 +360,34 @@ func (g *Game) flashDecided(pid PlayerID, card CardID, opts castOpts, spell Abil
 // beamMeUpCost is Beam me up's graveyard cast (GameActionUtil.java:176-180):
 // c's keyword cost plus returning a creature you control that can be beamed
 // up. ok is false when pid does not own c in the graveyard, the keyword is
-// absent or its cost is not plain mana, or no such creature exists.
+// absent or its cost is not plain mana, or no such creature exists. A bare
+// keyword costs the card's mana cost.
 func (g *Game) beamMeUpCost(pid PlayerID, c *Card) (mana.Cost, unlessCost, bool) {
 	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
 		return mana.Cost{}, unlessCost{}, false
 	}
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
-		if k.Name != "Beam me up" || k.Details == "" {
+		if k.Name != "Beam me up" {
 			continue
 		}
-		if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
-			return mana.Cost{}, unlessCost{}, false
-		}
-		mc, err := mana.Parse(k.Details)
-		if err != nil || mc.CountX() > 0 {
-			return mana.Cost{}, unlessCost{}, false
+		var mc mana.Cost
+		if k.Details == "" {
+			// A bare Beam me up (Scotty's AddKeyword$) is cast for the card's
+			// own mana cost (GameActionUtil.getGraveyardSpellByKeyword,
+			// :324-326).
+			if c.manaCost().IsNoCost() {
+				return mana.Cost{}, unlessCost{}, false
+			}
+			mc = c.manaCost()
+		} else {
+			if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
+				return mana.Cost{}, unlessCost{}, false
+			}
+			var err error
+			if mc, err = mana.Parse(k.Details); err != nil || mc.CountX() > 0 {
+				return mana.Cost{}, unlessCost{}, false
+			}
 		}
 		extra, ok := parseUnlessCost("Return<1/Creature.YouCtrl+canBeBeamedUp/creature you control>")
 		if !ok || !g.unlessPayable(pid, c.ID, extra) {

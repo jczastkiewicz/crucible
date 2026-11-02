@@ -518,6 +518,7 @@ func applyOneContinuousKeyword(g *Game, host *Card, amounts map[string]expr.Amou
 			RemoveKeywords: change.remove,
 			RemoveAll:      change.removeAll,
 			CantHave:       change.cantHave,
+			Source:         host.ID,
 		})
 	}
 	if spec, ok := s.Param("Affected"); ok {

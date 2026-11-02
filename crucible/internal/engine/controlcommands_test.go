@@ -315,3 +315,21 @@ func TestAttachDefinedHostWinsOverValidTgts(t *testing.T) {
 		t.Errorf("equipment attached to %v (%v), want the source %v", to, ok, host)
 	}
 }
+
+// The LoseControl$ criteria are checked before a Choices$ pick
+// (ControlGainEffect.java:101-111): an untapped Untap host ends the effect
+// without asking anyone to choose (the scripted controller has no answer
+// queued, so a question would fail the test).
+func TestGainControlChecksLoseControlBeforeTheChoice(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	victim := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ GainControl | Choices$ Creature.OppCtrl | LoseControl$ Untap"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(victim).Controller(); got != other {
+		t.Errorf("controller = %v, want the owner %v (the host was untapped)", got, other)
+	}
+}

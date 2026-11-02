@@ -13,7 +13,7 @@
 
 package engine
 
-//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck classlevel
+//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck classlevel phase defined
 
 import (
 	"slices"
@@ -37,11 +37,10 @@ import (
 // CheckSVar$ chain compares true (layerCheckSVars).
 //
 // ClassLevel$ is the host's Class level at least the line's (classlevel.go).
-// Phases$, PlayerTurn$ and GameStage$ report false: each needs a
-// phase-range parser, a defined-player turn check or the game's own stage
-// this port does not read for statics yet (1, 0 and 1 real Mode$ Continuous
-// lines). False means the line does nothing this pass -- a
-// coverage gap rather than an effect applied when it should not be (GO-7).
+// Phases$ (Scotty, Zurgo) and PlayerTurn$ read as staticOtherConditionsMet
+// does. GameStage$ (one Vanguard line) reports false: the game's stage is not
+// tracked, and false means the line does nothing this pass -- a coverage gap
+// rather than an effect applied when it should not be (GO-7).
 func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) bool {
 	if _, cda := s.Param("CharacteristicDefining"); !cda && !layerHostZoneActive(host, s) {
 		return false
@@ -49,8 +48,18 @@ func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *
 	if !continuousConditionMet(g, host, s) {
 		return false
 	}
-	for _, key := range [...]string{"Phases", "PlayerTurn", "GameStage"} {
-		if _, ok := s.Param(key); ok {
+	if _, ok := s.Param("GameStage"); ok {
+		return false
+	}
+	if phases, ok := s.Param("Phases"); ok {
+		set, ok := parsePhaseRange(phases)
+		if !ok || !set.has(g.activePhase) {
+			return false
+		}
+	}
+	if turn, ok := s.Param("PlayerTurn"); ok {
+		players, err := definedPlayers(g, host.Controller(), host.ID, turn, abilityRefs{})
+		if err != nil || !slices.Contains(players, g.activePlayer) {
 			return false
 		}
 	}

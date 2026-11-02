@@ -439,3 +439,48 @@ func TestChooseCardEffectAllCardsReachesAnyZone(t *testing.T) {
 		t.Errorf("host Memory.Chosen = %v, want [%v]", got, pick)
 	}
 }
+
+// TestChooseCardWithDifferentManaValuesDropsTheChosenValue proves
+// WithDifferentManaValues$ (Running Is Useless, ChooseCardEffect.java:
+// 192-209): after a 2-mana creature is chosen, the other 2-mana creature is
+// no longer offered.
+func TestChooseCardWithDifferentManaValuesDropsTheChosenValue(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChooseCard | Defined$ You | MinAmount$ 0 | Amount$ 3 | Choices$ Creature | WithDifferentManaValues$ True"
+	setup := func() (*engine.Game, engine.PlayerID, [3]engine.CardID) {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids [3]engine.CardID
+		for i, cost := range []string{"1 G", "G G", "2 G"} {
+			ids[i] = g.NewCard(creatureDefManaCost(t, cost), p, engine.Battlefield)
+		}
+		return g, p, ids
+	}
+
+	t.Run("one creature per mana value", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[2]})
+		c.QueueCardChoice(nil) // the optional pick of the test host itself, declined
+		host, err := castETBChain(t, g, p, etbChainDef(t, "Test Mana Values", line), c)
+		if err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		if got := g.Card(host).Memory.Chosen(); len(got) != 2 {
+			t.Errorf("chosen = %v, want the 2-mana and the 3-mana creature", got)
+		}
+	})
+
+	t.Run("a second creature of a chosen mana value is not offered", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[1]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Mana Values", line), c); err == nil {
+			t.Fatal("choosing a second 2-mana creature succeeded")
+		}
+	})
+}

@@ -87,12 +87,10 @@ func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *
 // battlefield card whose line reads EffectZone$ Graveyard is therefore off
 // while it is in play.
 //
-// This function itself has no zone bias, but every caller only ever visits
-// hosts g.traitHosts (game.go) returns -- battlefield cards and Command-zone
-// effect cards -- so an EffectZone$ naming Graveyard/Hand/Stack/Library/Exile
-// alone never has a host to test true against: that line stays a coverage
-// gap (GO-7's "does nothing" case), not resolved, until traitHosts walks
-// those zones too.
+// It has no zone bias: the layer walk reaches battlefield and Command-zone
+// hosts through g.traitHosts (game.go) and cards in the other zones through
+// appendOffZoneStatics, which tests those against the same EffectZone$ rule
+// (staticFunctionsOffBattlefield).
 func layerHostZoneActive(host *Card, s *compile.Ability) bool {
 	if host.IsEffect {
 		return host.Zone == Command

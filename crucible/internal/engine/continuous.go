@@ -1298,10 +1298,11 @@ func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 // The static must be active where its host is (StaticAbility.zonesCheck):
 // a battlefield host needs no EffectZone$ or EffectZone$ Battlefield/All;
 // an Effect card's statics work from the Command zone whatever they name
-// (EffectEffect.java). A host in any other zone is not walked at all
-// (traitHosts), so the EffectZone$ Graveyard "cast this from your
-// graveyard" lines stay a gap. Battlefield and Stack in AffectedZone$ grant
-// nothing: nothing is cast from either.
+// (EffectEffect.java); a card in another zone functions from the EffectZone$
+// zones it names (appendOffZoneStatics), so an EffectZone$ Graveyard "cast
+// this from your graveyard" line (Gravecrawler) grants from the graveyard.
+// Battlefield and Stack in AffectedZone$ grant nothing: nothing is cast from
+// either.
 //
 // MayLookAt$ on the same line needs nothing: the engine is omniscient
 // (lookateffect.go), so "may look at" changes no state.

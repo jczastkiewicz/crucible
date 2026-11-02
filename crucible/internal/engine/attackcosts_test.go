@@ -391,3 +391,30 @@ func TestUnresolvableAttackTaxIsAnError(t *testing.T) {
 		})
 	}
 }
+
+// Exert is chosen before the attack costs and paid inside the attacker's own
+// cost (PhaseHandler.java:568-590, CombatUtil.getAttackCost): an exerter whose
+// tax is declined leaves combat unexerted; one whose tax is paid is exerted.
+func TestExertIsPaidInsideTheAttackCost(t *testing.T) {
+	t.Parallel()
+	for _, pay := range []bool{true, false} {
+		g, a, _ := attackCostGame(t, "Ghostly Prison")
+		brawler := g.NewCard(corpusCard(t, "Hooded Brawler"), a, engine.Battlefield)
+
+		c := engine.NewScriptedController()
+		c.QueueAttackers([]engine.CardID{brawler})
+		c.QueueExertAttackers([]engine.CardID{brawler})
+		c.QueueConfirmPayCost(pay)
+		if pay {
+			payColorless(g, c, a, 2)
+		}
+		got := declareAttackers(t, g, c)
+
+		if attacking := len(got) == 1; attacking != pay {
+			t.Errorf("tax paid %v: attackers = %v", pay, got)
+		}
+		if g.Card(brawler).Exerted != pay {
+			t.Errorf("tax paid %v: exerted = %v", pay, g.Card(brawler).Exerted)
+		}
+	}
+}

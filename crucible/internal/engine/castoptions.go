@@ -93,6 +93,10 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		o := castOption{withoutMana: gr.WithoutManaCost, hasAlt: gr.HasAltCost, alt: gr.AltCost, anyType: gr.AnyType, flash: gr.WithFlash,
 			anyColor: gr.AnyColor && !gr.AnyType, snowAnyColor: gr.SnowAnyColor, raise: gr.RaiseText,
 			replaceExile: gr.ReplaceExile, grantor: gr.LimitKey.Host}
+		o.altExtra, o.hasAltExtra = grantAltExtra(gr.AltText)
+		if o.hasAltExtra && !g.unlessPayable(pid, card, o.altExtra) {
+			continue
+		}
 		if gr.Limit > 0 {
 			o.limits = []mayPlayLimitKey{gr.LimitKey}
 		}
@@ -172,8 +176,10 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 // MayPlay option of c (getMayPlaySpellOptions), so another card's line reaches a
 // cast from exile, the library or the Command zone too. The alternative is no
 // longer a basic spell, so a without-mana-cost option skips it (:347-350); an
-// option with its own alternative mana cost would replace it again, a shape
-// left out here.
+// option with its own alternative mana cost replaces the line's mana again
+// (copyWithManaCostReplaced, :361-363), the line's other parts kept: a
+// Borderpost's "{1} and return a basic land" through a {R} grant costs {R}
+// and the land.
 func (g *Game) altCostThroughGrants(pid PlayerID, c *Card, grants []castOption) []castOption {
 	if len(grants) == 0 {
 		return nil
@@ -181,10 +187,14 @@ func (g *Game) altCostThroughGrants(pid PlayerID, c *Card, grants []castOption) 
 	var out []castOption
 	for _, alt := range g.altCostOptions(pid, c) {
 		for _, o := range grants {
-			if o.withoutMana || o.hasAlt || o.sacAtCleanup {
+			if o.withoutMana || o.sacAtCleanup {
 				continue
 			}
 			combined := alt
+			if o.hasAlt {
+				combined.alt = o.alt
+				combined.altText = alt.altText + " with its mana replaced by " + o.alt.String()
+			}
 			combined.flash, combined.limits, combined.grantor = o.flash, o.limits, o.grantor
 			combined.anyType, combined.anyColor, combined.snowAnyColor = o.anyType, o.anyColor, o.snowAnyColor
 			combined.raise, combined.replaceExile = o.raise, o.replaceExile

@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
-	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -1398,12 +1397,11 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 		}
 		grant.RaiseText = raw
 	}
-	if raw, ok := s.Param("MayPlayAltManaCost"); ok {
-		mc, err := mana.Parse(raw)
-		if err != nil || mc.CountX() > 0 || !cost.Parse(raw).IsPureMana() {
+	altText, hasAltText := s.Param("MayPlayAltManaCost")
+	if hasAltText && !strings.Contains(altText, "ConvertedManaCost") {
+		if !setGrantAltCost(&grant, altText) {
 			return
 		}
-		grant.AltCost, grant.HasAltCost = mc, true
 	}
 	if raw, ok := s.Param("MayPlayLimit"); ok {
 		n, err := strconv.Atoi(raw)
@@ -1441,6 +1439,14 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 						continue
 					}
 					gr := grant
+					if hasAltText && strings.Contains(altText, "ConvertedManaCost") {
+						// StaticAbilityContinuous.java:933-939: the affected
+						// card's mana value stands for ConvertedManaCost
+						// (Bolas's Citadel's PayLife<ConvertedManaCost>).
+						if !setGrantAltCost(&gr, strings.ReplaceAll(altText, "ConvertedManaCost", strconv.Itoa(c.CMC()))) {
+							continue
+						}
+					}
 					grantee := player
 					if byExiler {
 						if !c.exiledWith.hasExiler {
@@ -1698,4 +1704,19 @@ func (c *Card) removeTraits(kind abilityRemoval) {
 		}
 	}
 	c.traitGrants = kept
+}
+
+// setGrantAltCost reads text, a MayPlayAltManaCost$ cost, into gr: its mana
+// part (or {0}) into AltCost and the whole text into AltText. False when a
+// part is not one this port pays, or the mana names an X.
+func setGrantAltCost(gr *mayPlayGrant, text string) bool {
+	uc, ok := parseUnlessCost(text)
+	if !ok || uc.hasMana && uc.mana.CountX() > 0 {
+		return false
+	}
+	gr.AltCost, gr.HasAltCost, gr.AltText = mana.MustParse("0"), true, text
+	if uc.hasMana {
+		gr.AltCost = uc.mana
+	}
+	return true
 }

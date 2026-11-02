@@ -186,7 +186,11 @@ type mayPlayGrant struct {
 	// for no limit), counted under LimitKey.
 	AltCost    mana.Cost
 	HasAltCost bool
-	AnyType    bool
+	// AltText is MayPlayAltManaCost$ as granted to this card (its
+	// ConvertedManaCost already the card's mana value): grantAltExtra reads the
+	// part past its mana (Bolas's Citadel's PayLife) from it.
+	AltText string
+	AnyType bool
 	// AnyColor is MayPlayIgnoreColor$: mana of any type pays a colored part of
 	// the cost, a {C} part still needs colorless mana (AnyType wins when both
 	// are written, CardPlayOption.java:69-75). RaiseText is RaiseCost$, a cost

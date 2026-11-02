@@ -241,3 +241,18 @@ func (g *Game) activationAltCost(pid PlayerID, card CardID, activated *Ability) 
 	}
 	return "", false
 }
+
+// grantAltExtra is the part of a MayPlayAltManaCost$ grant's cost past its
+// mana (Bolas's Citadel's PayLife), paid as an UnlessCost's parts are; false
+// when the cost is mana alone.
+func grantAltExtra(text string) (unlessCost, bool) {
+	if text == "" {
+		return unlessCost{}, false
+	}
+	uc, ok := parseUnlessCost(text)
+	if !ok {
+		return unlessCost{}, false
+	}
+	uc.hasMana, uc.mana, uc.manaTokens = false, mana.Cost{}, nil
+	return uc, hasNonManaParts(uc)
+}

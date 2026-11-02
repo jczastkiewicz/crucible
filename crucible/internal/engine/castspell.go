@@ -200,6 +200,10 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			// are (altcost.go).
 			opts.altStatic, opts.altOwn = true, way.altOwn
 			opts.extra, opts.hasExtra = way.altExtra, way.hasAltExtra
+		} else if way.hasAltExtra {
+			// A MayPlayAltManaCost$ grant's part past its mana (Bolas's
+			// Citadel's life), paid the same way.
+			opts.extra, opts.hasExtra = way.altExtra, true
 		}
 		if way.hasAlt {
 			opts.altCost, opts.hasAltCost = way.alt, true

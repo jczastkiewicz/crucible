@@ -133,3 +133,75 @@ func TestLiesaPaysLifeInsteadOfCommanderTax(t *testing.T) {
 		t.Errorf("%d mana left, want the printed {2}{W}{W}{B} paid exactly", got)
 	}
 }
+
+// The Commander Effect is permanent (Player.createCommanderEffect): it is
+// still in the Command zone after a cleanup, and the commander can be cast
+// from there on a later turn.
+func TestCommanderEffectOutlivesCleanup(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Command)
+	g.AddCommander(p, bears)
+	advanceToTurn(t, g, 3)
+	g.SetTurnState(3, p, engine.Main1)
+	sba(g)
+	if got := len(g.Zone(engine.Command, p).Cards()); got != 2 {
+		t.Fatalf("%d cards in the Command zone after cleanup, want the commander and its effect", got)
+	}
+	g.Player(p).ManaPool.Add(mana.Green, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.CastSpell(p, bears, c) {
+		t.Fatalf("cast from the Command zone on turn 3 failed: %v", g.TakePendingError())
+	}
+}
+
+// A commander the Commander Effect sends to the Command zone still left the
+// battlefield: Tocasia's Onulet's leaves-the-battlefield trigger (Origin$
+// Battlefield | Destination$ Any) fires.
+func TestCommanderSentToCommandFiresLeavesTrigger(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	onulet := g.NewCard(corpusCard(t, "Tocasia's Onulet"), p, engine.Battlefield)
+	g.AddCommander(p, onulet)
+	life := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(true)
+	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(onulet)},
+		"DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(onulet).Zone; got != engine.Command {
+		t.Fatalf("commander in %v, want Command", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life - life; got != 2 {
+		t.Errorf("gained %d life, want the leaves trigger's 2", got)
+	}
+}
+
+// A commander drawn and sent to the Command zone instead still counts as a
+// draw (Player.doDraw counts the card wherever moveTo put it).
+func TestCommanderDrawnToCommandCountsAsDrawn(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Library)
+	g.AddCommander(p, bears)
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(true)
+	g.DrawCards(p, 1, c)
+	if got := g.Card(bears).Zone; got != engine.Command {
+		t.Fatalf("commander in %v, want Command", got)
+	}
+	if got := g.Player(p).CardsDrawnThisTurn; got != 1 {
+		t.Errorf("%d cards drawn this turn, want 1", got)
+	}
+}

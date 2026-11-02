@@ -123,8 +123,9 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 		g.checkExiledTriggers(controller, id)
 	case Hand:
 		g.checkReturnedTriggers(controller, id)
-	case Library:
-		g.checkLeftToTriggers(controller, id, Library)
+	case Library, Command:
+		// Command: a commander the Commander Effect sent there (ADR-0053).
+		g.checkLeftToTriggers(controller, id, dest)
 	}
 	return melded
 }

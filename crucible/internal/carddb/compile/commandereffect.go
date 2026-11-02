@@ -13,7 +13,7 @@ import (
 // SVar it would be. Compiled once per DB (PORT-2), shared by every game.
 const commanderEffectName = "Commander Effect"
 
-var (
+const (
 	commanderEffectReplacement = "Event$ Moved | ValidCard$ Card.IsCommander+YouOwn | Secondary$ True | Optional$ True | OptionalDecider$ You | CommanderMoveReplacement$ True | Destination$ Hand,Library | ReplaceWith$ CommanderMoveToCommand | Description$ If a commander would be put into its owner's hand or library from anywhere, its owner may put it into the command zone instead."
 	commanderEffectMove        = "DB$ ChangeZone | Origin$ Battlefield,Graveyard,Exile,Library,Hand | Destination$ Command | Defined$ ReplacedCard"
 	commanderEffectMayPlay     = "Mode$ Continuous | EffectZone$ Command | MayPlay$ True | Affected$ Card.IsCommander+YouOwn | AffectedZone$ Command"

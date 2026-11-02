@@ -38,6 +38,9 @@ func returnCards(g *Game, controller PlayerController, ids []CardID) {
 			continue
 		}
 		if g.redirectMove(controller, id, Hand) {
+			// It left the battlefield for where the Moved line sent it (a
+			// commander to the Command zone).
+			g.checkLeftToTriggers(controller, id, g.Card(id).Zone)
 			continue
 		}
 		g.Move(id, Hand, c.Owner)

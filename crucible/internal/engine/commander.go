@@ -20,9 +20,9 @@ func (g *Game) addCommander(owner PlayerID, id CardID) {
 		p.commanders = append(p.commanders, id)
 	}
 	if p.commanderEffect == NoCard {
-		eff := g.NewCard(g.db.CommanderEffect(), owner, Command)
-		g.Card(eff).IsEffect = true
-		p.commanderEffect = eff
+		// Permanent like the monarch's card: a zero lifetime would end it at
+		// the first cleanup.
+		p.commanderEffect = g.putDesignationCard(NoCard, owner, g.db.CommanderEffect)
 	}
 	g.Card(id).commander = true
 }

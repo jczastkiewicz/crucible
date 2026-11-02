@@ -30,9 +30,10 @@
 // the hand. A line naming a param this port does not read (Announce$,
 // ManaRestriction$, Named$, CostDesc$, an XAlternative$ other than
 // Count$CardManaCost, a ConvertedManaCost cost) is not offered, never cast
-// at the wrong price (GO-7). Not ported: alternative costs of activated
-// abilities (the equip, cycling, power-up and unearth freebies) and
-// other-hosted lines on casts that are not from the hand (game-state.md).
+// at the wrong price (GO-7). An Activated.* line with Cost$ 0 (the equip,
+// power-up and unearth freebies) is freeActivationCost's. Not ported: the
+// cycling and crew alternative costs and other-hosted lines on casts that are
+// not from the hand (game-state.md).
 
 package engine
 
@@ -183,4 +184,57 @@ func (g *Game) altCostOption(pid PlayerID, c, host *Card, s *compile.Ability) (c
 // something.
 func hasNonManaParts(uc unlessCost) bool {
 	return len(uc.parsed.Parts) > 0
+}
+
+// altActivationParams are the params a Mode$ AlternativeCost line for an
+// activated ability may carry: altCostParams plus the zones Highway Reaver's
+// unearth freebie is written with.
+var altActivationParams = func() map[string]bool {
+	m := map[string]bool{"affectedzone": true}
+	for k := range altCostParams {
+		m[k] = true
+	}
+	return m
+}()
+
+// freeActivationCost reports whether a live AlternativeCost static lets pid
+// pay {0} rather than the mana cost of activated (Forge Anew, Bruenor
+// Battlehammer, Kili, Advancing the Spirit, Highway Reaver:
+// "Activated.Equip", "Activated.PowerUp", "Activated.Unearth" lines with
+// Cost$ 0 and a CheckSVar$ for the first activation of the turn). Java builds
+// the alternative as the ability copied with its mana cost replaced
+// (StaticAbilityAlternativeCost.alternativeCosts, Cost.copyWithNoMana), so
+// the ability's other cost parts stay.
+func (g *Game) freeActivationCost(pid PlayerID, card CardID, activated *Ability) bool {
+	for _, hid := range g.staticHostsWith(card) {
+		host := g.Card(hid)
+		if host.Def == nil {
+			continue
+		}
+		for _, face := range host.traitFaces() {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "AlternativeCost") || !staticParamsKnown(s, altActivationParams) ||
+					!staticHostZoneOK(host, s) || !g.staticConditionsMet(host, s) {
+					continue
+				}
+				if text, _ := s.Param("Cost"); strings.TrimSpace(text) != "0" {
+					continue
+				}
+				sa, ok := s.Param("ValidSA")
+				if !ok || !strings.HasPrefix(sa, "Activated") {
+					continue
+				}
+				if matched, recognized := g.spellAbilityMatches(activated, sa, host, host.Controller(), host.abilityAmounts(s)); !recognized || !matched {
+					continue
+				}
+				if player, ok := s.Param("ValidPlayer"); ok {
+					if m, rec := matchesPlayerSpec(g, pid, host.Controller(), host.ID, player); !rec || !m {
+						continue
+					}
+				}
+				return true
+			}
+		}
+	}
+	return false
 }

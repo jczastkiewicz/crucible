@@ -433,6 +433,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// targets): the cost statics that reach an activated ability, and its own
 	// ReduceCost$, which may read the targets. One this port cannot evaluate, or
 	// a raise with a non-mana Cost$, refuses the activation (GO-7).
+	if g.freeActivationCost(pid, card, &activated) &&
+		controller.ChooseOption(g, pid, card, []string{"Pay the printed cost", "Pay {0} instead"}) == 1 {
+		// An AlternativeCost static: the mana cost is replaced, the ability's
+		// other cost parts stay (Cost.copyWithNoMana).
+		manaCost = mana.MustParse("0")
+	}
 	savedResolving := g.resolving
 	g.resolving = &activated
 	manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false)

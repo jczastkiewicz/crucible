@@ -101,3 +101,30 @@ func TestAlternativeCostCrewsHeartOfKiranWithLoyalty(t *testing.T) {
 		t.Error("Heart of Kiran is not a creature after crewing")
 	}
 }
+
+// A Play effect that neither waives nor replaces the mana cost offers the
+// card's AlternativeCost casts too (PlayEffect.java:297, withAltCost;
+// AbilityUtils.java:3028-3030): Jodah's {W}{U}{B}{R}{G} casts Craw Wurm.
+func TestPlayEffectOffersAlternativeCost(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Jodah, Archmage Eternal"), p, engine.Battlefield)
+	wurm := g.NewCard(corpusCard(t, "Craw Wurm"), p, engine.Hand)
+	for _, color := range []mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+		g.Player(p).ManaPool.Add(color, 1)
+	}
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(wurm)},
+		"DB$ Play | ValidTgts$ Card | TgtZone$ Hand"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(wurm).Zone; got != engine.Battlefield {
+		t.Errorf("Craw Wurm in %v, want Battlefield (cast for Jodah's cost): %v", got, g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("%d mana left, want WUBRG paid", got)
+	}
+}

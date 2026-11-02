@@ -33,8 +33,8 @@
 // at the wrong price (GO-7). An Activated.* line (the equip, power-up and
 // unearth freebies, Gavi's and New Perspectives' cycling, Heart of Kiran's
 // crew) is activationAltCost's. A cast from another zone through a MayPlay
-// option gets the lines too (altCostThroughGrants); a Play effect's cast does
-// not (game-state.md).
+// option gets the lines too (altCostThroughGrants), and so does a Play
+// effect's plain cast (chooseAltCostForPlay).
 
 package engine
 

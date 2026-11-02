@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability amount card castspell condition control defined effecthelpers face game id land parts player trigger unlesscost valid zone zonemove illusionarymask
+//enginelint:allow ability amount card castspell condition control defined effecthelpers face game id land parts player trigger unlesscost valid zone zonemove illusionarymask castoptions
 
 import (
 	"fmt"
@@ -291,7 +291,18 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			amount--
 			continue
 		}
-		if !withoutMana && !opts.hasAltCost && g.Card(pick).Def.Faces[0].ManaCost.IsNoCost() {
+		cast := opts
+		if !withoutMana && !opts.hasAltCost && extraCost == "" && !opts.madness && !hasParam(a, "CastFaceDown") {
+			// PlayEffect.java:297 (withAltCost when neither WithoutManaCost$
+			// nor PlayCost$): the card's Mode$ AlternativeCost spells are
+			// offered beside its plain cast (AbilityUtils.java:3028-3030).
+			if alt, ok := g.chooseAltCostForPlay(controller, caster, pick); ok {
+				cast.altCost, cast.hasAltCost = alt.alt, true
+				cast.altStatic, cast.altOwn = true, alt.altOwn
+				cast.extra, cast.hasExtra = alt.altExtra, alt.hasAltExtra
+			}
+		}
+		if !withoutMana && !cast.hasAltCost && g.Card(pick).Def.Faces[0].ManaCost.IsNoCost() {
 			// PlayEffect.java:387-389: a spell with no mana cost cannot be
 			// paid for, so it is skipped, amount not spent. A PlayCost$
 			// replaces the mana cost, so it is paid instead (:371-386).
@@ -301,7 +312,6 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			}
 			continue
 		}
-		cast := opts
 		if hasParam(a, "CastFaceDown") {
 			// PlayEffect.java:321-324: the Morph ability, {3} unless
 			// WithoutManaCost$ strips it.
@@ -331,6 +341,26 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		budget -= pickCMC
 	}
 	return nil
+}
+
+// chooseAltCostForPlay offers caster card's Mode$ AlternativeCost casts
+// beside the plain one (altCostOptions); ok is false when there are none or
+// the plain cast is chosen.
+func (g *Game) chooseAltCostForPlay(controller PlayerController, caster PlayerID, card CardID) (castOption, bool) {
+	alts := g.altCostOptions(caster, g.Card(card))
+	if len(alts) == 0 {
+		return castOption{}, false
+	}
+	name := g.Card(card).Def.Name
+	labels := []string{castOption{}.describe(name)}
+	for _, o := range alts {
+		labels = append(labels, o.describe(name))
+	}
+	i := controller.ChooseOption(g, caster, card, labels)
+	if i <= 0 || i > len(alts) {
+		return castOption{}, false
+	}
+	return alts[i-1], true
 }
 
 // playCost is the cast options a's cost params give (PlayEffect.java:

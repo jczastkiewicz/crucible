@@ -61,3 +61,26 @@ func TestBolassCitadelCastsTheTopCardForLife(t *testing.T) {
 		t.Errorf("paid %d life, want 2", got)
 	}
 }
+
+// As Foretold's {0} and Bolas's Citadel's life are two ways to cast the top
+// card, not one: the option with a part past its mana is its own.
+func TestCitadelLifeAndAsForetoldZeroStayTwoOptions(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Bolas's Citadel"), p, engine.Battlefield)
+	foretold := g.NewCard(corpusCard(t, "As Foretold"), p, engine.Battlefield)
+	g.Card(foretold).Counters.Add(engine.Time, 2)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Library)
+	sba(g)
+	life := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueueOptionNamed("Cast Grizzly Bears for {0}")
+	if !g.CastSpell(p, bears, c) {
+		t.Fatalf("Grizzly Bears not cast for As Foretold's {0}: %v", g.TakePendingError())
+	}
+	if got := life - g.Player(p).Life; got != 0 {
+		t.Errorf("paid %d life for the {0} option, want 0", got)
+	}
+}

@@ -72,7 +72,8 @@ type castOption struct {
 func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
-		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altOwn == p.altOwn && o.altText == p.altText && o.altKeyword == p.altKeyword
+		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altOwn == p.altOwn && o.altText == p.altText && o.altKeyword == p.altKeyword &&
+		o.hasAltExtra == p.hasAltExtra
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -94,8 +95,13 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 			anyColor: gr.AnyColor && !gr.AnyType, snowAnyColor: gr.SnowAnyColor, raise: gr.RaiseText,
 			replaceExile: gr.ReplaceExile, grantor: gr.LimitKey.Host}
 		o.altExtra, o.hasAltExtra = grantAltExtra(gr.AltText)
-		if o.hasAltExtra && !g.unlessPayable(pid, card, o.altExtra) {
-			continue
+		if o.hasAltExtra {
+			if !g.unlessPayable(pid, card, o.altExtra) {
+				continue
+			}
+			// The whole cost names the option, and tells it from a mana-only
+			// grant of the same mana (As Foretold's {0} beside Citadel's).
+			o.altText = gr.AltText
 		}
 		if gr.Limit > 0 {
 			o.limits = []mayPlayLimitKey{gr.LimitKey}
@@ -187,7 +193,11 @@ func (g *Game) altCostThroughGrants(pid PlayerID, c *Card, grants []castOption) 
 	var out []castOption
 	for _, alt := range g.altCostOptions(pid, c) {
 		for _, o := range grants {
-			if o.withoutMana || o.sacAtCleanup {
+			// A grant's own part past its mana (Bolas's Citadel's life) would
+			// join the line's other parts in Java's copyWithManaCostReplaced;
+			// one unlessCost holds one set of parts, so that pair is not
+			// offered rather than undercharged (game-state.md).
+			if o.withoutMana || o.sacAtCleanup || o.hasAltExtra {
 				continue
 			}
 			combined := alt
@@ -222,6 +232,8 @@ func (o castOption) describe(name string) string {
 		return "Cast " + name + " for its alternative cost " + o.altText
 	case o.withoutMana:
 		base = "Cast " + name + " without paying its mana cost"
+	case o.hasAlt && o.altText != "":
+		base = "Cast " + name + " for " + o.altText
 	case o.hasAlt:
 		base = "Cast " + name + " for " + o.alt.String()
 	case o.anyType:

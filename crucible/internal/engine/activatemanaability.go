@@ -475,7 +475,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			emitCounterChanged(g, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
 		}
 		if shape.TapTypeN > 0 {
-			chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
+			chosen := chooseTapType(g, controller, pid, tapCandidates, shape.TapTypeN, shape.TapTypeSpec)
 			tapChosenPermanents(g, controller, chosen)
 		}
 		if shape.AddCounterType != "" {

@@ -1349,7 +1349,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.tapN > 0 {
-		chosen := controller.ChoosePermanentsToTap(g, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN)
+		chosen := chooseTapType(g, controller, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN, uc.tapSpec)
 		tapChosenPermanents(g, controller, chosen)
 		if rec != nil {
 			rec.tapped = append(rec.tapped, chosen...)

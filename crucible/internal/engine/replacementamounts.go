@@ -1,5 +1,6 @@
 // The replacement Event$ values that resize or replace a player's own count:
-// Scry (ScryNum, "Num"), Mill ("Number") and DrawCards ("Number"). Each is
+// Scry (ScryNum, "Num"), Mill ("Number"), DrawCards ("Number") and PayLife
+// ("Amount", Ashiok, Wicked Manipulator). Each is
 // asked once per player before the action runs, with the count as the event's
 // number, so a ReplaceEffect (Kenessos, Bruvac the Grandiloquent, Quantum
 // Riddler) updates it and any other ReplaceWith$ ability (Eligeth's "draw that
@@ -7,8 +8,8 @@
 // card") replaces the whole event.
 //
 // Ported from forge-game/src/main/java/forge/game/replacement/{ReplaceScry,
-// ReplaceMill,ReplaceDrawCards}.java and the call sites in ScryEffect, MillEffect
-// and Player.drawCards.
+// ReplaceMill,ReplaceDrawCards,ReplacePayLife}.java and the call sites in
+// ScryEffect, MillEffect, Player.drawCards and Player.payLife.
 
 package engine
 
@@ -21,12 +22,12 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
-// playerAmountReplaced runs the CR 616 walk for event ("Scry", "Mill" or
-// "DrawCards") about pid doing it amount times, amountName being the
+// playerAmountReplaced runs the CR 616 walk for event ("Scry", "Mill",
+// "DrawCards" or "PayLife") about pid doing it amount times, amountName being the
 // AbilityKey the number travels under ("Num" for Scry, "Number" otherwise).
 // It returns the number to use and whether the event was replaced outright
 // (the caller then does nothing). A line's ValidPlayer$ is matched against
-// pid, Number$ ("GE2") against the amount; Optional$ is the handler's own
+// pid, Number$ ("GE2") or Amount$ ("LEY", an SVar operand) against the amount; Optional$ is the handler's own
 // confirmation (confirmOptionalReplacement). A param outside those records a
 // pending error and skips the line (GO-7).
 func (g *Game) playerAmountReplaced(controller PlayerController, event, amountName string, pid PlayerID, amount int) (int, bool) {
@@ -37,7 +38,7 @@ func (g *Game) playerAmountReplaced(controller PlayerController, event, amountNa
 			if sub == nil || !strings.EqualFold(r.Name, event) || !hostInActiveZones(h, r, z) {
 				return
 			}
-			if !onlyParams(r, "validplayer", "number", "optional", "optionaldecider") {
+			if !onlyParams(r, "validplayer", "number", "amount", "optional", "optionaldecider") {
 				g.recordPendingError(fmt.Errorf("engine: %q: Event$ %s: a param is not resolvable yet", h.Def.Name, event))
 				return
 			}
@@ -51,6 +52,21 @@ func (g *Game) playerAmountReplaced(controller PlayerController, event, amountNa
 				n, err := strconv.Atoi(v[min(2, len(v)):])
 				if len(v) < 3 || err != nil {
 					g.recordPendingError(fmt.Errorf("engine: %q: Event$ %s: Number$ %q is not resolvable", h.Def.Name, event, v))
+					return
+				}
+				if !compareOp(amount, v[:2], n) {
+					return
+				}
+			}
+			if v, ok := r.Param("Amount"); ok {
+				// ReplacePayLife.java:47-55: Amount$ compares the event's amount
+				// with an operand that is a number or an SVar (Ashiok's LEY).
+				n, known := 0, len(v) > 2
+				if known {
+					n, known = resolveNamedAmount(g, amounts, h, v[2:])
+				}
+				if !known {
+					g.recordPendingError(fmt.Errorf("engine: %q: Event$ %s: Amount$ %q is not resolvable", h.Def.Name, event, v))
 					return
 				}
 				if !compareOp(amount, v[:2], n) {
@@ -83,6 +99,15 @@ func (g *Game) playerAmountReplaced(controller PlayerController, event, amountNa
 		return out
 	})
 	return amount, res == replacementReplaced
+}
+
+// lifePaymentReplaced is Player.payLife's Event$ PayLife run (Player.java:
+// 578-591) for pid paying n life as a cost: true when a replacement
+// (Ashiok, Wicked Manipulator) took the payment's place, so no life is lost
+// and no PayLife trigger runs.
+func (g *Game) lifePaymentReplaced(controller PlayerController, pid PlayerID, n int) bool {
+	_, replaced := g.playerAmountReplaced(controller, "PayLife", "Amount", pid, n)
+	return replaced
 }
 
 // replaceCountAmounts is amounts with every ReplaceCount$ expression the

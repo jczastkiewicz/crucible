@@ -1096,9 +1096,11 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	hand := handWithout(g.Zone(Hand, pid).Cards(), a.Source)
 	candidates := g.unlessSacCandidates(pid, a.Source, uc)
 	returnable := g.unlessReturnCandidates(pid, a.Source, uc)
-	if uc.lifeN > 0 {
+	// Player.payLife (Player.java:578-591): Event$ PayLife may replace it.
+	if uc.lifeN > 0 && !g.lifePaymentReplaced(controller, pid, uc.lifeN) {
 		g.Player(pid).Life -= uc.lifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(uc.lifeN)})
+		g.noteLifeLost(controller, pid, uc.lifeN)
 		g.checkPayLifeTriggers(controller, pid, uc.lifeN)
 	}
 	if uc.energyN > 0 {

@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands changezonestatic
+//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands changezonestatic amount
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 // SpellAbility.isHidden does, for ChangeZone).
 var changeZoneAllUnresolvedParams = [...]string{
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"WithCountersType", "TypeLimit",
+	"WithCountersType",
 	"Pawprint", "Random",
 	"Ultimate",
 }
@@ -114,6 +114,15 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		} else {
 			cards = filterValid(g, cards, changeType, a.Controller, a.Source)
 		}
+	}
+	if v, ok := a.Params.Param("TypeLimit"); ok {
+		// ChangeZoneAllEffect.java:87-89: the first TypeLimit$ cards of the
+		// list (Ashiok's "that many cards from the top of your library").
+		n, known := resolveNamedAmount(g, a.Amounts, source, v)
+		if !known {
+			return fmt.Errorf("engine: ChangeZoneAll: TypeLimit$ %q not resolvable yet", v)
+		}
+		cards = cards[:min(max(n, 0), len(cards))]
 	}
 	if _, ok := a.Params.Param("ForgetOtherRemembered"); ok {
 		source.Memory.ClearRemembered()

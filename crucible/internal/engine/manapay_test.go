@@ -242,6 +242,10 @@ func TestPayManaCostResolvesPhyrexianWithLife(t *testing.T) {
 	if !sawLife {
 		t.Errorf("events = %v, want a LifeChanged for -2 targeting %v", sink.events, p)
 	}
+	// Player.payLife loses the life (Player.java:594): it counts as life lost.
+	if got := g.Player(p).LifeLostThisTurn; got != 2 {
+		t.Errorf("LifeLostThisTurn = %d, want 2", got)
+	}
 }
 
 // Choosing color with none in the pool fails outright -- PayManaCost does

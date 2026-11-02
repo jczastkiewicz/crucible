@@ -85,8 +85,9 @@ func (g *Game) checkProliferateTriggers(controller PlayerController, pid PlayerI
 }
 
 // checkPayLifeTriggers is Mode$ PayLife (TriggerPayLife.java, 1 real line),
-// run by Player.payLife (Player.java:600), whose one caller is CostPayLife:
-// life paid as a cost, never life lost to an effect. amount is the life the
+// run by Player.payLife (Player.java:600), whose callers are CostPayLife and
+// the Phyrexian mana payment: life paid as a cost, never life lost to an
+// effect. amount is the life the
 // cost named, TriggeredLifeAmount.
 func (g *Game) checkPayLifeTriggers(controller PlayerController, pid PlayerID, amount int) {
 	matches := g.scanTriggers([]string{"PayLife"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {

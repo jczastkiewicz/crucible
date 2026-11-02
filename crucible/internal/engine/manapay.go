@@ -240,9 +240,14 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		}
 	}
 	x.xPaid = xPaid
-	if life > 0 {
+	// Phyrexian life is paid through Player.payLife
+	// (InputPayManaOfCostPayment.java:61-64, Player.java:578-600): Event$
+	// PayLife may replace it; otherwise the life is lost and PayLife triggers.
+	if life > 0 && !g.lifePaymentReplaced(controller, decider, life) {
 		g.Player(decider).Life -= life
 		g.sink.Emit(Event{Kind: LifeChanged, Source: NoCard, Target: PlayerEntity(decider), Amount: int32(-life)})
+		g.noteLifeLost(controller, decider, life)
+		g.checkPayLifeTriggers(controller, decider, life)
 	}
 	return x, true
 }

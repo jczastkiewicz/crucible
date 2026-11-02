@@ -502,7 +502,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		activated.paid.discarded = append(activated.paid.discarded, chosen...)
 		discardCards(g, controller, chosen, pid, discardCause{known: true, controller: pid})
 	}
-	if shape.PayLifeN > 0 {
+	// Player.payLife (Player.java:578-591): Event$ PayLife (Ashiok) may
+	// replace the payment, and then no life is lost and no PayLife trigger runs.
+	if shape.PayLifeN > 0 && !g.lifePaymentReplaced(controller, pid, shape.PayLifeN) {
 		g.Player(pid).Life -= shape.PayLifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})
 		g.noteLifeLost(controller, pid, shape.PayLifeN)

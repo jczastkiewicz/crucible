@@ -1046,7 +1046,7 @@ func eachColorlessDamageSource(g *Game, f func(h *Card, validCard string, ok boo
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "ColorlessDamageSource") {
 						continue

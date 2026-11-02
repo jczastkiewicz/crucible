@@ -112,7 +112,7 @@ func (g *Game) altCostOptions(pid PlayerID, c *Card) []castOption {
 		if host.Def == nil {
 			continue
 		}
-		for _, face := range host.traitFaces() {
+		for _, face := range host.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if o, ok := g.altCostOption(pid, c, host, s); ok {
 					out = append(out, o)
@@ -129,7 +129,7 @@ func (g *Game) graveyardAltCost(pid PlayerID, c *Card) (castOption, bool) {
 	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
 		return castOption{}, false
 	}
-	for _, face := range c.traitFaces() {
+	for _, face := range c.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if o, ok := g.altCostOption(pid, c, c, s); ok {
 				return o, true
@@ -214,7 +214,7 @@ func (g *Game) activationAltCost(pid PlayerID, card CardID, activated *Ability) 
 		if host.Def == nil {
 			continue
 		}
-		for _, face := range host.traitFaces() {
+		for _, face := range host.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "AlternativeCost") || !staticParamsKnown(s, altActivationParams) ||
 					!staticHostZoneOK(host, s) || !g.staticConditionsMet(host, s) {

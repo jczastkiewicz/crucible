@@ -106,7 +106,7 @@ func (g *Game) optionalCostOptions(pid PlayerID, card CardID) ([]optionalCostOpt
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "OptionalCost") || !g.staticConditionsMet(h, s) {
 					continue

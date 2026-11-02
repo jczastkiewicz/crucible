@@ -160,7 +160,7 @@ func withAmount(amounts map[string]expr.Amount, name string, n int) map[string]e
 func battlefieldStaticNames(g *Game, key string) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			for _, face := range g.Card(id).traitFaces() {
+			for _, face := range g.Card(id).liveTraitFaces() {
 				for _, s := range face.Statics {
 					if _, ok := s.Param(key); ok {
 						return true
@@ -177,7 +177,7 @@ func battlefieldStaticNames(g *Game, key string) bool {
 func battlefieldStaticMode(g *Game, mode string) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			for _, face := range g.Card(id).traitFaces() {
+			for _, face := range g.Card(id).liveTraitFaces() {
 				for _, s := range face.Statics {
 					if v, ok := s.Param("Mode"); ok && v == mode {
 						return true
@@ -194,7 +194,7 @@ func battlefieldStaticMode(g *Game, mode string) bool {
 func battlefieldReplacementEvent(g *Game, event string) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			for _, face := range g.Card(id).traitFaces() {
+			for _, face := range g.Card(id).liveTraitFaces() {
 				for _, r := range face.Replacements {
 					if v, ok := r.Param("Event"); ok && v == event {
 						return true
@@ -216,7 +216,7 @@ func liveReplacementEvent(g *Game, event string) bool {
 	for _, pid := range g.Players() {
 		for _, z := range []ZoneType{Graveyard, Command} {
 			for _, id := range g.Zone(z, pid).Cards() {
-				for _, face := range g.Card(id).traitFaces() {
+				for _, face := range g.Card(id).liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if v, ok := r.Param("Event"); ok && v == event {
 							return true

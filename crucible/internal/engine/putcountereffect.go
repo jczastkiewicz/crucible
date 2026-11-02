@@ -814,7 +814,7 @@ func (g *Game) anyWithAdapt(card CardID) bool {
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if strings.EqualFold(s.Name, "CanAdapt") && !hasParamOn(s, "ValidSA") &&
 						g.staticConditionsMet(h, s) && staticValidMatches(g, h, s, "ValidCard", card) {

@@ -288,7 +288,7 @@ func diceModifierInPlay(g *Game) bool {
 				if c.Def == nil {
 					continue
 				}
-				for _, face := range c.traitFaces() {
+				for _, face := range c.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						// A line rollReplaced runs (Pixie Guide's extra die) is not a
 						// modifier this check refuses; Vedalken's exchange is.

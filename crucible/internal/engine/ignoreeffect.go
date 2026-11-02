@@ -47,7 +47,7 @@ func grantIgnoreEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *c
 
 // ignoreStatic finds the static of host whose ignore-effect ability is ab.
 func ignoreStatic(host *Card, ab *compile.Ability) *compile.Ability {
-	for _, face := range host.traitFaces() {
+	for _, face := range host.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if ignoreEffectSubOf(s) == ab {
 				return s

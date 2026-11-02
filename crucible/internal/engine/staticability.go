@@ -103,7 +103,7 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantBlockBy") {
 						continue
@@ -266,7 +266,7 @@ func (g *Game) landwalkIgnored(attacker, blocker CardID, line string) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnoreLandWalk") || !staticParamsKnown(s, ignoreLandwalkParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -490,7 +490,7 @@ func cantAttachStatic(g *Game, attachment *Card, host CardID) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CantAttach") || !staticParamsKnown(s, cantAttachParams) || !g.staticConditionsMet(h, s) {
 					continue
@@ -771,7 +771,7 @@ func canBlockIfShadow(g *Game, attacker, blocker CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CanBlockIfShadow") || !continuousConditionMet(g, h, s) {
 						continue
@@ -857,7 +857,7 @@ func ignoreLegendRule(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnoreLegendRule") {
 						continue
@@ -895,7 +895,7 @@ func ignorePlaneswalkerZeroLoyaltyRule(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnorePlaneswalkerZeroLoyaltyRule") {
 						continue
@@ -949,7 +949,7 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
 						continue
@@ -980,7 +980,7 @@ func assignsAsUnblocked(g *Game, c *Card, optional bool) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "AssignCombatDamageAsUnblocked") || !g.staticConditionsMet(h, s) {
 						continue
@@ -1072,7 +1072,7 @@ func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability, mode flashMod
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s, sa, mode) {
 					continue
@@ -1124,7 +1124,7 @@ func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Abil
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !playerStaticApplies(g, pid, h, s) {
 						continue
@@ -1246,7 +1246,7 @@ func (g *Game) cantSacrifice(c *Card, effect bool, cause *Ability) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantSacrifice") || !g.staticConditionsMet(h, s) {
 						continue
@@ -1440,7 +1440,7 @@ func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
 			if h.Zone == Battlefield && slices.Contains(g.enterBatch, host) {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantPutCounter") || !staticParamsKnown(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1525,7 +1525,7 @@ func (g *Game) canDamagePrevented(source CardID, isCombat bool) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CantPreventDamage") || !staticParamsKnown(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
 					continue
@@ -1572,7 +1572,7 @@ func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "MaxCounter") || !staticParamsKnown(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1703,7 +1703,7 @@ func (g *Game) cantTargetHost(h *Card, onStack bool, entity EntityID, activator 
 	if h.Def == nil {
 		return false
 	}
-	for _, face := range h.traitFaces() {
+	for _, face := range h.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, "CantTarget") || !staticParamsKnown(s, cantTargetParams) {
 				continue
@@ -1825,7 +1825,7 @@ func (g *Game) maxBlockers(defender PlayerID) (limit int, ok bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "BlockRestrict") || !staticParamsKnown(s, blockRestrictParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1874,7 +1874,7 @@ func (g *Game) asIfHaste(mode string, c *Card, target EntityID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !staticParamsKnown(s, asIfHasteParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1929,7 +1929,7 @@ func (g *Game) hexproofIgnored(mode string, activator PlayerID, target EntityID)
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !staticParamsKnown(s, ignoreHexproofParams) || !g.staticConditionsMet(h, s) {
 						continue

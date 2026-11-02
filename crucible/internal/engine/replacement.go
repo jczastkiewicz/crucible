@@ -103,7 +103,7 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 		}
 	}
 	if movedCard.Def != nil {
-		for _, face := range movedCard.traitFaces() {
+		for _, face := range movedCard.liveTraitFaces() {
 			for _, r := range face.Replacements {
 				consider(movedCard, movedCard.Controller(), r, face.Amounts)
 			}
@@ -125,7 +125,7 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 			if w.Def == nil {
 				continue
 			}
-			for _, face := range w.traitFaces() {
+			for _, face := range w.liveTraitFaces() {
 				for _, r := range face.Replacements {
 					consider(w, w.Controller(), r, face.Amounts)
 				}
@@ -660,7 +660,7 @@ func (g *Game) untapReplaceBlocked(card *Card, untapper PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if untapReplacementMatches(g, r, card, untapper, h.Controller(), host, z, face.Amounts) {
 							return true
@@ -750,7 +750,7 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int)
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, toughness, hasToughness) {
 							continue
@@ -789,7 +789,7 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, 0, false) {
 							continue
@@ -1320,7 +1320,7 @@ func (g *Game) drawPrevented(controller PlayerController, player PlayerID) bool 
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !drawPreventionMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1397,7 +1397,7 @@ func (g *Game) gainLifePrevented(player PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !gainLifePreventionMatches(g, r, host, z, face.Amounts) {
 							continue

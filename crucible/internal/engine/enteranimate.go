@@ -173,7 +173,7 @@ func (g *Game) applyEnterAnimate(controller PlayerController, moved CardID, orig
 			g.recordPendingError(err)
 		}
 	}
-	for _, face := range card.traitFaces() {
+	for _, face := range card.liveTraitFaces() {
 		for _, r := range face.Replacements {
 			run(r, face.Amounts)
 		}

@@ -1306,7 +1306,7 @@ func (c *Card) starUnresolved(toughness bool) bool {
 			return false
 		}
 	}
-	for _, face := range c.traitFaces() {
+	for _, face := range c.liveTraitFaces() {
 		for _, st := range face.Statics {
 			if _, cda := st.Param("CharacteristicDefining"); cda && strings.EqualFold(st.Name, "Continuous") {
 				return true
@@ -1648,7 +1648,9 @@ func (c *Card) InTransformedState() bool {
 
 // liveFaces is how many of def's faces are its current state's. A
 // transforming, flipping, melded, modal or specialize card's other face is a
-// state it is not in (Card.getTriggers reads currentState alone), and this
+// state it is not in (Card.getTriggers, getStaticAbilities and
+// getReplacementEffects read currentState alone: Heliod's back-face flash,
+// Blackbloom Bog's "enters tapped" are not the front's), and this
 // port's current face of such a card is always Faces[0]: a transformed or
 // melded card's Def is its back face, no path flips a flip card yet
 // (setstateeffect.go's own "Flip... not resolved" gap -- an unflipped card's

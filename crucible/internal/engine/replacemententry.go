@@ -125,7 +125,7 @@ func (g *Game) entryCandidates(controller PlayerController, moved *Card, origin 
 			return result
 		}})
 	}
-	for _, face := range moved.traitFaces() {
+	for _, face := range moved.liveTraitFaces() {
 		for _, r := range face.Replacements {
 			consider(moved, moved.Zone, true, face.Amounts, r)
 		}

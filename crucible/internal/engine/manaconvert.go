@@ -253,7 +253,7 @@ func (g *Game) manaConvertFor(pid PlayerID, card CardID, spell *Ability, control
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "ManaConvert") || !manaConvertSupported(s) ||
 					readManaConversion(s) == conversionMatrix || !g.manaConvertApplies(pid, c, h, s, spell) {
@@ -320,7 +320,7 @@ func (g *Game) manaColorMatrix(pid PlayerID, card CardID, sa *Ability) colorMatr
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "ManaConvert") || !manaConvertSupported(s) ||
 					readManaConversion(s) != conversionMatrix {

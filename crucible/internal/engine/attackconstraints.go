@@ -607,7 +607,7 @@ func (g *Game) eachCombatStatic(mode string, f func(h *Card, face *compile.Face,
 			if h.Def == nil {
 				continue
 			}
-			for fi := range h.traitFaces() {
+			for fi := range h.liveTraitFaces() {
 				face := &h.traitFaces()[fi]
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {

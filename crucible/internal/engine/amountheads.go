@@ -806,7 +806,7 @@ func devotionMod(g *Game, pid PlayerID) (int, bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "Devotion") {
 						continue

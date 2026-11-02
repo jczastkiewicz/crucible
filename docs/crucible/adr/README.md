@@ -63,7 +63,7 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0050](0050-specialize-is-a-persistent-face-swap.md)        | Specialize is a persistent face swap on the card          | Accepted                  |
 | [0051](0051-commander-is-a-designation-on-the-player.md)    | A commander is a designation on the player, no format     | Accepted                  |
 | [0052](0052-casting-a-card-as-one-of-its-faces.md)          | Casting a card as one of its faces                        | Accepted                  |
-| [0053](0053-commander-casting-from-the-command-zone.md)     | A commander is cast through Java's Commander Effect card  | Proposed                  |
+| [0053](0053-commander-casting-from-the-command-zone.md)     | A commander is cast through Java's Commander Effect card  | Accepted                  |
 
 ## Numbering
 

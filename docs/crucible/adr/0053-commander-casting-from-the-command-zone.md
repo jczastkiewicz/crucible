@@ -1,6 +1,6 @@
 # ADR-0053 — A Commander Is Cast From the Command Zone Through Java's Commander Effect Card
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-02
 - **Deciders:** Crucible session (B14, Liesa)
 

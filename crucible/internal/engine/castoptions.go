@@ -41,6 +41,9 @@ type castOption struct {
 	sacAtCleanup bool
 	// limits are the MayPlayLimit$ counters a cast by this option uses up.
 	limits []mayPlayLimitKey
+	// grantor is the MayPlay$ static's host for a grant's option
+	// (SpellAbility.getMayPlay().getHostCard()), NoCard otherwise.
+	grantor CardID
 	// sneak is the Sneak alternative cost (sneak.go): alt is its mana, an
 	// unblocked attacker returns to hand, and the spell has instant speed.
 	sneak bool
@@ -89,7 +92,7 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		zonePermission = zonePermission || gr.ZonePermission
 		o := castOption{withoutMana: gr.WithoutManaCost, hasAlt: gr.HasAltCost, alt: gr.AltCost, anyType: gr.AnyType, flash: gr.WithFlash,
 			anyColor: gr.AnyColor && !gr.AnyType, snowAnyColor: gr.SnowAnyColor, raise: gr.RaiseText,
-			replaceExile: gr.ReplaceExile}
+			replaceExile: gr.ReplaceExile, grantor: gr.LimitKey.Host}
 		if gr.Limit > 0 {
 			o.limits = []mayPlayLimitKey{gr.LimitKey}
 		}

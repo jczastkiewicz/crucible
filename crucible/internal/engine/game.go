@@ -116,6 +116,10 @@ type Game struct {
 	// castPending is the spell whose cast is in progress and whose X has not
 	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
 	castPending CardID
+	// castGrantor is the MayPlay$ host castPending is cast through, NoCard
+	// for none: SpellAbility.getMayPlay, read by the MayPlaySource property
+	// while the cast is in progress.
+	castGrantor CardID
 	// xReduce is the part of a ReduceCost past the printed generic mana of a
 	// cost with X, which the announced X absorbs when it is paid (March of
 	// Reckless Joy); costStatics sets it, payManaCostX spends it.

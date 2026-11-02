@@ -128,3 +128,42 @@ func TestManaConvertColorlessPaysColor(t *testing.T) {
 		t.Error("colorless mana did not pay {B} under C->AnyColor")
 	}
 }
+
+// Abstruse Appropriation exiles a permanent; its effect lets the caster cast
+// that card through the effect's MayPlay$ and spend colorless mana as though
+// it were any color on that cast only (ValidSA$ Spell.MayPlaySource).
+func TestManaConvertAbstruseAppropriationCast(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	victim := g.NewCard(creatureDefCost(t, "Black One", "B"), opp, engine.Battlefield)
+	other := g.NewCard(creatureDefCost(t, "Black Two", "B"), p, engine.Hand)
+	spell := g.NewCard(corpusCard(t, "Abstruse Appropriation"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	g.Player(p).ManaPool.AddColorless(2)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
+	c.QueuePayGeneric(mana.ShardC)
+	c.QueuePayGeneric(mana.ShardC)
+	if !g.CastSpell(p, spell, c) {
+		t.Fatal("Abstruse Appropriation not cast")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if g.Card(victim).Zone != engine.Exile {
+		t.Fatalf("victim in %v, want Exile", g.Card(victim).Zone)
+	}
+
+	g.Player(p).ManaPool.AddColorless(1)
+	if g.CastSpell(p, other, engine.NewScriptedController()) {
+		t.Error("colorless mana paid {B} on a spell not cast through the effect")
+	}
+	c = engine.NewScriptedController()
+	c.QueuePayColorlessHybrid(false)
+	if !g.CastSpell(p, victim, c) {
+		t.Error("colorless mana did not pay {B} on the exiled card cast through the effect")
+	}
+}

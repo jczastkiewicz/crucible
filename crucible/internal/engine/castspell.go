@@ -190,6 +190,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		}
 		opts.withoutManaCost, opts.anyType, opts.anyColor = way.withoutMana, way.anyType, way.anyColor
 		opts.snowAnyColor = way.snowAnyColor
+		opts.mayPlayGrantor = way.grantor
 		opts.sneak = way.sneak
 		opts.mutate = way.mutate
 		opts.emerge = way.emerge
@@ -472,6 +473,9 @@ func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 // castOpts is how an effect's "cast it" differs from casting it normally
 // (PlayEffect.java's tgtSA adjustments before playSaFromPlayEffect).
 type castOpts struct {
+	// mayPlayGrantor is the host of the MayPlay$ static the card is cast
+	// through, NoCard for any other way (SpellAbility.getMayPlay).
+	mayPlayGrantor CardID
 	// control is Play's ControlledByPlayer$: the spell carries the grant (applyControl).
 	control controlRef
 	// withoutManaCost is WithoutManaCost$ (SpellAbility.copyWithNoManaCost):
@@ -643,10 +647,11 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 
 // castSpellChosen is castSpell once the kicker choice is made.
 func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
-	g.castPending = card
+	g.castPending, g.castGrantor = card, opts.mayPlayGrantor
 	g.holdingCastExits = true
 	defer func() {
 		g.castPending, g.preX, g.hasPreX, g.castXMin = NoCard, 0, false, 0
+		g.castGrantor = NoCard
 		g.castTargets, g.castTargetsFor = nil, NoCard
 		// A cast that went on the stack released the hold (castExitMatches).
 		// One that failed after a cost part already fired a trigger (a

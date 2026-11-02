@@ -39,7 +39,7 @@ var saUnresolvedPrefixes = []string{
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
 	"Nightbound", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
-	"paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource",
+	"paidPhyrexianMana", "ManaSpent", "ManaFrom",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }
 
@@ -124,6 +124,14 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		}
 	}
 	switch {
+	case prop == "MayPlaySource":
+		// SpellAbilityProperty.java:207-212: the MayPlay$ static the spell is
+		// cast through is hosted by the trait's own card. Known only for the
+		// spell being cast; a spell on the stack keeps no grantor here.
+		if !a.spell || a.Source != g.castPending {
+			return false, false
+		}
+		return g.castGrantor != NoCard && g.castGrantor == host.ID, true
 	case prop == "ManaAbility":
 		// A basic land's intrinsic mana ability (CR 305.6) has no script line.
 		if a.Params == nil {

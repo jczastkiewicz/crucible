@@ -1,6 +1,6 @@
 # ADR-0054 — Mana Abilities Are Activated Inside a Mana Payment Through One Controller Decision
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-02
 - **Deciders:** Crucible session (plan B4, R11a)
 

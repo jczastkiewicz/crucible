@@ -577,7 +577,7 @@ type castOpts struct {
 	// CardFactoryUtil.abilityCastFaceDown builds): the spell is the face-down
 	// 2/2 of CR 708.2a.
 	faceDown bool
-	// altKeyword is "Surge", "Freerunning", "Dash" or "Blitz" for a cast for that keyword's
+	// altKeyword is "Surge", "Freerunning", "Dash", "Blitz" or "Warp" for a cast for that keyword's
 	// cost (altkeywords.go): altCost is that cost.
 	altKeyword string
 }
@@ -1403,13 +1403,14 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		// its caster as it enters, firing its "when you unlock this door".
 		g.unlockDoor(controller, a.Source, a.Controller, door)
 	}
-	// CR 608.3g, PermanentEffect.java:41-51: a permanent cast for its Dash
+	// CR 608.3g, PermanentEffect.java:41-53: a permanent cast for its Dash
 	// cost returns to its owner's hand, one cast for its Blitz cost is
-	// sacrificed, at the beginning of the next end step.
+	// sacrificed, one cast for its Warp cost is exiled, at the beginning of
+	// the next end step.
 	if c := g.Card(a.Source); c.Zone == Battlefield {
-		for _, leave := range [...]struct{ keyword, location string }{{"Dash", "Hand"}, {"Blitz", "Sacrifice"}} {
+		for _, leave := range [...]struct{ keyword, location string }{{"Dash", "Hand"}, {"Blitz", "Sacrifice"}, {"Warp", "Exile"}} {
 			if c.castFor(leave.keyword) {
-				if err := g.registerDelayedLeave(c.ID, a.Controller, nil, leave.keyword, leave.location, "", []CardID{c.ID}); err != nil {
+				if err := g.registerDelayedLeave(c.ID, a.Controller, nil, leave.keyword, leave.location, "", leave.keyword, []CardID{c.ID}); err != nil {
 					return err
 				}
 			}

@@ -549,6 +549,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:1823-1826: its Devour sacrificed something as it
 		// entered (Hellkite Hatchling).
 		return len(c.devoured) > 0
+	case name == "ThisTurnEntered":
+		// CardProperty.java:969-973: c entered the zone it is in this turn
+		// (the warp effect's "!ThisTurnEntered", a later turn's cast).
+		return c.zoneEntered && c.zoneEntryTurn == g.turn
 	case strings.HasPrefix(name, "ThisTurnEnteredFrom"):
 		// CardProperty.java:954-967: c entered the zone it is in this turn, from
 		// the named zone. Java splits at "ThisTurnEnteredFrom_", so a name

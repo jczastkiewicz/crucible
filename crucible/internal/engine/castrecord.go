@@ -65,7 +65,7 @@ func (g *Game) recordSpellCast(pid PlayerID, card CardID) {
 	g.Player(pid).SpellsCastThisTurn++
 	g.Player(pid).spellsCastThisGame++
 	c := g.Card(card)
-	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp})
+	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp, warp: c.castFor("Warp")})
 	g.noteCommanderCast(pid, card)
 }
 
@@ -365,13 +365,14 @@ func (g *Game) leftBattlefieldCount(sourceController PlayerID, source CardID, sp
 	return n, true
 }
 
-// isVoid is Game.isVoid (Game.java:1432-1435): a nonland permanent left the
-// battlefield this turn, or a spell was warped this turn. This port casts no
-// spell for its Warp cost (castspell.go's permanentEffect: no Warp cast mode;
-// continuous.go reads a Spell.Warp grant as never used), so the second half
-// is false for every spell this game cast -- what the cast record says, not a
-// guess about one.
+// isVoid is Game.isVoid (Game.java:1543-1546): a nonland permanent left the
+// battlefield this turn, or a spell was cast for its Warp cost this turn.
 func (g *Game) isVoid() bool {
+	for _, rec := range g.castThisTurn {
+		if rec.warp {
+			return true
+		}
+	}
 	found := false
 	g.leftBattlefieldThisTurn(func(lki *Card) bool {
 		found = !lki.Type().Has(cardtype.Land)

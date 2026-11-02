@@ -529,6 +529,14 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 		for _, host := range g.traitHosts(pid) {
 			matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false, spellCastModes, castCounts)
 		}
+		// A card outside play watches from the zones its TriggerZones$ names
+		// (Vengevine, Cantor of the Refrain from the graveyard): Java collects
+		// every card's triggers in every zone (TriggerHandler.java:193-201).
+		for _, z := range [...]ZoneType{Graveyard, Exile, Hand, Library} {
+			for _, host := range g.Zone(z, pid).Cards() {
+				matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false, spellCastModes, castCounts)
+			}
+		}
 	}
 	// The spell's own triggers, from the stack: traitHosts never covers it.
 	if c.Zone == Stack {
@@ -562,17 +570,26 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 // one cast: the 3 multi-face cards among them (Bruna, the Fading Light;
 // Lae'zel, Githyanki Warrior; Drowner of Truth) print it on the front face,
 // and their other faces are melded, specialized or a land, never cast.
+//
+// A host outside play (offZone: graveyard, exile, hand, library) fires only
+// from a zone its TriggerZones$ names.
 func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool, modes []string, counts triggerCounts) []Ability {
 	h := g.Card(host)
 	if h.Def == nil {
 		return matches
 	}
+	offZone := !onStack && !h.IsEffect && h.Zone != Battlefield && h.Zone != Command
 	for face := range h.triggerFaces {
 		for _, t := range face.Triggers {
 			if !modeIn(t, modes) {
 				continue
 			}
 			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
+				continue
+			}
+			if offZone && !hasZone(t, "TriggerZones", h.Zone.String()) {
+				// A line with no TriggerZones$ stays battlefield-only for a
+				// card outside play, as graveyardWatcher reads it.
 				continue
 			}
 			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {

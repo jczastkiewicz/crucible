@@ -67,8 +67,9 @@ func (g *Game) hasFreerunning(pid PlayerID) bool {
 	return false
 }
 
-// altKeywordOptions are the Surge, Freerunning, Dash and Blitz ways pid may
-// cast c from the hand: those whose keyword c has and, for the first two,
+// altKeywordOptions are the Surge, Freerunning, Dash, Blitz and Warp ways pid
+// may cast c from the hand (Warp's spell is restricted to it,
+// CardFactoryUtil.java:3672): those whose keyword c has and, for the first two,
 // whose history gate holds.
 func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	var out []castOption
@@ -81,7 +82,7 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	if mc, ok := altKeywordCost(c, "Freerunning"); ok && g.hasFreerunning(pid) {
 		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Freerunning"})
 	}
-	for _, name := range [...]string{"Dash", "Blitz"} {
+	for _, name := range [...]string{"Dash", "Blitz", "Warp"} {
 		if o, ok := g.keywordCastOption(pid, c, name); ok {
 			out = append(out, o)
 		}
@@ -89,11 +90,13 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	return out
 }
 
-// keywordCastOption is the cast for c's keyword name (Dash or Blitz): its
-// cost in place of the mana cost, Java's copyWithDefinedCost for Dash
-// (CardFactoryUtil.java:2744-2764) and copyWithManaCostReplaced for Blitz
+// keywordCastOption is the cast for c's keyword name (Dash, Blitz or Warp):
+// its cost in place of the mana cost, Java's copyWithDefinedCost for Dash
+// (CardFactoryUtil.java:2744-2764) and Warp (:3648-3675) and
+// copyWithManaCostReplaced for Blitz
 // (:2690-2713), alike for a spell with no Cost$ of its own. A part past the
-// mana (Blitz's PayLife<2>, Discard<1/Card>) is paid as an alternative
+// mana (Blitz's PayLife<2>, Discard<1/Card>, Timeline Culler's warp
+// PayLife<2>) is paid as an alternative
 // cost's other parts are. ok is false without the keyword, for an X, for a
 // cost part this port cannot pay, and for a Blitz with a third field (its
 // ValidAfterStack$, Henzie's and The Caldaia's grants, whose cost is

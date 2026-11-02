@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -447,8 +448,37 @@ func (g *Game) changeZoneMoved(a *Ability, source *Card, id CardID) {
 		c.foretold, c.foretoldTurn = true, g.turn
 		c.foretoldByEffect = hasParam(a, "ForetoldCost")
 	}
+	g.warpedEffect(a, id)
 	tmpl, _ := changeZoneStaticTemplate(g, a) // validated in Resolve
 	g.applyChangeZoneStatic(tmpl, id)
+}
+
+// warpedEffect is ChangeZoneEffect.java:775-783: the warp trigger's exile of
+// a permanent cast for its Warp cost (registerDelayedLeave's keyword) gives
+// its owner a Command-zone effect, "Warped <card>", under which the card may
+// be cast from exile from the next turn on (CR 702.185a): a MayPlay$ static
+// on Card.IsRemembered+nonLand+!ThisTurnEntered, forgotten as the card leaves
+// exile or is cast (addForgetOnMovedTrigger, addForgetOnCastTrigger), the
+// effect exiled once it remembers nothing.
+func (g *Game) warpedEffect(a *Ability, id CardID) {
+	if a.Params == nil || a.Params.Keyword != "Warp" || g.Card(id).Zone != Exile {
+		return
+	}
+	host := g.Card(a.Source)
+	name := "Warped " + effectHostName(host)
+	play := &compile.Ability{Record: compile.Static, Name: "Continuous", Params: []vocab.Param{
+		{Key: "Mode", Value: "Continuous"}, {Key: "MayPlay", Value: "True"}, {Key: "EffectZone", Value: "Command"},
+		{Key: "Affected", Value: "Card.IsRemembered+nonLand+!ThisTurnEntered"}, {Key: "AffectedZone", Value: "Exile"},
+	}}
+	def := &compile.Card{Name: name}
+	def.Faces[0].Name = name
+	def.Faces[0].Statics = []*compile.Ability{play}
+	owner := host.Owner
+	eff := g.Card(g.NewCard(def, owner, Command))
+	eff.IsEffect = true
+	eff.effectLife = effectLifetime{duration: effectPermanent, player: owner, host: a.Source,
+		forgetOnMoved: zoneMask(1) << Exile, forgetOnCast: true}
+	eff.Memory.Remember(CardEntity(id))
 }
 
 // changeZoneMemory applies RememberChanged$/ForgetChanged$/Imprint$ for a

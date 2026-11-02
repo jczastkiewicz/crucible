@@ -1894,6 +1894,9 @@ type castRecord struct {
 	controller PlayerID
 	from       ZoneType
 	stamp      uint64
+	// warp is SpellAbility.isWarp of the cast: it was for the card's Warp
+	// cost (Game.isVoid reads it).
+	warp bool
 }
 
 // zoneEntry is one card's zone change this turn (Zone.cardsAddedThisTurn): the

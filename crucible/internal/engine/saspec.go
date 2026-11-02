@@ -34,10 +34,10 @@ var saKeywordProperties = map[string][]string{
 // port does not track (how a spell was cast, what mana paid for it): a spec
 // naming one is not evaluated.
 var saUnresolvedPrefixes = []string{
-	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Dash",
+	"CountersRemovedToPay", "Bargain", "Backup", "Bestow",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
-	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
+	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
 	"paidPhyrexianMana", "ManaSpent", "ManaFrom",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }
@@ -154,6 +154,11 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 	case prop == "OppCtrl":
 		matched, _ := matchesPlayerSpec(g, a.Controller, hostController, host.ID, "Opponent")
 		return matched, true
+	case prop == "Dash" || prop == "Blitz" || prop == "Warp":
+		// SpellAbilityProperty.java:51-52, :65-66, :137-138 (isBlitz, isDash,
+		// isWarp): the spell cast for that keyword's cost (castFor), which the
+		// card records as the cast starts (Cantor of the Refrain).
+		return a.spell && source.castFor(prop), true
 	case prop == "Mutate":
 		// SpellAbilityProperty.java:115-116, SpellAbility.isMutate: the spell
 		// cast for its mutate cost.

@@ -9,10 +9,11 @@
 // "Creature.sharesCreatureTypeWith" (Weight of Conscience) keeps the
 // candidates that share a creature type with another one and checks the pick
 // (tapSharedTypeOK). "Creature+withTotalPowerGE<N>" is Crew's shape, read by
-// internal/cost into TapTypeTotalPower. "OriginalHost" (Fishing Pole) --
-// the card whose static granted the ability -- is refused by
-// tapTypeResolvable: an activated ability granted by a static does not carry
-// its granting card here.
+// internal/cost into TapTypeTotalPower. "OriginalHost" (Fishing Pole) is the
+// one card tapped: the card whose static granted the ability, or the ability's
+// own card for a printed line (SpellAbility.getOriginalHost, CostTapType.java:
+// 150-151, HumanCostDecision.java:1374-1379). An unless-cost still refuses it
+// (tapTypeResolvable): no corpus line pays one.
 
 package engine
 
@@ -31,6 +32,26 @@ import (
 func tapTypeResolvable(rawSpec string) bool {
 	return rawSpec != "OriginalHost" &&
 		!strings.Contains(rawSpec, "withTotalPowerGE")
+}
+
+// tapTypeActivatable is tapTypeResolvable for an activation cost, which also
+// reads OriginalHost.
+func tapTypeActivatable(rawSpec string) bool {
+	return rawSpec == "OriginalHost" || tapTypeResolvable(rawSpec)
+}
+
+// originalHostCandidates is the tapXType<N/OriginalHost> candidate list: the
+// ability's original host (origin, NoCard for a printed line -> source) when
+// it can be tapped (CostTapType.canPay: getOriginalHost().canTap()).
+func originalHostCandidates(g *Game, source, origin CardID) []CardID {
+	host := origin
+	if host == NoCard {
+		host = source
+	}
+	if c := g.Card(host); c.Zone != Battlefield || c.Tapped {
+		return nil
+	}
+	return []CardID{host}
 }
 
 // sharedCreatureTypeSuffix is CostTapType's ".sharesCreatureTypeWith"

@@ -348,10 +348,14 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	var tapCandidates, tapChosen []CardID
 	if shape.TapTypeN > 0 {
-		if !tapTypeResolvable(shape.TapTypeSpec) {
+		if !tapTypeActivatable(shape.TapTypeSpec) {
 			return false
 		}
-		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		if shape.TapTypeSpec == "OriginalHost" {
+			tapCandidates = originalHostCandidates(g, card, c.grantOrigin(ability))
+		} else {
+			tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		}
 		if len(tapCandidates) < shape.TapTypeN {
 			return false
 		}

@@ -48,7 +48,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return nil
 	}
 	mode, _ := a.Params.Param("Mode")
-	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" && mode != "Specialize" {
+	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" && mode != "Specialize" && mode != "Unspecialize" {
 		return fmt.Errorf("engine: SetState: Mode$ %q not resolvable yet", mode)
 	}
 	if mode == "Transform" && battlefieldStaticMode(g, "CantTransform") {
@@ -125,6 +125,8 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				return err
 			}
 			source.Memory.SetChosenColors(0)
+		case mode == "Unspecialize":
+			changed = g.unspecialize(id)
 		case mode == "TurnFaceDown":
 			if changed = g.turnFaceDown(id); changed {
 				if err := g.setFaceDownState(a, source, c); err != nil {
@@ -329,6 +331,21 @@ var specializeFaces = [...]struct {
 	{mana.White, carddb.FaceSpecializeWhite}, {mana.Blue, carddb.FaceSpecializeBlue},
 	{mana.Black, carddb.FaceSpecializeBlack}, {mana.Red, carddb.FaceSpecializeRed},
 	{mana.Green, carddb.FaceSpecializeGreen},
+}
+
+// unspecialize is Card.changeCardState("Unspecialize") (Card.java:778-779,
+// in any zone, SetStateEffect.java:91-92): a specialized card goes back to
+// its own definition under a new timestamp; any other card does nothing.
+// Lukamina, Moon Druid's faces unspecialize as they die.
+func (g *Game) unspecialize(id CardID) bool {
+	c := g.Card(id)
+	if c.specializedFrom == nil {
+		return false
+	}
+	c.Def, c.specializedFrom = c.specializedFrom, nil
+	g.timestamp++
+	c.Timestamp = g.timestamp
+	return true
 }
 
 // specialize is Card.changeCardState("Specialize") (Card.java:771-781, ADR-0050)

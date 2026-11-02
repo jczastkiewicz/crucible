@@ -32,8 +32,9 @@
 // Count$CardManaCost, a ConvertedManaCost cost) is not offered, never cast
 // at the wrong price (GO-7). An Activated.* line (the equip, power-up and
 // unearth freebies, Gavi's and New Perspectives' cycling, Heart of Kiran's
-// crew) is activationAltCost's. Not ported: other-hosted lines on casts that
-// are not from the hand (game-state.md).
+// crew) is activationAltCost's. A cast from another zone through a MayPlay
+// option gets the lines too (altCostThroughGrants); a Play effect's cast does
+// not (game-state.md).
 
 package engine
 

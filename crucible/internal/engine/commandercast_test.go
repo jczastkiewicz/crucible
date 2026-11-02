@@ -205,3 +205,28 @@ func TestCommanderDrawnToCommandCountsAsDrawn(t *testing.T) {
 		t.Errorf("%d cards drawn this turn, want 1", got)
 	}
 }
+
+// Another card's AlternativeCost line reaches a cast through a MayPlay option
+// (GameActionUtil.java:117-121): Jodah lets a commander be cast from the
+// Command zone for {W}{U}{B}{R}{G} rather than its mana cost.
+func TestCommanderCastForJodahsAlternativeCost(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Jodah, Archmage Eternal"), p, engine.Battlefield)
+	wurm := g.NewCard(corpusCard(t, "Craw Wurm"), p, engine.Command)
+	g.AddCommander(p, wurm)
+	sba(g)
+	for _, color := range []mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+		g.Player(p).ManaPool.Add(color, 1)
+	}
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	if !g.CastSpell(p, wurm, c) {
+		t.Fatalf("Craw Wurm not cast for Jodah's cost: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("%d mana left, want WUBRG paid", got)
+	}
+}

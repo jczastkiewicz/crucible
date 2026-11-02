@@ -195,6 +195,9 @@ type Ability struct {
 	// chains -- Java reads it off the root ability. Defined$
 	// DelayTriggerRemembered[LKI] reads it (defined.go).
 	TriggerRemembered []EntityID
+	// rememberedStamps are the delayed trigger's RememberedStamps
+	// (registerDelayedLeave), read by its ChangeZone body.
+	rememberedStamps map[CardID]uint64
 	// triggered is what the trigger that put this ability on the stack
 	// recorded about its event (SpellAbility.setTriggeringObject), carried
 	// onto every sub-ability it chains the way TriggerRemembered is: Java

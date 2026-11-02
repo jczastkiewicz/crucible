@@ -87,8 +87,15 @@ func (g *Game) registerDelayedLeave(host CardID, controller PlayerID, amounts ma
 			Subs: []compile.SubRef{{Key: "Execute", Ability: execute}}, Keyword: kw},
 		Host: host, Controller: controller, Amounts: amounts, HostTransforms: g.Card(host).Transforms,
 	}
+	moves := body[0].Value == "ChangeZone"
+	if moves {
+		d.RememberedStamps = map[CardID]uint64{}
+	}
 	for _, c := range cards {
 		d.Remembered = append(d.Remembered, CardEntity(c))
+		if moves {
+			d.RememberedStamps[c] = g.Card(c).zoneStamp
+		}
 	}
 	g.delayed = append(g.delayed, d)
 	return nil

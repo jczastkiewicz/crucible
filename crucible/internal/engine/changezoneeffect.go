@@ -578,6 +578,19 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: %w", err)
 	}
+	if a.rememberedStamps != nil {
+		// ChangeZoneEffect.java:561: Defined$ DelayTriggerRememberedLKI is the
+		// remembered object, skipped once its card is a new one
+		// (equalsWithGameTimestamp): a dashed creature flickered before the
+		// end step stays.
+		kept := cards[:0:0]
+		for _, id := range cards {
+			if stamp, ok := a.rememberedStamps[id]; !ok || stamp == g.Card(id).zoneStamp {
+				kept = append(kept, id)
+			}
+		}
+		cards = kept
+	}
 	if hasParam(a, "ImprintLast") {
 		// ImprintLast$ is read only inside Java's hasMergedCard() branch
 		// (ChangeZoneEffect.java:831-846), which re-picks the pile's last card

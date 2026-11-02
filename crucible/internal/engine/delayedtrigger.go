@@ -26,6 +26,10 @@ type delayedTrigger struct {
 	Controller PlayerID
 	Amounts    map[string]expr.Amount
 	Remembered []EntityID
+	// RememberedStamps are the zone stamps of the Remembered cards as
+	// registerDelayedLeave made the trigger, nil for any other: its ChangeZone
+	// body skips a card that has since become a new object.
+	RememberedStamps map[CardID]uint64
 	// ThisTurn drops the trigger when the next turn begins
 	// (clearThisTurnDelayedTrigger) if it has not fired.
 	ThisTurn bool
@@ -107,7 +111,7 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 		// (PhaseHandler.java:438), as for a card's own Mode$ Phase line.
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      triggeredObjects{player: g.activePlayer},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -143,7 +147,7 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      triggeredObjects{card: card, originalController: original},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -175,7 +179,7 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered: triggeredObjects{spellAbility: spellID,
 				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -208,7 +212,7 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      triggeredObjects{spellAbility: spellID},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -332,7 +336,7 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -401,7 +405,7 @@ func (g *Game) delayedFire(d delayedTrigger, objs triggeredObjects) (Ability, bo
 	}
 	return Ability{
 		API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps,
 		triggered: objs, spawnerTriggered: d.spawner(),
 		hostTransforms: d.HostTransforms, hasHostTransforms: true,
 		staticTrigger: isStaticTrigger(d.Trigger),

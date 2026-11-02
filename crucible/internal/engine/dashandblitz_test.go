@@ -90,3 +90,29 @@ func TestDashCostReductionReadsTheDashCast(t *testing.T) {
 		t.Errorf("%d mana left, want 0", got)
 	}
 }
+
+// The dash cast stays with the permanent it became, not with a new object:
+// Zurgo dashed, exiled and returned has no haste and no end-step return.
+func TestFlickeredDashCreatureIsANewObject(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 4)
+	libraryCards(t, g, other, 4)
+	g.SetTurnState(1, p, engine.Main1)
+	zurgo := g.NewCard(corpusCard(t, "Zurgo Bellstriker"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 2)
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	c.QueuePayGeneric(mana.ShardR)
+	castThenResolve(t, g, p, zurgo, c)
+	g.Move(zurgo, engine.Exile, p)
+	g.Move(zurgo, engine.Battlefield, p)
+	engine.CheckStateBasedActions(g, c)
+	if g.Card(zurgo).HasKeyword("Haste") {
+		t.Error("the returned Zurgo has haste")
+	}
+	toStep(t, g, c, p, engine.EndOfTurn, nil)
+	if got := g.Card(zurgo).Zone; got != engine.Battlefield {
+		t.Errorf("after the end step the returned Zurgo is in %v, want the battlefield", got)
+	}
+}

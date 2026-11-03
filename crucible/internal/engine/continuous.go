@@ -820,6 +820,25 @@ func pumpLayerKeywords(g *Game) {
 		if len(p.Keywords) > 0 {
 			c.KeywordMod.Add(KeywordEffect{Timestamp: p.Timestamp, AddKeywords: p.Keywords})
 		}
+		if len(p.Traits) > 0 {
+			// The keywords' own abilities and triggers (Card.addChangedCardKeywords
+			// makes CardFactoryUtil's keyword traits appear on the card), their
+			// CardManaCost the card's own (PumpEffect.java:453-466).
+			grant := traitGrant{amounts: p.TraitAmounts}
+			for _, t := range p.Traits {
+				switch t.Record {
+				case compile.Trigger:
+					grant.triggers = append(grant.triggers, t)
+				case compile.StaticEffect:
+					grant.statics = append(grant.statics, t)
+				case compile.Replacement:
+					grant.replacements = append(grant.replacements, t)
+				default:
+					grant.abilities = append(grant.abilities, t)
+				}
+			}
+			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), costSubstitutedGrant(grant, c))
+		}
 	})
 }
 

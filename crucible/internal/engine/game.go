@@ -577,6 +577,12 @@ type pumpRecord struct {
 	// (pumpHiddenKeywords). Never edited in place: Clone shares it.
 	Hidden   []string
 	Switched bool // KW$ HIDDEN switchPTKeyword: a Layer 7d switch
+	// Traits are the abilities, triggers, statics and replacements the
+	// granted Keywords stand for (compile's `KW` subs, ADR-0038 decision 4),
+	// re-added every pass by pumpLayerKeywords. Never edited in place.
+	// TraitAmounts is the pumping face's amounts, where their SVars live.
+	Traits       []*compile.Ability
+	TraitAmounts map[string]expr.Amount
 	// CanBlockAny and CanBlockMore are Pump's CanBlockAny$ and CanBlockAmount$
 	// (PumpEffect.java:78-84): the card can block any number of creatures, or
 	// this many more, for as long as the record lives.

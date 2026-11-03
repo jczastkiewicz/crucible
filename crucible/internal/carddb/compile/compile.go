@@ -413,18 +413,29 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 // that the engine's trait overlay (applyOneContinuousTraits) reads by Record.
 // The face's own S: lines and every static an SVar reaches (an Effect's
 // StaticAbilities$, Crackling Spellslinger's GrantStorm) are expanded. A
-// keyword with no template stays inert (GO-7).
+// Pump or PumpAll line's KW$ (PumpEffect.java/PumpAllEffect.java, the same
+// " & " list) is expanded the same way into `KW` subs, which the engine's
+// pump record carries. A keyword with no template stays inert (GO-7).
 func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
 	seen := map[*Ability]bool{}
 	for si, st := range out.Statics {
 		seen[st] = true
 		if strings.EqualFold(st.Name, "Continuous") {
-			if err := c.expandGrant(out, st, "g"+strconv.Itoa(si)+"x"); err != nil {
+			if err := c.expandGrant(out, st, "g"+strconv.Itoa(si)+"x", "AddKeyword"); err != nil {
 				return err
 			}
 		}
 	}
-	n := 0
+	n, k := 0, 0
+	expandPump := func(a *Ability) error {
+		if a.Record == Spell || a.Record == Activated || a.Record == SubAbility {
+			if strings.EqualFold(a.Name, "Pump") || strings.EqualFold(a.Name, "PumpAll") {
+				k++
+				return c.expandGrant(out, a, "k"+strconv.Itoa(k-1)+"x", "KW")
+			}
+		}
+		return nil
+	}
 	var walk func(a *Ability) error
 	walk = func(a *Ability) error {
 		for _, sub := range a.Subs {
@@ -434,10 +445,13 @@ func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
 			}
 			seen[b] = true
 			if b.Record == StaticEffect && strings.EqualFold(b.Name, "Continuous") {
-				if err := c.expandGrant(out, b, "v"+strconv.Itoa(n)+"x"); err != nil {
+				if err := c.expandGrant(out, b, "v"+strconv.Itoa(n)+"x", "AddKeyword"); err != nil {
 					return err
 				}
 				n++
+			}
+			if err := expandPump(b); err != nil {
+				return err
 			}
 			if err := walk(b); err != nil {
 				return err
@@ -447,6 +461,12 @@ func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
 	}
 	for _, group := range [][]*Ability{out.Abilities, out.Triggers, out.Statics, out.Replacements} {
 		for _, a := range group {
+			if !seen[a] {
+				seen[a] = true
+				if err := expandPump(a); err != nil {
+					return err
+				}
+			}
 			if err := walk(a); err != nil {
 				return err
 			}
@@ -455,11 +475,11 @@ func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
 	return nil
 }
 
-// expandGrant hangs the expansion of each keyword st's AddKeyword$ names on
-// st as `AddKeyword` subs; prefix plus the keyword's index keeps their SVars
-// unique.
-func (c *faceCompiler) expandGrant(out *Face, st *Ability, prefix string) error {
-	raw, ok := st.Param("AddKeyword")
+// expandGrant hangs the expansion of each keyword st's param (AddKeyword$ or
+// KW$) names on st as subs keyed by that param; prefix plus the keyword's
+// index keeps their SVars unique.
+func (c *faceCompiler) expandGrant(out *Face, st *Ability, prefix, param string) error {
+	raw, ok := st.Param(param)
 	if !ok {
 		return nil
 	}
@@ -474,7 +494,7 @@ func (c *faceCompiler) expandGrant(out *Face, st *Ability, prefix string) error 
 		}
 		for _, group := range [][]*Ability{built.abilities, built.triggers, built.statics, built.replacements} {
 			for _, ability := range group {
-				st.Subs = append(st.Subs, SubRef{Key: "AddKeyword", SVar: line, Ability: ability})
+				st.Subs = append(st.Subs, SubRef{Key: param, SVar: line, Ability: ability})
 			}
 		}
 	}

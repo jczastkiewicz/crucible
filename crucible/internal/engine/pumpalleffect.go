@@ -167,6 +167,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 					Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
 					Keywords: grant.keywords, Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
 					HasUntil: untilNextTurn, UntilTurnOf: a.Controller, Perpetual: perpetual,
+					Traits: pumpKeywordTraits(a.Params, grant.keywords), TraitAmounts: a.Amounts,
 				})
 				if until != "" {
 					if err := g.addUntilCommand(a, until, cardCommand{Kind: commandEndPump, Target: cid, Timestamp: timestamp}); err != nil {

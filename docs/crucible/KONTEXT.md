@@ -30,9 +30,8 @@ this file only points at them (DOC-11).
 
 Next, in order:
 
-1. Pumped keywords that stand for an ability or a trigger (`KW$` Persist, Undying, Rebound, Exalted, Embalm, Unearth,
-   Encore, Equip; about 30 cards) are keyword lines only. ADR-0038 decision 4 already says `compile` expands `KW$` at
-   load like `AddKeyword$`; port it (`game-state.md`, the pumped-keywords row).
+1. Unearth (58 printed cards, Highway Reaver's grant) and Encore (Araumi) have no `keyword.Expand` template: the keyword
+   is a line with no ability behind it. Port the templates (`CardFactoryUtil`'s Unearth and Encore branches).
 2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
    and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
    card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes

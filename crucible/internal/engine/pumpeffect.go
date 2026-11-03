@@ -292,6 +292,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		g.pumps = append(g.pumps, pumpRecord{
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
 			Keywords: c.costPlaceholderKeywords(grant.keywords), Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
+			Traits: pumpKeywordTraits(a.Params, grant.keywords), TraitAmounts: a.Amounts,
 			HasUntil: untilNextTurn, UntilTurnOf: a.Controller, Perpetual: perpetual,
 			CanBlockAny: canBlockAny, CanBlockMore: canBlockMore,
 			InZone: c.Zone, OffBattlefield: c.Zone != Battlefield,
@@ -564,6 +565,20 @@ type pumpGrant struct {
 // empty reports whether the grant changes nothing.
 func (k pumpGrant) empty() bool {
 	return len(k.keywords) == 0 && len(k.hidden) == 0 && !k.switched
+}
+
+// pumpKeywordTraits is the traits keywords stand for: a's `KW` subs (compile's
+// expandGrantedKeywords) whose keyword line is one of keywords as written. A
+// keyword a placeholder rewrote (DefinedKW$, a KWChoice$ or random pick, a
+// shared keyword) no longer matches its line and keeps the line alone.
+func pumpKeywordTraits(a *compile.Ability, keywords []string) []*compile.Ability {
+	var out []*compile.Ability
+	for _, sub := range a.Subs {
+		if sub.Key == "KW" && slices.Contains(keywords, sub.SVar) {
+			out = append(out, sub.Ability)
+		}
+	}
+	return out
 }
 
 // pumpKeywords reads KW$ -- shared between pumpEffect and pumpAllEffect,

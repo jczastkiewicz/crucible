@@ -21,15 +21,12 @@ this file only points at them (DOC-11).
 
 ## Waiting on the owner
 
-| Row                                                  | Blocked by                                                                    | Reason Claude stops                            |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- |
-| `B1` Charm `Defined$ You`                            | Publishing branch `upstream-pr/charm-defined-you`                             | Publishing upstream is the owner's (R3)        |
-| `B6` Dakkon `PlayLandVariant`                        | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
-| `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
-
-Unconfirmed PORT-8 candidate, JUnit probe first: `Cost.add` merges a plain mana part into the cost's mana and takes
-`maxWaterbend` from the incoming part only (`Cost.java:1019`), so a tax merged by `CostAdjustment.adjust` (`:90`,
-`:103`) may drop a Waterbend cost's tap (Hama's grant under Thalia). Go keeps the tap.
+| Row                                                    | Blocked by                                                                    | Reason Claude stops                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| `B1` Charm `Defined$ You`                              | Publishing branch `upstream-pr/charm-defined-you`                             | Publishing upstream is the owner's (R3)        |
+| `B6` Dakkon `PlayLandVariant`                          | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
+| `GameAction.java:170-172` Animate outliving CR 400.7   | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
+| `Cost.java:1020` waterbend cap lost to a cost increase | Publishing branch `upstream-pr/waterbend-cost-raise` (carried on `master`)    | Publishing upstream is the owner's (R3)        |
 
 Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardManaCost:<valid>` (Henzie, The Caldaia,
 Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`

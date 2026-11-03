@@ -374,12 +374,17 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		}
 	case "Remembered", "RememberedController", "RememberedOwner":
 		candidates = rememberedPlayers(g, defined, g.Card(host).Memory.Remembered(), true, g.Card(host))
-	case "ImprintedController", "ImprintedOwner":
+	case "ImprintedController", "ImprintedOwner", "ImprintedRemembered":
 		// AbilityUtils.java:996-997: addPlayer over the imprinted cards, the
-		// Remembered branch's own reading of each card.
+		// Remembered branch's own reading of each card; ImprintedRemembered
+		// is each card's remembered players (Encore's token, its opponent).
 		var imprinted []EntityID
 		for _, id := range g.Card(host).Memory.Imprinted() {
 			imprinted = append(imprinted, CardEntity(id))
+		}
+		if defined == "ImprintedRemembered" {
+			candidates = rememberedPlayers(g, "Remembered", imprinted, true, nil)
+			break
 		}
 		candidates = rememberedPlayers(g, "Remembered"+strings.TrimPrefix(defined, "Imprinted"), imprinted, false, nil)
 	case "DelayTriggerRemembered":

@@ -25,8 +25,9 @@ import (
 // the copy's own base values (CR 707.9b), TokenTapped$ taps it and
 // RememberTokens$ remembers it on the host and TokenAttacking$/TokenBlocking$
 // put it into combat attacking or blocking (addToCombatAttacking,
-// addToCombatBlocking); the other copy exceptions and
-// end-of-turn cleanup are not resolved.
+// addToCombatBlocking); ForEach$ makes the copies once per player it names,
+// each remembering its player. The other copy exceptions and end-of-turn
+// cleanup are not resolved.
 type copyPermanentEffect struct{}
 
 func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -35,7 +36,7 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	}
 	if err := rejectParams(a, "CopyPermanent",
 		"ValidSupportedCopy",
-		"RandomNum", "RandomCopied", "ForEach", "OptionalForEach", "WithDifferentNames",
+		"RandomNum", "RandomCopied", "OptionalForEach", "WithDifferentNames",
 		"ChangeZoneTable", "ChosenMapIndex",
 		"RemoveCreatureTypes", "SetCardTypes", "GainThisAbility", "AddTypesTo",
 		"CopyIsColor", "SetManaCost", "SetImageKey", "TokenRemembered"); err != nil {
@@ -91,6 +92,15 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			return err
 		}
 	}
+	// ForEach$ (CopyPermanentEffect.java:249-257): one batch of copies per
+	// player it names, each copy remembering that player (Encore's token for
+	// each opponent).
+	forEach := []PlayerID{NoPlayer}
+	if raw, ok := a.Params.Param("ForEach"); ok {
+		if forEach, err = definedPlayers(g, a.Controller, a.Source, raw, a.refs()); err != nil {
+			return fmt.Errorf("engine: CopyPermanent: ForEach$: %w", err)
+		}
+	}
 	var created []CardID
 	for _, owner := range controllers {
 		if g.Player(owner).Lost {
@@ -131,52 +141,57 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			if hasSetTough {
 				spec.Toughness, spec.HasToughness = setTough, true
 			}
-			for i := 0; i < num; i++ {
-				if hasAttach && isAuraDef(spec.Def) &&
-					(attachCard != NoCard && !tokenCanAttach(g, a, spec, attachCard) ||
-						attachPlayer != NoPlayer && !tokenCanAttachPlayer(g, a, spec, attachPlayer)) {
-					continue
-				}
-				id := g.createToken(controller, spec)
-				created = append(created, id)
-				if keyword.Parse(a.Params.Keyword).Name == "Embalm" {
-					// Card.isEmbalmed: the token an Embalm ability spawned
-					// (Card.java:6510-6513), read by Clone's Embalm$.
-					g.Card(id).embalmed = true
-				}
-				if hasAttach && g.Card(id).Zone == Battlefield {
-					if attachCard != NoCard && tokenCanAttach(g, a, spec, attachCard) {
-						g.attachTo(controller, id, attachCard)
+			for _, each := range forEach {
+				for i := 0; i < num; i++ {
+					if hasAttach && isAuraDef(spec.Def) &&
+						(attachCard != NoCard && !tokenCanAttach(g, a, spec, attachCard) ||
+							attachPlayer != NoPlayer && !tokenCanAttachPlayer(g, a, spec, attachPlayer)) {
+						continue
 					}
-					if attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) {
-						g.attachToPlayer(controller, id, attachPlayer)
+					id := g.createToken(controller, spec)
+					created = append(created, id)
+					if each != NoPlayer {
+						g.Card(id).Memory.Remember(PlayerEntity(each))
 					}
-				}
-				if loc, ok := a.Params.Param("AtEOTTrig"); ok {
-					if err := g.addSelfTrigger(a, loc, id); err != nil {
-						return err
+					if keyword.Parse(a.Params.Keyword).Name == "Embalm" {
+						// Card.isEmbalmed: the token an Embalm ability spawned
+						// (Card.java:6510-6513), read by Clone's Embalm$.
+						g.Card(id).embalmed = true
 					}
-				}
-				if pump != nil {
-					g.timestamp++
-					g.addAnimate(animateRecord{
-						Card: id, Timestamp: g.timestamp, Permanent: pump.permanent, AddKeywords: pump.keywords,
-					})
-				}
-				// TokenEffectBase.makeTokenTable's addToCombat (TokenEffectBase.java:188),
-				// which CopyPermanentEffect inherits.
-				if err := g.addToCombatAttacking(controller, a, id, "TokenAttacking"); err != nil {
-					return fmt.Errorf("engine: CopyPermanent: %w", err)
-				}
-				if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
-					return fmt.Errorf("engine: CopyPermanent: %w", err)
-				}
-				if hasParam(a, "RememberTokens") {
-					source.Memory.Remember(CardEntity(id))
-				}
-				if hasParam(a, "ImprintTokens") {
-					// TokenEffectBase.java:205-207, inherited.
-					source.Memory.Imprint(id)
+					if hasAttach && g.Card(id).Zone == Battlefield {
+						if attachCard != NoCard && tokenCanAttach(g, a, spec, attachCard) {
+							g.attachTo(controller, id, attachCard)
+						}
+						if attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) {
+							g.attachToPlayer(controller, id, attachPlayer)
+						}
+					}
+					if loc, ok := a.Params.Param("AtEOTTrig"); ok {
+						if err := g.addSelfTrigger(a, loc, id); err != nil {
+							return err
+						}
+					}
+					if pump != nil {
+						g.timestamp++
+						g.addAnimate(animateRecord{
+							Card: id, Timestamp: g.timestamp, Permanent: pump.permanent, AddKeywords: pump.keywords,
+						})
+					}
+					// TokenEffectBase.makeTokenTable's addToCombat (TokenEffectBase.java:188),
+					// which CopyPermanentEffect inherits.
+					if err := g.addToCombatAttacking(controller, a, id, "TokenAttacking"); err != nil {
+						return fmt.Errorf("engine: CopyPermanent: %w", err)
+					}
+					if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
+						return fmt.Errorf("engine: CopyPermanent: %w", err)
+					}
+					if hasParam(a, "RememberTokens") {
+						source.Memory.Remember(CardEntity(id))
+					}
+					if hasParam(a, "ImprintTokens") {
+						// TokenEffectBase.java:205-207, inherited.
+						source.Memory.Imprint(id)
+					}
 				}
 			}
 		}

@@ -64,17 +64,18 @@ func TestCleanupEffectLeavesUnnamedListsAlone(t *testing.T) {
 	}
 }
 
-// TestCleanupEffectRejectsUnresolvedParam proves Defined$ fails closed
-// rather than being dropped (PORT-8), and Log$ (a UI-only event in Java) is
-// accepted.
-func TestCleanupEffectRejectsUnresolvedParam(t *testing.T) {
+// TestCleanupEffectDefinedAndLog proves a Defined$ naming no card fails
+// closed where Java throws (CleanUpEffect.java:23-24; Encore's Defined$
+// Imprinted is TestEncoreTokenAttacksItsOpponentAndIsSacrificed), and Log$ (a
+// UI-only event in Java) is accepted.
+func TestCleanupEffectDefinedAndLog(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test Cleanup Forget", "DB$ Cleanup | ClearRemembered$ True | Defined$ Self")
+	def := etbChainDef(t, "Test Cleanup Forget", "DB$ Cleanup | ClearRemembered$ True | Defined$ Remembered")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Defined$")
+		t.Fatal("ResolveStack succeeded, want an error for a Defined$ naming no card")
 	}
 	g, p, _ = newTwoPlayerGame(t)
 	def = etbChainDef(t, "Test Cleanup Log", "DB$ Cleanup | ClearRemembered$ True | Log$ True")

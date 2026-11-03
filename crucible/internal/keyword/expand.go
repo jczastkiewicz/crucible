@@ -254,6 +254,26 @@ func Expand(k Keyword) (Expansion, bool) {
 			line += " | SetColor$ Black | SetPower$ 4 | SetToughness$ 4"
 		}
 		return Expansion{Abilities: []string{line}}, true
+	case "Encore":
+		// CardFactoryUtil.java:3478-3508: exile this card from your graveyard
+		// and pay the cost, as a sorcery: for each opponent, a token copy with
+		// haste that remembers that opponent and attacks it this turn if able
+		// (each token's effect remembers it and its opponent), sacrificed at
+		// the beginning of the next end step. Java appends a third field as
+		// more params; no corpus line has one, so it is not expanded (GO-7).
+		cost := costDetail(k)
+		if cost == "" || len(k.Args()) > 1 {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Abilities: []string{"AB$ CopyPermanent | Cost$ " + cost + " ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | SorcerySpeed$ True | Defined$ Self | PumpKeywords$ Haste | RememberTokens$ True | ForEach$ Opponent | AtEOT$ Sacrifice | SubAbility$ KWEncoreRepeat" + Slot},
+			SVars: []SVarDef{
+				{"KWEncoreRepeat" + Slot, "DB$ RepeatEach | DefinedCards$ Remembered | UseImprinted$ True | RepeatSubAbility$ KWEncoreEffect" + Slot},
+				{"KWEncoreEffect" + Slot, "DB$ Effect | RememberObjects$ Imprinted & ImprintedRemembered | ExileOnMoved$ Battlefield | StaticAbilities$ KWEncoreAttack" + Slot + " | SubAbility$ KWEncoreClean" + Slot},
+				{"KWEncoreAttack" + Slot, "Mode$ MustAttack | ValidCreature$ Card.IsRemembered | MustAttack$ RememberedPlayer | Description$ This token copy attacks that opponent this turn if able."},
+				{"KWEncoreClean" + Slot, "DB$ Cleanup | Defined$ Imprinted | ForgetDefined$ Remembered"},
+			},
+		}, true
 	case "Unearth":
 		// CardFactoryUtil.java:3636-3648: return this card from your graveyard
 		// to the battlefield, as a sorcery. The haste, the exile instead of

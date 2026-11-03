@@ -30,9 +30,10 @@ this file only points at them (DOC-11).
 
 Next, in order:
 
-1. Encore (26 printed cards, Araumi's grant) has no `keyword.Expand` template: the keyword is a line with no ability
-   behind it. Port it (`CardFactoryUtil.java:3478-3508`: CopyPermanent per opponent, each token made to attack that
-   opponent).
+1. Keywords with no `keyword.Expand` template and no engine reader are lines with no trait behind them, as Unearth and
+   Encore were. No coverage command exists (ADR-0038 names one). Heads named nowhere outside `keyword/defined.go`, by
+   card count: Disguise 47, Megamorph 31, Firebending 26, Myriad 23, Split second 22, Vanishing 21, Strive 20, Living
+   Weapon 19, Retrace 18. Verify each against the engine before porting; the list came from a text search.
 2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
    and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
    card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes

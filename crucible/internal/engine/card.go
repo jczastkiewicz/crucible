@@ -1382,6 +1382,30 @@ func (c *Card) shortManaCost() string {
 	return c.manaCost().ShortString()
 }
 
+// costPlaceholderKeywords is keywords as granted to c: CardManaCost becomes
+// c's mana cost and, in a keyword without it (an else-if), ConvertedManaCost
+// becomes c's mana value (StaticAbilityContinuous.java:755-762,
+// PumpEffect.java:453-466). The input is not modified.
+func (c *Card) costPlaceholderKeywords(keywords []string) []string {
+	out, cloned := keywords, false
+	for i, tok := range keywords {
+		var with string
+		switch {
+		case strings.Contains(tok, "CardManaCost"):
+			with = strings.ReplaceAll(tok, "CardManaCost", c.shortManaCost())
+		case strings.Contains(tok, "ConvertedManaCost"):
+			with = strings.ReplaceAll(tok, "ConvertedManaCost", strconv.Itoa(c.CMC()))
+		default:
+			continue
+		}
+		if !cloned {
+			out, cloned = slices.Clone(keywords), true
+		}
+		out[i] = with
+	}
+	return out
+}
+
 // foldPT applies Layers 7a and 7b in order (CR 613.4a-b): each effect
 // replaces the running value, unless pick's own bool reports this effect
 // does not set this particular dimension at all (PTEffect's own

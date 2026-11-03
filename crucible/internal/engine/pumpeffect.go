@@ -291,7 +291,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		g.pumps = append(g.pumps, pumpRecord{
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
-			Keywords: grant.keywords, Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
+			Keywords: c.costPlaceholderKeywords(grant.keywords), Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
 			HasUntil: untilNextTurn, UntilTurnOf: a.Controller, Perpetual: perpetual,
 			CanBlockAny: canBlockAny, CanBlockMore: canBlockMore,
 			InZone: c.Zone, OffBattlefield: c.Zone != Battlefield,

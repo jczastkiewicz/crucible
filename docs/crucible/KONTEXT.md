@@ -28,12 +28,17 @@ this file only points at them (DOC-11).
 | `GameAction.java:170-172` Animate outliving CR 400.7   | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
 | `Cost.java:1020` waterbend cap lost to a cost increase | Publishing branch `upstream-pr/waterbend-cost-raise` (carried on `master`)    | Publishing upstream is the owner's (R3)        |
 
-Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardManaCost:<valid>` (Henzie, The Caldaia,
-Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`
-and `StaticAbilityContinuous` substitutes no `CardManaCost` (only `PumpEffect.java:458` does). Go offers no such cast.
+Next, in order:
 
-Next: re-rank from `game-state.md` "Not ported yet" and the open plan; the keyword-cast row's leftovers (Warp with X,
-`CastSa` and `warped`, a copy of a bestowed spell, Summitfest's hand and library zones) are small.
+1. Pumped keywords that stand for an ability or a trigger (`KW$` Persist, Undying, Rebound, Exalted, Embalm, Unearth,
+   Encore, Equip; about 30 cards) are keyword lines only. ADR-0038 decision 4 already says `compile` expands `KW$` at
+   load like `AddKeyword$`; port it (`game-state.md`, the pumped-keywords row).
+2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
+   and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
+   card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes
+   `CardManaCost`.
+3. The keyword-cast row's leftovers (Warp with X, `CastSa` and `warped`, a copy of a bestowed spell, Summitfest's hand
+   and library zones).
 
 ## Working lessons
 

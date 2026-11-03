@@ -865,17 +865,7 @@ func (k *layerKeywords) layerKeywordsFor(c *Card) []string {
 		}
 		kept = append(kept, extra...)
 		add = kept
-		// CardManaCost wins over ConvertedManaCost in one keyword
-		// (StaticAbilityContinuous.java:735-741, an else-if): a keyword with
-		// both keeps the second token as written.
-		for i, tok := range add {
-			switch {
-			case strings.Contains(tok, "CardManaCost"):
-				add[i] = strings.ReplaceAll(tok, "CardManaCost", c.shortManaCost())
-			case strings.Contains(tok, "ConvertedManaCost"):
-				add[i] = strings.ReplaceAll(tok, "ConvertedManaCost", strconv.Itoa(c.CMC()))
-			}
-		}
+		add = c.costPlaceholderKeywords(add)
 	}
 	if k.multiplier != 1 && len(add) > 0 {
 		repeated := make([]string, 0, len(add)*k.multiplier)

@@ -31,6 +31,8 @@ func TestExpand(t *testing.T) {
 		{"Embalm:3 W", true, "AB$ CopyPermanent | Cost$ 3 W ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | SorcerySpeed$ True | RemoveCost$ True | AddTypes$ Zombie | Defined$ Self | SetColor$ White"},
 		{"Eternalize:2 B B", true, "SetColor$ Black | SetPower$ 4 | SetToughness$ 4"},
 		{"Embalm", false, ""},
+		{"Unearth:B", true, "AB$ ChangeZone | Cost$ B | Defined$ Self | Origin$ Graveyard | Destination$ Battlefield | SorcerySpeed$ True | ActivationZone$ Graveyard"},
+		{"Unearth", false, ""},
 		{"Daybound", true, "Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Neither | Secondary$ True | Execute$ KWDayBoundSet{n}"},
 		{"Nightbound", true, "DayTime$ Neither | IsPresent$ Card.Daybound | PresentCompare$ EQ0"},
 		{"Specialize:2", true, "Mode$ Specialize | SorcerySpeed$ True | ActivationZone$ Hand"},

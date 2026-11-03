@@ -714,6 +714,9 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		g.retainCraftMaterials(a, id, dest)
 		g.changeZoneLeftCombat(id, joined)
 		g.changeZoneAttach(controller, id, attach)
+		if err := g.unearthReturned(a, id); err != nil {
+			return err
+		}
 		if err := g.leaveBattlefieldFor(a, "ChangeZone", []CardID{id}); err != nil {
 			return err
 		}

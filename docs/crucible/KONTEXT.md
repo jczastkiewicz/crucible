@@ -30,8 +30,9 @@ this file only points at them (DOC-11).
 
 Next, in order:
 
-1. Unearth (58 printed cards, Highway Reaver's grant) and Encore (Araumi) have no `keyword.Expand` template: the keyword
-   is a line with no ability behind it. Port the templates (`CardFactoryUtil`'s Unearth and Encore branches).
+1. Encore (26 printed cards, Araumi's grant) has no `keyword.Expand` template: the keyword is a line with no ability
+   behind it. Port it (`CardFactoryUtil.java:3478-3508`: CopyPermanent per opponent, each token made to attack that
+   opponent).
 2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
    and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
    card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes

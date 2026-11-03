@@ -254,6 +254,16 @@ func Expand(k Keyword) (Expansion, bool) {
 			line += " | SetColor$ Black | SetPower$ 4 | SetToughness$ 4"
 		}
 		return Expansion{Abilities: []string{line}}, true
+	case "Unearth":
+		// CardFactoryUtil.java:3636-3648: return this card from your graveyard
+		// to the battlefield, as a sorcery. The haste, the exile instead of
+		// leaving and the end-step exile are the engine's, keyed on the
+		// ability's keyword (ChangeZoneEffect.java:680-698, unearthReturned).
+		cost := costDetail(k)
+		if cost == "" {
+			return Expansion{}, false
+		}
+		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ " + cost + " | Defined$ Self | Origin$ Graveyard | Destination$ Battlefield | SorcerySpeed$ True | ActivationZone$ Graveyard"}}, true
 	case "Rebound":
 		// CardFactoryUtil.java:2422-2451: a spell cast from your hand that
 		// resolves (Fizzle$ False: a countered spell carries no Fizzle key) is

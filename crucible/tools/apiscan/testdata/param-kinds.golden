@@ -1136,7 +1136,7 @@ ChangeText	ValidTgts	8	-	amount:1,valid:2	token:7,prose:1
 ChangeX	DB	2	-	-	token:2
 ChangeX	Defined	2	-	defined:68	token:2
 ChangeX	Value	2	amount:1	amount:1	amount:1,int:1
-ChangeZone	AB	1303	-	-	token:1303
+ChangeZone	AB	1371	-	-	token:1371
 ChangeZone	AILifeThreshold	1	-	int:1	int:1
 ChangeZone	AILogic	155	-	-	token:155
 ChangeZone	AIManaPref	2	-	-	token:2
@@ -1148,7 +1148,7 @@ ChangeZone	Activation	7	-	-	token:7
 ChangeZone	ActivationFirstCombat	6	-	-	bool:6
 ChangeZone	ActivationLimit	2	-	int:1	int:2
 ChangeZone	ActivationPhases	28	-	-	token:24,prose:4
-ChangeZone	ActivationZone	279	-	-	token:279
+ChangeZone	ActivationZone	347	-	-	token:347
 ChangeZone	Activator	8	-	-	token:8
 ChangeZone	AdditionalActivationZone	1	-	-	token:1
 ChangeZone	AlreadyRevealed	11	-	-	bool:11
@@ -1191,15 +1191,15 @@ ChangeZone	ConditionPlayerTurn	2	-	-	bool:2
 ChangeZone	ConditionPresent	251	-	valid:1	token:246,prose:5
 ChangeZone	ConditionSVarCompare	87	-	-	token:87
 ChangeZone	ConditionZone	4	-	-	token:4
-ChangeZone	Cost	1345	-	-	prose:947,token:318,int:80
+ChangeZone	Cost	1413	-	-	prose:998,token:327,int:88
 ChangeZone	CostDesc	22	-	text:1	prose:19,token:3
 ChangeZone	DB	4828	-	-	token:4828
-ChangeZone	Defined	2069	-	defined:68	token:2044,prose:25
+ChangeZone	Defined	2137	-	defined:68	token:2112,prose:25
 ChangeZone	DefinedDesc	4	text:1	-	prose:3,token:1
 ChangeZone	DefinedPlayer	331	defined:2	defined:1	token:331
 ChangeZone	DestAltSVar	6	-	-	amount:3,prose:2,token:1
 ChangeZone	DestAltSVarCompare	1	-	-	token:1
-ChangeZone	Destination	7221	zone:3	zone:10	token:7221
+ChangeZone	Destination	7289	zone:3	zone:10	token:7289
 ChangeZone	DestinationAlternative	49	zone:1	-	token:49
 ChangeZone	DifferentCMC	1	-	-	bool:1
 ChangeZone	DifferentNames	21	-	-	bool:21
@@ -1245,7 +1245,7 @@ ChangeZone	Optional	253	-	-	bool:212,token:41
 ChangeZone	OptionalDecider	1	-	defined:2	token:1
 ChangeZone	OptionalPrompt	3	-	-	prose:3
 ChangeZone	OrOtherConditionSVarCompare	2	-	-	token:2
-ChangeZone	Origin	7207	zone:3	zone:12	token:7207
+ChangeZone	Origin	7275	zone:3	zone:12	token:7275
 ChangeZone	OriginAlternative	63	zone:1,text:1	-	token:63
 ChangeZone	Pawprint	2	-	amount:3	int:2
 ChangeZone	Planeswalker	97	-	-	bool:97
@@ -1275,7 +1275,7 @@ ChangeZone	ShowCurrentCard	1	-	defined:2	token:1
 ChangeZone	Shuffle	252	-	-	bool:252
 ChangeZone	ShuffleChangedPile	2	-	-	bool:2
 ChangeZone	ShuffleNonMandatory	219	-	-	bool:219
-ChangeZone	SorcerySpeed	132	-	-	bool:132
+ChangeZone	SorcerySpeed	200	-	-	bool:200
 ChangeZone	SpellDescription	2756	-	-	prose:2753,token:3
 ChangeZone	StackDescription	534	-	-	token:379,prose:155
 ChangeZone	StaticEffect	50	-	-	token:50

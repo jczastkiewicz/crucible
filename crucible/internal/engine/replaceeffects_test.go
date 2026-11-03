@@ -469,6 +469,23 @@ func TestReplaceDamageFailsClosedAndDefaultsAmountToOne(t *testing.T) {
 		}
 	})
 
+	for name, op := range map[string]string{
+		"UnknownTokenScript":        "DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ no_such_token",
+		"ChosenWithoutValidChoices": "DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ Chosen",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTokenGame(t)
+			g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Bad Replace",
+				"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
+				"Op", op), p, engine.Battlefield)
+			resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
+			if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
+				t.Errorf("soldiers = %d, want 3 -- a ReplaceWith$ that fails leaves the token table as it was", n)
+			}
+		})
+	}
+
 	t.Run("AmountUnresolvable", func(t *testing.T) {
 		t.Parallel()
 		g, p, _ := newTwoPlayerGame(t)

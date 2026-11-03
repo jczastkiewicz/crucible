@@ -506,6 +506,27 @@ func (replaceTokenEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 			}
 			chosen = picked[0]
 		}
+		// Every script is looked up before the table changes, so a bad one
+		// fails the line with the table untouched.
+		scripts, ok := a.Params.Param("TokenScript")
+		if !ok {
+			return fmt.Errorf("engine: ReplaceToken: no TokenScript$")
+		}
+		var defs []*compile.Card // nil for Chosen
+		for _, script := range strings.Split(scripts, ",") {
+			if script = strings.TrimSpace(script); script == "Chosen" {
+				if chosen == NoCard {
+					return fmt.Errorf("engine: ReplaceToken: TokenScript$ Chosen with no ValidChoices$")
+				}
+				defs = append(defs, nil)
+				continue
+			}
+			def, err := tokenScript(g, script)
+			if err != nil {
+				return err
+			}
+			defs = append(defs, def)
+		}
 		g.timestamp++
 		var replaced []tokenCell
 		for _, i := range matching() {
@@ -518,25 +539,15 @@ func (replaceTokenEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 			}
 		}
 		t.cells = kept
-		scripts, ok := a.Params.Param("TokenScript")
-		if !ok {
-			return fmt.Errorf("engine: ReplaceToken: no TokenScript$")
-		}
 		for _, old := range replaced {
 			if old.n <= 0 {
 				continue
 			}
-			for _, script := range strings.Split(scripts, ",") {
-				spec := tokenSpec{Owner: old.creator, Controller: old.proto().controller}
-				if script == "Chosen" {
+			for _, def := range defs {
+				spec := tokenSpec{Def: def, Owner: old.creator, Controller: old.proto().controller}
+				if def == nil {
 					orig := g.Card(chosen).copiableValues()
 					spec.Def, spec.Power, spec.HasPower, spec.Toughness, spec.HasToughness = orig.def, orig.power, orig.hasPower, orig.toughness, orig.hasToughness
-				} else {
-					def, err := tokenScript(g, strings.TrimSpace(script))
-					if err != nil {
-						return err
-					}
-					spec.Def = def
 				}
 				t.put(tokenCell{creator: ev.player, spec: spec, n: old.n})
 			}

@@ -11,6 +11,8 @@ package engine
 //enginelint:allow id card game control token replacement replacementchoice replaceeffect takeinitiativeeffect valid zone
 
 import (
+	"slices"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -156,7 +158,11 @@ func (g *Game) tokensReplaced(controller PlayerController, t *tokenTable) {
 				}
 				cands = append(cands, replacementCandidate{host: h, rule: r, layer: replacementLayerOf(r), apply: func() replacementResult {
 					ev := replacementEvent{amountName: "TokenNum", amount: g.filterAmount(t, h, r), tokens: t, player: p}
+					// runReplaceWith restores ev, not the table it points to:
+					// a ReplaceWith$ that fails partway leaves it as it was.
+					before := slices.Clone(t.cells)
 					if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
+						t.cells = before
 						return replacementNotReplaced
 					}
 					return ev.result

@@ -931,5 +931,17 @@ func TestBlockingAloneAndBlockingValid(t *testing.T) {
 		if engine.Matches(g, g.Card(idle), valid.Parse("Creature.blockingAlone"), other, idle) {
 			t.Errorf("%d blockers: an idle creature reads blockingAlone", blockers)
 		}
+		// The spec keeps its own dot (Sting's `Goblin.blockingValid
+		// Creature.EquippedBy` shape): the restriction splits at the first.
+		if !engine.Matches(g, first, valid.Parse("Creature.blockingValid Creature.Goblin"), other, idle) {
+			t.Errorf("%d blockers: a blocker of a Goblin does not read blockingValid Creature.Goblin", blockers)
+		}
+		if blockers == 1 {
+			// Thijarian Witness reads it on the dead card.
+			g.Move(first.ID, engine.Graveyard, first.Owner)
+			if !engine.Matches(g, g.Card(first.ID), valid.Parse("Card.blockingAlone"), other, idle) {
+				t.Error("a lone blocker that died is not blockingAlone")
+			}
+		}
 	}
 }

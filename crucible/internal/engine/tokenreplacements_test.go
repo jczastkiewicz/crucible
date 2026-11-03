@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // tokenNames counts p's battlefield tokens by name.
@@ -135,5 +136,57 @@ func TestInvestigateRunsCreateTokenReplacements(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+// Two CreateToken lines that both apply from the start, in different layers:
+// Esix's (Layer$ Copy) is offered alone and applies first, then Doubling
+// Season's (Layer Other) doubles the copies (CR 616.1c before 616.1e). No
+// replacement choice is queued, so offering both at once would fail.
+func TestCreateTokenReplacementsApplyCopyLayerFirst(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Esix, Fractal Bloom"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Doubling Season"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(true)
+	c.QueueCardChoice([]engine.CardID{bears})
+	resolveLine(t, g, p, c, "DB$ Token | TokenScript$ c_a_treasure_sac")
+	if got := tokenNames(g, p); got["Grizzly Bears"] != 2 || len(got) != 1 {
+		t.Errorf("tokens = %v, want two Grizzly Bears copies", got)
+	}
+}
+
+// Crafty Cutpurse, the real card: its ETB trigger makes an Effect in the
+// command zone whose Layer$ Control line (ActiveZones$ Command) makes an
+// opponent's tokens this turn enter under its controller, still owned by
+// the opponent.
+func TestCraftyCutpurseTakesAnOpponentsTokens(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	cutpurse := g.NewCard(corpusCard(t, "Crafty Cutpurse"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Blue, 4)
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardU)
+	}
+	if !g.CastSpell(p, cutpurse, c) {
+		t.Fatal("could not cast Crafty Cutpurse")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	resolveLine(t, g, p, c, "DB$ Token | TokenOwner$ Opponent | TokenScript$ c_a_treasure_sac")
+	got := tokensOn(g, p, "Treasure Token")
+	if len(got) != 1 {
+		t.Fatalf("p's Treasures = %d, want 1 (theirs: %v)", len(got), tokenNames(g, other))
+	}
+	if owner := g.Card(got[0]).Owner; owner != other {
+		t.Errorf("Treasure owner = %v, want the opponent who created it", owner)
 	}
 }

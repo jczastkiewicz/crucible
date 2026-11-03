@@ -657,3 +657,55 @@ func TestSunburstCountsColorsSpent(t *testing.T) {
 		t.Errorf("Pentad Prism has %d charge counters, want 2", got)
 	}
 }
+
+// Cipher (CR 702.99, CardFactoryUtil.java:2714-2720, :3796-3821,
+// EncodeEffect.java): Shadow Slice resolves, is exiled and encoded on a
+// creature; that creature's combat damage to a player lets its controller cast
+// a copy, and the encoding ends when the creature leaves.
+func TestCipherEncodesAndCastsACopyOnCombatDamage(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 3)
+	libraryCards(t, g, other, 3)
+	g.SetTurnState(1, p, engine.Main1)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	slice := g.NewCard(corpusCard(t, "Shadow Slice"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Black, 5)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	c.QueueConfirmEffect(true)
+	c.QueueCardChoice([]engine.CardID{bear})
+	castResolved(t, g, p, slice, c, 4, mana.ShardB)
+	if got := g.Player(other).Life; got != 17 {
+		t.Fatalf("opponent life %d after the cast, want 17", got)
+	}
+	if got := g.Card(slice).Zone; got != engine.Exile {
+		t.Fatalf("Shadow Slice in %v, want exile", got)
+	}
+	if !engine.Matches(g, g.Card(bear), valid.Parse("Card.EncodedWithSource"), p, slice) {
+		t.Fatal("the creature is not encoded with Shadow Slice")
+	}
+	g.SetTurnState(3, p, engine.DeclareAttackers)
+	attackAlone(t, g, c, bear, engine.PlayerEntity(other))
+	c.QueueBlocks(nil)
+	declareBlockers(t, g, c)
+	c.QueueConfirmOptionalTrigger(true)
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	g.DealCombatDamage(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if got := g.Player(other).Life; got != 12 {
+		t.Errorf("opponent life %d after combat, want 17 - 2 damage - 3 from the copy", got)
+	}
+	if got := g.Card(slice).Zone; got != engine.Exile {
+		t.Errorf("Shadow Slice in %v after the copy, want still exiled", got)
+	}
+	g.Move(bear, engine.Graveyard, p)
+	if engine.Matches(g, g.Card(bear), valid.Parse("Card.EncodedWithSource"), p, slice) {
+		t.Error("the encoding outlived the creature leaving the battlefield")
+	}
+}

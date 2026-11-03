@@ -884,6 +884,22 @@ func Expand(k Keyword) (Expansion, bool) {
 			"AB$ Attach | ValidTgts$ Creature.YouCtrl+Other | TgtPrompt$ Select target creature you control | AILogic$ Pump | Cost$ " + args[0] + " | SorcerySpeed$ True | Secondary$ True",
 			"AB$ Unattach | Defined$ Self | IsPresent$ Card.Self+AttachedTo Creature | Cost$ " + args[0] + " | SorcerySpeed$ True | Secondary$ True",
 		}}, true
+	case "Cipher":
+		// CardFactoryUtil.java:3796-3821: while this card is exiled and
+		// encoded on a creature, that creature has "whenever this deals combat
+		// damage to a player, its controller may cast a copy of the encoded
+		// card without paying its mana cost". The DB$ Encode the spell ends
+		// with (:2714-2720) is appended by the compiler.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ Continuous | EffectZone$ Exile | Affected$ Card.EncodedWithSource | AddTrigger$ KWCipherTrigger" + Slot},
+			SVars: []SVarDef{
+				{"KWCipherTrigger" + Slot, "Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ KWCipherPlay" + Slot + " | CombatDamage$ True | OptionalDecider$ You"},
+				{"KWCipherPlay" + Slot, "DB$ Play | Defined$ OriginalHost | WithoutManaCost$ True | CopyCard$ True"},
+			},
+		}, true
 	case "Umbra armor":
 		// CardFactoryUtil.java:2501-2525: if the enchanted permanent would be
 		// destroyed, instead remove all damage from it and destroy this.

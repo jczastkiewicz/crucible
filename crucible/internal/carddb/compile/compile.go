@@ -390,6 +390,11 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 			continue
 		}
 		exp, ok := keyword.Expand(keyword.Parse(line))
+		if keyword.Parse(line).Name == "Cipher" {
+			if err := c.appendCipherEncode(out, line); err != nil {
+				return err
+			}
+		}
 		if keyword.Parse(line).Name == "Sunburst" {
 			// Sunburst's counter follows the face's printed type.
 			exp, ok = keyword.ExpandSunburst(keyword.Parse(line), c.face.Type.Has(cardtype.Creature))

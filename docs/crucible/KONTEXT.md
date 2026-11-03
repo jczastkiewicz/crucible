@@ -31,13 +31,13 @@ Next, in order:
 
 1. Keywords with no `keyword.Expand` template and no engine reader are lines with no trait behind them, as Morph,
    Vanishing and Myriad were. No coverage command exists (ADR-0038 names one). A text search for heads quoted nowhere
-   outside `keyword/defined.go`, by card count: Choose a Background 32, Doctor's companion 27, Banding 24, Spree 21
-   (`Amount$ Spree` over the chosen modes' `ModeCost$`, which several effects still refuse), Prototype 21 (a clone state
-   on the cast, `CardFactory.getCloneStates`), Assist 16 (Java's AI never assists, `PlayerControllerAi.java:395-410`),
-   More Than Meets the Eye 15 (cast the back face, `Card.setSplitStateToPlayAbility`), Cipher 15 (`DB$ Encode` and the
-   encoded card's combat-damage copy), Awaken 15. Prototype, More Than Meets the Eye and Awaken need the compiler or the
-   cast path to make a second spell of the card, not a template (`game-state.md`). Some are read under another spelling
-   (Reach, 449, is); verify each against the engine before porting.
+   outside `keyword/defined.go`, by card count: Choose a Background 32, Doctor's companion 27, Banding 24, Prototype 21
+   (a clone state on the cast, `CardFactory.getCloneStates`), Assist 16 (Java's AI never assists,
+   `PlayerControllerAi.java:395-410`), More Than Meets the Eye 15 (cast the back face,
+   `Card.setSplitStateToPlayAbility`), Awaken 15. Prototype, More Than Meets the Eye and Awaken need the cast path to
+   make a second spell of the card, not a template (`game-state.md`). Spree needs no reader: `charmModeCost` adds the
+   chosen modes' `ModeCost$`. Some are read under another spelling (Reach, 449, is); verify each against the engine
+   before porting.
 2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
    and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
    card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes

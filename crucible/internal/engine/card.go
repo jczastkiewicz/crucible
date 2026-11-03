@@ -177,6 +177,8 @@ type Card struct {
 	// reconfigureTS is the timestamp of the Reconfigure effect that makes an
 	// attached card not a creature (reconfigure.go), 0 while there is none.
 	reconfigureTS uint64
+	// encoded is the Cipher encoding this exiled card carries (encodeeffect.go).
+	encoded encodeMark
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.
@@ -1817,4 +1819,12 @@ func (c *Card) powerBonusFromCounters() int {
 func (c *Card) toughnessBonusFromCounters() int {
 	n := c.Counters.Count
 	return n(P1P1) + 2*n("P1P2") - n(M1M1) + n("P0P1") - 2*n("M0M2") + 2*n("P2P2") - n("M0M1") - n("M2M1") - 2*n("M2M2") + 2*n("P0P2")
+}
+
+// encodeMark is an exiled card's encoding (Card.getEncodingCard): the
+// creature it is encoded on, that creature's zone stamp, and the exiled
+// card's own zone stamp when it was encoded.
+type encodeMark struct {
+	creature             CardID
+	creatureStamp, stamp uint64
 }

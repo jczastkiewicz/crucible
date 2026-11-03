@@ -693,6 +693,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return ok && defender == c.Controller()
 	case name == "blocking":
 		return isBlocking(g.combat.Blocks, c.ID)
+	case name == "EncodedWithSource":
+		// CardProperty.java:421-422: the source is encoded on c (Cipher).
+		on, ok := g.encodedOn(source)
+		return source != NoCard && ok && on == c.ID
 	case strings.HasPrefix(name, "blocking") && blockingDefinedForms[strings.TrimPrefix(name, "blocking")]:
 		return g.blockingDefined(c.ID, strings.TrimPrefix(name, "blocking"), sourceController, source)
 	case name == "blocked":

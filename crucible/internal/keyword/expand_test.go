@@ -50,6 +50,8 @@ func TestExpand(t *testing.T) {
 		{"Firebending:X:, where X is CARDNAME's power.", true, "Mode$ Attacks"},
 		{"Firebending:Y", false, ""},
 		{"Firebending", false, ""},
+		{"Cipher", true, "Mode$ Continuous | EffectZone$ Exile | Affected$ Card.EncodedWithSource"},
+		{"Cipher:1", false, ""},
 		{"Hideaway:4", true, "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self"},
 		{"Hideaway", false, ""},
 		{"Double team", true, "Mode$ Attacks | ValidCard$ Card.Self+!token"},

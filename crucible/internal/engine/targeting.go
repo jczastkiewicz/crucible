@@ -1064,8 +1064,9 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 		// SpellAbility.isKicked: the spell's kicker cost was paid.
 		return item.spell && (g.Card(item.Source).kicker != 0 || g.Card(item.Source).castOpt.keywordCostAmount("Multikicker") > 0), nil
 	case "isCastFaceDown":
-		// No spell is cast face down in this port (morph, disguise).
-		return false, nil
+		// SpellAbility.isCastFaceDown: a spell cast face down is face down
+		// from before its costs are paid until it resolves (ADR-0048).
+		return item.spell && g.Card(item.Source).IsFaceDown(), nil
 	}
 	name, arg, _ := strings.Cut(prop, " ")
 	switch name {

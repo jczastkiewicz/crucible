@@ -483,6 +483,10 @@ func validSpellForSpell(spec string, c *Card) (matched, recognized bool) {
 				matched = true
 			case "Dash", "Blitz":
 				matched = matched || c.castFor(props)
+			case "isCastFaceDown":
+				// The spell is face down from before its cost is worked out
+				// (ADR-0048): Dream Chisel's reduction.
+				matched = matched || c.IsFaceDown()
 			default:
 				return false, false
 			}

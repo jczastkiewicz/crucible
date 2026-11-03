@@ -36,7 +36,7 @@ var saKeywordProperties = map[string][]string{
 var saUnresolvedPrefixes = []string{
 	"CountersRemovedToPay", "Bargain", "Backup", "Bestow",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
-	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
+	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "Mayhem",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
 	"paidPhyrexianMana", "ManaSpent", "ManaFrom",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
@@ -123,6 +123,10 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		}
 	}
 	switch {
+	case prop == "isCastFaceDown":
+		// SpellAbility.isCastFaceDown: the spell's card is face down while it
+		// is cast and on the stack (ADR-0048).
+		return a.spell && source.IsFaceDown(), true
 	case prop == "MayPlaySource":
 		// SpellAbilityProperty.java:207-212: the MayPlay$ static the spell is
 		// cast through is hosted by the trait's own card. Known only for the

@@ -136,3 +136,73 @@ func TestManifestTurnsUpForItsManaCost(t *testing.T) {
 		t.Error("Grizzly Bears is not turned face up this turn")
 	}
 }
+
+// Qarsi Deceiver's {C} is spendable only on a face-down creature spell or a
+// morph cost (RestrictValid$ Spell.isCastFaceDown+Creature,...,
+// Static.MorphUp): it pays both for Hidden Dragonslayer, and Dream Chisel
+// takes {1} off the face-down cast (ValidSpell$ Spell.isCastFaceDown).
+func TestRestrictedManaPaysFaceDownCastAndMorphCost(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	qarsi := g.NewCard(corpusCard(t, "Qarsi Deceiver"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Dream Chisel"), p, engine.Battlefield)
+	slayer := g.NewCard(corpusCard(t, "Hidden Dragonslayer"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	if !g.ActivateManaAbility(p, qarsi, 0, c) {
+		t.Fatal("Qarsi Deceiver made no mana")
+	}
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	c.QueueOption(1)
+	c.QueuePayGeneric(mana.ShardC)
+	c.QueuePayGeneric(mana.ShardW)
+	if !g.CastSpell(p, slayer, c) {
+		t.Fatalf("face-down cast for {2} with Qarsi's {C}: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool %d after the face-down cast, want 0", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	g.SetTurnState(3, p, engine.Main1)
+	g.Card(qarsi).Tapped = false
+	if !g.ActivateManaAbility(p, qarsi, 0, c) {
+		t.Fatal("Qarsi Deceiver made no mana")
+	}
+	g.Player(p).ManaPool.Add(mana.White, 2)
+	c.QueuePayGeneric(mana.ShardC)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueueTargets(nil)
+	if !g.TurnFaceUp(p, slayer, 0, c) {
+		t.Fatalf("morph cost {2}{W} with Qarsi's {C}: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool %d after turning up, want 0", got)
+	}
+}
+
+// Overgrown Zealot's two mana of one color are spendable only on turning
+// permanents face up (RestrictValid$ Static.isTurnFaceUp): they pay a
+// manifested Grizzly Bears' {1}{G}.
+func TestTurnFaceUpRestrictedManaPays(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	zealot := g.NewCard(corpusCard(t, "Overgrown Zealot"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Library)
+	ctl := engine.NewScriptedController()
+	resolveLine(t, g, p, ctl, "DB$ Manifest")
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Green)
+	if !g.ActivateManaAbility(p, zealot, 1, c) {
+		t.Fatalf("Overgrown Zealot made no mana: %v", g.TakePendingError())
+	}
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.TurnFaceUp(p, bears, 0, c) {
+		t.Fatalf("turn face up with Zealot's mana: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool %d after turning up, want 0", got)
+	}
+}

@@ -174,6 +174,10 @@ func (r RulesMod) clone() RulesMod {
 // changes how a card is cast but not whether its zone allows casting at
 // all (SpellAbilityRestriction.java:239-241).
 type mayPlayGrant struct {
+	// ValidSA is the keyword whose cast alone the grant allows (ValidSA$
+	// Spell.Blitz, Tenacious Underdog's "using its blitz ability"), "" for
+	// any cast.
+	ValidSA         string
 	CardID          CardID
 	Timestamp       uint64
 	Grantee         PlayerID

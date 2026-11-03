@@ -35,11 +35,8 @@ Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardMan
 Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`
 and `StaticAbilityContinuous` substitutes no `CardManaCost` (only `PumpEffect.java:458` does). Go offers no such cast.
 
-Next: the `MayPlay$` lines with `ValidSA$` past `Spell` (Tenacious Underdog and Sabin, Master Monk `Spell.Blitz`,
-Timeline Culler `Spell.Warp`, Detective's Phoenix `Spell.Bestow`, Brokkos `Spell.Mutate`, Ninja Teen `Spell.Sneak`).
-Every one of those casts exists now; `applyOneContinuousMayPlay` still refuses the grant (`continuous.go`), and the
-grant must allow only the named keyword cast from that zone (Java: `GameActionUtil.java:352` for Warp's hand
-restriction).
+Next: re-rank from `game-state.md` "Not ported yet" and the open plan; the keyword-cast row's leftovers (Warp with X,
+`CastSa` and `warped`, a copy of a bestowed spell, Summitfest's hand and library zones) are small.
 
 ## Working lessons
 

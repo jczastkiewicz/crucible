@@ -116,3 +116,37 @@ func TestFlickeredDashCreatureIsANewObject(t *testing.T) {
 		t.Errorf("after the end step the returned Zurgo is in %v, want the battlefield", got)
 	}
 }
+
+// A MayPlay$ grant with ValidSA$ Spell.Blitz allows only the blitz cast:
+// Tenacious Underdog is cast from its graveyard for {2}{B}{B} and 2 life, has
+// haste, and is sacrificed at the end step. No choice is asked: the plain cast
+// is not offered from there.
+func TestTenaciousUnderdogIsBlitzedFromTheGraveyard(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 4)
+	libraryCards(t, g, other, 4)
+	g.SetTurnState(1, p, engine.Main1)
+	dog := g.NewCard(corpusCard(t, "Tenacious Underdog"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	g.Player(p).ManaPool.Add(mana.Black, 4)
+	c.QueuePayGeneric(mana.ShardB)
+	c.QueuePayGeneric(mana.ShardB)
+	life := g.Player(p).Life
+	castThenResolve(t, g, p, dog, c)
+	if got := g.Card(dog).Zone; got != engine.Battlefield {
+		t.Fatalf("Tenacious Underdog in %v, want the battlefield", got)
+	}
+	if got := life - g.Player(p).Life; got != 2 {
+		t.Errorf("paid %d life, want 2", got)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if !g.Card(dog).HasKeyword("Haste") {
+		t.Error("the blitzed Tenacious Underdog has no haste")
+	}
+	toStep(t, g, c, p, engine.EndOfTurn, nil)
+	if got := g.Card(dog).Zone; got != engine.Graveyard {
+		t.Errorf("after the end step Tenacious Underdog is in %v, want the graveyard", got)
+	}
+}

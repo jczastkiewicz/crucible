@@ -110,3 +110,24 @@ func TestVengevineReturnsOnTheSecondCreatureSpell(t *testing.T) {
 		t.Errorf("after the second creature spell Vengevine is in %v, want the battlefield", got)
 	}
 }
+
+// Timeline Culler's own ValidSA$ Spell.Warp grant casts it from the graveyard
+// for its warp cost, {B} and 2 life (GameActionUtil.java:352: the grant's
+// host is the spell's).
+func TestTimelineCullerIsWarpedFromTheGraveyard(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	culler := g.NewCard(corpusCard(t, "Timeline Culler"), p, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	c := engine.NewScriptedController()
+	life := g.Player(p).Life
+	engine.CheckStateBasedActions(g, c)
+	castThenResolve(t, g, p, culler, c)
+	if got := g.Card(culler).Zone; got != engine.Battlefield {
+		t.Fatalf("Timeline Culler in %v, want the battlefield", got)
+	}
+	if got := life - g.Player(p).Life; got != 2 {
+		t.Errorf("paid %d life, want 2", got)
+	}
+}

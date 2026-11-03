@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -92,6 +93,17 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 			continue
 		}
 		if gr.Limit > 0 && g.mayPlayUsedThisTurn(gr.LimitKey) >= gr.Limit {
+			continue
+		}
+		if gr.ValidSA != "" {
+			// The grant allows only that keyword's cast (SpellAbility.
+			// getMayPlaySpellOptions keeps the spells ValidSA$ matches).
+			o, ok := g.validSAOption(pid, c, gr)
+			if !ok {
+				continue
+			}
+			zonePermission = zonePermission || gr.ZonePermission
+			grants = append(grants, o)
 			continue
 		}
 		zonePermission = zonePermission || gr.ZonePermission
@@ -179,6 +191,46 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		out[i].label = out[i].describe(g.Card(card).Def.Name)
 	}
 	return out
+}
+
+// validSAOption is the cast gr allows when its ValidSA$ names a keyword: that
+// keyword's own cast of c, the grant's host as its grantor. A Warp spell is
+// restricted to the hand, so a grant reaches it only from the card's own
+// static (GameActionUtil.java:352, Timeline Culler). ok is false when c has no
+// such cast now, or when the grant also changes the cost (no corpus line).
+func (g *Game) validSAOption(pid PlayerID, c *Card, gr mayPlayGrant) (castOption, bool) {
+	if gr.WithoutManaCost || gr.HasAltCost || gr.RaiseText != "" {
+		return castOption{}, false
+	}
+	var o castOption
+	var ok bool
+	switch gr.ValidSA {
+	case "Mutate":
+		o, ok = g.mutateOption(pid, c)
+	case "Sneak":
+		var mc mana.Cost
+		if mc, ok = g.sneakAvailable(pid, c); ok {
+			o = castOption{hasAlt: true, alt: mc, flash: true, sneak: true}
+		}
+	case "Warp":
+		if gr.LimitKey.Host == c.ID {
+			o, ok = g.keywordCastOption(pid, c, "Warp")
+		}
+	case "Bestow":
+		if c.Type().Has(cardtype.Creature) {
+			o, ok = g.keywordCastOption(pid, c, "Bestow")
+		}
+	default:
+		o, ok = g.keywordCastOption(pid, c, gr.ValidSA)
+	}
+	if !ok {
+		return castOption{}, false
+	}
+	o.grantor, o.flash = gr.LimitKey.Host, o.flash || gr.WithFlash
+	if gr.Limit > 0 {
+		o.limits = []mayPlayLimitKey{gr.LimitKey}
+	}
+	return o, true
 }
 
 // altCostThroughGrants is GameActionUtil.getAlternativeCosts' second step

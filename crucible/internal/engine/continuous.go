@@ -1330,10 +1330,20 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 		}
 	}
 	// ValidSA$ names the spell ability the option is for: a plain Spell is
-	// every cast; Spell.Blitz/Warp/Bestow/Mutate need an alternative cast
-	// this port has no way to make, so that grant would never be used.
+	// every cast; Spell.Blitz/Warp/Bestow/Mutate/Sneak only that keyword's
+	// cast (validSA, castOptions' validSAOption). Any other spec grants
+	// nothing (GO-7).
+	validSA := ""
 	if v, ok := s.Param("ValidSA"); ok && v != "Spell" {
-		return
+		name, ok := strings.CutPrefix(v, "Spell.")
+		switch {
+		case !ok:
+			return
+		case name == "Blitz" || name == "Warp" || name == "Bestow" || name == "Mutate" || name == "Sneak":
+			validSA = name
+		default:
+			return
+		}
 	}
 	var afterStack valid.Spec
 	_, hasAfterStack := s.Param("ValidAfterStack")
@@ -1370,7 +1380,7 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 			zones = append(zones, z)
 		}
 	}
-	grant := mayPlayGrant{LimitKey: mayPlayLimitKey{Host: host.ID, Index: index}}
+	grant := mayPlayGrant{LimitKey: mayPlayLimitKey{Host: host.ID, Index: index}, ValidSA: validSA}
 	_, grant.WithoutManaCost = s.Param("MayPlayWithoutManaCost")
 	_, grant.WithFlash = s.Param("MayPlayWithFlash")
 	_, noZonePermission := s.Param("MayPlayDontGrantZonePermissions")

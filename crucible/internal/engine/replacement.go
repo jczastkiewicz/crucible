@@ -2055,6 +2055,9 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 	if !ok {
 		return false
 	}
+	if api == APIGenericChoice {
+		return g.runReplaceWithChoice(controller, h, amounts, sub, ev)
+	}
 	eff, ok := replaceEffectFor(api)
 	if !ok {
 		return false
@@ -2069,6 +2072,38 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 		return false
 	}
 	return ev.result != replacementNotReplaced
+}
+
+// runReplaceWithChoice is a ReplaceWith$ GenericChoice (Jinnie Fay): the
+// host's controller picks one of its Choices$ abilities
+// (ChooseGenericEffect.java, Defined$ You by default), which then runs as
+// the ReplaceWith$ itself, on the same replacing objects (a choice's
+// ReplaceToken reads the root's, ReplaceTokenEffect.java:38-41). A line
+// naming anything else of GenericChoice's is skipped, as runReplaceWith skips
+// what it cannot run.
+func (g *Game) runReplaceWithChoice(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) bool {
+	for _, p := range sub.Params {
+		switch strings.ToLower(p.Key) {
+		case "db", "choices", "spelldescription", "stackdescription":
+		default:
+			return false
+		}
+	}
+	choices := additionalAbilities(sub, "Choices")
+	if len(choices) == 0 || controller == nil {
+		return false
+	}
+	names := make([]string, len(choices))
+	all := make([]int, len(choices))
+	for i, c := range choices {
+		names[i], all[i] = c.SVar, i
+	}
+	picked := controller.ChooseAbilitiesForEffect(g, h.Controller(), h.ID, names, 1)
+	if err := checkChoice(picked, all, 1, 1); err != nil {
+		g.recordPendingError(fmt.Errorf("engine: %q: ReplaceWith$ GenericChoice: %w", h.Def.Name, err))
+		return false
+	}
+	return g.runReplaceWith(controller, h, amounts, choices[picked[0]].Ability, ev)
 }
 
 // runReplaceWithEffect resolves sub, a replacement's ReplaceWith$ ability,

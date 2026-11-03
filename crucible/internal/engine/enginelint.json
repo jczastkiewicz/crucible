@@ -513,6 +513,7 @@
       "zonemove"
     ],
     "replacement": [
+      "additional",
       "id",
       "zone",
       "card",

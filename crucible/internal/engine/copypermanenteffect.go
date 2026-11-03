@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game control ability effecthelpers card condition id defined player token parts zone valid amount changecombatantseffect ateot cloneeffect animate tokeneffect
+//enginelint:allow game control ability effecthelpers card condition id defined player token parts zone valid amount changecombatantseffect ateot cloneeffect animate tokeneffect tokentable
 
 import (
 	"fmt"
@@ -113,7 +113,13 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		}
 		forEach = kept
 	}
-	var created []CardID
+	// CopyPermanentEffect.java:144-265: one token table for every copy -- a
+	// cell per controller, original and ForEach player, the player remembered
+	// on the prototype -- through makeTokenTable's CreateToken replacements,
+	// then each cell's copies in table order.
+	var table tokenTable
+	var effTapped bool
+	var effP1P1 int
 	for _, owner := range controllers {
 		if g.Player(owner).Lost {
 			continue
@@ -153,63 +159,76 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			if hasSetTough {
 				spec.Toughness, spec.HasToughness = setTough, true
 			}
+			effTapped, effP1P1 = spec.Tapped, spec.P1P1
 			for _, each := range forEach {
-				for i := 0; i < num; i++ {
-					if hasAttach && isAuraDef(spec.Def) &&
-						(attachCard != NoCard && !tokenCanAttach(g, a, spec, attachCard) ||
-							attachPlayer != NoPlayer && !tokenCanAttachPlayer(g, a, spec, attachPlayer)) {
-						continue
-					}
-					id := g.createToken(controller, spec)
-					created = append(created, id)
-					if each != NoPlayer {
-						g.Card(id).Memory.Remember(PlayerEntity(each))
-					}
-					if keyword.Parse(a.Params.Keyword).Name == "Embalm" {
-						// Card.isEmbalmed: the token an Embalm ability spawned
-						// (Card.java:6510-6513), read by Clone's Embalm$.
-						g.Card(id).embalmed = true
-					}
-					if hasAttach && g.Card(id).Zone == Battlefield {
-						if attachCard != NoCard && tokenCanAttach(g, a, spec, attachCard) {
-							g.attachTo(controller, id, attachCard)
-						}
-						if attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) {
-							g.attachToPlayer(controller, id, attachPlayer)
-						}
-					}
-					if loc, ok := a.Params.Param("AtEOTTrig"); ok {
-						if err := g.addSelfTrigger(a, loc, id); err != nil {
-							return err
-						}
-					}
-					if pump != nil {
-						g.timestamp++
-						g.addAnimate(animateRecord{
-							Card: id, Timestamp: g.timestamp, Permanent: pump.permanent, AddKeywords: pump.keywords,
-						})
-					}
-					// TokenEffectBase.makeTokenTable's addToCombat (TokenEffectBase.java:188),
-					// which CopyPermanentEffect inherits.
-					if err := g.addToCombatAttacking(controller, a, id, "TokenAttacking"); err != nil {
-						return fmt.Errorf("engine: CopyPermanent: %w", err)
-					}
-					if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
-						return fmt.Errorf("engine: CopyPermanent: %w", err)
-					}
-					if each != NoPlayer && hasParam(a, "CleanupForEach") {
-						// TokenEffectBase.java:216-217: the player the copy was
-						// made for is forgotten once it has joined combat.
-						g.Card(id).Memory.Forget(PlayerEntity(each))
-					}
-					if hasParam(a, "RememberTokens") {
-						source.Memory.Remember(CardEntity(id))
-					}
-					if hasParam(a, "ImprintTokens") {
-						// TokenEffectBase.java:205-207, inherited.
-						source.Memory.Imprint(id)
-					}
+				table.put(tokenCell{creator: owner, spec: spec, n: num, original: true, remembered: each})
+			}
+		}
+	}
+	g.tokensReplaced(controller, &table)
+	var created []CardID
+	for _, cell := range table.cells {
+		spec, each := cell.spec, cell.remembered
+		spec.Owner = cell.creator
+		if !cell.original {
+			// TokenTapped$ and the enter-with counters are the effect's, a
+			// replacement's prototype included (TokenEffectBase.java:128-146).
+			spec.Tapped, spec.P1P1 = effTapped, effP1P1
+		}
+		for i := 0; i < cell.n; i++ {
+			if hasAttach && isAuraDef(spec.Def) &&
+				(attachCard != NoCard && !tokenCanAttach(g, a, spec, attachCard) ||
+					attachPlayer != NoPlayer && !tokenCanAttachPlayer(g, a, spec, attachPlayer)) {
+				continue
+			}
+			id := g.createToken(controller, spec)
+			created = append(created, id)
+			if each != NoPlayer {
+				g.Card(id).Memory.Remember(PlayerEntity(each))
+			}
+			if keyword.Parse(a.Params.Keyword).Name == "Embalm" {
+				// Card.isEmbalmed: the token an Embalm ability spawned
+				// (Card.java:6510-6513), read by Clone's Embalm$.
+				g.Card(id).embalmed = true
+			}
+			if hasAttach && g.Card(id).Zone == Battlefield {
+				if attachCard != NoCard && tokenCanAttach(g, a, spec, attachCard) {
+					g.attachTo(controller, id, attachCard)
 				}
+				if attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) {
+					g.attachToPlayer(controller, id, attachPlayer)
+				}
+			}
+			if loc, ok := a.Params.Param("AtEOTTrig"); ok {
+				if err := g.addSelfTrigger(a, loc, id); err != nil {
+					return err
+				}
+			}
+			if pump != nil {
+				g.timestamp++
+				g.addAnimate(animateRecord{
+					Card: id, Timestamp: g.timestamp, Permanent: pump.permanent, AddKeywords: pump.keywords,
+				})
+			}
+			// TokenEffectBase.makeTokenTable's addToCombat (TokenEffectBase.java:188),
+			// which CopyPermanentEffect inherits.
+			if err := g.addToCombatAttacking(controller, a, id, "TokenAttacking"); err != nil {
+				return fmt.Errorf("engine: CopyPermanent: %w", err)
+			}
+			if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
+				return fmt.Errorf("engine: CopyPermanent: %w", err)
+			}
+			if each != NoPlayer && hasParam(a, "CleanupForEach") {
+				// TokenEffectBase.java:216-217: the player the copy was
+				// made for is forgotten once it has joined combat.
+				g.Card(id).Memory.Forget(PlayerEntity(each))
+			}
+			if hasParam(a, "RememberTokens") {
+				source.Memory.Remember(CardEntity(id))
+			}
+			if hasParam(a, "ImprintTokens") {
+				// TokenEffectBase.java:205-207, inherited.
+				source.Memory.Imprint(id)
 			}
 		}
 	}

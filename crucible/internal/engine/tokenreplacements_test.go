@@ -190,3 +190,49 @@ func TestCraftyCutpurseTakesAnOpponentsTokens(t *testing.T) {
 		t.Errorf("Treasure owner = %v, want the opponent who created it", owner)
 	}
 }
+
+// CopyPermanent makes its copies through the token table too
+// (CopyPermanentEffect.java:144-265): Doubling Season doubles a copy, and a
+// ForEach$ copy that Divine Visitation turns into an Angel still remembers
+// the player it was made for (the prototype's memory, :256 and
+// ReplaceTokenEffect.java:139).
+func TestCopyPermanentRunsCreateTokenReplacements(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Doubling Season"), p, engine.Battlefield)
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ CopyPermanent | DefinedName$ Grizzly Bears")
+	if got := tokenNames(g, p); got["Grizzly Bears"] != 2 || len(got) != 1 {
+		t.Errorf("with Doubling Season: tokens = %v, want two Grizzly Bears", got)
+	}
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Divine Visitation"), p, engine.Battlefield)
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ CopyPermanent | DefinedName$ Grizzly Bears | ForEach$ Opponent")
+	angels := tokensOn(g, p, "Angel Token")
+	if len(angels) != 1 {
+		t.Fatalf("with Divine Visitation: tokens = %v, want one Angel", tokenNames(g, p))
+	}
+	if mem := g.Card(angels[0]).Memory.Remembered(); len(mem) != 1 || mem[0] != engine.PlayerEntity(other) {
+		t.Errorf("Angel remembers %v, want the opponent it was made for", mem)
+	}
+}
+
+// Jinnie Fay's ReplaceWith$ GenericChoice: its controller picks Cat or Dog,
+// and that choice's ReplaceToken replaces the tokens being created.
+func TestJinnieFayReplacesTokensWithTheChosenKind(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Jinnie Fay, Jetmir's Second"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(true)
+	c.QueueAbilityChoice([]int{1})
+	resolveLine(t, g, p, c, "DB$ Token | TokenScript$ c_a_treasure_sac | TokenAmount$ 2")
+	if got := tokenNames(g, p); got["Dog Token"] != 2 || len(got) != 1 {
+		t.Errorf("tokens = %v, want two Dogs", got)
+	}
+}

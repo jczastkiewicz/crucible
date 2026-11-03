@@ -27,6 +27,10 @@ type tokenCell struct {
 	spec     tokenSpec
 	n        int
 	original bool
+	// remembered is the player the prototype remembers (CopyPermanent's
+	// ForEach$, CopyPermanentEffect.java:256), NoPlayer for none. A
+	// ReplaceToken prototype keeps the one it replaced (:139).
+	remembered PlayerID
 }
 
 // tokenTable is TokenCreateTable: cells grouped by creator, rows in the order

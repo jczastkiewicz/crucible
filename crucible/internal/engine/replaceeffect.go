@@ -549,7 +549,7 @@ func (replaceTokenEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 					orig := g.Card(chosen).copiableValues()
 					spec.Def, spec.Power, spec.HasPower, spec.Toughness, spec.HasToughness = orig.def, orig.power, orig.hasPower, orig.toughness, orig.hasToughness
 				}
-				t.put(tokenCell{creator: ev.player, spec: spec, n: old.n})
+				t.put(tokenCell{creator: ev.player, spec: spec, n: old.n, remembered: old.remembered})
 			}
 		}
 	case "ReplaceController":

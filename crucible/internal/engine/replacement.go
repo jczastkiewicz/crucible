@@ -2307,52 +2307,6 @@ func replacementObjectMatches(g *Game, r *compile.Ability, h *Card, object Entit
 	return true
 }
 
-// tokensReplaced is ReplaceToken (Event$ CreateToken): n tokens from def
-// that owner is about to create. Returns how many to create instead.
-// ValidToken$ is matched against the token as it would enter -- def,
-// owned and controlled by owner, not yet in any zone (Java matches the
-// prototype in its TokenCreateTable the same way). ValidPlayer$ is the
-// creating player. Optional$ and Layer$ skip the line: the one asks a
-// question this dispatch has no hook for, the other names a copy or
-// control replacement, not an amount.
-func (g *Game) tokensReplaced(controller PlayerController, owner PlayerID, def *compile.Card, n int) int {
-	// proto has no arena slot: ID is the NoCard zero value. Matches must
-	// only read fields off the pointer for this call, never look the card
-	// up by ID (g.Card(proto.ID) panics on NoCard). Every real ValidToken$
-	// line in the corpus is a plain type/owner/control check, so this holds
-	// today; a property that dereferences by ID would need proto allocated
-	// through NewCard instead.
-	proto := Card{Def: def, Owner: owner, controller: owner, IsToken: true, Zone: None}
-	g.eachReplacement("CreateToken", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
-		if !onlyParams(r, "validtoken", "validplayer", "effectonly") {
-			return false
-		}
-		if v, ok := r.Param("ValidToken"); ok && !Matches(g, &proto, valid.Parse(v), h.Controller(), h.ID) {
-			return false
-		}
-		if v, ok := r.Param("ValidPlayer"); ok {
-			matched, recognized := matchesPlayerSpec(g, owner, h.Controller(), h.ID, v)
-			if !recognized || !matched {
-				return false
-			}
-		}
-		if !replacementRequirementsCheck(g, h, amounts, r) {
-			return false
-		}
-		sub := replaceWithSub(r)
-		if sub == nil {
-			return false
-		}
-		ev := replacementEvent{amountName: "TokenNum", amount: n}
-		if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
-			return false
-		}
-		n = ev.amount
-		return true
-	})
-	return n
-}
-
 // manaReplaced is ReplaceProduceMana (Event$ ProduceMana): m is the mana
 // source's production for activator. Returns what is produced instead.
 // ValidCard$ is the mana source, ValidActivator$ the activating player.

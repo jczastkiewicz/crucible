@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control effecthelpers token counters zone parts event
+//enginelint:allow id card game ability defined condition control effecthelpers token counters zone parts event tokentable
 
 import (
 	"fmt"
@@ -50,8 +50,8 @@ func (empowerEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if err != nil {
 			return err
 		}
-		id := g.createToken(controller, tokenSpec{Def: def, Owner: p})
-		g.checkChangesZoneAllTriggers(controller, []CardID{id}, None, Battlefield)
+		ids := g.makeTokens(controller, tokenCell{creator: p, spec: tokenSpec{Def: def, Owner: p}, n: 1})
+		g.checkChangesZoneAllTriggers(controller, ids, None, Battlefield)
 	}
 
 	tokens := empowerTokens(g, p, typ)

@@ -514,22 +514,21 @@ func TestReplaceSplitDamageDefaultsAndFailsClosed(t *testing.T) {
 	}
 }
 
-// TestReplaceTokenFailsClosedOnUnportedTypeAndBadAmount proves Type$ naming
-// something other than Amount, and Amount$ naming an unresolvable op, both
-// fail the replacement rather than silently leaving the token count alone
-// or crashing.
-func TestReplaceTokenFailsClosedOnUnportedTypeAndBadAmount(t *testing.T) {
+// TestReplaceTokenUnknownTypeAndBadAmount proves an unknown Type$ changes
+// nothing (Java's own fall-through), and an Amount$ naming an unresolvable op
+// fails the replacement rather than guessing a count or crashing.
+func TestReplaceTokenUnknownTypeAndBadAmount(t *testing.T) {
 	t.Parallel()
 
-	t.Run("TypeNotAmount", func(t *testing.T) {
+	t.Run("UnknownTypeChangesNothing", func(t *testing.T) {
 		t.Parallel()
 		g, p, _ := newTokenGame(t)
-		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Type Not Amount",
+		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Unknown Type",
 			"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
-			"Op", "DB$ ReplaceToken | Type$ ReplaceController"), p, engine.Battlefield)
+			"Op", "DB$ ReplaceToken | Type$ Bogus"), p, engine.Battlefield)
 		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
 		if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
-			t.Errorf("soldiers = %d, want 3 -- Type$ ReplaceController is not ported, replacement fails closed", n)
+			t.Errorf("soldiers = %d, want 3 -- an unknown Type$ changes nothing (ReplaceTokenEffect.java:158)", n)
 		}
 	})
 

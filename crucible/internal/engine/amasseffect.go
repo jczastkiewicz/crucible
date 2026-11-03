@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability animate card condition control defined effecthelpers event game id parts token zone
+//enginelint:allow ability animate card condition control defined effecthelpers event game id parts token zone tokentable
 
 import (
 	"fmt"
@@ -56,8 +56,8 @@ func (amassEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if err != nil {
 			return err
 		}
-		id := g.createToken(controller, tokenSpec{Def: def, Owner: amasser})
-		g.checkChangesZoneAllTriggers(controller, []CardID{id}, None, Battlefield)
+		ids := g.makeTokens(controller, tokenCell{creator: amasser, spec: tokenSpec{Def: def, Owner: amasser}, n: 1})
+		g.checkChangesZoneAllTriggers(controller, ids, None, Battlefield)
 	}
 	candidates := armies(g, amasser)
 	if len(candidates) == 0 {

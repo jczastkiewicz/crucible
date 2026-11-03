@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability card condition control defined effecthelpers game id parts player token zone
+//enginelint:allow ability card condition control defined effecthelpers game id parts player token zone tokentable
 
 // investigateEffect is InvestigateEffect.java: Num$ times (default 1), each
 // target or Defined$ player (default You) creates a Clue (c_a_clue_draw),
@@ -47,7 +47,7 @@ func (investigateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			if g.Player(p).Lost {
 				continue
 			}
-			created = append(created, g.createToken(controller, tokenSpec{Def: clue, Owner: p}))
+			created = append(created, g.makeTokens(controller, tokenCell{creator: p, spec: tokenSpec{Def: clue, Owner: p}, n: 1})...)
 			g.Player(p).InvestigatedThisTurn++
 			g.checkInvestigatedTriggers(controller, p, g.Player(p).InvestigatedThisTurn == 1)
 			if hasParam(a, "RememberInvestigatingPlayers") {

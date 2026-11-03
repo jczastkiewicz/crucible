@@ -32,6 +32,39 @@ type replacementCandidate struct {
 	host  *Card
 	rule  *compile.Ability
 	apply func() replacementResult
+	// layer is the line's Layer$ rank (replacementLayerOf); the zero value
+	// is ReplacementLayer.Other's, every dispatch's that sets none.
+	layer replacementLayer
+}
+
+// replacementLayer is ReplacementLayer.java in its declared order, which is
+// the order ReplacementHandler.run tries them (CR 616.1b-e): a control
+// replacement first, then copy, then transform, then the rest. Other is the
+// zero value.
+type replacementLayer int
+
+const (
+	replacementLayerCantHappen replacementLayer = iota - 4
+	replacementLayerControl
+	replacementLayerCopy
+	replacementLayerTransform
+	replacementLayerOther
+)
+
+// replacementLayerOf is r's Layer$ (ReplacementEffect's default Other).
+func replacementLayerOf(r *compile.Ability) replacementLayer {
+	v, _ := r.Param("Layer")
+	switch strings.ToLower(v) {
+	case "canthappen":
+		return replacementLayerCantHappen
+	case "control":
+		return replacementLayerControl
+	case "copy":
+		return replacementLayerCopy
+	case "transform":
+		return replacementLayerTransform
+	}
+	return replacementLayerOther
 }
 
 // appliedReplacement is Java's ReplacementEffect.hasRun: a replacement
@@ -59,6 +92,14 @@ func (g *Game) runReplacements(controller PlayerController, decider PlayerID, co
 		if len(cands) == 0 {
 			return outcome
 		}
+		// ReplacementHandler.run tries the layers in order and goes back to
+		// the first after an update (ReplacementHandler.java:246-251, 294-302):
+		// only the lowest layer with a candidate is offered.
+		low := cands[0].layer
+		for _, c := range cands {
+			low = min(low, c.layer)
+		}
+		cands = slices.DeleteFunc(cands, func(c replacementCandidate) bool { return c.layer != low })
 		chosen := cands[g.chooseReplacement(controller, decider, cands)]
 		done = append(done, appliedReplacement{host: chosen.host.ID, rule: chosen.rule})
 		if !g.confirmOptionalReplacement(controller, decider, chosen) {

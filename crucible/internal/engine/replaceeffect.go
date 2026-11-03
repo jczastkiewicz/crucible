@@ -4,7 +4,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined amount control parts effecthelpers effect replacement manaability condition combat
+//enginelint:allow id card game player ability defined amount control parts effecthelpers effect replacement manaability condition combat token tokentable valid zone
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // replacementResult is ReplacementResult: what running a replacement did to
@@ -86,6 +87,11 @@ type replacementEvent struct {
 	// step, earlier defenders' included, which the ReplaceWith$ ability adds
 	// its own to in place of the normal declaration (ADR-0035).
 	blocks []Block
+
+	// tokens is CreateToken's Token: the table of tokens about to be made,
+	// which ReplaceToken edits in place for the row of player, the event's
+	// Affected (ReplaceToken.setReplacingObjects). Nil for every other event.
+	tokens *tokenTable
 
 	// exchanges is RollDice's DicePTExchanges set (RollDiceEffect.java:140):
 	// the cards whose ReplaceEffect VarType$ CardSet added themselves, each
@@ -380,15 +386,32 @@ func (replaceSplitDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController)
 	return nil
 }
 
-// replaceTokenEffect is ReplaceTokenEffect.java's Type$ Amount: the number
-// of tokens the matched creation makes is put through Amount$ (default
-// Twice) -- Doubling Season's "twice that many". The dispatch checks
-// ValidToken$ before this runs. Type$ AddToken/ReplaceToken/
-// ReplaceController, which change which tokens are made or who controls
-// them, are rejected.
+// replaceTokenEffect is ReplaceTokenEffect.java over the CreateToken event's
+// table (ev.tokens), for the row of the affected player (ev.player). The
+// cells it touches are those the replacement's own ValidToken$ admits (its
+// host's controller as the valid string's "you"); none named admits every
+// cell (matchesValidParam). Type$:
+//
+//   - Amount: each such cell's count goes through Amount$ (default Twice),
+//     Doubling Season.
+//   - AddToken (Chatterfang, Academy Manufactor's siblings, Xorn): per
+//     controller of those cells, their summed count -- or Amount$ instead,
+//     once per controller -- of each TokenScript$, entering under that
+//     controller, created by the replacement's controller.
+//   - ReplaceToken (Divine Visitation, Esix): those cells go and, per cell,
+//     its count of each TokenScript$ replaces it, same creator and
+//     controller. `Chosen` is a copy of a card the replacement's controller
+//     picks among ValidChoices$ on the battlefield; with none to pick the
+//     event is not replaced.
+//   - ReplaceController (Crafty Cutpurse): those cells enter under
+//     NewController$ (default the replacement's controller) instead.
+//
+// Java takes a timestamp for AddToken, ReplaceToken and ReplaceController
+// whether or not anything matches (:61, :99, :144); so does this. Any other
+// Type$ changes nothing and still reports the event updated (:158).
 type replaceTokenEffect struct{}
 
-func (replaceTokenEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (replaceTokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	ev := a.replacing
 	if ev == nil {
 		return errNotReplacing("ReplaceToken")
@@ -396,23 +419,165 @@ func (replaceTokenEffect) Resolve(g *Game, a *Ability, _ PlayerController) error
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
 	}
-	if ev.amountName != "TokenNum" {
+	t := ev.tokens
+	if ev.amountName != "TokenNum" || t == nil || len(g.replacing) == 0 {
 		return fmt.Errorf("engine: ReplaceToken: not replacing token creation")
 	}
-	if t, _ := a.Params.Param("Type"); t != "Amount" {
-		return fmt.Errorf("engine: ReplaceToken: Type$ %q not resolvable yet", t)
+	cur := g.replacing[len(g.replacing)-1]
+	host := g.Card(cur.host)
+	validToken := func(c tokenCell) bool {
+		v, ok := cur.rule.Param("ValidToken")
+		return !ok || Matches(g, c.proto(), valid.Parse(v), host.Controller(), host.ID)
 	}
-	op, ok := a.Params.Param("Amount")
-	if !ok {
-		op = "Twice"
+	matching := func() []int {
+		var out []int
+		for i, c := range t.cells {
+			if c.creator == ev.player && validToken(c) {
+				out = append(out, i)
+			}
+		}
+		return out
 	}
-	n, ok := doXMath(ev.amount, op)
-	if !ok {
-		return fmt.Errorf("engine: ReplaceToken: Amount$ %q not resolvable yet", op)
+	typ, _ := a.Params.Param("Type")
+	switch typ {
+	case "Amount":
+		op, ok := a.Params.Param("Amount")
+		if !ok {
+			op = "Twice"
+		}
+		for _, i := range matching() {
+			n, ok := doXMath(t.cells[i].n, op)
+			if !ok {
+				return fmt.Errorf("engine: ReplaceToken: Amount$ %q not resolvable yet", op)
+			}
+			t.cells[i].n = n
+		}
+	case "AddToken":
+		g.timestamp++
+		var ctrls []PlayerID
+		sums := map[PlayerID]int{}
+		for _, i := range matching() {
+			c := t.cells[i]
+			ctrl := c.proto().controller
+			if _, seen := sums[ctrl]; !seen {
+				ctrls = append(ctrls, ctrl)
+			}
+			sums[ctrl] += c.n
+		}
+		if len(ctrls) > 0 {
+			if _, ok := a.Params.Param("Amount"); ok {
+				n, err := optionalAmount(g, a, "ReplaceToken", "Amount", 0)
+				if err != nil {
+					return err
+				}
+				for _, p := range ctrls {
+					sums[p] = n
+				}
+			}
+			defs, err := replaceTokenScripts(g, a)
+			if err != nil {
+				return err
+			}
+			for _, p := range ctrls {
+				for _, def := range defs {
+					t.put(tokenCell{creator: a.Controller, spec: tokenSpec{Def: def, Owner: a.Controller, Controller: p}, n: sums[p]})
+				}
+			}
+		}
+	case "ReplaceToken":
+		var chosen CardID
+		if spec, ok := a.Params.Param("ValidChoices"); ok {
+			parsed := valid.Parse(spec)
+			var choices []CardID
+			for _, pid := range g.Players() {
+				for _, id := range g.Zone(Battlefield, pid).Cards() {
+					if Matches(g, g.Card(id), parsed, a.Controller, a.Source) {
+						choices = append(choices, id)
+					}
+				}
+			}
+			if len(choices) == 0 {
+				ev.result = replacementNotReplaced
+				return nil
+			}
+			picked := controller.ChooseCardsForEffect(g, a.Controller, a.Source, choices, 1, 1)
+			if err := checkChoice(picked, choices, 1, 1); err != nil {
+				return fmt.Errorf("engine: ReplaceToken: ValidChoices$: %w", err)
+			}
+			chosen = picked[0]
+		}
+		g.timestamp++
+		var replaced []tokenCell
+		for _, i := range matching() {
+			replaced = append(replaced, t.cells[i])
+		}
+		kept := t.cells[:0]
+		for _, c := range t.cells {
+			if c.creator != ev.player || !validToken(c) {
+				kept = append(kept, c)
+			}
+		}
+		t.cells = kept
+		scripts, ok := a.Params.Param("TokenScript")
+		if !ok {
+			return fmt.Errorf("engine: ReplaceToken: no TokenScript$")
+		}
+		for _, old := range replaced {
+			if old.n <= 0 {
+				continue
+			}
+			for _, script := range strings.Split(scripts, ",") {
+				spec := tokenSpec{Owner: old.creator, Controller: old.proto().controller}
+				if script == "Chosen" {
+					orig := g.Card(chosen).copiableValues()
+					spec.Def, spec.Power, spec.HasPower, spec.Toughness, spec.HasToughness = orig.def, orig.power, orig.hasPower, orig.toughness, orig.hasToughness
+				} else {
+					def, err := tokenScript(g, strings.TrimSpace(script))
+					if err != nil {
+						return err
+					}
+					spec.Def = def
+				}
+				t.put(tokenCell{creator: ev.player, spec: spec, n: old.n})
+			}
+		}
+	case "ReplaceController":
+		g.timestamp++
+		newCtrl := a.Controller
+		if v, ok := a.Params.Param("NewController"); ok {
+			players, err := definedPlayers(g, a.Controller, a.Source, v, a.refs())
+			if err != nil {
+				return fmt.Errorf("engine: ReplaceToken: NewController$: %w", err)
+			}
+			if len(players) == 0 {
+				// ReplaceTokenEffect.java:147 takes get(0) unguarded.
+				return fmt.Errorf("engine: ReplaceToken: NewController$ %q names no player", v)
+			}
+			newCtrl = players[0]
+		}
+		for _, i := range matching() {
+			t.cells[i].spec.Controller = newCtrl
+		}
 	}
-	ev.amount = max(n, 0)
 	ev.result = replacementUpdated
 	return nil
+}
+
+// replaceTokenScripts is TokenScript$'s comma list, each looked up.
+func replaceTokenScripts(g *Game, a *Ability) ([]*compile.Card, error) {
+	scripts, ok := a.Params.Param("TokenScript")
+	if !ok {
+		return nil, fmt.Errorf("engine: ReplaceToken: no TokenScript$")
+	}
+	var defs []*compile.Card
+	for _, script := range strings.Split(scripts, ",") {
+		def, err := tokenScript(g, strings.TrimSpace(script))
+		if err != nil {
+			return nil, err
+		}
+		defs = append(defs, def)
+	}
+	return defs, nil
 }
 
 // doXMath is AbilityUtils.doXMath for the operators a bare Amount$ names:

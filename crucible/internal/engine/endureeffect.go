@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow control ability game effecthelpers card condition defined zone token parts event id
+//enginelint:allow control ability game effecthelpers card condition defined zone token parts event id tokentable
 
 import "fmt"
 
@@ -53,10 +53,11 @@ func (endureEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		}
 		specs = append(specs, tokenSpec{Def: def, Owner: pl, Power: n, Toughness: n, HasPower: true, HasToughness: true})
 	}
-	var created []CardID
+	cells := make([]tokenCell, 0, len(specs))
 	for _, spec := range specs {
-		created = append(created, g.createToken(controller, spec))
+		cells = append(cells, tokenCell{creator: spec.Owner, spec: spec, n: 1})
 	}
+	created := g.makeTokens(controller, cells...)
 	if len(created) > 0 {
 		g.checkChangesZoneAllTriggers(controller, created, None, Battlefield)
 	}

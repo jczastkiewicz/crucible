@@ -229,6 +229,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if (ability.Record != compile.Activated && ability.Record != compile.Static) || ability.Name == "Mana" || ability.Name == "ManaReflected" {
 		return false
 	}
+	// Split second (AbilityActivated.java:85): no activated ability but a
+	// mana ability while such a spell is on the stack. An ST$ line is an
+	// AbilityStatic, whose canPlay does not ask.
+	if ability.Record == compile.Activated && g.splitSecondOnStack() {
+		return false
+	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")
 	if g.cantBeActivated(pid, c, false, isLoyaltyAbility) {
 		return false

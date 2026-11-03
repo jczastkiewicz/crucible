@@ -499,6 +499,15 @@ func validSpellForSpell(spec string, c *Card) (matched, recognized bool) {
 // Domination's XGrave, CostAdjustment.java:466-479 passes the spell's sa):
 // g.resolving is a spell Ability carrying them while the amount is worked out.
 func (g *Game) costModAmountFor(c *Card, pid PlayerID, act *compile.Ability, face *compile.Face, host *Card, raw string) (int, bool) {
+	if raw == "Strive" {
+		// CostAdjustment.java:139-142: every target the spell's abilities
+		// chose (getAllTargetChoices) but the first; before the targets are
+		// chosen the spell has none.
+		if act != nil || g.castTargetsFor != c.ID {
+			return 0, true
+		}
+		return max(len(g.castTargets)-1, 0), true
+	}
 	if act == nil && g.castTargetsFor == c.ID {
 		saved := g.resolving
 		g.resolving = &Ability{Source: c.ID, Controller: pid, Targets: g.castTargets, spell: true}

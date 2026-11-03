@@ -26,13 +26,14 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount manaability replaceeffect effecthelpers
+//enginelint:allow id card game player ability defined condition control amount manaability replaceeffect effecthelpers earthbendeffect
 
 import (
 	"fmt"
 	"slices"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -239,6 +240,10 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				}
 			}
 		}
+	}
+	if keyword.Parse(a.Params.Keyword).Name == "Firebending" {
+		// ManaEffect.java:195-197: Firebending's mana is a firebend.
+		g.checkElementalBendTriggers(controller, a.Controller, "Firebend")
 	}
 	return nil
 }

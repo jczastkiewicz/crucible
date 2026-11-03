@@ -847,12 +847,11 @@ func validSAPropertyMatches(g *Game, a *Ability, caster PlayerID, c *Card, prop 
 		// host named.
 		return slices.Contains(g.Card(a.Source).Memory.NamedCards(), c.Def.Name), nil
 	case "CouldCastTiming":
-		// SpellAbilityProperty.java:304-321 for a spell: the caster could cast
-		// it now, at sorcery speed or at instant speed (instant, Flash, a
-		// CastWithFlash static). A split-second spell on the stack is not
-		// modelled here.
-		return g.canActSorcerySpeed(caster) || c.Type().Has(cardtype.Instant) || c.HasKeyword("Flash") ||
-			g.castsWithFlash(caster, c.ID), nil
+		// SpellAbilityProperty.java:304-321 for a spell: no split-second spell
+		// is on the stack and the caster could cast it now, at sorcery speed
+		// or at instant speed (instant, Flash, a CastWithFlash static).
+		return !g.splitSecondOnStack() && (g.canActSorcerySpeed(caster) || c.Type().Has(cardtype.Instant) || c.HasKeyword("Flash") ||
+			g.castsWithFlash(caster, c.ID)), nil
 	}
 	if name, gap := playSpecGap("Card."+prop, a.Amounts); gap {
 		return false, fmt.Errorf("engine: Play: ValidSA$ property %q not resolvable yet", name)

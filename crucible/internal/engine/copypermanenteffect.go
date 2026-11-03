@@ -26,7 +26,8 @@ import (
 // RememberTokens$ remembers it on the host and TokenAttacking$/TokenBlocking$
 // put it into combat attacking or blocking (addToCombatAttacking,
 // addToCombatBlocking); ForEach$ makes the copies once per player it names,
-// each remembering its player. The other copy exceptions and end-of-turn
+// each remembering its player (OptionalForEach$ asks per player,
+// CleanupForEach$ forgets it after combat placement). The other copy exceptions and end-of-turn
 // cleanup are not resolved.
 type copyPermanentEffect struct{}
 
@@ -36,7 +37,7 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	}
 	if err := rejectParams(a, "CopyPermanent",
 		"ValidSupportedCopy",
-		"RandomNum", "RandomCopied", "OptionalForEach", "WithDifferentNames",
+		"RandomNum", "RandomCopied", "WithDifferentNames",
 		"ChangeZoneTable", "ChosenMapIndex",
 		"RemoveCreatureTypes", "SetCardTypes", "GainThisAbility", "AddTypesTo",
 		"CopyIsColor", "SetManaCost", "SetImageKey", "TokenRemembered"); err != nil {
@@ -100,6 +101,17 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		if forEach, err = definedPlayers(g, a.Controller, a.Source, raw, a.refs()); err != nil {
 			return fmt.Errorf("engine: CopyPermanent: ForEach$: %w", err)
 		}
+	}
+	// OptionalForEach$ (CopyPermanentEffect.java:251-252): the activator
+	// confirms each player before anything is made (Myriad).
+	if hasParam(a, "OptionalForEach") {
+		var kept []PlayerID
+		for _, p := range forEach {
+			if controller.ConfirmEffect(g, a.Controller, a.Source) {
+				kept = append(kept, p)
+			}
+		}
+		forEach = kept
 	}
 	var created []CardID
 	for _, owner := range controllers {
@@ -184,6 +196,11 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 					}
 					if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
 						return fmt.Errorf("engine: CopyPermanent: %w", err)
+					}
+					if each != NoPlayer && hasParam(a, "CleanupForEach") {
+						// TokenEffectBase.java:216-217: the player the copy was
+						// made for is forgotten once it has joined combat.
+						g.Card(id).Memory.Forget(PlayerEntity(each))
 					}
 					if hasParam(a, "RememberTokens") {
 						source.Memory.Remember(CardEntity(id))

@@ -132,6 +132,11 @@ func (g *Game) CastRoomDoor(pid PlayerID, card CardID, d Door, controller Player
 
 // castFromHand is CastSpell's hand and timing gates.
 func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller PlayerController) bool {
+	if g.splitSecondOnStack() {
+		// Split second (Spell.java:96): no spell is cast while one is on the
+		// stack; an effect casting during its resolution is not asked.
+		return false
+	}
 	c := g.Card(card)
 	fromHand := c.Controller() == pid && c.Zone == Hand
 	options := g.castOptions(pid, card, fromHand)
@@ -162,6 +167,16 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			cost, opts.extra, ok = g.escapeCost(pid, c)
 			opts.hasExtra, opts.escape = ok, ok
 		}
+		discardCast := false
+		if !ok {
+			// Retrace and Jump-start: the card's own mana cost plus a discard,
+			// from the graveyard; a jump-started spell is exiled as it leaves
+			// the stack (graveyardDiscardCast).
+			var jumpstart bool
+			if opts.extra, jumpstart, ok = g.graveyardDiscardCast(pid, c); ok {
+				opts.hasExtra, opts.fromKeyword, discardCast = true, jumpstart, true
+			}
+		}
 		if !ok {
 			// A spell's own EffectZone$ Graveyard AlternativeCost line (Squee,
 			// Worldheart Phoenix; altcost.go): its cast from the graveyard.
@@ -180,7 +195,9 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			opts.hasExtra = true
 			opts.fromKeyword = true
 		}
-		opts.altCost, opts.hasAltCost = cost, true
+		if !discardCast {
+			opts.altCost, opts.hasAltCost = cost, true
+		}
 	} else {
 		// Only the options playable under their own timing are offered. A
 		// MayFlashCost keyword or a CastWithFlash line needing the targets or X
@@ -449,6 +466,34 @@ func (g *Game) escapeCost(pid PlayerID, c *Card) (mana.Cost, unlessCost, bool) {
 		return mc, uc, true
 	}
 	return mana.Cost{}, unlessCost{}, false
+}
+
+// graveyardDiscardCast is the Retrace and Jump-start cast of c from pid's
+// graveyard (PlayerZone.java:60): the spell is cast for its mana cost with
+// the keyword's OptionalCost as an additional cost, Discard<1/Land> for
+// Retrace and Discard<1/Card> for Jump-start (GameActionUtil.java:504-513),
+// and the cast is only legal from there with that cost paid (addOptionalCosts
+// sets the zone, :556-558). jumpstart says the spell is exiled as it leaves
+// the stack (CardFactoryUtil.java:2323-2340). ok is false when c is not pid's
+// card in their graveyard, has neither keyword, or the discard cannot be paid.
+func (g *Game) graveyardDiscardCast(pid PlayerID, c *Card) (uc unlessCost, jumpstart, ok bool) {
+	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
+		return unlessCost{}, false, false
+	}
+	for _, name := range [...]string{"Retrace", "Jump-start"} {
+		if !c.HasKeyword(name) {
+			continue
+		}
+		text := "Discard<1/Land>"
+		if name == "Jump-start" {
+			text = "Discard<1/Card>"
+		}
+		uc, ok := parseUnlessCost(text)
+		if ok && g.unlessPayable(pid, c.ID, uc) {
+			return uc, name == "Jump-start", true
+		}
+	}
+	return unlessCost{}, false, false
 }
 
 // flashbackCost is the mana cost of c's Flashback keyword when pid may cast it

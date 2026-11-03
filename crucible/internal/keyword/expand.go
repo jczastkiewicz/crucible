@@ -641,6 +641,77 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | Secondary$ True | OptionalDecider$ You | ValidCard$ Card.Self | Execute$ KWSoulshift" + Slot},
 			SVars:    []SVarDef{{"KWSoulshift" + Slot, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Spirit.YouOwn+cmcLE" + n}},
 		}, true
+	case "Vanishing":
+		// CardFactoryUtil.java:1910-1930 and :2529-2538: Vanishing:N enters
+		// with N time counters (makeEtbCounter); every form removes one at
+		// its controller's upkeep and is sacrificed when the last is removed.
+		// A bare Vanishing (its card counts the counters itself) has only the
+		// two triggers.
+		exp := Expansion{
+			Triggers: []string{
+				"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_GE1_TIME | Secondary$ True | Execute$ KWVanishingRemove" + Slot,
+				"Mode$ CounterRemoved | TriggerZones$ Battlefield | ValidCard$ Card.Self | NewCounterAmount$ 0 | CounterType$ TIME | Secondary$ True | Execute$ KWVanishingSac" + Slot,
+			},
+			SVars: []SVarDef{
+				{"KWVanishingRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"},
+				{"KWVanishingSac" + Slot, "DB$ Sacrifice | SacValid$ Self"},
+			},
+		}
+		if k.Details != "" {
+			n, ok := amountDetail(k)
+			if !ok {
+				return Expansion{}, false
+			}
+			exp.Replacements = []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWVanishingETB" + Slot}
+			exp.SVars = append(exp.SVars, SVarDef{"KWVanishingETB" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ TIME | ETB$ True | CounterNum$ " + n})
+		}
+		return exp, true
+	case "Living Weapon":
+		// CardFactoryUtil.java:1361-1385: when this Equipment enters, create a
+		// 0/0 black Phyrexian Germ token and attach this to it.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ KWLivingWeapon" + Slot},
+			SVars: []SVarDef{
+				{"KWLivingWeapon" + Slot, "DB$ Token | TokenScript$ b_0_0_phyrexian_germ | TokenOwner$ You | RememberTokens$ True | SubAbility$ KWLivingWeaponAttach" + Slot},
+				{"KWLivingWeaponAttach" + Slot, "DB$ Attach | Defined$ Remembered | SubAbility$ KWLivingWeaponCleanup" + Slot},
+				{"KWLivingWeaponCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Myriad":
+		// CardFactoryUtil.java:1508-1521: whenever this attacks, for each
+		// opponent other than the defending player you may create a token copy
+		// tapped and attacking that player or a planeswalker they control,
+		// exiled at end of combat.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ KWMyriad" + Slot},
+			SVars:    []SVarDef{{"KWMyriad" + Slot, "DB$ CopyPermanent | Defined$ Self | TokenTapped$ True | OptionalForEach$ True | TokenAttacking$ RememberedPlayer & Valid Planeswalker.ControlledBy Remembered | ForEach$ OppNonDefendingPlayer | AtEOT$ ExileCombat | CleanupForEach$ True"}},
+		}, true
+	case "Strive":
+		// CardFactoryUtil.java:4019-4025: the spell costs <cost> more for each
+		// target beyond the first (CostAdjustment.java:139-142, Amount$ Strive).
+		cost := costDetail(k)
+		if cost == "" || len(k.Args()) > 1 {
+			return Expansion{}, false
+		}
+		return Expansion{Statics: []string{"Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Amount$ Strive | Cost$ " + cost + " | EffectZone$ All"}}, true
+	case "Firebending":
+		// CardFactoryUtil.java:1075-1094: whenever this attacks, add N {R};
+		// the mana lasts until end of combat (CombatMana$). The third field is
+		// the X description, display only; Amount$ X reads the card's SVar.
+		args := k.Args()
+		if len(args) < 1 || (args[0] != "X" && strings.Trim(args[0], "0123456789") != "") || args[0] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Execute$ KWFirebending" + Slot},
+			SVars:    []SVarDef{{"KWFirebending" + Slot, "DB$ Mana | Defined$ You | CombatMana$ True | Produced$ R | Amount$ " + args[0]}},
+		}, true
 	}
 	return Expansion{}, false
 }

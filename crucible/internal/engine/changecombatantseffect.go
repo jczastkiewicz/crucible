@@ -124,12 +124,18 @@ func (g *Game) addToCombatAttackingAs(controller PlayerController, a *Ability, i
 	if strings.EqualFold(raw, "True") {
 		return g.attackByEffect(controller, a.Controller, id)
 	}
+	// With ForEach$ the defenders are read from the new card, which
+	// remembers its player (SpellAbilityEffect.java:774, Myriad).
+	from := g.Card(a.Source)
 	if hasParam(a, "ForEach") {
-		return fmt.Errorf("%s$ %q with ForEach$ not resolvable yet", param, raw)
+		if a.Params.Name != "CopyPermanent" {
+			return fmt.Errorf("%s$ %q with ForEach$ not resolvable yet", param, raw)
+		}
+		from = g.Card(id)
 	}
 	var defs []EntityID
 	for _, part := range strings.Split(raw, " & ") {
-		es, err := definedEntities(g, a.Controller, g.Card(a.Source), strings.TrimSpace(part), a.refs())
+		es, err := definedEntities(g, a.Controller, from, strings.TrimSpace(part), a.refs())
 		if err != nil {
 			return fmt.Errorf("%s$: %w", param, err)
 		}

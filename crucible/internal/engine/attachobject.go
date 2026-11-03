@@ -255,7 +255,7 @@ func (g *Game) attachObjectToPlayerChoice(a *Ability, controller PlayerControlle
 // canBeAttached is Card.cantBeAttachedMsg == null for a card host on the
 // battlefield (Card.java:7029-7034, GameEntity.java:236-307,
 // Card.java:6996-7026): only an attachment (Aura, Equipment, Fortification),
-// never onto itself, not a creature (Reconfigure is not ported), neither one
+// never onto itself, not a creature without reconfigure (GameEntity.java:244), neither one
 // phased out; an Aura needs an Enchant keyword whose type the host is (a
 // player Aura's is not a card's); Equipment a creature host; Fortification a
 // land host and not itself a land. StaticAbilityCantAttach is
@@ -268,7 +268,7 @@ func (g *Game) canBeAttached(attachment *Card, host CardID) bool {
 	if !isAura && !isEquipment && !isFortification {
 		return false
 	}
-	if attachment.ID == host || t.Has(cardtype.Creature) || attachment.IsPhasedOut() || h.IsPhasedOut() {
+	if attachment.ID == host || (t.Has(cardtype.Creature) && !attachment.HasKeyword("Reconfigure")) || attachment.IsPhasedOut() || h.IsPhasedOut() {
 		return false
 	}
 	ht := h.Type()

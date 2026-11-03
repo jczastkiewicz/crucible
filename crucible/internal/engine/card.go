@@ -174,6 +174,9 @@ type Card struct {
 	// (animateBestow, bestow.go) while the card is a bestowed Aura, 0
 	// otherwise.
 	bestowTS uint64
+	// reconfigureTS is the timestamp of the Reconfigure effect that makes an
+	// attached card not a creature (reconfigure.go), 0 while there is none.
+	reconfigureTS uint64
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.

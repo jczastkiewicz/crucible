@@ -1609,6 +1609,7 @@ func (g *Game) Attach(attachment, host CardID) {
 		h.attachments = collect.NewOrderedSet[CardID](2)
 	}
 	h.attachments.Add(attachment)
+	g.startReconfigure(attachment)
 }
 
 // AttachToPlayer is Attach for a player host (Card.attachToEntity with a
@@ -1655,6 +1656,7 @@ func (g *Game) Unattach(attachment CardID) {
 	// (CR 702.103f); the next layer pass shows it, as Unattach runs inside
 	// zone changes too.
 	g.dropBestow(attachment)
+	g.dropReconfigure(attachment)
 	// Card.unattachFromEntity runs Unattached before the commands
 	// (Card.java:4016-4019).
 	g.queueUnattached(attachment, CardEntity(old))

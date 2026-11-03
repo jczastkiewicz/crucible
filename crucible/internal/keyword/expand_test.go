@@ -50,6 +50,12 @@ func TestExpand(t *testing.T) {
 		{"Firebending:X:, where X is CARDNAME's power.", true, "Mode$ Attacks"},
 		{"Firebending:Y", false, ""},
 		{"Firebending", false, ""},
+		{"Hideaway:4", true, "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self"},
+		{"Hideaway", false, ""},
+		{"Double team", true, "Mode$ Attacks | ValidCard$ Card.Self+!token"},
+		{"Double team:1", false, ""},
+		{"Reconfigure:2", true, "AB$ Attach | ValidTgts$ Creature.YouCtrl+Other"},
+		{"Reconfigure:2:PayEnergy<3>", false, ""},
 		{"Mobilize:2", true, "Mode$ Attacks | ValidCard$ Card.Self | Execute$ KWMobilize{n}"},
 		{"Mobilize:X", true, "Mode$ Attacks"},
 		{"Mobilize:Y", false, ""},
@@ -110,7 +116,7 @@ func TestExpand(t *testing.T) {
 		{"Chapter:2:A,", false, ""},
 		{"Chapter", false, ""},
 		{"Modular:1", true, "OptionalDecider$ You"},
-		{"Modular:Sunburst", false, ""},
+		{"Modular:Sunburst", true, "OptionalDecider$ You"},
 		{"Modular", false, ""},
 		{"Renown:2", true, "IsPresent$ Card.Self+!IsRenowned"},
 		{"Renown", false, ""},
@@ -209,6 +215,7 @@ func TestExpandReplacements(t *testing.T) {
 		{"Devour", false, ""},
 		{"Madness:X R", true, "Event$ Moved | ActiveZones$ Hand | ValidCard$ Card.Self | Discard$ True | Secondary$ True | ReplaceWith$ KWMadnessExile{n}"},
 		{"Madness", false, ""},
+		{"Modular:Sunburst", true, "ReplaceWith$ KWModularEtb{n}"},
 		{"Riot", true, "ReplaceWith$ KWRiot{n}"},
 		{"Riot:1", false, ""},
 		{"Dredge:2", true, "Event$ Draw | ActiveZones$ Graveyard | ValidPlayer$ You | Secondary$ True | Optional$ True | CheckSVar$ KWDredgeCheckLib{n} | SVarCompare$ GE2"},
@@ -231,5 +238,33 @@ func TestExpandReplacements(t *testing.T) {
 				t.Errorf("replacements %q do not contain %q", exp.Replacements, tc.want)
 			}
 		})
+	}
+}
+
+// Sunburst's counter follows the face's printed type (CardFactoryUtil.java:
+// 2480): +1/+1 for a creature, charge otherwise.
+func TestExpandSunburstCounterByType(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		line     string
+		creature bool
+		ok       bool
+		counter  string
+	}{
+		{"Sunburst", true, true, "CounterType$ P1P1"},
+		{"Sunburst", false, true, "CounterType$ CHARGE"},
+		{"Sunburst:1", true, false, ""},
+		{"Flying", true, false, ""},
+	} {
+		exp, ok := keyword.ExpandSunburst(keyword.Parse(tc.line), tc.creature)
+		if ok != tc.ok {
+			t.Fatalf("%s creature %v: ok %v, want %v", tc.line, tc.creature, ok, tc.ok)
+		}
+		if ok && !strings.Contains(exp.SVars[0].Value, tc.counter) {
+			t.Errorf("%s creature %v: %q lacks %q", tc.line, tc.creature, exp.SVars[0].Value, tc.counter)
+		}
+	}
+	if exp, _ := keyword.Expand(keyword.Parse("Sunburst")); len(exp.Replacements) != 0 {
+		t.Error("Expand handles Sunburst without the face's type")
 	}
 }

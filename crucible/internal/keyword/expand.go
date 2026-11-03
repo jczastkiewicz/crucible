@@ -555,7 +555,13 @@ func Expand(k Keyword) (Expansion, bool) {
 		// when it dies you may put a +1/+1 counter on target artifact creature for
 		// each +1/+1 counter on it. Java's decider is the triggered card's
 		// controller, which for this trigger on the dying card itself is "You".
+		// Modular:Sunburst counts the colors spent (Count$Converge, :2386).
 		n, ok := amountDetail(k)
+		amounts := []SVarDef{{"KWModularX" + Slot, "TriggeredCard$CardCounters.P1P1"}}
+		if k.Details == "Sunburst" {
+			n, ok = "KWModularSunburst"+Slot, true
+			amounts = append(amounts, SVarDef{n, "Count$Converge"})
+		}
 		if !ok {
 			return Expansion{}, false
 		}
@@ -566,7 +572,7 @@ func Expand(k Keyword) (Expansion, bool) {
 				{"KWModularEtb" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ " + n},
 				{"KWModular" + Slot, "DB$ PutCounter | ValidTgts$ Artifact.Creature | TgtPrompt$ Select target artifact creature | CounterType$ P1P1 | CounterNum$ KWModularX" + Slot},
 			},
-			Amounts: []SVarDef{{"KWModularX" + Slot, "TriggeredCard$CardCounters.P1P1"}},
+			Amounts: amounts,
 		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
@@ -832,6 +838,52 @@ func Expand(k Keyword) (Expansion, bool) {
 			},
 			Amounts: []SVarDef{{"KWDredgeCheckLib" + Slot, "Count$ValidLibrary Card.YouOwn"}},
 		}, true
+	case "Hideaway":
+		// CardFactoryUtil.java:1273-1305: when this enters, look at the top N
+		// cards of your library, exile one face down and put the rest on the
+		// bottom in a random order; an Effect lets you look at the exiled card.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ KWHideaway" + Slot},
+			SVars: []SVarDef{
+				{"KWHideaway" + Slot, "DB$ Dig | Defined$ You | DigNum$ " + n + " | DestinationZone$ Exile | ExileFaceDown$ True | RememberChanged$ True | RestRandomOrder$ True | SubAbility$ KWHideawayEffect" + Slot},
+				{"KWHideawayEffect" + Slot, "DB$ Effect | StaticAbilities$ KWHideawayLook" + Slot + " | ForgetOnMoved$ Exile | RememberObjects$ Remembered | Duration$ Permanent | SubAbility$ KWHideawayCleanup" + Slot},
+				{"KWHideawayLook" + Slot, "Mode$ Continuous | Affected$ Card.IsRemembered | MayLookAt$ EffectSourceController | EffectZone$ Command | AffectedZone$ Exile"},
+				{"KWHideawayCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Double team":
+		// CardFactoryUtil.java:945-962: when this attacks, if it's not a token,
+		// conjure a duplicate of it into your hand; then both lose double team
+		// perpetually.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self+!token | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWDoubleTeam" + Slot},
+			SVars: []SVarDef{
+				{"KWDoubleTeam" + Slot, "DB$ MakeCard | DefinedName$ Self | Zone$ Hand | RememberMade$ True | Conjure$ True | SubAbility$ KWDoubleTeamSelf" + Slot},
+				{"KWDoubleTeamSelf" + Slot, "DB$ Pump | RememberObjects$ Self | SubAbility$ KWDoubleTeamLose" + Slot},
+				{"KWDoubleTeamLose" + Slot, "DB$ Animate | Duration$ Perpetual | Defined$ Remembered | RemoveKeywords$ Double team | SubAbility$ KWDoubleTeamCleanup" + Slot},
+				{"KWDoubleTeamCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Reconfigure":
+		// CardFactoryUtil.java:3374-3395: attach to target creature you control
+		// and unattach, each at sorcery speed. A second field is an
+		// AlternateCost$ (Razorfield Ripper's PayEnergy<3>), which no Attach
+		// this port resolves reads: left inert, as Equip's is.
+		args := k.Args()
+		if len(args) != 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{Abilities: []string{
+			"AB$ Attach | ValidTgts$ Creature.YouCtrl+Other | TgtPrompt$ Select target creature you control | AILogic$ Pump | Cost$ " + args[0] + " | SorcerySpeed$ True | Secondary$ True",
+			"AB$ Unattach | Defined$ Self | IsPresent$ Card.Self+AttachedTo Creature | Cost$ " + args[0] + " | SorcerySpeed$ True | Secondary$ True",
+		}}, true
 	case "Umbra armor":
 		// CardFactoryUtil.java:2501-2525: if the enchanted permanent would be
 		// destroyed, instead remove all damage from it and destroy this.
@@ -847,6 +899,26 @@ func Expand(k Keyword) (Expansion, bool) {
 		}, true
 	}
 	return Expansion{}, false
+}
+
+// ExpandSunburst is CardFactoryUtil.java:2477-2489's Sunburst: the permanent
+// enters with a +1/+1 counter for each color of mana spent to cast it when the
+// card is a creature, a charge counter otherwise. Java picks the counter from
+// the card as the keyword is added (host.isCreature()), so the caller passes
+// the face's printed type; the amount is Count$Converge (:2487).
+func ExpandSunburst(k Keyword, creature bool) (Expansion, bool) {
+	if k.Name != "Sunburst" || k.Details != "" {
+		return Expansion{}, false
+	}
+	counter := "CHARGE"
+	if creature {
+		counter = "P1P1"
+	}
+	return Expansion{
+		Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWSunburst" + Slot},
+		SVars:        []SVarDef{{"KWSunburst" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + counter + " | ETB$ True | CounterNum$ KWSunburstX" + Slot}},
+		Amounts:      []SVarDef{{"KWSunburstX" + Slot, "Count$Converge"}},
+	}, true
 }
 
 // expandEquip is CardFactoryUtil.java:2852's Equip branch: "Equip:<cost>

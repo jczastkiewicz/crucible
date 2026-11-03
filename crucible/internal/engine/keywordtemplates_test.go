@@ -532,3 +532,128 @@ func TestLivingMetalIsACreatureOnYourTurn(t *testing.T) {
 		t.Error("the Vehicle is a creature on the opponent's turn")
 	}
 }
+
+// Reconfigure (CR 702.151, CardFactoryUtil.java:3374-3395, Card.java:
+// 3973-3985): Lizard Blades attaches to a creature for {2}, stops being a
+// creature while attached, and becomes one again when unattached for {2}.
+func TestReconfigureAttachesAndStopsBeingACreature(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	blades := g.NewCard(corpusCard(t, "Lizard Blades"), p, engine.Battlefield)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Red, 4)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(bear)})
+	if !g.ActivateAbility(p, blades, 0, c) {
+		t.Fatalf("reconfigure attach failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if got, _ := g.Card(blades).AttachedTo(); got != bear {
+		t.Fatalf("Lizard Blades attached to %v, want the creature", got)
+	}
+	if g.Card(blades).Type().Has(cardtype.Creature) {
+		t.Error("attached Lizard Blades is still a creature")
+	}
+	if !g.Card(bear).HasKeyword("Double Strike") {
+		t.Error("the equipped creature lacks double strike")
+	}
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueuePayGeneric(mana.ShardR)
+	if !g.ActivateAbility(p, blades, 1, c) {
+		t.Fatalf("reconfigure unattach failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if _, attached := g.Card(blades).AttachedTo(); attached {
+		t.Error("Lizard Blades still attached")
+	}
+	if !g.Card(blades).Type().Has(cardtype.Creature) {
+		t.Error("unattached Lizard Blades is not a creature again")
+	}
+}
+
+// Double team (CR 702.185, CardFactoryUtil.java:945-962): Tiefling Outcasts
+// attacking conjures a duplicate into its controller's hand, and both lose
+// double team.
+func TestDoubleTeamConjuresADuplicate(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	outcasts := g.NewCard(corpusCard(t, "Tiefling Outcasts"), p, engine.Battlefield)
+	g.SetTurnState(2, p, engine.DeclareAttackers)
+	c := engine.NewScriptedController()
+	attackAlone(t, g, c, outcasts, engine.PlayerEntity(other))
+	hand := g.Zone(engine.Hand, p).Cards()
+	if len(hand) != 1 || g.Card(hand[0]).Name() != "Tiefling Outcasts" {
+		t.Fatalf("hand %v, want a conjured Tiefling Outcasts", hand)
+	}
+	for _, id := range []engine.CardID{outcasts, hand[0]} {
+		if g.Card(id).HasKeyword("Double team") {
+			t.Errorf("card %v still has double team", id)
+		}
+	}
+}
+
+// Hideaway 5 (CR 702.75, CardFactoryUtil.java:1273-1305): Fight Rigging
+// entering exiles one of the top five cards face down and puts the other four
+// on the bottom.
+func TestHideawayExilesOneFaceDown(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	libraryCards(t, g, p, 6)
+	top := g.Zone(engine.Library, p).Cards()[0]
+	rig := g.NewCard(corpusCard(t, "Fight Rigging"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 3)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{top})
+	castResolved(t, g, p, rig, c, 2, mana.ShardG)
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	exiled := g.Zone(engine.Exile, p).Cards()
+	if len(exiled) != 1 || exiled[0] != top || !g.Card(exiled[0]).IsFaceDown() {
+		t.Fatalf("exile %v, want one face-down card", exiled)
+	}
+	if got := len(g.Zone(engine.Library, p).Cards()); got != 5 {
+		t.Errorf("library %d, want 5", got)
+	}
+	if !engine.Matches(g, g.Card(exiled[0]), valid.Parse("Card.ExiledWithSource"), p, rig) {
+		t.Error("the hidden card is not exiled with Fight Rigging")
+	}
+}
+
+// Sunburst (CR 702.44, CardFactoryUtil.java:2477-2489): Suntouched Myr, a
+// creature, enters with a +1/+1 counter per color spent; Pentad Prism, not a
+// creature, with charge counters.
+func TestSunburstCountsColorsSpent(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	myr := g.NewCard(corpusCard(t, "Suntouched Myr"), p, engine.Hand)
+	prism := g.NewCard(corpusCard(t, "Pentad Prism"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 2)
+	g.Player(p).ManaPool.Add(mana.Blue, 1)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+	for _, s := range []mana.Shard{mana.ShardW, mana.ShardU, mana.ShardB} {
+		c.QueuePayGeneric(s)
+	}
+	castResolved(t, g, p, myr, c, 0, mana.ShardW)
+	if got := g.Card(myr).Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("Suntouched Myr has %d +1/+1 counters, want 3", got)
+	}
+	c.QueuePayGeneric(mana.ShardW)
+	castResolved(t, g, p, prism, c, 1, mana.ShardR)
+	if got := g.Card(prism).Counters.Count(engine.CounterType("CHARGE")); got != 2 {
+		t.Errorf("Pentad Prism has %d charge counters, want 2", got)
+	}
+}

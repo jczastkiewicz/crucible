@@ -768,7 +768,7 @@ func (g *Game) pumpNotes(a *Ability, source *Card) error {
 // pumpRandomKeywords is PumpEffect.java:380-398: RandomKeyword$ (presence
 // only) keeps RandomKWNum$ (default 1) keywords drawn from keywords, once per
 // resolve, so every target gets the same choice. NoRepetition$ first drops
-// each keyword the first target already carries (exact text, the first
+// each keyword the first target card (if any) already carries (exact text, the first
 // occurrence per match). Each draw is Aggregates.random over what is left
 // (no draw for one, nextInt otherwise) and removes the first equal value,
 // not the drawn index (PORT-7).
@@ -787,15 +787,15 @@ func (g *Game) pumpRandomKeywords(a *Ability, source *Card, keywords []string) (
 		if err != nil {
 			return nil, err
 		}
-		if len(cards) == 0 {
-			// PumpEffect.java:387 reads tgtCards.get(0) unguarded; Java throws.
-			return nil, fmt.Errorf("engine: Pump: NoRepetition$ with no target card")
-		}
-		first := g.Card(cards[0])
-		for _, kw := range keywords {
-			if first.hasKeywordText(kw) {
-				if i := slices.Index(total, kw); i >= 0 {
-					total = slices.Delete(total, i, i+1)
+		// PumpEffect.java:385: with no target card there is nothing to
+		// compare against, so every keyword stays in the draw.
+		if len(cards) > 0 {
+			first := g.Card(cards[0])
+			for _, kw := range keywords {
+				if first.hasKeywordText(kw) {
+					if i := slices.Index(total, kw); i >= 0 {
+						total = slices.Delete(total, i, i+1)
+					}
 				}
 			}
 		}

@@ -878,7 +878,8 @@ func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
 // fetcher another player controls does not search Sideboard (the Wish rule,
 // ChangeZoneEffect.java:987-991).
 // Defined$ skips the search and takes the named cards in order;
-// ChooseFromDefined$ offers them as the choice instead. A library that was
+// ChooseFromDefined$ offers them as the choice instead, and neither shuffles
+// unless Shuffle$ True (ChangeZoneEffect.java:1006). A library that was
 // searched is shuffled afterwards unless NoShuffle$ or Shuffle$ False --
 // before the move when the destination is the library itself, so a fetched
 // card placed on top stays there.
@@ -1030,6 +1031,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		fetcherShuffle, searchedLibrary, blocked := shuffleMandatory, false, false
 		switch {
 		case defined:
+			fetcherShuffle = false
 			spec := definedSpec
 			if chooseFromDefined {
 				spec = chooseFrom
@@ -1411,7 +1413,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		if err := registerAtEOT(g, a, movedAll); err != nil {
 			return err
 		}
-		if (zoneIn(Library, pick.origin) && dest != Library && !defined && pick.shuffleMandatory) || shuffleParam == "True" {
+		if (zoneIn(Library, pick.origin) && dest != Library && pick.shuffleMandatory) || shuffleParam == "True" {
 			g.shuffleLibrary(controller, pick.player, a)
 		}
 	}

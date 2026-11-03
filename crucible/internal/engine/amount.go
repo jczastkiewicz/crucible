@@ -206,8 +206,8 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 // matching none leaves n unchanged, doXMath's own final else.
 //
 // The operand (doXMath's secondaryNum) is read only by the operators that
-// use it, and is 0 when the suffix carries none or carries more than one
-// `.`-separated part (`s.length == 2` is the only case Java parses). An
+// use it, and is 0 when the suffix carries none. It is everything after the
+// operator's first `.` (AbilityUtils.doXMath splits with a limit of 2). An
 // integer operand was read at load (expr.Op.Numeric); anything else is an
 // SVar name, resolved like any other (namedAmount) -- Java's own
 // `calculateAmount(c, s[1], ctb)` fallback. false for an operand that does
@@ -222,7 +222,7 @@ func applyOperator(g *Game, amounts map[string]expr.Amount, sourceController Pla
 		switch {
 		case op.Numeric:
 			return op.Value, true
-		case op.Operand == "" || strings.Contains(op.Operand, "."):
+		case op.Operand == "":
 			return 0, true
 		case op.Expr != nil:
 			if depth >= maxAmountDepth {

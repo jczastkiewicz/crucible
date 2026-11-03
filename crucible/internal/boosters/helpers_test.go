@@ -267,6 +267,23 @@ func TestEditionFileReading(t *testing.T) {
 	}
 }
 
+// A metadata line without `=`, an empty booster slot item and a BoosterCovers
+// that is not a number are skipped or defaulted, never errors.
+func TestEditionFileToleratesMalformedMetadata(t *testing.T) {
+	t.Parallel()
+
+	e, err := parseEdition("[metadata]\nCode=TOL\nnot a key\nBoosterCovers=many\nBooster=1 Common, , 1 Rare\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Code != "TOL" || e.Covers != 1 {
+		t.Errorf("edition = %+v, want code TOL and one cover", e)
+	}
+	if got := len(e.templates["Draft"]); got != 2 {
+		t.Errorf("booster template has %d slots, want 2 (the empty item skipped)", got)
+	}
+}
+
 func TestEditionFileErrors(t *testing.T) {
 	t.Parallel()
 

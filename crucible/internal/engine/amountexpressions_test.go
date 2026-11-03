@@ -233,6 +233,12 @@ func TestScalarCountHeads(t *testing.T) {
 		{"Count$Converge", nil, 1},
 		{"Count$YourLifeTotal/Minus.Remembered$Amount", nil, 20},
 		{"Number$5/Minus.Remembered$Valid Card.Creature", nil, 5},
+		// doXMath splits the operator at its first `.` only, so an operand
+		// holding one more is still evaluated (Hollow Marauder's shape): two
+		// fillers and the ETB host are three creatures.
+		{"Number$5/Minus.Count$Valid Creature.YouCtrl", func(g *engine.Game, p, _ engine.PlayerID) {
+			addN(t, g, p, engine.Battlefield, 2, "Creature")
+		}, 2},
 		{"Count$RememberedSize", nil, 0},
 		{"Count$ImprintedSize", nil, 0},
 		{"Count$ChosenSize", nil, 0},

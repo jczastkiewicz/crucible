@@ -430,7 +430,7 @@ Attach	AILogic	46	-	-	token:46
 Attach	AITgts	1	-	valid:1	token:1
 Attach	ActivationLimit	3	-	int:1	int:3
 Attach	ChoiceTitle	20	-	-	prose:20
-Attach	ChoiceZone	1	zone:2	zone:3	token:1
+Attach	ChoiceZone	1	zone:2	zone:4	token:1
 Attach	Choices	31	valid:2	valid:9	token:28,prose:3
 Attach	Chooser	2	defined:1	-	token:2
 Attach	ConditionCheckSVar	1	-	-	token:1
@@ -1174,7 +1174,7 @@ ChangeZone	ChangeNumDesc	3	-	-	prose:2,token:1
 ChangeZone	ChangeType	2143	-	valid:1	token:2013,prose:130
 ChangeZone	ChangeTypeDesc	379	-	-	prose:363,token:16
 ChangeZone	CheckSVar	25	-	amount:1	token:24,amount:1
-ChangeZone	ChoiceZone	3	-	zone:3	token:3
+ChangeZone	ChoiceZone	3	-	zone:4	token:3
 ChangeZone	ChooseFromDefined	16	-	-	token:15,prose:1
 ChangeZone	Chooser	252	defined:3	-	token:252
 ChangeZone	Condition	14	-	-	token:14
@@ -1238,7 +1238,7 @@ ChangeZone	MaxTotalTargetPower	2	-	-	int:2
 ChangeZone	ModeCost	13	-	-	int:11,prose:2
 ChangeZone	NoLooking	53	-	-	bool:53
 ChangeZone	NoReveal	10	-	-	bool:10
-ChangeZone	NoShuffle	34	-	-	bool:34
+ChangeZone	NoShuffle	33	-	-	bool:33
 ChangeZone	NonBasicSpell	3	-	-	bool:3
 ChangeZone	NumCards	2	-	amount:6	int:2
 ChangeZone	OpponentTurn	1	-	-	bool:1
@@ -1273,7 +1273,7 @@ ChangeZone	Secondary	2	-	-	bool:2
 ChangeZone	SelectPrompt	168	-	-	prose:168
 ChangeZone	ShareLandType	1	-	-	bool:1
 ChangeZone	ShowCurrentCard	1	-	defined:2	token:1
-ChangeZone	Shuffle	252	-	-	bool:252
+ChangeZone	Shuffle	251	-	-	bool:251
 ChangeZone	ShuffleChangedPile	2	-	-	bool:2
 ChangeZone	ShuffleNonMandatory	219	-	-	bool:219
 ChangeZone	SorcerySpeed	200	-	-	bool:200
@@ -1511,7 +1511,7 @@ ChooseCard	AtRandom	68	-	-	bool:68
 ChooseCard	ChoiceDesc	11	-	-	token:9,prose:2
 ChooseCard	ChoiceTitle	202	-	-	prose:202
 ChooseCard	ChoiceTitleAppend	4	-	-	token:3,prose:1
-ChooseCard	ChoiceZone	209	zone:1	zone:3	token:209
+ChooseCard	ChoiceZone	209	zone:1	zone:4	token:209
 ChooseCard	Choices	420	valid:1	valid:9	token:403,prose:17
 ChooseCard	ChooseEach	11	-	-	prose:10,token:1
 ChooseCard	ChosenMap	3	-	-	bool:3
@@ -1758,12 +1758,12 @@ Cleanup	ClearChosenType	4	-	-	bool:4
 Cleanup	ClearCoinFlips	2	-	-	bool:2
 Cleanup	ClearImprinted	295	-	-	bool:295
 Cleanup	ClearNamedCard	50	-	-	bool:50
-Cleanup	ClearRemembered	3238	-	-	bool:3238
+Cleanup	ClearRemembered	3239	-	-	bool:3239
 Cleanup	ClearTriggered	3	-	-	bool:3
 Cleanup	ConditionCompare	1	-	-	token:1
 Cleanup	ConditionDefined	1	-	-	token:1
 Cleanup	ConditionPresent	1	-	valid:1	prose:1
-Cleanup	DB	3595	-	-	token:3595
+Cleanup	DB	3596	-	-	token:3596
 Cleanup	Defined	28	-	defined:68	token:28
 Cleanup	ForgetDefined	33	defined:1	-	token:33
 Cleanup	Log	34	-	-	bool:34
@@ -1797,7 +1797,7 @@ Clone	AddTypes	43	-	-	token:28,prose:15
 Clone	AiChoiceLogic	1	-	-	token:1
 Clone	ChoiceOptional	1	-	-	bool:1
 Clone	ChoiceTitle	9	-	-	prose:9
-Clone	ChoiceZone	14	zone:1	zone:3	token:14
+Clone	ChoiceZone	14	zone:1	zone:4	token:14
 Clone	Choices	76	valid:2	valid:9	token:76
 Clone	CloneTarget	47	defined:2	defined:1	token:34,prose:13
 Clone	CloneZone	2	zone:1	-	token:2
@@ -1907,7 +1907,7 @@ Continuous	AddAbility	368	-	-	token:361,prose:7
 Continuous	AddAllCreatureTypes	8	-	-	bool:8
 Continuous	AddColor	13	-	-	token:13
 Continuous	AddHiddenKeyword	53	-	-	prose:53
-Continuous	AddKeyword	2022	-	-	token:1533,prose:486,amount:3
+Continuous	AddKeyword	2020	-	-	token:1533,prose:484,amount:3
 Continuous	AddNames	1	-	-	token:1
 Continuous	AddPower	2012	-	amount:8	int:1706,token:304,amount:2
 Continuous	AddReplacementEffect	14	-	-	token:12,prose:2
@@ -1920,7 +1920,7 @@ Continuous	AdditionalOptionalVote	3	-	-	int:3
 Continuous	AdditionalVillainousChoice	1	-	-	int:1
 Continuous	AdditionalVote	1	-	-	int:1
 Continuous	AdjustLandPlays	48	-	-	int:45,token:3
-Continuous	Affected	4569	-	valid:1	token:4536,prose:33
+Continuous	Affected	4567	-	valid:1	token:4534,prose:33
 Continuous	AffectedDefined	2618	-	defined:2	token:2567,prose:51
 Continuous	AffectedZone	1083	-	-	token:1083
 Continuous	CalcKeywordN	1	-	-	token:1
@@ -1939,7 +1939,7 @@ Continuous	ControlOpponentsSearchingLibrary	1	-	-	token:1
 Continuous	ControlVote	1	-	-	bool:1
 Continuous	DeclaresAttackers	1	-	-	token:1
 Continuous	DeclaresBlockers	6	-	-	token:6
-Continuous	Description	5547	-	-	prose:5547
+Continuous	Description	5545	-	-	prose:5545
 Continuous	Duration	1	-	-	token:1
 Continuous	EffectZone	320	-	zone:1	token:320
 Continuous	ExcludeZone	1	-	-	token:1
@@ -1975,7 +1975,7 @@ Continuous	MayPlaySnowIgnoreColor	1	-	-	bool:1
 Continuous	MayPlayText	15	-	-	token:15
 Continuous	MayPlayWithFlash	5	-	-	bool:5
 Continuous	MayPlayWithoutManaCost	68	-	-	bool:68
-Continuous	Mode	5885	-	-	token:5885
+Continuous	Mode	5883	-	-	token:5883
 Continuous	Phases	2	-	-	prose:1,token:1
 Continuous	Player	1	-	-	token:1
 Continuous	PresentCompare	71	-	-	token:71
@@ -1994,7 +1994,7 @@ Continuous	RemoveType	28	-	-	token:28
 Continuous	ReplaceGraveyard	2	-	-	token:2
 Continuous	SVarCompare	146	-	-	token:146
 Continuous	SecondSVarCompare	1	-	-	token:1
-Continuous	Secondary	99	-	-	bool:98,prose:1
+Continuous	Secondary	97	-	-	bool:96,prose:1
 Continuous	SetColor	61	-	-	token:60,prose:1
 Continuous	SetMaxHandSize	60	-	-	token:52,int:8
 Continuous	SetName	6	-	-	prose:4,token:2
@@ -3217,7 +3217,7 @@ Draw	Secondary	26	-	-	bool:26
 Draw	SorcerySpeed	17	-	-	bool:17
 Draw	SpellDescription	1399	-	-	prose:1391,token:8
 Draw	StackDescription	109	-	-	token:86,prose:23
-Draw	SubAbility	1234	-	-	token:1234
+Draw	SubAbility	1235	-	-	token:1235
 Draw	TapCreaturesForMana	1	-	-	bool:1
 Draw	TargetMax	6	-	-	int:3,token:3
 Draw	TargetMin	6	-	-	int:6
@@ -3714,6 +3714,10 @@ Foretell	Mode	1	-	-	token:1
 Foretell	TriggerDescription	1	-	-	prose:1
 Foretell	TriggerZones	1	-	-	token:1
 Foretell	ValidPlayer	1	-	-	token:1
+ForetellAnyTurn	Description	2	-	-	prose:2
+ForetellAnyTurn	Mode	2	-	-	token:2
+ForetellAnyTurn	Secondary	2	-	-	bool:2
+ForetellAnyTurn	ValidPlayer	2	-	-	token:2
 FullyUnlock	Execute	17	-	-	token:17
 FullyUnlock	Mode	17	-	-	token:17
 FullyUnlock	OptionalDecider	1	-	defined:2	token:1
@@ -4400,7 +4404,7 @@ ManaRestriction	ValidSource	3	-	-	token:3
 Manifest	AB	4	-	-	token:4
 Manifest	Activator	1	-	-	token:1
 Manifest	Amount	9	amount:1	amount:14	int:7,token:2
-Manifest	ChoiceZone	2	zone:1	zone:3	token:2
+Manifest	ChoiceZone	2	zone:1	zone:4	token:2
 Manifest	Choices	2	valid:1	valid:9	token:2
 Manifest	Cost	4	-	-	prose:2,int:1,token:1
 Manifest	DB	25	-	-	token:25
@@ -4656,7 +4660,7 @@ Mutates	TriggerDescription	32	-	-	prose:32
 Mutates	TriggerZones	9	-	-	token:9
 Mutates	ValidCard	32	-	valid:5	token:32
 NameCard	AB	16	-	-	token:16
-NameCard	AILogic	16	-	-	token:16
+NameCard	AILogic	17	-	-	token:17
 NameCard	AtRandom	22	-	-	bool:22
 NameCard	ChooseFromDefinedCards	1	defined:1	-	token:1
 NameCard	ChooseFromList	14	-	-	prose:14
@@ -4991,7 +4995,6 @@ Play	UnlessCost	1	-	amount:1	prose:1
 Play	UnlessPayer	1	-	-	token:1
 Play	UnlessSwitched	1	-	-	bool:1
 Play	Valid	158	-	-	token:152,prose:6
-Play	ValidAfterStack	2	-	-	token:2
 Play	ValidSA	401	valid:1	valid:2	token:401
 Play	ValidTgts	34	-	amount:1,valid:2	token:29,prose:5
 Play	ValidTgtsDesc	2	-	-	prose:2
@@ -5466,7 +5469,7 @@ PutCounterAll	ValidTgts	9	-	amount:1,valid:2	token:9
 PutCounterAll	ValidZone	2	zone:1	zone:1	token:2
 PutSticker	AB	2	-	-	token:2
 PutSticker	ChoiceTitle	24	text:1	-	prose:24
-PutSticker	ChoiceZone	1	zone:1	zone:3	token:1
+PutSticker	ChoiceZone	1	zone:1	zone:4	token:1
 PutSticker	Choices	24	valid:1	valid:9	token:24
 PutSticker	Cost	2	-	-	prose:2
 PutSticker	DB	35	-	-	token:35
@@ -5579,7 +5582,7 @@ RemoveCounter	Activator	3	-	-	token:3
 RemoveCounter	ActiveZones	2	-	-	token:2
 RemoveCounter	ChoiceNum	1	amount:1	-	int:1
 RemoveCounter	ChoiceOptional	6	-	-	bool:6
-RemoveCounter	ChoiceZone	2	zone:1	zone:3	token:2
+RemoveCounter	ChoiceZone	2	zone:1	zone:4	token:2
 RemoveCounter	Choices	10	valid:1	valid:9	token:9,prose:1
 RemoveCounter	ConditionCheckSVar	2	-	-	token:2
 RemoveCounter	ConditionCompare	2	-	-	token:2
@@ -6402,7 +6405,7 @@ Surveil	ConditionDefined	2	-	-	token:2
 Surveil	ConditionOptionalPaid	1	-	-	bool:1
 Surveil	ConditionPresent	4	-	valid:1	token:4
 Surveil	ConditionSVarCompare	3	-	-	token:3
-Surveil	Cost	46	-	-	prose:32,token:14
+Surveil	Cost	46	-	-	prose:31,token:14,int:1
 Surveil	DB	180	-	-	token:180
 Surveil	Defined	1	-	defined:68	token:1
 Surveil	Execute	16	-	-	token:16

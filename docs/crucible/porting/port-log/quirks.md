@@ -60,8 +60,7 @@ New quirk or deviation → one row here, same commit (DOC-12). Landed work beyon
 `AbilityUtils.java:2806` | per-turn ledgers, `valid.go` | | Activation host snapshot: a cost that moved the card leaves
 the old object, whose zone still names the zone it left (Laboratory Drudge's `inZoneGraveyard` reads true for a card
 exiled from the graveyard as its cost) | `Zone.remove` keeps the zone field | activation records, `activateability.go` |
-| Hollow Marauder's `Minus.Remembered$Valid ...` subtracts nothing: the operator splits on `.` into three parts |
-`AbilityUtils.java:3278-3287` | `amount.go` | | `PreventionSubAbility$`: `PreventedDamage` is one damage event's
+| `PreventionSubAbility$`: `PreventedDamage` is one damage event's
 prevented amount, so a shield spent over two events runs its sub twice; `ShieldEffectTarget$` keeps the last entity. |
 `DamagePreventEffect.java:141-152` | `preventdamageeffect.go` |
 

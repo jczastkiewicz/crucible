@@ -7,8 +7,8 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
-// A target question this port cannot ask -- a TargetingPlayer$ naming no
-// single player, a TargetsWithDefinedController$ it cannot resolve, a target
+// A target question this port cannot ask -- a TargetingPlayer$ naming
+// several players or none it can record, a TargetsWithDefinedController$ it cannot resolve, a target
 // zone it cannot scan -- never leaves the ability off the stack as if it had no
 // legal target, and never lets it resolve on an empty target set: the ability
 // goes on the stack and fails when it resolves, before any part of it acts

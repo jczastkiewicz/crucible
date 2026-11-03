@@ -2,6 +2,7 @@ package engine_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -163,6 +164,26 @@ func TestChangeZoneLibraryPositionCountsDown(t *testing.T) {
 		if len(cards) != 4 || cards[tc.want] != victim {
 			t.Errorf("pos %d: library = %v, want %d at index %d (original %v)", tc.pos, cards, victim, tc.want, lib)
 		}
+	}
+}
+
+// TestChangeZoneDefinedLibraryToLibraryDoesNotShuffle proves a Defined$
+// move from the library into the library leaves the rest of it in order
+// (ChangeZoneEffect.java:1006, Vivien's Grizzly's DBBottom): only a searched
+// library is shuffled, and Defined$ searches nothing.
+func TestChangeZoneDefinedLibraryToLibraryDoesNotShuffle(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 6)
+	before := slices.Clone(g.Zone(engine.Library, p).Cards())
+	line := "DB$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Library | LibraryPosition$ -1"
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Bottom Top", line), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	want := append(slices.Clone(before[1:]), before[0])
+	if got := g.Zone(engine.Library, p).Cards(); !slices.Equal(got, want) {
+		t.Errorf("library = %v, want %v: the top card moved to the bottom, nothing shuffled", got, want)
 	}
 }
 

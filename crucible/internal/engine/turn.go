@@ -404,7 +404,9 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 	}
 	g.checkPhaseTriggers(controller)
 	_, performed := checkStateBasedActions(g, controller)
-	if g.activePhase == Cleanup && (performed || len(g.stack) != 0) {
+	// A trigger held in an open trigger batch (an EndTurn resolution's) is
+	// Java's hasSimultaneousStackEntries: it counts as on the stack.
+	if g.activePhase == Cleanup && (performed || len(g.stack) != 0 || len(g.triggerBatch) != 0) {
 		// CR 514.3a: priority, then another cleanup step
 		// (PhaseHandler.java:425-426, 447-449).
 		priority = true

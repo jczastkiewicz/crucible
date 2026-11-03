@@ -229,7 +229,7 @@
       "subability",
       "additional"
     ],
-    "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room"],
+    "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room", "ability"],
     "driver": ["id", "game", "phase", "control", "effect", "mulligan", "openinghand", "registry"],
     "valid": [
       "id",
@@ -632,7 +632,19 @@
       "castrecord",
       "excessdamage"
     ],
-    "foretell": ["id", "zone", "card", "game", "control", "parts", "mana", "manarestrict", "ability", "triggerhooks"],
+    "foretell": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "control",
+      "parts",
+      "mana",
+      "manarestrict",
+      "ability",
+      "triggerhooks",
+      "valid"
+    ],
     "lifelost": [
       "id",
       "zone",

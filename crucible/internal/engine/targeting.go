@@ -10,6 +10,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -336,10 +337,15 @@ func (g *Game) sharesCreatureType(a, b *Card) bool {
 	return false
 }
 
+// errNoTargetingPlayer is a TargetingPlayer$ naming no player: nobody can
+// choose the targets, so they cannot be chosen (SpellAbility.java:2162-2165,
+// setupTargets returns false), the same answer as no legal target.
+var errNoTargetingPlayer = errors.New("engine: TargetingPlayer$ names no player")
+
 // targetingPlayerOf is who chooses a's targets (SpellAbility.setupTargets): the
 // controller, or the one player TargetingPlayer$ names. A spec naming no player
-// or several is an error, the activator's pick among them being a decision this
-// port does not ask (GO-7).
+// is errNoTargetingPlayer; one naming several is an error, the activator's pick
+// among them being a decision this port does not ask (GO-7).
 func (g *Game) targetingPlayerOf(a *Ability) (PlayerID, error) {
 	spec, ok := a.Params.Param("TargetingPlayer")
 	if !ok {
@@ -348,6 +354,9 @@ func (g *Game) targetingPlayerOf(a *Ability) (PlayerID, error) {
 	players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
 	if err != nil {
 		return NoPlayer, fmt.Errorf("engine: TargetingPlayer$: %w", err)
+	}
+	if len(players) == 0 {
+		return NoPlayer, errNoTargetingPlayer
 	}
 	if len(players) != 1 {
 		return NoPlayer, fmt.Errorf("engine: TargetingPlayer$ %q names %d players, not resolvable yet", spec, len(players))
@@ -490,7 +499,7 @@ type targetChoice struct {
 // and a copy's new targets are chosen from (CR 707.10c, copySpell,
 // copyspellabilityeffect.go). named is false when a names no ValidTgts$ at
 // all; ok is false when it does but has no legal candidate while TargetMin$
-// is above 0. A shape this port cannot offer is ok with choice.err set.
+// is above 0, or when its TargetingPlayer$ names nobody to choose them. A shape this port cannot offer is ok with choice.err set.
 // TargetMin$ 0 with no candidate is ok with an empty pool.
 func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool) {
 	defer g.inAbilityContext(a)()
@@ -680,6 +689,9 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 		candidates = kept
 	}
 	targeter, err := g.targetingPlayerOf(a)
+	if errors.Is(err, errNoTargetingPlayer) {
+		return targetChoice{}, true, false
+	}
 	if err != nil {
 		// A TargetingPlayer$ this port cannot name one player for: the ability
 		// is pushed with no targets and fails when it resolves (GO-7), never

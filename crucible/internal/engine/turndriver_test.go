@@ -176,3 +176,42 @@ func TestPassPriorityErrorsOnMultiColorTapForMana(t *testing.T) {
 		t.Fatalf("PassPriority: runtime error %v, want a controller error", err)
 	}
 }
+
+// cleanupAskRecorder passes priority like its ScriptedController, counting
+// the times anyone is asked to act during a Cleanup step.
+type cleanupAskRecorder struct {
+	*engine.ScriptedController
+	asked int
+}
+
+func (r *cleanupAskRecorder) TakeAction(g *engine.Game, pid engine.PlayerID) engine.Action {
+	if g.ActivePhase() == engine.Cleanup {
+		r.asked++
+	}
+	return r.ScriptedController.TakeAction(g, pid)
+}
+
+// TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup is CR 514.3 after an
+// EndTurn spell (Time Stop's shape): its resolution hands nobody priority
+// (MagicStack.java:757-759 skips onStackResolved for EndTurn), and the
+// Cleanup it began found nothing to do, so nobody is asked to act in it.
+func TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	spell := g.NewCard(scriptDef(t, "Test Time Stop", "Instant", "A:SP$ EndTurn"), p, engine.Hand)
+	r := &cleanupAskRecorder{ScriptedController: engine.NewScriptedController()}
+	if !g.CastSpell(p, spell, r) {
+		t.Fatal("CastSpell = false, want true")
+	}
+	if err := g.PassPriority(engine.NewRegistry(), r); err != nil {
+		t.Fatalf("PassPriority: %v", err)
+	}
+	if got := g.ActivePhase(); got != engine.Cleanup {
+		t.Fatalf("phase = %v, want Cleanup", got)
+	}
+	if r.asked != 0 {
+		t.Errorf("players asked to act in Cleanup = %d, want 0 (CR 514.3)", r.asked)
+	}
+}

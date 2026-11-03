@@ -1522,6 +1522,7 @@ mode	FlippedCoin
 mode	FlippedCoinOnce
 mode	Forage
 mode	Foretell
+mode	ForetellAnyTurn
 mode	FullyUnlock
 mode	Gain
 mode	GainLifeRadiation

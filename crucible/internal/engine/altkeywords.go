@@ -82,7 +82,10 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	if mc, ok := altKeywordCost(c, "Freerunning"); ok && g.hasFreerunning(pid) {
 		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Freerunning"})
 	}
-	for _, name := range [...]string{"Dash", "Blitz", "Warp"} {
+	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow"} {
+		if name == "Bestow" && !c.Type().Has(cardtype.Creature) {
+			continue
+		}
 		if o, ok := g.keywordCastOption(pid, c, name); ok {
 			out = append(out, o)
 		}
@@ -90,7 +93,8 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	return out
 }
 
-// keywordCastOption is the cast for c's keyword name (Dash, Blitz or Warp):
+// keywordCastOption is the cast for c's keyword name (Dash, Blitz, Warp or
+// Bestow, whose spell is the Aura spell animateBestow makes, bestow.go):
 // its cost in place of the mana cost, Java's copyWithDefinedCost for Dash
 // (CardFactoryUtil.java:2744-2764) and Warp (:3648-3675) and
 // copyWithManaCostReplaced for Blitz
@@ -107,10 +111,15 @@ func (g *Game) keywordCastOption(pid PlayerID, c *Card, name string) (castOption
 		if k.Name != name {
 			continue
 		}
-		if k.Details == "" || strings.Contains(k.Details, ":") {
+		details := k.Details
+		if name == "Bestow" {
+			// Bestow's second field is its AILogic$ (CardFactoryUtil.java:2661).
+			details, _, _ = strings.Cut(details, ":")
+		}
+		if details == "" || strings.Contains(details, ":") {
 			return castOption{}, false
 		}
-		uc, ok := parseUnlessCost(k.Details)
+		uc, ok := parseUnlessCost(details)
 		if !ok || (uc.hasMana && uc.mana.CountX() > 0) {
 			return castOption{}, false
 		}

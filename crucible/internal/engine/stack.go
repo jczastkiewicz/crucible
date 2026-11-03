@@ -202,6 +202,9 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 	if g.recheckFails(&a) {
 		fizzled = true
 	}
+	if fizzled && g.bestowFizzle(&a) {
+		fizzled = false
+	}
 	if !fizzled {
 		// Captured before Resolve, not read fresh after: EndTurn/
 		// EndCombatPhase (and any future effect touching turn state

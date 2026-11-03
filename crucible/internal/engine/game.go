@@ -1200,6 +1200,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		// graveyard Animate is the permanent's.
 		if from != Battlefield {
 			if kind != Battlefield {
+				// A bestow spell leaving the stack is the creature card
+				// (CounterEffect.java:261); its record goes with the rest.
+				g.dropBestow(id)
 				g.clearAnimates(id)
 			}
 			// A PumpZone$ pump of a card in another zone ends with the object
@@ -1635,6 +1638,9 @@ func (g *Game) Unattach(attachment CardID) {
 		h.attachments.Remove(attachment)
 	}
 	a.attachedTo = NoCard
+	// Card.java:4003-4004: a bestowed Aura becomes the creature again
+	// (CR 702.103f).
+	g.unanimateBestow(attachment)
 	// Card.unattachFromEntity runs Unattached before the commands
 	// (Card.java:4016-4019).
 	g.queueUnattached(attachment, CardEntity(old))

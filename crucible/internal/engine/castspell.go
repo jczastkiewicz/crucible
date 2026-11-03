@@ -604,6 +604,20 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 		}
 		return true
 	}
+	if opts.altKeyword == "Bestow" {
+		// PlaySpellAbility.java:104 (Card.java:7489-7490): the bestow spell is
+		// an Aura spell from the start of its cast, for CantBeCast and
+		// castAura's targets and cost alike; a cast that fails is the
+		// creature card again (GameActionUtil.java:1002).
+		if !g.animateBestow(card) {
+			return false
+		}
+		defer func() {
+			if g.Card(card).Zone != Stack {
+				g.unanimateBestow(card)
+			}
+		}()
+	}
 	if g.cantBeCast(pid, card) || (opts.sneak && !g.sneakPayable(pid, card)) {
 		return false
 	}
@@ -636,6 +650,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	kinds |= altKeywordKind(opts.altKeyword)
 	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness,
 		altKeyword: opts.altKeyword}
+
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	chosen, ok := g.chooseKeywordAmounts(controller, pid, g.Card(card))
@@ -949,6 +964,11 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 	from := g.Card(card).Zone
 	g.Move(card, Stack, pid)
 	g.Card(card).controller = pid
+	if g.Card(card).castFor("Bestow") {
+		// GameAction.java:229-235 (Card.java:7489-7490): the stack object the
+		// move makes is the bestowed Aura spell again.
+		g.animateBestow(card)
+	}
 	g.noteGraveyardExit(card, from)
 	// The cards the optional costs exiled are exiled with the spell object:
 	// Java pays with the spell already on the stack (PlaySpellAbility.java:624,

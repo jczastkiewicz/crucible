@@ -35,14 +35,11 @@ Unconfirmed PORT-8 candidate, JUnit probe first: a static-granted `Blitz:CardMan
 Riveteers Provocateur) reaches `new Cost("CardManaCost")`: `KeywordWithCost` special-cases only the literal `ManaCost`
 and `StaticAbilityContinuous` substitutes no `CardManaCost` (only `PumpEffect.java:458` does). Go offers no such cast.
 
-Next: Bestow (43 cards, task row in `game-state.md`), a port, no ADR. Java keeps the bestowed state into play: a move to
-the battlefield keeps the same `Card` object (`GameAction.java:171-172`, `copied = c`), so `animateBestow`'s timestamped
-type and `Enchant:Creature` change stays until `unattachFromEntity` reverts it (`Card.java:4003-4004`). Go has both
-pieces: an `animateRecord` (Types and keywords at a timestamp, kept from the stack into play, removable by timestamp as
-`endAnimateRevert` does), and `enchantSpec` reads `KeywordLines()`, so a granted `Enchant:Creature` restricts the
-attach. Plan: a `castOption` flag and cast modelled on `castMutate` (the `SP$ Attach | ValidTgts$ Creature` spell, the
-bestow cost), Java's `bestowTimestamp` on `Card`, the gone-target path of `resolveMutate` for CR 702.103e (unanimate,
-resolve as a creature), unanimate in `Game.Unattach` (702.103f) and on a counter (`CounterEffect.java:261`).
+Next: the `MayPlay$` lines with `ValidSA$` past `Spell` (Tenacious Underdog and Sabin, Master Monk `Spell.Blitz`,
+Timeline Culler `Spell.Warp`, Detective's Phoenix `Spell.Bestow`, Brokkos `Spell.Mutate`, Ninja Teen `Spell.Sneak`).
+Every one of those casts exists now; `applyOneContinuousMayPlay` still refuses the grant (`continuous.go`), and the
+grant must allow only the named keyword cast from that zone (Java: `GameActionUtil.java:352` for Warp's hand
+restriction).
 
 ## Working lessons
 

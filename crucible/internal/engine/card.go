@@ -170,6 +170,10 @@ type Card struct {
 	// commander is Card.isCommander (ADR-0051), kept in step with the owner's
 	// Player.commanders.
 	commander bool
+	// bestowTS is Card.bestowTimestamp: the timestamp of the bestow change
+	// (animateBestow, bestow.go) while the card is a bestowed Aura, 0
+	// otherwise.
+	bestowTS uint64
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.

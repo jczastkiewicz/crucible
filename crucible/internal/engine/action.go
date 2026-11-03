@@ -945,9 +945,12 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 			switch {
 			case legal:
 				continue
-			case c.Type().HasSubtype("Aura"):
+			case c.Type().HasSubtype("Aura") && (!attached || !c.Bestowed()):
 				toGraveyard = append(toGraveyard, id)
 			case attached:
+				// A bestowed Aura is unattached, and so a creature again,
+				// rather than put into the graveyard (GameAction.java:1782-
+				// 1785, Card.java:4003-4004, CR 702.103f).
 				toUnattach = append(toUnattach, id)
 			}
 		}

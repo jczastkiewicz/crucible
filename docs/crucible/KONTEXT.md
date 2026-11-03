@@ -21,12 +21,11 @@ this file only points at them (DOC-11).
 
 ## Waiting on the owner
 
-| Row                                                    | Blocked by                                                                    | Reason Claude stops                            |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------- |
-| `B1` Charm `Defined$ You`                              | Publishing branch `upstream-pr/charm-defined-you`                             | Publishing upstream is the owner's (R3)        |
-| `B6` Dakkon `PlayLandVariant`                          | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
-| `GameAction.java:170-172` Animate outliving CR 400.7   | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
-| `Cost.java:1020` waterbend cap lost to a cost increase | Publishing branch `upstream-pr/waterbend-cost-raise` (carried on `master`)    | Publishing upstream is the owner's (R3)        |
+| Row                                                  | Blocked by                                                                    | Reason Claude stops                            |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| `B1` Charm `Defined$ You`                            | Publishing branch `upstream-pr/charm-defined-you`                             | Publishing upstream is the owner's (R3)        |
+| `B6` Dakkon `PlayLandVariant`                        | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
+| `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
 
 Next, in order:
 

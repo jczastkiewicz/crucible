@@ -970,7 +970,7 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.removeAnyN > 0 && g.removableCounters(pid, source, uc) < uc.removeAnyN {
 		return false
 	}
-	if uc.evidenceN > 0 && graveyardManaValue(g, g.Zone(Graveyard, pid).Cards()) < uc.evidenceN {
+	if uc.evidenceN > 0 && graveyardManaValue(g, evidenceCandidates(g, pid, source)) < uc.evidenceN {
 		return false
 	}
 	if uc.youCounterN > 0 && (g.Player(pid).Lost || g.cantPutCounter(PlayerEntity(pid), uc.youCounterType)) {
@@ -1443,7 +1443,7 @@ func escapeTypesPart(text string) (rest, spec string, n int, ok bool) {
 // by the whole graveyard, which unlessCardsPayable said is enough. It returns
 // the cards exiled, the cost's "Collected" paid list.
 func (g *Game) collectEvidence(controller PlayerController, pid PlayerID, source CardID, n int) []CardID {
-	grave := g.Zone(Graveyard, pid).Cards()
+	grave := evidenceCandidates(g, pid, source)
 	picks := controller.ChooseCardsForEffect(g, pid, source, grave, 1, len(grave))
 	if !isSubset(picks, grave) || hasDuplicate(picks) || graveyardManaValue(g, picks) < n {
 		picks = grave
@@ -1451,6 +1451,14 @@ func (g *Game) collectEvidence(controller PlayerController, pid PlayerID, source
 	picks = g.exileCostCards(controller, source, append([]CardID(nil), picks...))
 	g.checkCollectEvidenceTriggers(controller, pid)
 	return picks
+}
+
+// evidenceCandidates is pid's graveyard less source: a spell cast from a
+// graveyard (Detective's Phoenix bestowed through its own grant) is on the
+// stack when Java pays its cost (PlaySpellAbility.java:624), so it is never its
+// own evidence; this port pays before the move.
+func evidenceCandidates(g *Game, pid PlayerID, source CardID) []CardID {
+	return handWithout(g.Zone(Graveyard, pid).Cards(), source)
 }
 
 // handWithout is hand less source: a spell being cast cannot be discarded to pay

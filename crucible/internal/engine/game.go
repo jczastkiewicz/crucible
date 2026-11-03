@@ -1416,6 +1416,9 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		g.unpairOnLeave(id)
 	}
 	if from == Stack {
+		// A bestow spell tucked into a library is the creature card
+		// (CounterEffect.java:261's reason: the new object is not bestowed).
+		g.dropBestow(id)
 		c.leaveRoom()
 	}
 	if from != Library {
@@ -1639,8 +1642,9 @@ func (g *Game) Unattach(attachment CardID) {
 	}
 	a.attachedTo = NoCard
 	// Card.java:4003-4004: a bestowed Aura becomes the creature again
-	// (CR 702.103f).
-	g.unanimateBestow(attachment)
+	// (CR 702.103f); the next layer pass shows it, as Unattach runs inside
+	// zone changes too.
+	g.dropBestow(attachment)
 	// Card.unattachFromEntity runs Unattached before the commands
 	// (Card.java:4016-4019).
 	g.queueUnattached(attachment, CardEntity(old))

@@ -135,3 +135,44 @@ func TestBestowCastIsNotACreatureSpell(t *testing.T) {
 		t.Fatalf("Leafcrown Dryad not bestowed under Steel Golem: %v", g.TakePendingError())
 	}
 }
+
+// A bestow spell put into its owner's library from the stack (Memory Lapse,
+// Commit) is the creature card there, no longer bestowed.
+func TestBestowSpellTuckedIntoTheLibraryIsACreatureCard(t *testing.T) {
+	t.Parallel()
+	g, p, _, dryad, c := castBestowedDryad(t)
+	g.MoveToLibraryTop(dryad, p)
+	engine.CheckStateBasedActions(g, c)
+	if g.Card(dryad).Bestowed() || !g.Card(dryad).Type().Has(cardtype.Creature) {
+		t.Errorf("Leafcrown Dryad in the library: bestowed %v, type %v; want the creature card", g.Card(dryad).Bestowed(), g.Card(dryad).Type())
+	}
+}
+
+// Detective's Phoenix is bestowed from its graveyard for {R} and evidence 6
+// (its ValidSA$ Spell.Bestow grant); the Phoenix, being cast, is not its own
+// evidence: one other card of mana value 3 is not enough, two are.
+func TestDetectivesPhoenixIsBestowedFromTheGraveyard(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	phoenix := g.NewCard(corpusCard(t, "Detective's Phoenix"), p, engine.Graveyard)
+	first := g.NewCard(corpusCard(t, "Gray Ogre"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	if g.CastSpell(p, phoenix, c) {
+		t.Fatal("Detective's Phoenix cast counting itself as evidence")
+	}
+	_ = g.TakePendingError()
+	second := g.NewCard(corpusCard(t, "Gray Ogre"), p, engine.Graveyard)
+	engine.CheckStateBasedActions(g, c)
+	c.QueueCardChoice([]engine.CardID{first, second})
+	castThenResolve(t, g, p, phoenix, c)
+	if host, ok := g.Card(phoenix).AttachedTo(); !ok || host != bears {
+		t.Fatalf("Detective's Phoenix attached to %v (%v), want Grizzly Bears", host, ok)
+	}
+	if g.Card(first).Zone != engine.Exile || g.Card(second).Zone != engine.Exile {
+		t.Error("the two Gray Ogres were not exiled as evidence")
+	}
+}

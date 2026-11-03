@@ -1198,6 +1198,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	// entering it (a reanimated permanent must not keep its graveyard's
 	// grants) and every other-zone-to-other-zone move (an AffectedZone$ Hand
 	// grant must not ride along into the graveyard or stack).
+	if from != kind && (from != Stack || kind != Battlefield) {
+		// A prototyped spell stays prototyped as the permanent it becomes;
+		// any other move makes a new object without it (CR 702.160c).
+		c.prototype = nil
+	}
 	if from != kind {
 		c.TypeMod.Clear()
 		c.ColorMod.Clear()
@@ -1365,6 +1370,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	}
 	before := *c
 	g.clearTextRecords(id)
+	c.prototype = nil
 	if from != Battlefield && from != Library {
 		// The new object has none of a PumpZone$ pump made in the zone it left.
 		g.clearPumps(id)

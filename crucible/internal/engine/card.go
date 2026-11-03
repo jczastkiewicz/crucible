@@ -179,6 +179,10 @@ type Card struct {
 	reconfigureTS uint64
 	// encoded is the Cipher encoding this exiled card carries (encodeeffect.go).
 	encoded encodeMark
+	// prototype is the prototype cost and power/toughness a Prototype cast
+	// gives the spell and the permanent it becomes (prototype.go), nil
+	// otherwise.
+	prototype *prototypeChars
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.
@@ -1081,6 +1085,9 @@ func (c *Card) BasePower() (int, bool) {
 	if c.hasBasePower && len(c.copies) == 0 {
 		return c.basePower, true
 	}
+	if c.prototype != nil && len(c.copies) == 0 {
+		return c.prototype.power, true
+	}
 	if c.Def == nil {
 		return 0, false
 	}
@@ -1091,6 +1098,9 @@ func (c *Card) BasePower() (int, bool) {
 func (c *Card) BaseToughness() (int, bool) {
 	if c.hasBaseToughness && len(c.copies) == 0 {
 		return c.baseToughness, true
+	}
+	if c.prototype != nil && len(c.copies) == 0 {
+		return c.prototype.toughness, true
 	}
 	if c.Def == nil {
 		return 0, false
@@ -1146,6 +1156,9 @@ func (c *Card) Colors() mana.Colors {
 		return 0
 	}
 	base := faceColors(c.Def.Faces[0])
+	if c.prototype != nil {
+		base = c.prototype.cost.Colors()
+	}
 	if splitOriginal(c.Def) {
 		base |= faceColors(c.Def.Faces[carddb.FaceAlternate])
 	}
@@ -1158,6 +1171,9 @@ func (c *Card) Colors() mana.Colors {
 // printedManaCost is the mana cost c's state prints: its primary face's, or
 // both halves' for a Split card off the stack (splitOriginal).
 func (c *Card) printedManaCost() mana.Cost {
+	if c.prototype != nil {
+		return c.prototype.cost
+	}
 	if splitOriginal(c.Def) {
 		return combinedManaCost(c.Def.Faces[0].ManaCost, c.Def.Faces[carddb.FaceAlternate].ManaCost)
 	}
@@ -1835,4 +1851,10 @@ func transformBack(front *compile.Card) *compile.Card {
 	back := &compile.Card{Filename: front.Filename, Name: front.Faces[1].Name, SplitType: front.SplitType}
 	back.Faces[0] = front.Faces[1]
 	return back
+}
+
+// prototypeChars are the characteristics a Prototype cast gives the card.
+type prototypeChars struct {
+	cost             mana.Cost
+	power, toughness int
 }

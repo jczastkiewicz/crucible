@@ -16,6 +16,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -81,6 +82,12 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	}
 	if mc, ok := altKeywordCost(c, "Freerunning"); ok && g.hasFreerunning(pid) {
 		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Freerunning"})
+	}
+	if o, ok := awakenOption(c); ok {
+		out = append(out, o)
+	}
+	if o, ok := prototypeOption(c); ok {
+		out = append(out, o)
 	}
 	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow"} {
 		if name == "Bestow" && !c.Type().Has(cardtype.Creature) {
@@ -148,4 +155,67 @@ func altKeywordKind(name string) optionalKinds {
 		return optFreerunning
 	}
 	return 0
+}
+
+// prototypeWay is c's "Prototype:<cost>:<P>:<T>". ok is false without the
+// keyword, for a malformed line (CardFactoryUtil.java:3332-3335 skips one
+// with fewer than four fields) and for an X in the cost.
+func prototypeWay(c *Card) (prototypeChars, bool) {
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "Prototype" {
+			continue
+		}
+		args := k.Args()
+		if len(args) < 3 || strings.Contains(args[0], "X") {
+			return prototypeChars{}, false
+		}
+		cost, err := mana.Parse(args[0])
+		if err != nil {
+			return prototypeChars{}, false
+		}
+		p, errP := strconv.Atoi(args[1])
+		t, errT := strconv.Atoi(args[2])
+		if errP != nil || errT != nil {
+			return prototypeChars{}, false
+		}
+		return prototypeChars{cost: cost, power: p, toughness: t}, true
+	}
+	return prototypeChars{}, false
+}
+
+// prototypeOption is the Prototype cast of c: its prototype cost in place of
+// its mana cost.
+func prototypeOption(c *Card) (castOption, bool) {
+	p, ok := prototypeWay(c)
+	if !ok {
+		return castOption{}, false
+	}
+	return castOption{hasAlt: true, alt: p.cost, altKeyword: "Prototype"}, true
+}
+
+// awakenOption is the Awaken cast of c (CR 702.113, CardFactoryUtil.java:
+// 2636-2652): "Awaken:<N>:<cost>", its spell the compiled
+// Face.AwakenSpell for the awaken cost. ok is false without the keyword or
+// that spell, and for a cost that is not plain mana (none in the corpus).
+func awakenOption(c *Card) (castOption, bool) {
+	if c.Def == nil || c.Def.Faces[0].AwakenSpell == nil {
+		return castOption{}, false
+	}
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "Awaken" {
+			continue
+		}
+		args := k.Args()
+		if len(args) < 2 || strings.Contains(args[1], "X") {
+			return castOption{}, false
+		}
+		mc, err := mana.Parse(args[1])
+		if err != nil {
+			return castOption{}, false
+		}
+		return castOption{hasAlt: true, alt: mc, altKeyword: "Awaken"}, true
+	}
+	return castOption{}, false
 }

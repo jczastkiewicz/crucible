@@ -825,3 +825,74 @@ func TestSuspendedCreatureHasHaste(t *testing.T) {
 		t.Error("the suspended creature has no haste")
 	}
 }
+
+// Prototype (CR 702.160, CardFactoryUtil.java:3330-3352): Blitz Automaton
+// cast for its prototype {2}{R} is a red 3/2 with mana value 3 on the stack
+// and on the battlefield; returned to the hand it is the colorless seven-mana
+// card again (CR 702.160c).
+func TestPrototypeCastHasThePrototypeCharacteristics(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bot := g.NewCard(corpusCard(t, "Blitz Automaton"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 3)
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueuePayGeneric(mana.ShardR)
+	if !g.CastSpell(p, bot, c) {
+		t.Fatalf("prototype cast failed: %v", g.TakePendingError())
+	}
+	b := g.Card(bot)
+	if b.CMC() != 3 || b.Colors() != mana.Red {
+		t.Errorf("on the stack: mana value %d, colors %v, want 3 and red", b.CMC(), b.Colors())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	pw, _ := b.Power()
+	tg, _ := b.Toughness()
+	if b.Zone != engine.Battlefield || pw != 3 || tg != 2 || b.CMC() != 3 || !b.Prototyped() {
+		t.Errorf("permanent: zone %v, %d/%d, mana value %d, want a 3/2 of mana value 3", b.Zone, pw, tg, b.CMC())
+	}
+	g.Move(bot, engine.Hand, p)
+	if b.CMC() != 7 || b.Colors() != 0 || b.Prototyped() {
+		t.Errorf("in hand: mana value %d, colors %v, want 7 and colorless", b.CMC(), b.Colors())
+	}
+}
+
+// Awaken (CR 702.113, CardFactoryUtil.java:2636-2652): Coastal Discovery cast
+// for its awaken cost {5}{U} draws two cards, then puts four +1/+1 counters
+// on the target land, which becomes a 0/0 Elemental creature with haste --
+// a 4/4. Cast for its mana cost it only draws.
+func TestAwakenCastAnimatesTheTargetLand(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 6)
+	g.SetTurnState(1, p, engine.Main1)
+	island := g.NewCard(corpusCard(t, "Island"), p, engine.Battlefield)
+	plain := g.NewCard(corpusCard(t, "Coastal Discovery"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 4)
+	c := engine.NewScriptedController()
+	c.QueueOption(0)
+	castResolved(t, g, p, plain, c, 3, mana.ShardU)
+	if g.Card(island).Type().Has(cardtype.Creature) {
+		t.Fatal("the plain cast animated the land")
+	}
+	awaken := g.NewCard(corpusCard(t, "Coastal Discovery"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 6)
+	hand := len(g.Zone(engine.Hand, p).Cards())
+	c.QueueOption(1)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(island)})
+	castResolved(t, g, p, awaken, c, 5, mana.ShardU)
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != hand+1 {
+		t.Errorf("hand %d, want %d: the awaken spell still draws two", got, hand+1)
+	}
+	l := g.Card(island)
+	pw, _ := l.Power()
+	tg, _ := l.Toughness()
+	if !l.Type().Has(cardtype.Creature) || !l.Type().HasSubtype("Elemental") || !l.HasKeyword("Haste") || pw != 4 || tg != 4 {
+		t.Errorf("Island: type %v, haste %v, %d/%d, want a 4/4 Elemental creature with haste", l.Type(), l.HasKeyword("Haste"), pw, tg)
+	}
+}

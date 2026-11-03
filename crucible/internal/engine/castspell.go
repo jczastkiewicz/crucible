@@ -1028,6 +1028,9 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 		// move makes is the bestowed Aura spell again.
 		g.animateBestow(card)
 	}
+	if g.Card(card).castFor("Prototype") {
+		g.enterPrototyped(card)
+	}
 	g.noteGraveyardExit(card, from)
 	// The cards the optional costs exiled are exiled with the spell object:
 	// Java pays with the spell already on the stack (PlaySpellAbility.java:624,
@@ -1205,6 +1208,11 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 // paid.
 func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
 	spellAbility := firstSpellAbility(c)
+	if opts.altKeyword == "Awaken" {
+		// The awaken spell is its own copy of the first spell, the land's
+		// PutCounter and Animate at the end of its chain (compile/awaken.go).
+		spellAbility = c.Def.Faces[0].AwakenSpell
+	}
 	if spellAbility == nil {
 		return false
 	}

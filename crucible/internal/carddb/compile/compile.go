@@ -227,6 +227,11 @@ type Face struct {
 	// (sticker.go); nil on every other face.
 	Stickers []Sticker
 
+	// AwakenSpell is the spell an Awaken cast puts on the stack (awaken.go):
+	// the face's first spell ability with the awaken land's PutCounter and
+	// Animate appended to its chain; nil without `K:Awaken`.
+	AwakenSpell *Ability
+
 	// Amounts is every SVar this face defines that is NOT itself an ability
 	// (one of the four slices above, reached through a Sub reference when a
 	// param names it) -- most commonly a `SVar:X:Count$...` line, the value
@@ -392,6 +397,11 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 		exp, ok := keyword.Expand(keyword.Parse(line))
 		if keyword.Parse(line).Name == "Cipher" {
 			if err := c.appendCipherEncode(out, line); err != nil {
+				return err
+			}
+		}
+		if keyword.Parse(line).Name == "Awaken" {
+			if err := c.buildAwaken(out, line); err != nil {
 				return err
 			}
 		}

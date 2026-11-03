@@ -51,6 +51,7 @@ func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: EndTurn: %w", err)
 	}
 	g.endTurnCleanup = priority
+	g.turnEndedByEffect = true
 	return nil
 }
 

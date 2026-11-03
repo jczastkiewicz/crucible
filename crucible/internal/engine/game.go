@@ -90,6 +90,10 @@ type Game struct {
 	// (PhaseHandler.java:447-449 sets bRepeatCleanup and givePriorityToPlayer
 	// from endTurnByEffect's own onPhaseBegin). Step consumes it.
 	endTurnCleanup bool
+	// turnEndedByEffect is set when an EndTurn resolution actually ended the
+	// turn (not declined, its condition met); priorityRound clears it before
+	// each resolution and reads it after.
+	turnEndedByEffect bool
 	// xctx is the X of the ability Registry.resolve is running, the root
 	// ability's xManaCostPaid that Count$xPaid reads first
 	// (AbilityUtils.java:1631); hasX false reads the source card's castX.

@@ -215,3 +215,30 @@ func TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup(t *testing.T) {
 		t.Errorf("players asked to act in Cleanup = %d, want 0 (CR 514.3)", r.asked)
 	}
 }
+
+// TestDeclinedEndTurnKeepsThePriorityRoundGoing is the other half: an
+// Optional$ EndTurn its player declines ended nothing, so priority goes on as
+// after any resolution and the spell under it still resolves.
+func TestDeclinedEndTurnKeepsThePriorityRoundGoing(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	gain := g.NewCard(scriptDef(t, "Test Gain", "Instant", "A:SP$ GainLife | Defined$ You | LifeAmount$ 3"), p, engine.Hand)
+	stop := g.NewCard(scriptDef(t, "Test Maybe Stop", "Instant", "A:SP$ EndTurn | Optional$ True"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueConfirmEffect(false)
+	if !g.CastSpell(p, gain, c) || !g.CastSpell(p, stop, c) {
+		t.Fatal("CastSpell = false, want both on the stack")
+	}
+	before := g.Player(p).Life
+	if err := g.PassPriority(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("PassPriority: %v", err)
+	}
+	if got := g.ActivePhase(); got != engine.Main1 {
+		t.Errorf("phase = %v, want Main1: the turn was not ended", got)
+	}
+	if g.StackLen() != 0 || g.Player(p).Life != before+3 {
+		t.Errorf("stack %d, life %d; want 0 and %d: the GainLife under it resolved", g.StackLen(), g.Player(p).Life, before+3)
+	}
+}

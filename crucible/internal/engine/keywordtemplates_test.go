@@ -896,3 +896,40 @@ func TestAwakenCastAnimatesTheTargetLand(t *testing.T) {
 		t.Errorf("Island: type %v, haste %v, %d/%d, want a 4/4 Elemental creature with haste", l.Type(), l.HasKeyword("Haste"), pw, tg)
 	}
 }
+
+// blockingAlone and blockingValid <spec> (CardProperty.java:1575-1592):
+// Thijarian Witness's "the only blocker" and Sting, the Glinting Dagger's
+// "blocking a Goblin" (getDefinedCards' Valid form over the battlefield).
+func TestBlockingAloneAndBlockingValid(t *testing.T) {
+	t.Parallel()
+
+	for _, blockers := range []int{1, 2} {
+		g, p, other := newTwoPlayerGame(t)
+		goblin := g.NewCard(fillerDef(t, "Test Goblin", "Creature Goblin", "2", "2"), p, engine.Battlefield)
+		var blocks []engine.Block
+		for range blockers {
+			blocks = append(blocks, engine.Block{Blocker: g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield), Attacker: goblin})
+		}
+		idle := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+		g.SetTurnState(2, p, engine.DeclareAttackers)
+		c := engine.NewScriptedController()
+		attackAlone(t, g, c, goblin, engine.PlayerEntity(other))
+		g.AdvancePhase(c)
+		c.QueueBlocks(blocks)
+		declareBlockers(t, g, c)
+
+		first := g.Card(blocks[0].Blocker)
+		if got := engine.Matches(g, first, valid.Parse("Creature.Other+blockingAlone"), other, idle); got != (blockers == 1) {
+			t.Errorf("%d blockers: blockingAlone = %v, want %v", blockers, got, blockers == 1)
+		}
+		if !engine.Matches(g, first, valid.Parse("Creature.blockingValid Goblin"), other, idle) {
+			t.Errorf("%d blockers: a blocker of a Goblin does not read blockingValid Goblin", blockers)
+		}
+		if engine.Matches(g, first, valid.Parse("Creature.blockingValid Orc"), other, idle) {
+			t.Errorf("%d blockers: a blocker of a Goblin reads blockingValid Orc", blockers)
+		}
+		if engine.Matches(g, g.Card(idle), valid.Parse("Creature.blockingAlone"), other, idle) {
+			t.Errorf("%d blockers: an idle creature reads blockingAlone", blockers)
+		}
+	}
+}

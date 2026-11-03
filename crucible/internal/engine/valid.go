@@ -701,7 +701,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:421-422: the source is encoded on c (Cipher).
 		on, ok := g.encodedOn(source)
 		return source != NoCard && ok && on == c.ID
-	case strings.HasPrefix(name, "blocking") && blockingDefinedForms[strings.TrimPrefix(name, "blocking")]:
+	case strings.HasPrefix(name, "blocking") && blockingForm(strings.TrimPrefix(name, "blocking")):
 		return g.blockingDefined(c.ID, strings.TrimPrefix(name, "blocking"), sourceController, source)
 	case name == "blocked":
 		// CardProperty.java:1591-1592: combat.isBlocked(card) -- an attacker
@@ -1663,11 +1663,16 @@ func isBlocking(blocks []Block, id CardID) bool {
 }
 
 // blockingDefinedForms are the `blocking<what>` suffixes blockingDefined
-// answers. Alone, Valid and Targeted are other branches this port does not
-// read: they stay unrecognized properties.
+// answers by name; blockingForm adds Alone and the `Valid <spec>` form.
 var blockingDefinedForms = map[string]bool{
 	"Source": true, "Self": true, "CreatureYouCtrl": true, "TriggeredAttacker": true,
 	"Remembered": true, "Equipped": true, "Enchanted": true,
+}
+
+// blockingForm reports whether blockingDefined answers the `blocking<what>`
+// suffix what. Any other suffix stays an unrecognized property.
+func blockingForm(what string) bool {
+	return blockingDefinedForms[what] || strings.HasSuffix(what, "Alone") || strings.HasPrefix(what, "Valid ")
 }
 
 // blockingDefined is CardProperty.java:1575-1592, `blocking<what>`: id
@@ -1675,8 +1680,26 @@ var blockingDefinedForms = map[string]bool{
 // (CreatureYouCtrl), or one of the cards getDefinedCards(source, what)
 // names -- the host itself, the attacker the root ability's trigger
 // recorded (Rampage's blockingTriggeredAttacker), the host's remembered
-// cards, or the permanent it is attached to.
+// cards, the permanent it is attached to, or every battlefield card a
+// `Valid <spec>` names (Sting, the Glinting Dagger's `blockingValid Goblin`).
+//
+// `...Alone` (blockingAlone, :1578-1580, Thijarian Witness): id blocks and is
+// the only blocker. Java counts the blockers on the last-state battlefield;
+// this counts the blockers still on the battlefield plus id itself, as
+// attackingSuffixMatches does for attackingAlone, so a creature that died
+// blocking alone still reads alone.
 func (g *Game) blockingDefined(id CardID, what string, sourceController PlayerID, source CardID) bool {
+	if strings.HasSuffix(what, "Alone") {
+		if !isBlocking(g.combat.Blocks, id) {
+			return false
+		}
+		for _, b := range g.combat.Blocks {
+			if b.Blocker != id && g.Card(b.Blocker).Zone == Battlefield {
+				return false
+			}
+		}
+		return true
+	}
 	blocksAny := func(attackers ...CardID) bool {
 		for _, b := range g.combat.Blocks {
 			if b.Blocker == id && slices.Contains(attackers, b.Attacker) {
@@ -1705,6 +1728,10 @@ func (g *Game) blockingDefined(id CardID, what string, sourceController PlayerID
 	sc, ok := sourceCard(g, source)
 	if !ok {
 		return false
+	}
+	if strings.HasPrefix(what, "Valid ") {
+		cards, _ := g.definedValidCards(sourceController, sc, what)
+		return blocksAny(cards...)
 	}
 	switch what {
 	case "Remembered":

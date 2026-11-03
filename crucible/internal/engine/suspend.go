@@ -5,7 +5,7 @@
 // is removed, let them cast it without paying its mana cost, a creature with
 // haste.
 //
-// Ported from CardFactoryUtil.java:3547-3607, an AbilityStatic in the hand
+// Ported from CardFactoryUtil.java:3548-3607, an AbilityStatic in the hand
 // (resolved at once, never on the stack, MagicStack.java:289-292) whose
 // canPlay is the card's first spell's timing (:3555-3569) and whose resolve
 // exiles the card and adds the counters as a special action, through the
@@ -26,7 +26,8 @@ import (
 
 // suspendWay is c's "Suspend:<N>:<cost>": the time counters and the cost
 // text. ok is false for a bare Suspend (a granted one, which has no special
-// action, :3547) and for an X in either field.
+// action, :3548) and for an X in either field: Java reads X from the
+// cast SA, which the special action never sets (forge-java-defects.md).
 func suspendWay(c *Card) (n int, cost string, ok bool) {
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)

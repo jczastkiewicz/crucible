@@ -709,3 +709,48 @@ func TestCipherEncodesAndCastsACopyOnCombatDamage(t *testing.T) {
 		t.Error("the encoding outlived the creature leaving the battlefield")
 	}
 }
+
+// More Than Meets the Eye (CR 702.162, CardFactoryUtil.java:3129-3143): Prowl
+// is cast converted from the hand for {2}{W} and enters as its back face,
+// Prowl, Pursuit Vehicle; converting it turns it to its front face.
+func TestMoreThanMeetsTheEyeCastsConverted(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	prowl := g.NewCard(corpusCard(t, "Prowl, Stoic Strategist"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+	if !g.CastFace(p, prowl, c) {
+		t.Fatalf("converted cast failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	pr := g.Card(prowl)
+	if pr.Zone != engine.Battlefield || pr.Name() != "Prowl, Pursuit Vehicle" {
+		t.Fatalf("zone %v name %q, want the back face on the battlefield", pr.Zone, pr.Name())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool %d, want the {2}{W} paid", got)
+	}
+	if !g.Transform(prowl) {
+		t.Fatal("Prowl did not convert")
+	}
+	if got := pr.Name(); got != "Prowl, Stoic Strategist" {
+		t.Errorf("converted to %q, want the front face", got)
+	}
+	g.Move(prowl, engine.Graveyard, p)
+	if g.CastFace(p, prowl, c) {
+		t.Error("cast converted from the graveyard")
+	}
+	// CR 118.6 (Spell.java:82): a mana cost of "no cost" is never paid, so
+	// Ancestral Vision is not cast from the hand.
+	vision := g.NewCard(corpusCard(t, "Ancestral Vision"), p, engine.Hand)
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	if g.CastSpell(p, vision, c) {
+		t.Error("Ancestral Vision cast from the hand")
+	}
+}

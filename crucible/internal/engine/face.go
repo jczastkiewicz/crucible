@@ -29,18 +29,21 @@ func faceCastable(def *compile.Card) bool {
 	case carddb.SplitAdventure, carddb.SplitOmen, carddb.SplitModal, carddb.SplitVengeance:
 		return true
 	case carddb.SplitTransform:
-		_, ok := disturbCost(def)
-		return ok
+		_, disturb := backFaceCost(def, "Disturb")
+		_, converted := backFaceCost(def, "More Than Meets the Eye")
+		return disturb || converted
 	}
 	return false
 }
 
-// disturbCost is the K:Disturb:<cost> of def's front face, the cost of casting
-// its back face from the graveyard (CardFactoryUtil.java:2780-2810).
-func disturbCost(def *compile.Card) (mana.Cost, bool) {
+// backFaceCost is the cost a keyword of def's front face names for casting
+// its back face transformed: K:Disturb:<cost> from the graveyard
+// (CardFactoryUtil.java:2780-2810), K:More Than Meets the Eye:<cost> from the
+// hand, converted (:3129-3143). A cost with X is not offered.
+func backFaceCost(def *compile.Card, name string) (mana.Cost, bool) {
 	for _, line := range def.Faces[carddb.FacePrimary].Keywords {
 		k := keyword.Parse(line)
-		if k.Name != "Disturb" || k.Details == "" {
+		if k.Name != name || k.Details == "" {
 			continue
 		}
 		mc, err := mana.Parse(k.Details)
@@ -60,6 +63,20 @@ func (c *Card) castAsFace() {
 }
 
 func (c *Card) undoCastAsFace() { c.leaveFace() }
+
+// enterTransformed turns a transforming card cast as its back face (Disturb,
+// More Than Meets the Eye) into a transformed permanent as it enters: Java's
+// spell set the card's state to Backside (Card.setSplitStateToPlayAbility,
+// Card.java:7485-7508) and nothing resets it on the move, so it is a
+// permanent on its back face that transforms to its front.
+func (c *Card) enterTransformed() {
+	if c.faceDef == nil || c.faceDef.SplitType != carddb.SplitTransform {
+		return
+	}
+	front := c.faceDef
+	c.faceDef, c.castDoor = nil, DoorLeft
+	c.frontDef, c.Def = front, transformBack(front)
+}
 
 // castAsLeftHalf makes a Split card that is not a Room the spell of its left
 // half, as castAsFace does for the right one: Card.setSplitStateToPlayAbility
@@ -158,9 +175,16 @@ func (g *Game) faceZoneCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 	if c.Owner != pid || c.Def == nil {
 		return mana.Cost{}, false
 	}
-	if c.faceDef != nil && c.Zone == Graveyard && c.faceDef.SplitType == carddb.SplitTransform {
-		// Disturb: the back face, cast transformed for the disturb cost.
-		return disturbCost(c.faceDef)
+	if c.faceDef != nil && c.faceDef.SplitType == carddb.SplitTransform {
+		// Disturb: the back face, cast transformed for the disturb cost from
+		// the graveyard; More Than Meets the Eye: converted, from the hand.
+		switch c.Zone {
+		case Graveyard:
+			return backFaceCost(c.faceDef, "Disturb")
+		case Hand:
+			return backFaceCost(c.faceDef, "More Than Meets the Eye")
+		}
+		return mana.Cost{}, false
 	}
 	if c.manaCost().IsNoCost() {
 		return mana.Cost{}, false

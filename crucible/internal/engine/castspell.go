@@ -140,6 +140,12 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 	c := g.Card(card)
 	fromHand := c.Controller() == pid && c.Zone == Hand
 	options := g.castOptions(pid, card, fromHand)
+	if c.manaCost().IsNoCost() {
+		// CR 118.6, Spell.java:82: a spell whose mana cost is "no cost" is cast
+		// only for an alternative cost or without paying its mana cost
+		// (Ancestral Vision from the hand, a converted face, are not).
+		options = slices.DeleteFunc(options, func(o castOption) bool { return !o.withoutMana && !o.hasAlt })
+	}
 	var opts castOpts
 	var way castOption
 	if len(options) == 0 {
@@ -1467,6 +1473,7 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		g.Card(a.Source).Tapped = true
 	}
 	g.Move(a.Source, Battlefield, a.Controller)
+	g.Card(a.Source).enterTransformed()
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	if sneak {
 		g.sneakJoinsCombat(a.Source)

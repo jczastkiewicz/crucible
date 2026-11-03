@@ -1828,3 +1828,11 @@ type encodeMark struct {
 	creature             CardID
 	creatureStamp, stamp uint64
 }
+
+// transformBack is a transforming card's back face as a one-face card, the
+// Def a transformed permanent shows (Card.changeCardState to Backside).
+func transformBack(front *compile.Card) *compile.Card {
+	back := &compile.Card{Filename: front.Filename, Name: front.Faces[1].Name, SplitType: front.SplitType}
+	back.Faces[0] = front.Faces[1]
+	return back
+}

@@ -297,9 +297,7 @@ func (g *Game) transform(id CardID) bool {
 		return false
 	}
 	if c.frontDef == nil {
-		back := &compile.Card{Filename: front.Filename, Name: front.Faces[1].Name, SplitType: front.SplitType}
-		back.Faces[0] = front.Faces[1]
-		c.frontDef, c.Def = front, back
+		c.frontDef, c.Def = front, transformBack(front)
 	} else {
 		if !front.Faces[0].Type.IsPermanent() {
 			return false

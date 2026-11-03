@@ -145,6 +145,10 @@ type Game struct {
 	// worked out after targeting (CostAdjustment.checkRequirement).
 	castTargets    []EntityID
 	castTargetsFor CardID
+	// castWaterbend marks the spell being cast as paying a Waterbend cost
+	// (SpellAbility.maxWaterbend), its waterbend fired with its SpellCast
+	// triggers.
+	castWaterbend bool
 	// preX is the X a spell announced before its targets (castspell.go
 	// announceX), waiting for payManaCostX.
 	// redirectGuard lists the replacement rules whose redirect is being dealt

@@ -100,13 +100,32 @@ func earthbendReturnTrigger(zone ZoneType) *compile.Ability {
 	return trig
 }
 
-// checkElementalBendTriggers is Player.triggerElementalBend: bender's
-// Mode$ ElementalBend triggers, then Mode$ <kind> ones. Java also records
-// kind in elementalBendThisTurn for hasAllElementBend ("all four this
-// turn"); Firebend and Waterbend are not ported, so four is unreachable here
-// and the set is not kept.
+// checkElementalBendTriggers is Player.triggerElementalBend: kind joins
+// bender's bends this turn, then bender's Mode$ ElementalBend triggers and
+// Mode$ <kind> ones run.
 func (g *Game) checkElementalBendTriggers(controller PlayerController, bender PlayerID, kind string) {
-	g.checkPlayerActionTriggers(controller, bender, "ElementalBend", kind)
+	g.pushTriggeredAbilities(controller, g.elementalBendMatches(bender, kind))
+}
+
+// elementalBendKinds are the four bends of Player.hasAllElementBend.
+var elementalBendKinds = [...]string{"Airbend", "Earthbend", "Firebend", "Waterbend"}
+
+// elementalBendMatches is checkElementalBendTriggers returning the matches
+// instead of pushing them: Player.elementalBendThisTurn (Player.java:4137-
+// 4144) records kind, reset at cleanup (:2538).
+func (g *Game) elementalBendMatches(bender PlayerID, kind string) []Ability {
+	for i, k := range elementalBendKinds {
+		if k == kind {
+			g.Player(bender).elementalBends |= 1 << i
+		}
+	}
+	return g.playerActionTriggerMatches(bender, nil, "ElementalBend", kind)
+}
+
+// hasAllElementBend is Player.hasAllElementBend (Player.java:4146-4148): the
+// player bent all four elements this turn (Count$AllFourBend).
+func (g *Game) hasAllElementBend(pid PlayerID) bool {
+	return g.Player(pid).elementalBends == 1<<len(elementalBendKinds)-1
 }
 
 // checkPlayerActionTriggers runs every trigger of the given modes whose only

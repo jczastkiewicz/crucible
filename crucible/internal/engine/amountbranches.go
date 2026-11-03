@@ -222,6 +222,9 @@ func branchCountValue(g *Game, amounts map[string]expr.Amount, sourceController 
 	case "Revolt":
 		// AbilityUtils.java:2268-2270: Player.hasRevolt.
 		flag = g.hasRevolt
+	case "AllFourBend":
+		// AbilityUtils.java:2336-2337.
+		flag = g.hasAllElementBend
 	case "CommittedCrimeThisTurn":
 		// AbilityUtils.java:2289-2291: Player.getCommittedCrimeThisTurn > 0.
 		flag = func(p PlayerID) bool { return g.Player(p).committedCrimes > 0 }

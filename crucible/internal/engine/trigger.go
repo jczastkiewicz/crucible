@@ -547,6 +547,11 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	// Delayed triggers run after every collected card trigger
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:356-361).
 	matches = append(matches, g.delayedSpellCastMatches(c, activator, spellID)...)
+	if g.castWaterbend {
+		// MagicStack.java:397-399, after the SpellCast triggers.
+		g.castWaterbend = false
+		matches = append(matches, g.elementalBendMatches(activator, "Waterbend")...)
+	}
 	g.effectsSeeCast(cast)
 	g.pushTriggeredAbilities(controller, matches)
 }

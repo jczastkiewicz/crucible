@@ -792,6 +792,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.dilemmasFacedThisTurn = 0
 		p.DescendedThisTurn, p.descended = false, 0
 		p.committedCrimes = 0
+		p.elementalBends = 0
 		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
 		p.LifeLostThisTurn = 0

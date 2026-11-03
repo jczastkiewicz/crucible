@@ -736,6 +736,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 		g.castPending, g.preX, g.hasPreX, g.castXMin = NoCard, 0, false, 0
 		g.castGrantor = NoCard
 		g.castTargets, g.castTargetsFor = nil, NoCard
+		g.castWaterbend = false
 		// A cast that went on the stack released the hold (castExitMatches).
 		// One that failed after a cost part already fired a trigger (a
 		// sacrifice before a later part could not be paid) still owes it: the
@@ -966,7 +967,11 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 		total = reducedByEmerge(g, total, emerged)
 	}
 	total, assist := g.assistCost(controller, pid, c, total)
-	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN+opts.altWaterbend+g.staticRaiseWaterbend(pid, c))
+	waterbendN := opts.optional.waterbendN + opts.altWaterbend + g.staticRaiseWaterbend(pid, c)
+	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, waterbendN)
+	// SpellAbility.maxWaterbend: a spell with a Waterbend cost is a waterbend
+	// once it is on the stack (MagicStack.java:397-399, checkSpellCastTriggers).
+	g.castWaterbend = waterbendN > 0
 	g.snowAnyColor = opts.snowAnyColor
 	restore := g.payingFor(&payContext{item: &Ability{Source: c.ID, Controller: pid, spell: true}, cost: total})
 	if sp := firstSpellAbility(c); sp != nil {

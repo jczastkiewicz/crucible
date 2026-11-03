@@ -188,3 +188,25 @@ func TestStriveRaisesPerExtraTarget(t *testing.T) {
 		t.Errorf("pool %d after the cast, want 0", got)
 	}
 }
+
+// Firebending is a firebend (ManaEffect.java:195-197): Avatar Aang attacking
+// draws a card through its ElementalBend trigger, and with one bend of four
+// this turn (Count$AllFourBend) it does not transform.
+func TestFirebendingFiresElementalBend(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 3)
+	aang := g.NewCard(corpusCard(t, "Avatar Aang"), p, engine.Battlefield)
+	g.SetTurnState(2, p, engine.DeclareAttackers)
+	c := engine.NewScriptedController()
+	attackAlone(t, g, c, aang, engine.PlayerEntity(other))
+	if err := g.TakePendingError(); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 1 {
+		t.Errorf("hand %d after firebending, want 1 drawn", got)
+	}
+	if got := g.Card(aang).Name(); got != "Avatar Aang" {
+		t.Errorf("Aang is %q, want untransformed with one bend of four", got)
+	}
+}

@@ -146,6 +146,9 @@ type Player struct {
 	// Count$CommittedCrimeThisTurn and the committedCrimeThisTurn player
 	// property, reset at cleanup (Player.onCleanupPhase, :2501).
 	committedCrimes int
+	// elementalBends is Player.elementalBendThisTurn, one bit per
+	// elementalBendKinds entry, reset at cleanup (Player.java:2538).
+	elementalBends uint8
 	// DrawnThisDrawStep is how many cards this player has drawn while the
 	// game's current phase is Draw (Java's own numDrawnThisDrawStep,
 	// Player.java) -- distinct from CardsDrawnThisTurn's whole-turn count:

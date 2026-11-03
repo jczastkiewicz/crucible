@@ -799,6 +799,11 @@ func (g *Game) finishActivation(controller PlayerController, pid PlayerID, card 
 	// costs' triggers in firing order, then AbilityCast, then Cycled
 	// (MagicStack.java:354-365).
 	held = append(held, g.abilityCastMatches(activated)...)
+	if text, ok := ability.Param("Cost"); ok && strings.Contains(text, "Waterbend<") {
+		// An ability with a Waterbend cost is a waterbend (MagicStack.java:
+		// 397-399).
+		held = append(held, g.elementalBendMatches(pid, "Waterbend")...)
+	}
 	if isCycling(ability) {
 		pl := g.Player(pid)
 		pl.CyclingThisTurn++

@@ -182,8 +182,10 @@ queue action <p> cast <id> <door>         ScriptedController.QueueAction, p cast
 queue action <p> unlockdoor <id> <door>   ScriptedController.QueueAction, p unlocks Room id's LeftSplit/RightSplit door (special action)
 queue action <p> foretell <id>     ScriptedController.QueueAction, p foretells id (special action)
 queue action <p> plot <id>         ScriptedController.QueueAction, p plots id (special action)
+queue action <p> turnfaceup <id> [<way>]  ScriptedController.QueueAction, p turns face-down id face up by its way'th ability (special action)
 foretell <player> <id>        Game.Foretell(player, id, controller), id from Loaded.CardByFixtureID
 plot <player> <id>            Game.Plot(player, id, controller), id from Loaded.CardByFixtureID
+turnfaceup <player> <id> [<way>]  Game.TurnFaceUp(player, id, way, controller), way 0 by default
 queue roomdoor <door>                 ScriptedController.QueueRoomDoor, UnlockDoor's LeftSplit/RightSplit pick
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one

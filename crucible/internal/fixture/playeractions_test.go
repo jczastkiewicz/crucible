@@ -63,3 +63,35 @@ func TestConcedeRemovesThePlayerOrRejectsTheName(t *testing.T) {
 		t.Fatal("concede nobody: want an error")
 	}
 }
+
+// turnfaceup names a player, one card and an optional way index; a missing,
+// unknown or extra argument, or a way that is not a number, is a fixture
+// error naming the verb. Queued, it parses with or without the way.
+func TestTurnFaceUpArguments(t *testing.T) {
+	t.Parallel()
+
+	for name, line := range map[string]string{
+		"no card id":          "turnfaceup human",
+		"unknown card":        "turnfaceup human 99",
+		"way not a number":    "turnfaceup human 1 x",
+		"too many arguments":  "turnfaceup human 1 0 0",
+		"queued, no card id":  "queue action human turnfaceup",
+		"queued, way not int": "queue action human turnfaceup 1 x",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			l := load(t, menaceDB(t), menaceCombat)
+			err := runActions(t, l, engine.NewScriptedController(), "startturn human\n"+line+"\n")
+			if err == nil || !strings.Contains(err.Error(), "turnfaceup") {
+				t.Fatalf("RunActions(%q) = %v, want an error naming turnfaceup", line, err)
+			}
+		})
+	}
+	for _, line := range []string{"turnfaceup human 1", "turnfaceup human 1 0", "queue action human turnfaceup 1", "queue action human turnfaceup 1 0"} {
+		l := load(t, menaceDB(t), menaceCombat)
+		if err := runActions(t, l, engine.NewScriptedController(), "startturn human\n"+line+"\n"); err != nil {
+			t.Errorf("%s: %v", line, err)
+		}
+	}
+}

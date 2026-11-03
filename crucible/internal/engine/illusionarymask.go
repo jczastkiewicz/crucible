@@ -20,13 +20,14 @@ import (
 // on the stack (CR 708.4: turned face down before it goes on the stack, so every
 // cost and restriction sees only those characteristics; Card.java:7476-7478,
 // CostAdjustment.java:50-52). castSpell turns it face up again if the cast fails.
-func (g *Game) turnFaceDownForCast(id CardID) {
+// ward gives it ward {2}, Disguise's FaceDownKeyword (CardFactoryUtil.java:2769).
+func (g *Game) turnFaceDownForCast(id CardID, ward bool) {
 	c := g.Card(id)
 	c.clearTextChange()
 	if c.faceUpDef == nil {
 		c.faceUpDef = c.Def
 	}
-	c.Def = faceDownDef(false)
+	c.Def = faceDownDef(ward)
 }
 
 // maskTurnUp is ReplaceIlluMask's three Updated replacements (PlayEffect.java:
@@ -40,11 +41,7 @@ func (g *Game) maskTurnUp(controller PlayerController, id CardID) {
 	if !c.illuMask || !c.IsFaceDown() || !g.canBeTurnedFaceUp(id) {
 		return
 	}
-	c.turnFaceUp()
-	// CR 613.7f: a permanent turned face up gets a new timestamp (Card.java:891).
-	g.timestamp++
-	c.Timestamp = g.timestamp
-	g.faceChangeReplaced(controller, "TurnFaceUp", id)
+	g.turnUp(controller, id)
 	g.checkTurnedFaceUpTriggers(controller, id, nil)
 }
 

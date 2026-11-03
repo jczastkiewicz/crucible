@@ -933,6 +933,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.IsFaceDown()
 	case name == "faceUp":
 		return !c.IsFaceDown()
+	case name == "turnedFaceUpThisTurn":
+		// CardProperty.java:1049.
+		return c.turnedFaceUpTurn != 0 && c.turnedFaceUpTurn == g.turn
 	case name == "untapped":
 		return !c.Tapped
 	case name == "SharesColorWith":

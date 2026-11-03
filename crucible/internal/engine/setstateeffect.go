@@ -156,6 +156,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			// (Card.java:891).
 			g.timestamp++
 			c.Timestamp = g.timestamp
+			c.turnedFaceUpTurn = g.turn
 			changed = true
 		}
 		if changed {

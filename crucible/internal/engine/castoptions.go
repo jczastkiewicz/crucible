@@ -70,6 +70,10 @@ type castOption struct {
 	// keyword casts (altkeywords.go): alt is the keyword's mana, altExtra
 	// (when hasAltExtra) the rest of a Blitz cost.
 	altKeyword string
+	// faceDown is the face-down cast of a Morph, Megamorph or Disguise card
+	// (morph.go): alt is the {3}; faceDownWard gives the face-down spell ward
+	// {2} (Disguise).
+	faceDown, faceDownWard bool
 }
 
 // sameWay reports whether two options differ only in flash and limits, which
@@ -78,7 +82,7 @@ func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
 		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altOwn == p.altOwn && o.altText == p.altText && o.altKeyword == p.altKeyword &&
-		o.hasAltExtra == p.hasAltExtra && o.altWaterbend == p.altWaterbend
+		o.hasAltExtra == p.hasAltExtra && o.altWaterbend == p.altWaterbend && o.faceDown == p.faceDown && o.faceDownWard == p.faceDownWard
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -169,6 +173,9 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		// (altcost.go).
 		out = append(out, g.altCostOptions(pid, c)...)
 		out = append(out, g.altKeywordOptions(pid, c)...)
+		if o, ok := faceDownCastOption(c); ok {
+			out = append(out, o)
+		}
 	}
 	grants = append(grants, g.altCostThroughGrants(pid, c, grants)...)
 	for _, o := range grants {
@@ -287,6 +294,8 @@ func (o castOption) describe(name string) string {
 		return "Cast " + name + " for its " + strings.ToLower(o.altKeyword) + " cost " + o.alt.String()
 	case o.altStatic:
 		return "Cast " + name + " for its alternative cost " + o.altText
+	case o.faceDown:
+		return "Cast " + name + " face down for " + o.alt.String()
 	case o.withoutMana:
 		base = "Cast " + name + " without paying its mana cost"
 	case o.hasAlt && o.altText != "":

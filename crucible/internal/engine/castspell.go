@@ -223,6 +223,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		opts.mutate = way.mutate
 		opts.emerge = way.emerge
 		opts.altKeyword = way.altKeyword
+		opts.faceDown, opts.faceDownWard = way.faceDown, way.faceDownWard
 		if way.altStatic {
 			// The static's cost past its mana is paid as Escape's other parts
 			// are (altcost.go).
@@ -622,6 +623,8 @@ type castOpts struct {
 	// CardFactoryUtil.abilityCastFaceDown builds): the spell is the face-down
 	// 2/2 of CR 708.2a.
 	faceDown bool
+	// faceDownWard gives the face-down spell ward {2} (Disguise, morph.go).
+	faceDownWard bool
 	// altKeyword is "Surge", "Freerunning", "Dash", "Blitz" or "Warp" for a cast for that keyword's
 	// cost (altkeywords.go): altCost is that cost.
 	altKeyword string
@@ -640,7 +643,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 		// choice and cost below sees the face-down 2/2; a cast that does not
 		// happen turns it face up again.
 		opts.faceDown = false
-		g.turnFaceDownForCast(card)
+		g.turnFaceDownForCast(card, opts.faceDownWard)
 		if !g.castSpell(controller, pid, card, opts) {
 			if now := g.Card(card); now.Zone != Stack {
 				now.turnFaceUp()

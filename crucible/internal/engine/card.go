@@ -572,6 +572,9 @@ type Card struct {
 	// leaves exile (Heist); Move clears it.
 	faceDownEntry       bool
 	Manifested, Cloaked bool
+	// turnedFaceUpTurn is the turn the card was last turned face up
+	// (Card.turnedFaceUpThisTurn, cleared at cleanup, Card.java:7310).
+	turnedFaceUpTurn int
 
 	// frontDef is the card's own (front face) definition while it is
 	// transformed: Def then holds the back face. Transforms counts its

@@ -204,6 +204,29 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		l.Game.Plot(pid, ids[0], c)
 
+	case "turnfaceup":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if len(args) < 2 || len(args) > 3 {
+			return fmt.Errorf("turnfaceup: want a player, a card id and an optional way, got %q", strings.Join(args, " "))
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("turnfaceup: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("turnfaceup: want exactly one card id, got %q", args[1])
+		}
+		way := 0
+		if len(args) == 3 {
+			if way, err = strconv.Atoi(args[2]); err != nil {
+				return fmt.Errorf("turnfaceup: way %q: %w", args[2], err)
+			}
+		}
+		l.Game.TurnFaceUp(pid, ids[0], way, c)
+
 	case "concede":
 		pid, err := resolveActionPlayer(l, args, 1)
 		if err != nil {
@@ -931,6 +954,18 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("plot takes one card id, got %q", strings.Join(args[2:], " "))
 		}
 		return engine.Action{Kind: engine.ActionPlot, Card: ids[0]}, pid, nil
+	case "turnfaceup":
+		if len(args) != 3 && len(args) != 4 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("turnfaceup takes a card id and an optional way, got %q", strings.Join(args[2:], " "))
+		}
+		way := 0
+		if len(args) == 4 {
+			var err error
+			if way, err = strconv.Atoi(args[3]); err != nil {
+				return engine.Action{}, engine.NoPlayer, fmt.Errorf("turnfaceup way %q: %w", args[3], err)
+			}
+		}
+		return engine.Action{Kind: engine.ActionTurnFaceUp, Card: ids[0], AbilityIndex: way}, pid, nil
 	case "playland":
 		if len(args) != 3 {
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes one card id, got %q", args[1], strings.Join(args[2:], " "))

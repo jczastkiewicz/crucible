@@ -616,7 +616,8 @@
       "rulesmod",
       "emerge",
       "altcost",
-      "unlesscost"
+      "unlesscost",
+      "morph"
     ],
     "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability", "player"],
     "playerproperty": [

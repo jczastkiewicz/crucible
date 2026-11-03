@@ -204,6 +204,23 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		l.Game.Plot(pid, ids[0], c)
 
+	case "suspend":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if len(args) < 2 {
+			return fmt.Errorf("suspend: want a player and a card id, got %q", strings.Join(args, " "))
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("suspend: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("suspend: want exactly one card id, got %q", args[1])
+		}
+		l.Game.Suspend(pid, ids[0], c)
+
 	case "turnfaceup":
 		pid, err := resolveActionPlayer(l, args, 1)
 		if err != nil {
@@ -954,6 +971,11 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("plot takes one card id, got %q", strings.Join(args[2:], " "))
 		}
 		return engine.Action{Kind: engine.ActionPlot, Card: ids[0]}, pid, nil
+	case "suspend":
+		if len(args) != 3 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("suspend takes one card id, got %q", strings.Join(args[2:], " "))
+		}
+		return engine.Action{Kind: engine.ActionSuspend, Card: ids[0]}, pid, nil
 	case "turnfaceup":
 		if len(args) != 3 && len(args) != 4 {
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("turnfaceup takes a card id and an optional way, got %q", strings.Join(args[2:], " "))

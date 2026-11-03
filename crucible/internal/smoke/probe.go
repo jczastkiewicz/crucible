@@ -350,7 +350,9 @@ func (p *Prober) run(name string, where *atomic.Value, v variant) (res Result) {
 	if g.Card(card).Type().Has(cardtype.Land) {
 		started = g.PlayLand(pid, card, ctl)
 	} else {
-		started = g.CastSpell(pid, card, ctl)
+		// A card with no mana cost and Suspend (Ancestral Vision, Living End)
+		// is played by suspending it; the turns below cast it.
+		started = g.CastSpell(pid, card, ctl) || g.Suspend(pid, card, ctl)
 	}
 	if !started {
 		if err := g.TakePendingError(); err != nil {

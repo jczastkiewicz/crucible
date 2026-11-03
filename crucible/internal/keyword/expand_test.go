@@ -245,6 +245,31 @@ func TestExpandReplacements(t *testing.T) {
 
 // Sunburst's counter follows the face's printed type (CardFactoryUtil.java:
 // 2480): +1/+1 for a creature, charge otherwise.
+// Suspend's play trigger gives a permanent card haste through a Remembered
+// pump (CardFactoryUtil.java:1856-1866); an instant or sorcery is only cast.
+func TestExpandSuspendHasteForPermanents(t *testing.T) {
+	t.Parallel()
+	for _, permanent := range []bool{true, false} {
+		exp, ok := keyword.ExpandSuspend(keyword.Parse("Suspend:1:R"), permanent)
+		if !ok || len(exp.Triggers) != 2 {
+			t.Fatalf("permanent %v: ok %v, %d triggers, want 2", permanent, ok, len(exp.Triggers))
+		}
+		haste := false
+		for _, sv := range exp.SVars {
+			haste = haste || strings.Contains(sv.Value, "KW$ Haste")
+		}
+		if haste != permanent {
+			t.Errorf("permanent %v: haste pump %v", permanent, haste)
+		}
+	}
+	if _, ok := keyword.ExpandSuspend(keyword.Parse("Flying"), true); ok {
+		t.Error("ExpandSuspend accepted Flying")
+	}
+	if exp, _ := keyword.Expand(keyword.Parse("Suspend:1:R")); len(exp.Triggers) != 0 {
+		t.Error("Expand handles Suspend without the face's type")
+	}
+}
+
 func TestExpandSunburstCounterByType(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

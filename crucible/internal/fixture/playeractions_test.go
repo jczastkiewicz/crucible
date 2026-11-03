@@ -7,13 +7,13 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
-// foretell and plot name a player and exactly one card; a missing or unknown
+// foretell, plot and suspend name a player and exactly one card; a missing or unknown
 // card id is a fixture error naming the verb, not an engine call on a bad
 // handle. Queued as an action, each takes exactly one card id.
 func TestSpecialActionsRejectABadCardArgument(t *testing.T) {
 	t.Parallel()
 
-	for _, verb := range []string{"foretell", "plot"} {
+	for _, verb := range []string{"foretell", "plot", "suspend"} {
 		for name, line := range map[string]string{
 			"no card id":           verb + " human",
 			"unknown card":         verb + " human 99",
@@ -32,12 +32,12 @@ func TestSpecialActionsRejectABadCardArgument(t *testing.T) {
 	}
 }
 
-// A queued foretell or plot with one card id parses as an action the
+// A queued foretell, plot or suspend with one card id parses as an action the
 // controller takes when next given priority.
 func TestQueuedSpecialActionsParse(t *testing.T) {
 	t.Parallel()
 
-	for _, verb := range []string{"foretell", "plot"} {
+	for _, verb := range []string{"foretell", "plot", "suspend"} {
 		t.Run(verb, func(t *testing.T) {
 			t.Parallel()
 

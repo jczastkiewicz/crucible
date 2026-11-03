@@ -693,6 +693,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return ok && defender == c.Controller()
 	case name == "blocking":
 		return isBlocking(g.combat.Blocks, c.ID)
+	case name == "suspended":
+		// CardProperty.java:1363-1366: Card.hasSuspend (Card.java:1712-1715),
+		// a card with Suspend in exile carrying a time counter.
+		return c.Zone == Exile && c.Counters.Count(Time) > 0 && c.HasKeyword("Suspend")
 	case name == "EncodedWithSource":
 		// CardProperty.java:421-422: the source is encoded on c (Cipher).
 		on, ok := g.encodedOn(source)

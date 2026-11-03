@@ -395,6 +395,10 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 				return err
 			}
 		}
+		if keyword.Parse(line).Name == "Suspend" {
+			// Suspend's haste half is built only for a permanent card.
+			exp, ok = keyword.ExpandSuspend(keyword.Parse(line), c.face.Type.IsPermanent())
+		}
 		if keyword.Parse(line).Name == "Sunburst" {
 			// Sunburst's counter follows the face's printed type.
 			exp, ok = keyword.ExpandSunburst(keyword.Parse(line), c.face.Type.Has(cardtype.Creature))

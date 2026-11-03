@@ -85,6 +85,10 @@ const (
 	// TurnFaceUp, its AbilityIndex'th way (faceUpWays): a special action
 	// (CR 116.2b), after which the player keeps priority.
 	ActionTurnFaceUp
+	// ActionSuspend exiles Card from the hand with its time counters via
+	// Suspend: a special action (CR 116.2f), after which the player keeps
+	// priority.
+	ActionSuspend
 )
 
 // canActSorcerySpeed is CR 307.1's own timing restriction (Player.java's
@@ -259,6 +263,10 @@ func (g *Game) applyAction(pid PlayerID, a Action, controller PlayerController) 
 	case ActionTurnFaceUp:
 		if !g.TurnFaceUp(pid, a.Card, a.AbilityIndex, controller) {
 			return &actionError{pid: pid, kind: "turn face up", card: a.Card}
+		}
+	case ActionSuspend:
+		if !g.Suspend(pid, a.Card, controller) {
+			return &actionError{pid: pid, kind: "suspend", card: a.Card}
 		}
 	case ActionActivate:
 		if !g.ActivateAbility(pid, a.Card, a.AbilityIndex, controller) {

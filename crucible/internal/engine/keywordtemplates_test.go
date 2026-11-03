@@ -754,3 +754,74 @@ func TestMoreThanMeetsTheEyeCastsConverted(t *testing.T) {
 		t.Error("Ancestral Vision cast from the hand")
 	}
 }
+
+// Suspend (CR 702.62, CardFactoryUtil.java:1829-1873, :3547-3607): Rift Bolt
+// suspended for {R} is exiled with a time counter; at its owner's next upkeep
+// the counter comes off and it is cast without paying its mana cost.
+func TestSuspendCastsWhenTheLastCounterIsRemoved(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 4)
+	libraryCards(t, g, other, 4)
+	g.SetTurnState(1, p, engine.Main1)
+	bolt := g.NewCard(corpusCard(t, "Rift Bolt"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+	if !g.Suspend(p, bolt, c) {
+		t.Fatalf("suspend failed: %v", g.TakePendingError())
+	}
+	b := g.Card(bolt)
+	if b.Zone != engine.Exile || b.Counters.Count(engine.Time) != 1 {
+		t.Fatalf("zone %v, %d time counters, want exiled with 1", b.Zone, b.Counters.Count(engine.Time))
+	}
+	if !engine.Matches(g, b, valid.Parse("Card.suspended"), p, bolt) {
+		t.Error("Rift Bolt is not suspended")
+	}
+	c.QueueConfirmEffect(true)
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	toStep(t, g, c, p, engine.Upkeep, nil)
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if got := g.Player(other).Life; got != 17 {
+		t.Errorf("opponent life %d, want 17 from the free Rift Bolt", got)
+	}
+	if got := b.Zone; got != engine.Graveyard {
+		t.Errorf("Rift Bolt in %v, want the graveyard", got)
+	}
+}
+
+// A suspended creature card cast as its last counter goes has haste (CR
+// 702.62a): Nantuko Shaman. Suspend is offered only at its cast timing, and
+// not for a card outside the hand.
+func TestSuspendedCreatureHasHaste(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 4)
+	libraryCards(t, g, other, 4)
+	g.SetTurnState(1, p, engine.Upkeep)
+	shaman := g.NewCard(corpusCard(t, "Nantuko Shaman"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 4)
+	c := engine.NewScriptedController()
+	if g.Suspend(p, shaman, c) {
+		t.Fatal("a creature suspended in the upkeep")
+	}
+	g.SetTurnState(1, p, engine.Main1)
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.Suspend(p, shaman, c) {
+		t.Fatalf("suspend failed: %v", g.TakePendingError())
+	}
+	if g.Suspend(p, shaman, c) {
+		t.Error("suspended again from exile")
+	}
+	c.QueueConfirmEffect(true)
+	toStep(t, g, c, p, engine.Upkeep, nil)
+	s := g.Card(shaman)
+	if s.Zone != engine.Battlefield {
+		t.Fatalf("Nantuko Shaman in %v, want the battlefield: %v", s.Zone, g.TakePendingError())
+	}
+	if !s.HasKeyword("Haste") {
+		t.Error("the suspended creature has no haste")
+	}
+}

@@ -937,6 +937,35 @@ func ExpandSunburst(k Keyword, creature bool) (Expansion, bool) {
 	}, true
 }
 
+// ExpandSuspend is CardFactoryUtil.java:1829-1873's Suspend triggers, for
+// every Suspend line (a granted bare one too): at your upkeep, remove a time
+// counter from it while it is suspended; as the last is removed, you may cast
+// it without paying its mana cost, and a permanent spell's creature gains
+// haste for as long as you control it. Java builds the haste half only when
+// the card is a permanent (:1851), so the caller passes the face's printed
+// type. The special action is the engine's (suspend.go).
+func ExpandSuspend(k Keyword, permanent bool) (Expansion, bool) {
+	if k.Name != "Suspend" {
+		return Expansion{}, false
+	}
+	play := "DB$ Play | Defined$ Self | WithoutManaCost$ True | Optional$ True"
+	svars := []SVarDef{{"KWSuspendRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"}}
+	if permanent {
+		play += " | RememberPlayed$ True | SubAbility$ KWSuspendHaste" + Slot
+		svars = append(svars,
+			SVarDef{"KWSuspendHaste" + Slot, "DB$ Pump | Defined$ Remembered | KW$ Haste | PumpZone$ Stack | ConditionDefined$ Remembered | ConditionPresent$ Creature | Duration$ UntilLoseControlOfHost | SubAbility$ KWSuspendCleanup" + Slot},
+			SVarDef{"KWSuspendCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"})
+	}
+	svars = append(svars, SVarDef{"KWSuspendPlay" + Slot, play})
+	return Expansion{
+		Triggers: []string{
+			"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Exile | IsPresent$ Card.Self+suspended | PresentZone$ Exile | Secondary$ True | Execute$ KWSuspendRemove" + Slot,
+			"Mode$ CounterRemoved | TriggerZones$ Exile | ValidCard$ Card.Self | CounterType$ TIME | NewCounterAmount$ 0 | Secondary$ True | Execute$ KWSuspendPlay" + Slot,
+		},
+		SVars: svars,
+	}, true
+}
+
 // expandEquip is CardFactoryUtil.java:2852's Equip branch: "Equip:<cost>
 // [:<valid>[:<description>[:<extra>[:<extra description>]]]]", an Attach
 // ability at sorcery speed aimed at a creature the controller controls (or

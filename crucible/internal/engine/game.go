@@ -1216,8 +1216,13 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 				g.clearAnimates(id)
 			}
 			// A PumpZone$ pump of a card in another zone ends with the object
-			// too (pumpRecord.InZone); a Perpetual one stays.
-			g.clearPumps(id)
+			// too (pumpRecord.InZone); a Perpetual one stays. A spell's pump
+			// stays on the permanent it becomes, the same Java object
+			// (GameAction.java:170-172): a suspended creature's haste (CR
+			// 702.62a), a spell given Mobilize or lifelink.
+			if from != Stack || kind != Battlefield {
+				g.clearPumps(id)
+			}
 		}
 	}
 	// melded is the other card of a melded permanent leaving the battlefield

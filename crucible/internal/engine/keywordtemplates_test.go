@@ -3,8 +3,10 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
@@ -260,5 +262,273 @@ func TestWaterbendSpellFiresElementalBend(t *testing.T) {
 	}
 	if got := g.Zone(engine.Hand, p).Len(); got != 1 {
 		t.Errorf("hand %d after waterbending, want Aang's 1 card", got)
+	}
+}
+
+// castResolved casts card from p's hand paying generic pips with shard, then
+// resolves the stack.
+func castResolved(t *testing.T, g *engine.Game, p engine.PlayerID, card engine.CardID, c *engine.ScriptedController, generic int, shard mana.Shard) {
+	t.Helper()
+	for range generic {
+		c.QueuePayGeneric(shard)
+	}
+	if !g.CastSpell(p, card, c) {
+		t.Fatalf("cast failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+}
+
+// tokensOf lists p's tokens on the battlefield.
+func tokensOf(g *engine.Game, p engine.PlayerID) []engine.CardID {
+	var out []engine.CardID
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if g.Card(id).IsToken {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// Fading (CR 702.32, CardFactoryUtil.java:1054-1075): Blastoderm enters with
+// three fade counters, loses one each upkeep, and is sacrificed at the upkeep
+// it has none to remove.
+func TestFadingCountsDownThenSacrifices(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 8)
+	libraryCards(t, g, other, 8)
+	g.SetTurnState(1, p, engine.Main1)
+	derm := g.NewCard(corpusCard(t, "Blastoderm"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 4)
+	c := engine.NewScriptedController()
+	castResolved(t, g, p, derm, c, 2, mana.ShardG)
+	fade := engine.CounterType("FADE")
+	if got := g.Card(derm).Counters.Count(fade); got != 3 {
+		t.Fatalf("entered with %d fade counters, want 3", got)
+	}
+	for upkeep, want := range []int{2, 1, 0} {
+		toStep(t, g, c, p, engine.Upkeep, nil)
+		if got := g.Card(derm).Counters.Count(fade); g.Card(derm).Zone != engine.Battlefield || got != want {
+			t.Fatalf("upkeep %d: zone %v, %d fade counters, want %d on the battlefield", upkeep+1, g.Card(derm).Zone, got, want)
+		}
+	}
+	toStep(t, g, c, p, engine.Upkeep, nil)
+	if got := g.Card(derm).Zone; got != engine.Graveyard {
+		t.Errorf("with no fade counter to remove: Blastoderm in %v, want the graveyard", got)
+	}
+}
+
+// Rampage 2 (CR 702.23, CardFactoryUtil.java:1622-1640): Wolverine Pack
+// blocked by three creatures gets +4/+4, +2/+2 for each blocker beyond the
+// first (Count$Valid Creature.blockingTriggeredAttacker/Minus.1).
+func TestRampagePumpsPerExtraBlocker(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	pack := g.NewCard(corpusCard(t, "Wolverine Pack"), p, engine.Battlefield)
+	idle := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	var blocks []engine.Block
+	for range 3 {
+		blocks = append(blocks, engine.Block{Blocker: g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield), Attacker: pack})
+	}
+	g.SetTurnState(2, p, engine.DeclareAttackers)
+	c := engine.NewScriptedController()
+	attackAlone(t, g, c, pack, engine.PlayerEntity(other))
+	g.AdvancePhase(c)
+	c.QueueBlocks(blocks)
+	declareBlockers(t, g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if pw, _ := g.Card(pack).Power(); pw != 6 {
+		t.Errorf("Wolverine Pack power %d, want 2 + 2*2", pw)
+	}
+	if engine.Matches(g, g.Card(idle), valid.Parse("Creature.blockingSource"), p, pack) {
+		t.Error("an idle creature reads blockingSource")
+	}
+	if !engine.Matches(g, g.Card(blocks[0].Blocker), valid.Parse("Creature.blockingSource"), p, pack) {
+		t.Error("a blocker of the source does not read blockingSource")
+	}
+}
+
+// Graft (CR 702.58, CardFactoryUtil.java:1152-1170): Simic Initiate enters
+// with a +1/+1 counter and may move it onto another creature entering; with
+// none left it dies as a 0/0.
+func TestGraftMovesACounterOntoAnEnteringCreature(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	first := g.NewCard(corpusCard(t, "Simic Initiate"), p, engine.Hand)
+	second := g.NewCard(corpusCard(t, "Simic Initiate"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 2)
+	c := engine.NewScriptedController()
+	castResolved(t, g, p, first, c, 0, mana.ShardG)
+	c.QueueConfirmOptionalTrigger(true)
+	castResolved(t, g, p, second, c, 0, mana.ShardG)
+	if got := g.Card(second).Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("the second Initiate has %d +1/+1 counters, want its own and the grafted one", got)
+	}
+	if got := g.Card(first).Zone; got != engine.Graveyard {
+		t.Errorf("the first Initiate in %v, want the graveyard as a 0/0", got)
+	}
+}
+
+// Riot (CR 702.136, CardFactoryUtil.java:2470-2476): Gruul Spellbreaker
+// enters with a +1/+1 counter when its controller pays AddCounter<1/P1P1>,
+// with haste otherwise.
+func TestRiotCounterOrHaste(t *testing.T) {
+	t.Parallel()
+	for _, counter := range []bool{true, false} {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		ogre := g.NewCard(corpusCard(t, "Gruul Spellbreaker"), p, engine.Hand)
+		g.Player(p).ManaPool.Add(mana.Red, 1)
+		g.Player(p).ManaPool.Add(mana.Green, 2)
+		c := engine.NewScriptedController()
+		c.QueueConfirmPayCost(counter)
+		castResolved(t, g, p, ogre, c, 1, mana.ShardG)
+		o := g.Card(ogre)
+		if got := o.Counters.Count(engine.P1P1) == 1; got != counter {
+			t.Errorf("counter chosen %v: has a +1/+1 counter %v", counter, got)
+		}
+		if got := o.HasKeyword("Haste"); got == counter {
+			t.Errorf("counter chosen %v: has haste %v", counter, got)
+		}
+	}
+}
+
+// Unleash (CR 702.98, CardFactoryUtil.java:2523-2528, :4030-4032):
+// Gore-House Chainwalker may enter with a +1/+1 counter, and can't block
+// while it has one.
+func TestUnleashCounterStopsBlocking(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	walker := g.NewCard(corpusCard(t, "Gore-House Chainwalker"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 2)
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(true)
+	castResolved(t, g, p, walker, c, 1, mana.ShardR)
+	if got := g.Card(walker).Counters.Count(engine.P1P1); got != 1 {
+		t.Fatalf("%d +1/+1 counters, want Unleash's 1", got)
+	}
+	attacker := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	if g.CanBlock(attacker, walker) {
+		t.Error("an unleashed Chainwalker with a counter can block")
+	}
+}
+
+// Dredge 2 (CR 702.52, CardFactoryUtil.java:2177-2200): with Golgari
+// Brownscale in the graveyard, a draw may become milling two and returning it
+// to the hand.
+func TestDredgeReplacesADraw(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	libraryCards(t, g, p, 5)
+	lizard := g.NewCard(corpusCard(t, "Golgari Brownscale"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(true)
+	g.DrawCards(p, 1, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(lizard).Zone; got != engine.Hand {
+		t.Errorf("Brownscale in %v, want the hand", got)
+	}
+	if got := len(g.Zone(engine.Library, p).Cards()); got != 3 {
+		t.Errorf("library %d, want 5 less two milled", got)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand %d, want only Brownscale (no card drawn)", got)
+	}
+}
+
+// Umbra armor (CR 702.89, CardFactoryUtil.java:2501-2525): a creature wearing
+// Hyena Umbra that would be destroyed by lethal damage loses the damage and
+// the Umbra is destroyed instead.
+func TestUmbraArmorDestroysItselfInstead(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	umbra := g.NewCard(corpusCard(t, "Hyena Umbra"), p, engine.Battlefield)
+	g.Attach(umbra, bear)
+	g.Card(bear).Damage.Marked = 5
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if got := g.Card(bear).Zone; got != engine.Battlefield {
+		t.Fatalf("the creature in %v, want it saved", got)
+	}
+	if got := g.Card(bear).Damage.Marked; got != 0 {
+		t.Errorf("damage %d, want removed", got)
+	}
+	if got := g.Card(umbra).Zone; got != engine.Graveyard {
+		t.Errorf("Hyena Umbra in %v, want the graveyard", got)
+	}
+}
+
+// Mobilize 1 (CR 702.181, CardFactoryUtil.java:1476-1489): Shock Brigade
+// attacking makes a 1/1 Warrior tapped and attacking, sacrificed at end step.
+func TestMobilizeMakesAnAttackingWarrior(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 3)
+	libraryCards(t, g, other, 3)
+	brigade := g.NewCard(corpusCard(t, "Shock Brigade"), p, engine.Battlefield)
+	g.SetTurnState(2, p, engine.DeclareAttackers)
+	c := engine.NewScriptedController()
+	attackAlone(t, g, c, brigade, engine.PlayerEntity(other))
+	tokens := tokensOf(g, p)
+	if len(tokens) != 1 {
+		t.Fatalf("%d tokens, want one Warrior", len(tokens))
+	}
+	w := g.Card(tokens[0])
+	if !w.Tapped || g.AttackTarget(tokens[0]) != engine.PlayerEntity(other) {
+		t.Errorf("Warrior tapped %v attacking %v, want tapped and attacking", w.Tapped, g.AttackTarget(tokens[0]))
+	}
+	toStep(t, g, c, other, engine.Upkeep, nil)
+	if got := w.Zone; got == engine.Battlefield {
+		t.Error("the Warrior outlived the end step")
+	}
+}
+
+// For Mirrodin! (CR 702.163, CardFactoryUtil.java:1108-1131): Hexgold
+// Halberd enters, makes a 2/2 Rebel and is attached to it.
+func TestForMirrodinMakesARebelAndEquipsIt(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	halberd := g.NewCard(corpusCard(t, "Hexgold Halberd"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 2)
+	c := engine.NewScriptedController()
+	castResolved(t, g, p, halberd, c, 1, mana.ShardR)
+	tokens := tokensOf(g, p)
+	if len(tokens) != 1 {
+		t.Fatalf("%d tokens, want one Rebel", len(tokens))
+	}
+	if got, _ := g.Card(halberd).AttachedTo(); got != tokens[0] {
+		t.Errorf("Hexgold Halberd attached to %v, want the Rebel", got)
+	}
+}
+
+// Living metal (CR 702.161, CardFactoryUtil.java:3947-3949): Prowl, Pursuit
+// Vehicle is a creature during its controller's turn only.
+func TestLivingMetalIsACreatureOnYourTurn(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	prowl := g.NewCard(corpusCard(t, "Prowl, Stoic Strategist"), p, engine.Battlefield)
+	if !g.Transform(prowl) {
+		t.Fatal("Prowl did not convert")
+	}
+	g.SetTurnState(1, p, engine.Main1)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if !g.Card(prowl).Type().Has(cardtype.Creature) {
+		t.Error("the Vehicle is not a creature on its controller's turn")
+	}
+	g.SetTurnState(2, other, engine.Main1)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if g.Card(prowl).Type().Has(cardtype.Creature) {
+		t.Error("the Vehicle is a creature on the opponent's turn")
 	}
 }

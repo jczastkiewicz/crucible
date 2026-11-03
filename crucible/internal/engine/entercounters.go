@@ -99,10 +99,14 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 			// the flags triggerCommonRequirementsMet evaluates
 			"bloodthirst", "metalcraft", "delirium", "threshold", "hellbent", "fatefulhour", "lifetotal", "lifeamount", "revolt",
 			"ispresent2", "presentcompare2", "presentzone2", "presentplayer2", "presentdefined2",
-			"adamant", "manaspent", "mananotspent", "checkdefinedplayer", "definedplayercompare", "enduringstory") {
-			// Optional$ and the like: counters it may decline are not put
-			// unconditionally.
+			"adamant", "manaspent", "mananotspent", "checkdefinedplayer", "definedplayercompare", "enduringstory",
+			"optional", "optionaldecider") {
 			g.recordPendingError(fmt.Errorf("engine: %q: ETB$ PutCounter replacement: a param past ValidCard$/Destination$/Origin$ not resolvable yet", h.Def.Name))
+			return false
+		}
+		// Optional$ (Unleash): the entering card's controller, Java's
+		// decider for an Event$ Moved (AbilityKey.Affected), may decline.
+		if !g.confirmOptionalReplacement(controller, movedCard.Controller(), replacementCandidate{host: h, rule: r}) {
 			return false
 		}
 		if chainNext(sub) != nil {

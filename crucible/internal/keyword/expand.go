@@ -712,6 +712,139 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Execute$ KWFirebending" + Slot},
 			SVars:    []SVarDef{{"KWFirebending" + Slot, "DB$ Mana | Defined$ You | CombatMana$ True | Produced$ R | Amount$ " + args[0]}},
 		}, true
+	case "Mobilize":
+		// CardFactoryUtil.java:1476-1489: whenever this attacks, create N 1/1
+		// red Warrior tokens tapped and attacking, sacrificed at the next end
+		// step. Mobilize:X reads the card's own SVar X.
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" || (args[0] != "X" && strings.Trim(args[0], "0123456789") != "") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Execute$ KWMobilize" + Slot},
+			SVars:    []SVarDef{{"KWMobilize" + Slot, "DB$ Token | TokenAmount$ " + args[0] + " | TokenScript$ r_1_1_warrior | TokenTapped$ True | TokenAttacking$ True | AtEOT$ Sacrifice"}},
+		}, true
+	case "For Mirrodin":
+		// CardFactoryUtil.java:1108-1131: when this Equipment enters, create a
+		// 2/2 red Rebel token and attach this to it.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ KWForMirrodin" + Slot},
+			SVars: []SVarDef{
+				{"KWForMirrodin" + Slot, "DB$ Token | TokenScript$ r_2_2_rebel | TokenOwner$ You | RememberTokens$ True | SubAbility$ KWForMirrodinAttach" + Slot},
+				{"KWForMirrodinAttach" + Slot, "DB$ Attach | Defined$ Remembered | SubAbility$ KWForMirrodinCleanup" + Slot},
+				{"KWForMirrodinCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Living metal":
+		// CardFactoryUtil.java:3947-3949: during your turn, this is an
+		// artifact creature.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{Statics: []string{"Mode$ Continuous | Affected$ Card.Self | AddType$ Creature | Condition$ PlayerTurn | Secondary$ True"}}, true
+	case "Fading":
+		// CardFactoryUtil.java:2239-2252 (makeEtbCounter) and :1054-1075: this
+		// enters with N fade counters; at your upkeep remove one, and if you
+		// can't, sacrifice it.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWFadingETB" + Slot},
+			Triggers:     []string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWFadingRemove" + Slot},
+			SVars: []SVarDef{
+				{"KWFadingETB" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ FADE | ETB$ True | CounterNum$ " + n},
+				{"KWFadingRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ FADE | CounterNum$ 1 | RememberRemoved$ True | SubAbility$ KWFadingSac" + Slot},
+				{"KWFadingSac" + Slot, "DB$ Sacrifice | SacValid$ Self | ConditionCheckSVar$ KWFadingCheck" + Slot + " | ConditionSVarCompare$ EQ0 | SubAbility$ KWFadingCleanup" + Slot},
+				{"KWFadingCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+			Amounts: []SVarDef{{"KWFadingCheck" + Slot, "Count$RememberedSize"}},
+		}, true
+	case "Rampage":
+		// CardFactoryUtil.java:1622-1640: whenever this becomes blocked, it
+		// gets +N/+N for each creature blocking it beyond the first.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ AttackerBlocked | ValidCard$ Card.Self | TriggerZones$ Battlefield | ValidBlocker$ Creature | Secondary$ True | Execute$ KWRampage" + Slot},
+			SVars:    []SVarDef{{"KWRampage" + Slot, "DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ KWRampagePump" + Slot + " | NumDef$ KWRampagePump" + Slot}},
+			Amounts: []SVarDef{
+				{"KWRampagePump" + Slot, "SVar$KWRampageCount" + Slot + "/Times." + n},
+				{"KWRampageCount" + Slot, "Count$Valid Creature.blockingTriggeredAttacker/Minus.1"},
+			},
+		}, true
+	case "Graft":
+		// CardFactoryUtil.java:2303-2319 (makeEtbCounter) and :1152-1170: this
+		// enters with N +1/+1 counters; whenever another creature enters, you
+		// may move a +1/+1 counter from this onto it. AILogic$ is the AI's.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWGraftETB" + Slot},
+			Triggers:     []string{"Mode$ ChangesZone | ValidCard$ Creature.Other | Origin$ Any | Destination$ Battlefield | TriggerZones$ Battlefield | OptionalDecider$ You | IsPresent$ Card.Self+counters_GE1_P1P1 | Secondary$ True | Execute$ KWGraftMove" + Slot},
+			SVars: []SVarDef{
+				{"KWGraftETB" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ " + n},
+				{"KWGraftMove" + Slot, "DB$ MoveCounter | Source$ Self | Defined$ TriggeredCardLKICopy | CounterType$ P1P1 | CounterNum$ 1"},
+			},
+		}, true
+	case "Riot":
+		// CardFactoryUtil.java:2470-2476 (createETBReplacement): this enters
+		// with a +1/+1 counter, or else it gains haste.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplacementResult$ Updated | Secondary$ True | ReplaceWith$ KWRiot" + Slot},
+			SVars:        []SVarDef{{"KWRiot" + Slot, "DB$ Animate | Defined$ Self | Keywords$ Haste | Duration$ Permanent | UnlessCost$ AddCounter<1/P1P1> | UnlessPayer$ You"}},
+		}, true
+	case "Unleash":
+		// CardFactoryUtil.java:2523-2528 and :4030-4032: you may have this
+		// enter with a +1/+1 counter; it can't block while it has one.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplacementResult$ Updated | Optional$ True | Secondary$ True | ReplaceWith$ KWUnleash" + Slot},
+			Statics:      []string{"Mode$ CantBlock | ValidCard$ Creature.Self+counters_GE1_P1P1 | Secondary$ True"},
+			SVars:        []SVarDef{{"KWUnleash" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ 1"}},
+		}, true
+	case "Dredge":
+		// CardFactoryUtil.java:2177-2200: if you would draw a card while this
+		// is in your graveyard, you may mill N instead (only with N or more
+		// cards in your library) and return this to your hand.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Draw | ActiveZones$ Graveyard | ValidPlayer$ You | Secondary$ True | Optional$ True | CheckSVar$ KWDredgeCheckLib" + Slot + " | SVarCompare$ GE" + n + " | ReplaceWith$ KWDredgeMill" + Slot},
+			SVars: []SVarDef{
+				{"KWDredgeMill" + Slot, "DB$ Mill | Defined$ You | NumCards$ " + n + " | SubAbility$ KWDredgeReturn" + Slot},
+				{"KWDredgeReturn" + Slot, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | Defined$ Self"},
+			},
+			Amounts: []SVarDef{{"KWDredgeCheckLib" + Slot, "Count$ValidLibrary Card.YouOwn"}},
+		}, true
+	case "Umbra armor":
+		// CardFactoryUtil.java:2501-2525: if the enchanted permanent would be
+		// destroyed, instead remove all damage from it and destroy this.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Destroy | ActiveZones$ Battlefield | ValidCard$ Card.EnchantedBy | Secondary$ True | ReplaceWith$ KWUmbraHeal" + Slot},
+			SVars: []SVarDef{
+				{"KWUmbraHeal" + Slot, "DB$ HealDamage | Defined$ ReplacedCard | SubAbility$ KWUmbraDestroy" + Slot},
+				{"KWUmbraDestroy" + Slot, "DB$ Destroy | Defined$ Self"},
+			},
+		}, true
 	}
 	return Expansion{}, false
 }

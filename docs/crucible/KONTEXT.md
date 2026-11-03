@@ -32,10 +32,9 @@ Next, in order:
 1. Keywords with no `keyword.Expand` template and no engine reader are lines with no trait behind them, as Morph,
    Vanishing and Myriad were. No coverage command exists (ADR-0038 names one). A text search for heads quoted nowhere
    outside `keyword/defined.go`, by card count: Choose a Background 32, Doctor's companion 27, Banding 24, Spree 21,
-   Reconfigure 21, Prototype 21, Fading 18, Double team 18, Hideaway 16, Assist 16, Umbra armor 15, Sunburst 15, Rampage
-   15, More Than Meets the Eye 15, Mobilize 15, For Mirrodin 15, Cipher 15, Awaken 15, Unleash 14, Dredge 14, Riot 13,
-   Living metal 13, Graft 13. Some are read under another spelling (Reach, 449, is); verify each against the engine
-   before porting.
+   Reconfigure 21, Prototype 21, Double team 18, Hideaway 16, Assist 16, Sunburst 15, More Than Meets the Eye 15, Cipher
+   15, Awaken 15 (needs the compiler to copy the first spell, `game-state.md`). Some are read under another spelling
+   (Reach, 449, is); verify each against the engine before porting.
 2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
    and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
    card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes

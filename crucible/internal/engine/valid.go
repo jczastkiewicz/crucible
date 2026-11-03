@@ -693,6 +693,8 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return ok && defender == c.Controller()
 	case name == "blocking":
 		return isBlocking(g.combat.Blocks, c.ID)
+	case strings.HasPrefix(name, "blocking") && blockingDefinedForms[strings.TrimPrefix(name, "blocking")]:
+		return g.blockingDefined(c.ID, strings.TrimPrefix(name, "blocking"), sourceController, source)
 	case name == "blocked":
 		// CardProperty.java:1591-1592: combat.isBlocked(card) -- an attacker
 		// with a blocker, or one an effect made blocked (ForcedBlocked).
@@ -1650,6 +1652,65 @@ func isBlocking(blocks []Block, id CardID) bool {
 		}
 	}
 	return false
+}
+
+// blockingDefinedForms are the `blocking<what>` suffixes blockingDefined
+// answers. Alone, Valid and Targeted are other branches this port does not
+// read: they stay unrecognized properties.
+var blockingDefinedForms = map[string]bool{
+	"Source": true, "Self": true, "CreatureYouCtrl": true, "TriggeredAttacker": true,
+	"Remembered": true, "Equipped": true, "Enchanted": true,
+}
+
+// blockingDefined is CardProperty.java:1575-1592, `blocking<what>`: id
+// blocks the source (Source), a creature the source's controller controls
+// (CreatureYouCtrl), or one of the cards getDefinedCards(source, what)
+// names -- the host itself, the attacker the root ability's trigger
+// recorded (Rampage's blockingTriggeredAttacker), the host's remembered
+// cards, or the permanent it is attached to.
+func (g *Game) blockingDefined(id CardID, what string, sourceController PlayerID, source CardID) bool {
+	blocksAny := func(attackers ...CardID) bool {
+		for _, b := range g.combat.Blocks {
+			if b.Blocker == id && slices.Contains(attackers, b.Attacker) {
+				return true
+			}
+		}
+		return false
+	}
+	switch what {
+	case "Source", "Self":
+		return source != NoCard && blocksAny(source)
+	case "CreatureYouCtrl":
+		for _, b := range g.combat.Blocks {
+			if b.Blocker == id && g.Card(b.Attacker).Controller() == sourceController {
+				return true
+			}
+		}
+		return false
+	case "TriggeredAttacker":
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source || a.refs().triggered.attacker == NoCard {
+			return false
+		}
+		return blocksAny(a.refs().triggered.attacker)
+	}
+	sc, ok := sourceCard(g, source)
+	if !ok {
+		return false
+	}
+	switch what {
+	case "Remembered":
+		var cards []CardID
+		for _, e := range sc.Memory.Remembered() {
+			if cid, isCard := e.AsCard(); isCard {
+				cards = append(cards, cid)
+			}
+		}
+		return blocksAny(cards...)
+	default: // Equipped, Enchanted
+		attached, ok := sc.AttachedTo()
+		return ok && blocksAny(attached)
+	}
 }
 
 // attachedByType reports whether any of c's attachments carries the named

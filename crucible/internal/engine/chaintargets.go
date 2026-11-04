@@ -113,6 +113,15 @@ func (a *Ability) failLinkTargets(sub compile.SubRef, api APIType, err error) {
 // be put on the stack: false for a Charm the controller declined or a missing
 // legal target (CR 601.2c).
 func (g *Game) chooseAbilityTargets(controller PlayerController, a *Ability) bool {
+	if a.hasXManaCostPaid {
+		// Count$xPaid reads the root ability's own X first
+		// (AbilityUtils.java:1636-1640), as its targets are chosen too: a
+		// TurnFaceUp trigger's "up to X" is the X its cause paid (Aurelia's
+		// Vindicator).
+		prev := g.xctx
+		g.xctx = xContext{value: a.xManaCostPaid, has: true, source: a.Source}
+		defer func() { g.xctx = prev }()
+	}
 	if a.API == APICharm {
 		ok, err := g.chooseCharmModes(controller, a)
 		if err != nil {

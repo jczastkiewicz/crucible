@@ -243,10 +243,11 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 // abilityReduceCost is an activated ability's own ReduceCost$ (CostAdjustment.
 // java:214-222): the amount, a number or an SVar of the host, comes off the
 // generic mana of the activation. With ReduceAmount$ the ReduceCost$ text is a
-// mana cost taken off that many times instead (repeated, repeats). An amount
-// this port cannot evaluate yet (one that reads the ability's targets, which
-// are chosen after the cost is adjusted) refuses the activation, why kept
-// (GO-7).
+// mana cost taken off that many times instead (repeated, repeats). The targets
+// are chosen before the cost is adjusted (activateAbility, CR 601.2c before
+// 601.2f), so an amount may read them (Belt of Giant Strength's
+// Targeted$CardPower). An amount this port cannot evaluate refuses the
+// activation, why kept (GO-7).
 func (g *Game) abilityReduceCost(c *Card, act *compile.Ability, paying bool) (generic int, repeated mana.Cost, repeats int, ok bool) {
 	cst, has := act.Param("ReduceCost")
 	if !has {

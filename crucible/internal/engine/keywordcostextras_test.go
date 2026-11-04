@@ -176,3 +176,90 @@ func TestMorphXCostAnnouncesXForTheTrigger(t *testing.T) {
 		t.Errorf("%d Goblin tokens, want X = 2", goblins)
 	}
 }
+
+// The other Equip ReduceCost$ shapes, each with its reduction in force:
+// Dragonfire Blade's colors of the target, Warrior's Blades' +1/+1 counters on
+// it, Plate Armor's other Equipment, Arm-Mounted Anchor's near-empty hand and
+// Crown of Gondor's monarch. Each equip spends exactly the reduced cost.
+func TestEquipReduceCostShapes(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		equipment string
+		pay       int
+		setup     func(g *engine.Game, p engine.PlayerID, target engine.CardID)
+		target    string // a corpus creature, "" for a vanilla 2/2
+	}{
+		{"Dragonfire Blade", 2, nil, "Watchwolf"},
+		{"Warrior's Blades", 1, func(g *engine.Game, _ engine.PlayerID, target engine.CardID) {
+			g.Card(target).Counters.Add(engine.P1P1, 2)
+		}, ""},
+		{"Plate Armor", 2, func(g *engine.Game, p engine.PlayerID, _ engine.CardID) {
+			g.NewCard(corpusCard(t, "Bloodthorn Flail"), p, engine.Battlefield)
+		}, ""},
+		{"Arm-Mounted Anchor", 0, nil, ""},
+		{"Crown of Gondor", 1, func(g *engine.Game, p engine.PlayerID, _ engine.CardID) {
+			g.SetMonarch(p)
+		}, ""},
+	} {
+		t.Run(tc.equipment, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			eq := g.NewCard(corpusCard(t, tc.equipment), p, engine.Battlefield)
+			def := creatureDefPT(t, "2", "2")
+			if tc.target != "" {
+				def = corpusCard(t, tc.target)
+			}
+			target := g.NewCard(def, p, engine.Battlefield)
+			if tc.setup != nil {
+				tc.setup(g, p, target)
+			}
+			g.Player(p).ManaPool.Add(mana.Green, tc.pay)
+			c := engine.NewScriptedController()
+			c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+			for range tc.pay {
+				c.QueuePayGeneric(mana.ShardG)
+			}
+			if !g.ActivateAbility(p, eq, 0, c) {
+				t.Fatalf("equip failed: %v", g.TakePendingError())
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatal(err)
+			}
+			if got, ok := g.Card(eq).AttachedTo(); !ok || got != target {
+				t.Errorf("%s attached to %v, want the target", tc.equipment, got)
+			}
+		})
+	}
+}
+
+// Aurelia's Vindicator's Disguise {X}{3}{W}: the turned-face-up trigger's
+// "up to X other target creatures" reads the X the special action paid as
+// its targets are chosen, so X = 2 exiles two creatures.
+func TestDisguiseXCostBoundsTheTriggersTargets(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	angel := g.NewCard(corpusCard(t, "Aurelia's Vindicator"), p, engine.Hand)
+	a := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	b := g.NewCard(creatureDefPT(t, "3", "3"), other, engine.Battlefield)
+	castFaceDown(t, g, p, angel)
+	g.Player(p).ManaPool.Add(mana.White, 6)
+	c := engine.NewScriptedController()
+	c.QueuePayX(2)
+	for range 5 {
+		c.QueuePayGeneric(mana.ShardW)
+	}
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(a), engine.CardEntity(b)})
+	if !g.TurnFaceUp(p, angel, 0, c) {
+		t.Fatalf("turn face up failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []engine.CardID{a, b} {
+		if got := g.Card(id).Zone; got != engine.Exile {
+			t.Errorf("creature %v in %v, want exiled", id, got)
+		}
+	}
+}

@@ -72,6 +72,17 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		names = append(names, sub.SVar)
 	}
 
+	if a.spell && g.spellOptional(a.Source).has(optEntwine) {
+		// CharmEffect.java:228-232: an entwined spell takes every mode that
+		// can be chosen, in printed order, with no count, Optional$ or
+		// dilemma asked (CR 702.42a).
+		all := make([]int, len(options))
+		for i := range all {
+			all[i] = i
+		}
+		return g.chainCharmModes(controller, a, options, names, all)
+	}
+
 	num := 1
 	if raw, ok := a.Params.Param("CharmNum"); ok {
 		n, ok := resolveNamedAmount(g, a.Amounts, host, raw)
@@ -183,12 +194,16 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		g.checkFacesDilemmaTriggers(controller, facer, hasRandom)
 	}
 
-	// chainAbilities appends each chosen mode, its own SubAbility$ chain with
-	// it, to the Charm's tail (CharmEffect.java:293-317), and setupTargets
-	// then walks the whole chain (SpellAbility.java:2141-2171): each mode's
-	// targets, then its own links', before the next mode's. A link naming its
-	// own ValidTgts$ (Inscription of Abundance's fight) is chosen here, not
-	// handed the mode's targets.
+	return g.chainCharmModes(controller, a, options, names, chosen)
+}
+
+// chainCharmModes is chainAbilities: it appends each chosen mode, its own
+// SubAbility$ chain with it, to the Charm's tail (CharmEffect.java:293-317),
+// and setupTargets then walks the whole chain (SpellAbility.java:2141-2171):
+// each mode's targets, then its own links', before the next mode's. A link
+// naming its own ValidTgts$ (Inscription of Abundance's fight) is chosen
+// here, not handed the mode's targets.
+func (g *Game) chainCharmModes(controller PlayerController, a *Ability, options []Ability, names []string, chosen []int) (bool, error) {
 	a.Modes = nil
 	for _, i := range chosen {
 		mode := options[i]

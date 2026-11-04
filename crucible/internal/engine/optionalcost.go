@@ -194,6 +194,15 @@ func (g *Game) optionalCostOptions(pid PlayerID, card CardID) ([]optionalCostOpt
 			out = append(out, optionalCostOption{text: text, uc: uc, kwName: k.Name, kwAmount: amount})
 			continue
 		}
+		if k.Name == "Entwine" {
+			// GameActionUtil.java:485-488: "Entwine:<cost>".
+			uc, ok := parseUnlessCost(k.Details)
+			if !ok {
+				return nil, fmt.Errorf("engine: %q: Entwine cost %q not resolvable yet", c.Def.Name, k.Details)
+			}
+			out = append(out, optionalCostOption{text: k.Details, uc: uc, kind: optEntwine})
+			continue
+		}
 		if k.Name == "Gift" {
 			out = append(out, optionalCostOption{text: giftCost, kind: optPromiseGift})
 			continue

@@ -1564,7 +1564,7 @@ const (
 // Kicker1/Kicker2 (SpellAbility.optionalCosts, an EnumSet): Generic for a
 // Mode$ OptionalCost static without ReduceColor$, Teamwork and Bargain for
 // the keywords. A set, so two Generic costs paid read the same as one.
-type optionalKinds uint8
+type optionalKinds uint16
 
 const (
 	optGeneric optionalKinds = 1 << iota
@@ -1583,6 +1583,9 @@ const (
 	// Freerunning cost (altkeywords.go).
 	optSurge
 	optFreerunning
+	// optEntwine is OptionalCost.Entwine: the spell's entwine cost was paid,
+	// so its Charm takes every mode (SpellAbility.isEntwine, CR 702.42).
+	optEntwine
 )
 
 // keywordAmount is the amount SpellAbility.setOptionalKeywordAmount records

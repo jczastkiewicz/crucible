@@ -1920,7 +1920,14 @@ func (g *Game) paySameGraveLibrary(controller PlayerController, pid PlayerID, so
 		}
 	}
 	options := g.sameGraveCandidates(pid, source, owner, uc.sameSpec)
-	for _, id := range g.chosenUnlessCards(controller, pid, source, options, uc.sameN, uc.sameN) {
+	chosen := g.chosenUnlessCards(controller, pid, source, options, uc.sameN, uc.sameN)
+	// PlaySpellAbility.java:301-302: the owner orders them (CR 401.4).
+	ordered, err := g.orderCardsByTheirOwners(controller, chosen, Library)
+	if err != nil {
+		g.recordPendingError(fmt.Errorf("engine: PutCardToLibFromSameGrave: %w", err))
+		ordered = chosen
+	}
+	for _, id := range ordered {
 		g.moveByEffect(controller, id, Library, uc.samePos, NoPlayer, false)
 	}
 }

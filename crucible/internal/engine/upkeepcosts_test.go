@@ -196,7 +196,9 @@ func TestCumulativeUpkeepGainControlTakesALand(t *testing.T) {
 }
 
 // Jötun Grunt's cumulative upkeep is PutCardToLibFromSameGrave<2/-1/Card>: two
-// cards of one graveyard go to the bottom of their owner's library.
+// cards of one graveyard go to the bottom of their owner's library, in the
+// order their owner chooses (PlaySpellAbility.java:301-302): the last one
+// moved ends up at the bottom.
 func TestCumulativeUpkeepPutsTwoCardsFromOneGraveyardOnTheBottom(t *testing.T) {
 	t.Parallel()
 
@@ -212,10 +214,11 @@ func TestCumulativeUpkeepPutsTwoCardsFromOneGraveyardOnTheBottom(t *testing.T) {
 	c.QueueConfirmPayCost(true)
 	c.QueuePlayerChoice(other)
 	c.QueueCardChoice([]engine.CardID{a, b})
+	c.QueueCardOrder([]engine.CardID{b, a})
 	toStep(t, g, c, p, engine.Upkeep, nil)
 	lib := g.Zone(engine.Library, other).Cards()
-	if len(lib) != 10 || lib[len(lib)-2] != a && lib[len(lib)-1] != a || lib[len(lib)-2] != b && lib[len(lib)-1] != b {
-		t.Errorf("opponent library = %v, want %v and %v on the bottom", lib, a, b)
+	if len(lib) != 10 || lib[len(lib)-2] != b || lib[len(lib)-1] != a {
+		t.Errorf("opponent library = %v, want %v then %v at the bottom", lib, b, a)
 	}
 	if n := g.Zone(engine.Graveyard, p).Len(); n != 1 {
 		t.Errorf("own graveyard holds %d cards, want it untouched", n)

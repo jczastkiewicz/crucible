@@ -170,6 +170,10 @@ type Card struct {
 	// commander is Card.isCommander (ADR-0051), kept in step with the owner's
 	// Player.commanders.
 	commander bool
+	// toCommandZone is Card.moveToCommandZone (Card.java:202): a commander
+	// moved since state-based actions last looked at it, which CR 903.9a's
+	// return reads (returnCommandersToCommandZone) and clears.
+	toCommandZone bool
 	// bestowTS is Card.bestowTimestamp: the timestamp of the bestow change
 	// (animateBestow, bestow.go) while the card is a bestowed Aura, 0
 	// otherwise.

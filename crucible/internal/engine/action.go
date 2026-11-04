@@ -189,6 +189,7 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 		case drewFromEmpty && g.loseConditionMet(id, lossMilled):
 		case p.Life <= 0 && g.loseConditionMet(id, lossLifeReachedZero):
 		case p.Counters.Count(Poison) >= 10 && g.loseConditionMet(id, lossPoisoned):
+		case g.lostToCommanderDamage(id) && g.loseConditionMet(id, lossCommanderDamage):
 		}
 	}
 	g.onPlayersLost(controller)
@@ -269,6 +270,11 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	performed = assignEnduringStories(g) || performed
 	performed = assignSectors(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
+	if !performed {
+		// GameAction.java:1561-1570: only when nothing else happened in the
+		// pass so far (Java's !checkAgain), after the legend rule.
+		performed = g.returnCommandersToCommandZone(controller)
+	}
 	performed = resolveWorldRule(g, controller) || performed
 	performed = resolveRoleRule(g, controller) || performed
 	performed = startYourEngines(g) || performed

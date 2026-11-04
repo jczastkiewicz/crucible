@@ -28,6 +28,7 @@ const (
 	lossMilled          = "Milled"
 	lossPoisoned        = "Poisoned"
 	lossSpellEffect     = "SpellEffect"
+	lossCommanderDamage = "CommanderDamage"
 )
 
 // loseConditionMet is Player.loseConditionMet: pid loses the game for reason

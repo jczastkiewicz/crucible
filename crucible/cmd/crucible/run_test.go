@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/sim"
 	"github.com/jczastkiewicz/crucible/internal/store"
 	"github.com/jczastkiewicz/crucible/internal/telemetry"
@@ -36,6 +37,10 @@ func TestLoadSimDeckResolvesNamesAndNamesTheMissing(t *testing.T) {
 	stickered := writeDeckFile(t, dir, "stickered", "[Main]\n1 Mountain\n[Stickers]\n1 unstable robot dragon\n")
 	if d, err := loadSimDeck(db, stickered); err != nil || len(d.Stickers) != 1 || d.Stickers[0] != "Unstable Robot Dragon" {
 		t.Errorf("sticker sheets %+v (err %v), want Unstable Robot Dragon", d.Stickers, err)
+	}
+	led := writeDeckFile(t, dir, "led", "[Main]\n1 Mountain\n[Commander]\n1 krenko, mob boss\n")
+	if d, err := loadSimDeck(db, led); err != nil || len(d.Commanders) != 1 || d.Commanders[0] != "Krenko, Mob Boss" {
+		t.Errorf("commanders %+v (err %v), want Krenko, Mob Boss", d.Commanders, err)
 	}
 	bad := writeDeckFile(t, dir, "bad", "[Main]\n1 Not A Real Card\n1 Also Fake\n")
 	if _, err := loadSimDeck(db, bad); err == nil || !strings.Contains(err.Error(), "Not A Real Card") || !strings.Contains(err.Error(), "Also Fake") {
@@ -125,7 +130,7 @@ func TestRunStoresAGauntletAndReportReadsItBack(t *testing.T) {
 	if err := reportCmd([]string{"-run", filepath.Join(out, "missing")}); err == nil {
 		t.Error("report of a missing run did not fail")
 	}
-	for _, bad := range [][]string{{}, {"-target", target, "-vs", vs}, {"-target", target, "-vs", vs, "-out", out + "x", "-games", "0"}} {
+	for _, bad := range [][]string{{}, {"-target", target, "-vs", vs}, {"-target", target, "-vs", vs, "-out", out + "x", "-games", "0"}, {"-target", target, "-vs", vs, "-out", out + "y", "-variant", "brawl"}} {
 		if err := runCmd(bad); err == nil {
 			t.Errorf("run %v: want an error", bad)
 		}
@@ -161,5 +166,18 @@ func TestPrintSummaryNamesMatchupsAndCards(t *testing.T) {
 	printOutcomes(&out, []sim.GameResult{{Outcome: sim.Won}, {Outcome: sim.Won}, {Outcome: sim.TurnCap}})
 	if !strings.Contains(out.String(), "won") || !strings.Contains(out.String(), "turn cap") {
 		t.Errorf("outcomes %q", out.String())
+	}
+}
+
+func TestParseVariantReadsCommanderOrNothing(t *testing.T) {
+	t.Parallel()
+	if v, err := parseVariant(""); err != nil || v != 0 {
+		t.Errorf(`parseVariant("") = %v, %v; want 0, nil`, v, err)
+	}
+	if v, err := parseVariant("commander"); err != nil || v != engine.VariantCommander {
+		t.Errorf(`parseVariant("commander") = %v, %v; want VariantCommander`, v, err)
+	}
+	if _, err := parseVariant("brawl"); err == nil {
+		t.Error(`parseVariant("brawl"): want an error`)
 	}
 }

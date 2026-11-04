@@ -43,6 +43,7 @@ func runCmd(args []string) error {
 	timeout := fs.Duration("timeout", 2*time.Minute, "wall-clock limit per game before it is reported hung")
 	out := fs.String("out", "", "run directory to create (must not exist)")
 	top := fs.Int("top", 10, "cards printed per deck")
+	variantName := fs.String("variant", "", "game variant: \"commander\" seats each deck's Commander section (ADR-0055); empty for constructed")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -51,6 +52,10 @@ func runCmd(args []string) error {
 	}
 	if *games < 1 || *shards < 1 {
 		return fmt.Errorf("run: -games and -shards must be at least 1")
+	}
+	variant, err := parseVariant(*variantName)
+	if err != nil {
+		return err
 	}
 
 	db, err := compile.LoadDB(*corpus, *types)
@@ -71,7 +76,7 @@ func runCmd(args []string) error {
 	run, err := store.Create(*out, store.Manifest{
 		RunID: filepath.Base(*out), GitSHA: gitSHA(), SchemaVersion: telemetry.SchemaVersion,
 		MetricsVersion: telemetry.MetricsVersion, BaseSeed: *seed, Games: len(jobs), Shards: *shards,
-		Gauntlet: gauntlet.Name, Decks: deckInfos(gauntlet),
+		Gauntlet: gauntlet.Name, Decks: deckInfos(gauntlet), Variant: *variantName,
 	})
 	if err != nil {
 		return err
@@ -79,7 +84,7 @@ func runCmd(args []string) error {
 	start := time.Now()
 	results, err := sim.Run(context.Background(), sim.Plan{
 		DB: db, Jobs: jobs, NewController: func() engine.PlayerController { return &smoke.Controller{} },
-		BaseSeed: *seed, MaxTurns: *turns, GameTimeout: *timeout, Store: run,
+		BaseSeed: *seed, MaxTurns: *turns, GameTimeout: *timeout, Store: run, Variant: variant,
 	}, *workers)
 	if err != nil {
 		return err
@@ -196,7 +201,7 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 	for _, sec := range []struct {
 		section deck.Section
 		into    *[]string
-	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}} {
+	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}, {deck.Commander, &out.Commanders}} {
 		for _, e := range d.Cards(sec.section) {
 			name, ok := byLower[strings.ToLower(e.Name)]
 			if !ok {
@@ -307,4 +312,16 @@ func printSummary(w io.Writer, s telemetry.Summary, top int) {
 				r.stat.BlockedTurns, r.stat.PlayableUnusedTurns, 100*r.stat.DeadRate())
 		}
 	}
+}
+
+// parseVariant reads -variant: empty for a constructed game, "commander"
+// for the Commander variant (ADR-0055), anything else an error.
+func parseVariant(name string) (engine.Variant, error) {
+	switch name {
+	case "":
+		return 0, nil
+	case "commander":
+		return engine.VariantCommander, nil
+	}
+	return 0, fmt.Errorf("run: -variant %q: want \"commander\" or nothing", name)
 }

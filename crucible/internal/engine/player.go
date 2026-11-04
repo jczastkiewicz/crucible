@@ -23,6 +23,10 @@ type Player struct {
 	// Life is the current total. It goes negative before the state-based
 	// action that ends the game runs, so it is signed.
 	Life int
+	// StartingLife is Player.startingLife (Player.java:84): the total the
+	// player started the game at, 40 under the Commander variant
+	// (SetupVariant), a Subgame's StartingLife$, else twenty.
+	StartingLife int
 	// Turn is how many turns this player has taken, which several card scripts
 	// count.
 	Turn int
@@ -78,6 +82,10 @@ type Player struct {
 	// commanderCasts is Player.commanderCast (Player.java:190): per commander,
 	// how many times this player cast it from the Command zone.
 	commanderCasts []commanderCastCount
+	// commanderDamage is Player.commanderDamage (Player.java:191): per real
+	// commander, the combat damage it dealt this player (noteCommanderDamage),
+	// in the order each first dealt some. Read by key, never for order.
+	commanderDamage []commanderCastCount
 	// expendThisTurn is Player.expentThisTurn (Player.java:3995-4000): the mana
 	// this player spent on spells this turn, what Mode$ ManaExpend counts.
 	expendThisTurn int

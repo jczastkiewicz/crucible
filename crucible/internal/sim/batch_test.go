@@ -251,6 +251,37 @@ func TestDeckStickerSheetsAreReadCheckedAndSeated(t *testing.T) {
 	}
 }
 
+// The Commander section becomes the deck's commanders; under the Commander
+// variant a batch checks their names and seats them (ADR-0055), and a
+// 40-life game of blank decks still ends by decking.
+func TestDeckCommandersAreReadCheckedAndSeatedUnderTheVariant(t *testing.T) {
+	t.Parallel()
+	d := deck.Parse("t.dck", []byte("[Main]\n1 Island\n[Commander]\n1 Leader\n"))
+	if got, want := sim.DeckFromList("T", d).Commanders, []string{"Leader"}; !slices.Equal(got, want) {
+		t.Errorf("commanders %v, want %v", got, want)
+	}
+
+	s := spec(t)
+	s.DB = blankDB(t, "Blank", "Leader")
+	s.Variant = engine.VariantCommander
+	s.Decks[0].Commanders = []string{"Leader"}
+	s.Decks[1].Commanders = []string{"Leader"}
+	got, err := sim.RunBatch(context.Background(), s, 2, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range got {
+		if r.Outcome != sim.Won {
+			t.Errorf("game %d with commanders: %v %q, want a win by decking", r.Index, r.Outcome, r.Detail)
+		}
+	}
+
+	s.Decks[0].Commanders = []string{"No Such Leader"}
+	if _, err := sim.RunBatch(context.Background(), s, 1, 1); err == nil || !strings.Contains(err.Error(), "No Such Leader") {
+		t.Errorf("unknown commander: err = %v, want it named", err)
+	}
+}
+
 func TestGauntletAlternatesSeatsAndTurnOrder(t *testing.T) {
 	t.Parallel()
 	gt := sim.Gauntlet{

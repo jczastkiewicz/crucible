@@ -486,7 +486,7 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	case "LifeYouLostThisTurn":
 		return g.Player(sourceController).LifeLostThisTurn, true
 	case "YourStartingLife":
-		return startingLife, true
+		return g.Player(sourceController).StartingLife, true
 	case "YourSpeed":
 		return g.Player(sourceController).Speed, true
 	case "TotalCommanderCastFromCommandZone":

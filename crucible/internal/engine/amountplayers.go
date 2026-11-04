@@ -436,7 +436,7 @@ func playerPropertyMeasure(g *Game, pid PlayerID, value string, sq []string) (n 
 	case "CreaturesInPlay":
 		return len(filterValid(g, g.Zone(Battlefield, pid).Cards(), "Creature", pid, NoCard)), true, true
 	case "StartingLife":
-		return startingLife, true, true
+		return p.StartingLife, true, true
 	case "LifeTotal":
 		return p.Life, true, true
 	case "LifeLostThisTurn":

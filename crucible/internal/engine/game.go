@@ -207,6 +207,8 @@ type Game struct {
 	// a win, a loss, or a draw. Nothing unsets it: a game that has ended
 	// stays ended (action.go).
 	over bool
+	// variants is GameRules.appliedVariants (ADR-0055, commander.go).
+	variants Variant
 
 	// restarted is Java's GameStage.RestartedByKarn (RestartGameEffect.java:105):
 	// a RestartGame effect has reset the game mid-resolution and the turn
@@ -691,13 +693,21 @@ type zoneKey struct {
 // is).
 var errRestartPending = errors.New("engine: game restarted (RestartGame); call ResumeAfterRestart before driving it again")
 
-// startingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's own
-// default (RegisteredPlayer.java:25), what Game's constructor hands every
-// seat when no StartingLife was forced (Game.java:347-351). The variants
-// that raise it (Commander, Archenemy, Vanguard, RegisteredPlayer.java:137-171)
-// have no game setup in this port, so it is a constant for the same reason
-// startingHandSize is. Subgame's seats start at it (subgameeffect.go).
-const startingLife = 20
+// Variant is a set of GameRules.appliedVariants (GameRules.java:19): the
+// game types whose rules a game plays under (ADR-0055,
+// commander.go).
+type Variant uint8
+
+// VariantCommander is GameType.Commander.
+const VariantCommander Variant = 1
+
+// defaultStartingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's
+// own default (RegisteredPlayer.java:25), what Game's constructor hands
+// every seat when no StartingLife was forced (Game.java:347-351). Of the
+// variants that raise it (RegisteredPlayer.java:137-171) Commander is
+// ported (SetupVariant, ADR-0055); Archenemy and Vanguard are not. Subgame's
+// seats start at it unless StartingLife$ says otherwise (subgameeffect.go).
+const defaultStartingLife = 20
 
 // NewGame builds an empty game with the given players.
 //
@@ -719,7 +729,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
-		g.players = append(g.players, Player{ID: id, Name: name, Life: startingLife, CrankCounter: 3})
+		g.players = append(g.players, Player{ID: id, Name: name, Life: defaultStartingLife, StartingLife: defaultStartingLife, CrankCounter: 3})
 		for _, z := range []ZoneType{Hand, Library, Graveyard, Battlefield, Exile, Command, Sideboard} {
 			g.zones[zoneKey{z, id}] = &Zone{Type: z, Owner: id, cards: collect.NewOrderedSet[CardID](0)}
 		}
@@ -1179,6 +1189,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	leftStamp := c.zoneStamp
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.put(id, kind, owner)
+	if c.commander {
+		// GameAction.java:847-848 (and :499-500 for each merged component,
+		// which moveMerged moves through here): CR 903.9a's "since the last
+		// time state-based actions were checked".
+		c.toCommandZone = true
+	}
 	if from != kind {
 		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
 	}
@@ -1835,6 +1851,7 @@ func (g *Game) Clone() *Game {
 		}
 		out.players[i].commanders = append([]CardID(nil), g.players[i].commanders...)
 		out.players[i].commanderCasts = append([]commanderCastCount(nil), g.players[i].commanderCasts...)
+		out.players[i].commanderDamage = append([]commanderCastCount(nil), g.players[i].commanderDamage...)
 		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
 		out.players[i].attackedThisTurn = append([]CardID(nil), g.players[i].attackedThisTurn...)
 		out.players[i].attackedPlayersThisTurn = append([]PlayerID(nil), g.players[i].attackedPlayersThisTurn...)

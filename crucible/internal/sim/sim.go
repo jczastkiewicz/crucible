@@ -51,18 +51,28 @@ var outcomeNames = [...]string{"won", "draw", "turn cap", "errored", "panicked",
 
 func (o Outcome) String() string { return outcomeNames[o] }
 
-// Deck is one side's main deck, one entry per card (copies repeated), and
-// its sticker sheets (the Stickers section, CR 123.2a), seated at the start
-// of each game.
+// Deck is one side's main deck, one entry per card (copies repeated), its
+// sticker sheets (the Stickers section, CR 123.2a) and its commanders (the
+// Commander section), seated at the start of each game. Commanders are
+// seated only under the Commander variant (Plan.Variant): Java builds the
+// game from the main deck and reads the section only for a commander
+// variant (Match.java:344, RegisteredPlayer.java:135-157).
 type Deck struct {
-	Name     string
-	Cards    []string
-	Stickers []string
+	Name       string
+	Cards      []string
+	Stickers   []string
+	Commanders []string
 }
 
-// DeckFromList flattens a parsed decklist's main and Stickers sections.
+// DeckFromList flattens a parsed decklist's main, Stickers and Commander
+// sections.
 func DeckFromList(name string, d *deck.Deck) Deck {
 	out := Deck{Name: name}
+	for _, e := range d.Cards(deck.Commander) {
+		for i := 0; i < e.Count; i++ {
+			out.Commanders = append(out.Commanders, e.Name)
+		}
+	}
 	for _, e := range d.Cards(deck.Main) {
 		for i := 0; i < e.Count; i++ {
 			out.Cards = append(out.Cards, e.Name)
@@ -143,6 +153,9 @@ type Plan struct {
 	// Store, when set, receives each game's rows. Rows reach their shard in
 	// game order whatever the worker count, so the files are reproducible.
 	Store *store.Run
+	// Variant is the game variant every game is set up for (ADR-0055); zero
+	// is a plain constructed game.
+	Variant engine.Variant
 }
 
 // Spec is one batch of the same deck pair, the simple case of a Plan.
@@ -154,6 +167,8 @@ type Spec struct {
 	BaseSeed      int64
 	MaxTurns      int
 	GameTimeout   time.Duration
+	// Variant is Plan.Variant.
+	Variant engine.Variant
 }
 
 // GameResult is one game's record.
@@ -187,7 +202,7 @@ func RunBatch(ctx context.Context, spec Spec, n, workers int) ([]GameResult, err
 	}
 	return Run(ctx, Plan{
 		DB: spec.DB, Jobs: jobs, NewController: spec.NewController, BaseSeed: spec.BaseSeed,
-		MaxTurns: spec.MaxTurns, GameTimeout: spec.GameTimeout,
+		MaxTurns: spec.MaxTurns, GameTimeout: spec.GameTimeout, Variant: spec.Variant,
 	}, workers)
 }
 
@@ -211,7 +226,7 @@ func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
 				continue
 			}
 			checked[d.Name] = true
-			for _, name := range append(slices.Clone(d.Cards), d.Stickers...) {
+			for _, name := range slices.Concat(d.Cards, d.Stickers, d.Commanders) {
 				if _, ok := plan.DB.Card(name); !ok {
 					return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
 				}
@@ -396,11 +411,22 @@ func (f firstPlayer) ChooseStartingPlayer(*engine.Game, engine.PlayerID, bool) e
 // tenures when the plan stores rows.
 func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telemetry.TenureRow, []telemetry.ManaRow) {
 	g := engine.NewGame(plan.DB, javarand.New(seed), []string{job.Decks[0].Name, job.Decks[1].Name})
+	if plan.Variant != 0 {
+		g.SetupVariant(plan.Variant)
+	}
 	for seat, d := range job.Decks {
 		pid := g.Players()[seat]
 		for _, name := range d.Cards {
 			def, _ := plan.DB.Card(name)
 			g.NewCard(def, pid, engine.Library)
+		}
+		// Player.initVariantsZones (Player.java:3016-3025): the commanders,
+		// after the library and before the sticker sheets.
+		if g.HasVariant(engine.VariantCommander) {
+			for _, name := range d.Commanders {
+				def, _ := plan.DB.Card(name)
+				g.SeatCommander(pid, def)
+			}
 		}
 		// Player.initVariantsZones (Player.java:3072-3079): three of the
 		// deck's sheets, at random, into the StickerSheets zone.

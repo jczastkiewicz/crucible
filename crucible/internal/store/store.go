@@ -40,6 +40,9 @@ type Manifest struct {
 	Gauntlet       string         `json:"gauntlet,omitempty"`
 	Decks          []DeckInfo     `json:"decks"`
 	Thresholds     map[string]int `json:"thresholds,omitempty"`
+	// Variant is the game variant the run was played under ("commander"),
+	// empty for constructed (ADR-0055).
+	Variant string `json:"variant,omitempty"`
 }
 
 // Row is one stored record: its kind and the kind's JSON.

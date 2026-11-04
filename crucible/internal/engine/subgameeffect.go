@@ -48,7 +48,7 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 // subgameEffect resolves SP$ Subgame.
 //
 // Resolved: StartingLife$ (every seat's starting life, default
-// startingLife), RememberPlayers$ Win / NotWin (the main-game players who
+// defaultStartingLife), RememberPlayers$ Win / NotWin (the main-game players who
 // won, or did not win, the subgame, remembered on the host -- a draw makes
 // every player NotWin, GameOutcome.isWinner being false for all).
 //
@@ -97,7 +97,7 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	life := startingLife
+	life := defaultStartingLife
 	if raw, ok := a.Params.Param("StartingLife"); ok {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
@@ -225,7 +225,7 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 	for i, pid := range seats {
 		sp := subSeats[i]
 		// Player.setStartingLife (Player.java:423-428) sets life too.
-		sub.Player(sp).Life = life
+		sub.Player(sp).Life, sub.Player(sp).StartingLife = life, life
 		copyCardsInto(g, sub, g.Zone(Library, pid).CardsIncludingPhasedOut(), sp, Library)
 
 		// CR 720.4: getCardsInOwnedBy(outsideZones, p) (Game.java:645-651),

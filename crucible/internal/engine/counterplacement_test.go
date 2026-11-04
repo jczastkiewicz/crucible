@@ -147,17 +147,25 @@ func TestReplaceCounterValidSourceReadsThePlacer(t *testing.T) {
 
 // TestPrintedLoyaltyAndDefenseAreEntryCounters proves a planeswalker's
 // printed loyalty and a battle's defense are etbCounter replacements of the
-// card's own (CardState.java:595-600), placed by its controller: they enter
-// with the permanent, emit CounterChanged from it, are doubled by Vorinclex,
-// Monstrous Raider and come back fresh when the card enters again.
+// card's own (CardState.java:595-600), placed by its controller as an effect:
+// they enter with the permanent, emit CounterChanged from it, are doubled by
+// Vorinclex, Monstrous Raider and by Doubling Season's EffectOnly$ line, and
+// come back fresh when the card enters again.
 func TestPrintedLoyaltyAndDefenseAreEntryCounters(t *testing.T) {
 	t.Parallel()
 
-	for _, vorinclex := range []bool{false, true} {
+	for _, tc := range []struct {
+		doubler          string
+		loyalty, defense int
+	}{
+		{"", 5, 4},
+		{"Vorinclex, Monstrous Raider", 10, 8},
+		{"Doubling Season", 10, 8},
+	} {
 		g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 		g.SetTurnState(1, p, engine.Main1)
-		if vorinclex {
-			g.NewCard(corpusCard(t, "Vorinclex, Monstrous Raider"), p, engine.Battlefield)
+		if tc.doubler != "" {
+			g.NewCard(corpusCard(t, tc.doubler), p, engine.Battlefield)
 		}
 		walker := g.NewCard(planeswalkerDefLoyalty(t, "5"), p, engine.Hand)
 		battle := g.NewCard(battleDefDefense(t, "4"), p, engine.Hand)
@@ -167,27 +175,23 @@ func TestPrintedLoyaltyAndDefenseAreEntryCounters(t *testing.T) {
 		c.QueueCardOrder([]engine.CardID{walker, battle})
 		c.QueueBattleProtector(other)
 		resolveLine(t, g, p, c, "DB$ ChangeZoneAll | ChangeType$ Planeswalker.YouOwn,Battle.YouOwn | Origin$ Hand | Destination$ Battlefield")
-		loyalty, defense := 5, 4
-		if vorinclex {
-			loyalty, defense = 10, 8
+		if got := g.Card(walker).Counters.Count(engine.Loyalty); got != tc.loyalty {
+			t.Errorf("%q: loyalty = %d, want %d", tc.doubler, got, tc.loyalty)
 		}
-		if got := g.Card(walker).Counters.Count(engine.Loyalty); got != loyalty {
-			t.Errorf("vorinclex %v: loyalty = %d, want %d", vorinclex, got, loyalty)
-		}
-		if got := g.Card(battle).Counters.Count(engine.Defense); got != defense {
-			t.Errorf("vorinclex %v: defense = %d, want %d", vorinclex, got, defense)
+		if got := g.Card(battle).Counters.Count(engine.Defense); got != tc.defense {
+			t.Errorf("%q: defense = %d, want %d", tc.doubler, got, tc.defense)
 		}
 		found := false
 		for _, e := range sink.events {
 			if e.Kind == engine.CounterChanged && e.Source == walker && e.Target == engine.CardEntity(walker) &&
-				int(e.Amount) == loyalty && e.Detail == uint32(engine.CounterDetailLoyalty) {
+				int(e.Amount) == tc.loyalty && e.Detail == uint32(engine.CounterDetailLoyalty) {
 				found = true
 			}
 		}
 		if !found {
-			t.Errorf("vorinclex %v: no CounterChanged for the walker's %d loyalty", vorinclex, loyalty)
+			t.Errorf("%q: no CounterChanged for the walker's %d loyalty", tc.doubler, tc.loyalty)
 		}
-		if vorinclex {
+		if tc.doubler != "" {
 			continue
 		}
 		g.Card(walker).Counters.Add(engine.Loyalty, -5)

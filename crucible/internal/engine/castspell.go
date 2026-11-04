@@ -1070,12 +1070,11 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 // resolution.
 //
 // Reports false for every legal-but-declined case castableAsPermanent's own
-// CastSpell branch already has, plus two more: enchantSpec finds nothing
-// checkable (an "Enchant Player"/"Enchant Opponent" Aura, its own doc
-// comment's gap -- this port cannot tell a legal host from an illegal one
-// without a card-type spec to check), or the battlefield has no legal host
-// at all (CR 601.2c: a spell requiring a target that has none is illegal to
-// cast, not one cast with nothing to point at).
+// CastSpell branch already has, plus two more: the Aura has no Enchant
+// keyword enchantSpec can read (an Enchant player Aura is castPlayerAura's),
+// or the battlefield has no legal host at all (CR 601.2c: a spell requiring
+// a target that has none is illegal to cast, not one cast with nothing to
+// point at).
 //
 // checkBecomesTargetTriggers (trigger.go) runs after the push too: an Aura's
 // own attach target is CR 115's "becomes the target of a spell" exactly as
@@ -1083,9 +1082,7 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 // own identical call, trigger.go) -- Illusionary Servant's real "when
 // CARDNAME becomes the target of a spell or ability, sacrifice it" fires
 // off an opponent Auraing it exactly as much as off a triggered ability
-// targeting it, and this is the only cast-time path this port has today
-// that could ever reach it (a targeted Instant/Sorcery is not built yet,
-// checkBecomesTargetTriggers' own doc comment).
+// targeting it.
 func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
 	if kind, ok := enchantPlayerSpec(c); ok {
 		return g.castPlayerAura(pid, card, c, controller, opts, kind)

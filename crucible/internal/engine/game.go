@@ -1345,11 +1345,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 // tuck already relies on exactly that); this is Move's mirror for the one
 // case a card needs the opposite end instead, sharing its every other
 // behavior -- including the Battlefield-transition cleanup below, so a
-// future caller that moves a card onto the top of a library from anywhere
-// other than the library itself (a tutor effect's own
-// "Destination$ Library | LibraryPosition$ 0" shape, not built yet) gets
-// that cleanup for free rather than a scry-only shortcut that silently
-// skips it. Returns the melded partner it unmelds along with id, same as
+// caller that moves a card onto the top of a library from anywhere other
+// than the library itself (a ChangeZone "Destination$ Library |
+// LibraryPosition$ 0", moveByEffect) gets that cleanup too. Returns the melded partner it unmelds along with id, same as
 // [Game.Move].
 func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	if g.ceaseCopiedSpell(id) {

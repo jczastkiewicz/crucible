@@ -100,7 +100,7 @@ func TestHamaCastsTheExiledCardByWaterbending(t *testing.T) {
 	libraryCards(t, g, opp, 3)
 	libraryCards(t, g, p, 3)
 	g.Player(p).ManaPool.Add(mana.Blue, 5)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	for range 3 {
 		c.QueueHybridManaColor(mana.Blue)
 	}

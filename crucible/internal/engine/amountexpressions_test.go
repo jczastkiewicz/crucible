@@ -348,7 +348,7 @@ func TestRememberedListAppliesItsOperatorInside(t *testing.T) {
 			g, p, other := newTwoPlayerGame(t)
 			addN(t, g, other, engine.Battlefield, 2, "Creature Elf")
 			before := g.Player(p).Life
-			resolveLine(t, g, p, engine.NewScriptedController(),
+			resolveLine(t, g, p, keepingOrder(),
 				"DB$ DestroyAll | ValidCards$ Creature.OppCtrl | RememberDestroyed$ True | SubAbility$ DBGain",
 				"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X", "X", tc.x)
 			if got := g.Player(p).Life - before; got != tc.want {
@@ -707,7 +707,7 @@ func TestListChromaSourceNamesAColor(t *testing.T) {
 			g.NewCard(creatureDefManaCost(t, "R G"), other, engine.Battlefield)
 			g.NewCard(creatureDefManaCost(t, "2"), other, engine.Battlefield)
 			before := g.Player(p).Life
-			resolveLine(t, g, p, engine.NewScriptedController(),
+			resolveLine(t, g, p, keepingOrder(),
 				"DB$ DestroyAll | ValidCards$ Creature.OppCtrl | RememberDestroyed$ True | SubAbility$ DBGain",
 				"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X", "X", tc.x)
 			if got := g.Player(p).Life - before; got != tc.want {

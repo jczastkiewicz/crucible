@@ -24,7 +24,7 @@ func castDevourer(t *testing.T, g *engine.Game, p engine.PlayerID, name string, 
 	for _, col := range []mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red} {
 		g.Player(p).ManaPool.Add(col, 1)
 	}
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	for range generic {
 		c.QueuePayGeneric(mana.ShardG)
 	}
@@ -104,7 +104,7 @@ func TestDevourMultiplierAndDevouredValid(t *testing.T) {
 	elf := addN(t, g2, p2, engine.Battlefield, 1, "Creature Elf")[0]
 	dragon := g2.NewCard(corpusCard(t, "Voracious Dragon"), p2, engine.Hand)
 	g2.Player(p2).ManaPool.Add(mana.Red, 5)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	for range 3 {
 		c.QueuePayGeneric(mana.ShardR)
 	}

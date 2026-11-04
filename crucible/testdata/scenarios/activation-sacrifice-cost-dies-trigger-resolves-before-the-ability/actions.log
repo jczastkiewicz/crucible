@@ -6,6 +6,7 @@
 # first (Island, Forest, Plains), then the ability draws the Mountain.
 startturn human
 advance 3
+queue cardorder 3,4,5
 queue sacrificechoice 2
 queue targets none
 queue action human activate 1 0

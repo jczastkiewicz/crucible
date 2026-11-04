@@ -425,7 +425,7 @@ func TestValidSharesNameWithSelfAndChosenCard(t *testing.T) {
 				chosen := g.NewCard(renamedCreature(t, "Test Play Host"), p, engine.Exile)
 				g.Card(host).Memory.Choose(chosen)
 			}
-			if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+			if err := g.ResolveStack(engine.NewRegistry(), keepingOrder()); err != nil {
 				t.Fatal(err)
 			}
 			if g.Card(sameName).Zone != engine.Graveyard {

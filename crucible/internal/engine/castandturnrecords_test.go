@@ -33,13 +33,13 @@ func TestDamageReplacementChainReadsTheDamageAndItsTarget(t *testing.T) {
 	addN(t, g, b, engine.Library, 10, "Artifact")
 	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
 
-	ac := engine.NewScriptedController()
+	ac := keepingOrder()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks(nil)
 	declareBlockers(t, g, bc)
-	g.DealCombatDamage(engine.NewScriptedController())
+	g.DealCombatDamage(keepingOrder())
 	if err := g.TakePendingError(); err != nil {
 		t.Fatalf("pending error: %v", err)
 	}

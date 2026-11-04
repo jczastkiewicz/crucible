@@ -241,7 +241,7 @@ func TestAnnihilatorMakesTheDefenderSacrifice(t *testing.T) {
 	first := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	second := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	third := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueAttackers([]engine.CardID{crusher})
 	c.QueueSacrificeChoice([]engine.CardID{first, second})
 	if _, err := g.DeclareCombatAttackers(c); err != nil {

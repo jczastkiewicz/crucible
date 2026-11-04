@@ -12,6 +12,8 @@ package engine
 //enginelint:allow id card game player ability event control parts zone becomemonarcheffect
 
 import (
+	"fmt"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -26,7 +28,10 @@ type internalRadiationEffect struct{}
 
 func (internalRadiationEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	pid := a.Controller
-	milled := g.millCards(controller, pid, g.Player(pid).Counters.Count(Radiation))
+	milled, err := g.millCards(controller, pid, g.Player(pid).Counters.Count(Radiation))
+	if err != nil {
+		return fmt.Errorf("engine: InternalRadiation: %w", err)
+	}
 	g.checkMilledAllTriggers(controller, milled)
 	g.checkLeftZoneTriggers(controller, milled, Library)
 	g.checkChangesZoneAllTriggers(controller, milled, Library, Graveyard)

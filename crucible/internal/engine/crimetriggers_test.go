@@ -26,7 +26,7 @@ func TestCommitCrimeTriggersOncePerTurn(t *testing.T) {
 	cast := func(target engine.EntityID) {
 		t.Helper()
 		spell := crimeSpell(t, g, p)
-		c := engine.NewScriptedController()
+		c := keepingOrder()
 		c.QueueTargets([]engine.EntityID{target})
 		castThenResolve(t, g, p, spell, c)
 	}

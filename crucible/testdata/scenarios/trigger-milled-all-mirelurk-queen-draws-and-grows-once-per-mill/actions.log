@@ -2,6 +2,7 @@
 # once: it draws a card (the last Plains) and gets a +1/+1 counter.
 startturn human
 advance 3
+queue cardorder 4,5,6,7,8
 tapformana human 2 U
 queue targets human
 castspell human 1

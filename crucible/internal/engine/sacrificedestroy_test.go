@@ -85,7 +85,7 @@ func TestSacrificeEffectSacEachValidKeepsCardsFreeForLaterAlternatives(t *testin
 	big := g.NewCard(creatureDefPT(t, "2", "2"), opp, engine.Battlefield)
 	small := g.NewCard(creatureDefPT(t, "1", "1"), opp, engine.Battlefield)
 
-	c := &sacOfferRecorder{ScriptedController: engine.NewScriptedController()}
+	c := &sacOfferRecorder{ScriptedController: keepingOrder()}
 	if _, err := castETBSacrifice(t, g, p, etbSacrificeTriggerDefParams(t, "Test Each Valid", "SacValid$ Creature & Creature.powerGE2 | Defined$ Opponent | SacEachValid$ True", nil), c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}

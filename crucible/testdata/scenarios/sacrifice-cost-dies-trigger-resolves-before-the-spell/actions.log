@@ -6,6 +6,7 @@
 # the milled cards land in the graveyard between the Supplier and the spell.
 startturn human
 advance 3
+queue cardorder 4,5,6
 tapformana human 2 B
 queue targets 8
 queue sacrificechoice 3

@@ -3,6 +3,7 @@
 # targets ai for two cards, Bruvac doubles it to four. Human then draws.
 startturn human
 advance 3
+queue cardorder 10,11,12,13
 tapformana human 2 U
 queue targets ai
 castspell human 1

@@ -78,6 +78,11 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			continue
 		}
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, amt)
+		// ConniveEffect.java:92: ordered for the graveyard (CR 613.7m).
+		chosen, err := g.orderCardsByTheirOwners(controller, chosen, Graveyard)
+		if err != nil {
+			return fmt.Errorf("engine: Connive: %w", err)
+		}
 		nonLands := 0
 		for _, cid := range chosen {
 			if !g.Card(cid).Type().Has(cardtype.Land) {

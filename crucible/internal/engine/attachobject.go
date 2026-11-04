@@ -56,6 +56,11 @@ func (g *Game) attachObject(a *Ability, controller PlayerController) error {
 	if !ok || g.Card(host).Zone != Battlefield || !g.Card(host).Type().Has(cardtype.Creature) {
 		return nil
 	}
+	// AttachEffect.java:131: the attachments are ordered by their
+	// controllers once the host is known (CR 613.7m: their new timestamps).
+	if attachments, err = g.orderCardsByTheirOwners(controller, attachments, Battlefield); err != nil {
+		return fmt.Errorf("engine: Attach: %w", err)
+	}
 	for _, id := range attachments {
 		if g.Card(id).Zone != Battlefield || id == host || hostRefusesAttach(g, g.Card(id), host) {
 			continue
@@ -185,6 +190,12 @@ func (g *Game) attachObjectToChoice(a *Ability, controller PlayerController, att
 		return fmt.Errorf("engine: Attach: %w", err)
 	}
 	host := picked[0]
+	// AttachEffect.java:131: the attachments are ordered by their
+	// controllers once the host is known (CR 613.7m: their new timestamps).
+	attachments, err := g.orderCardsByTheirOwners(controller, attachments, Battlefield)
+	if err != nil {
+		return fmt.Errorf("engine: Attach: %w", err)
+	}
 	_, optional := a.Params.Param("Optional")
 	for _, id := range attachments {
 		if g.Card(id).Zone != Battlefield {
@@ -236,6 +247,11 @@ func (g *Game) attachObjectToPlayerChoice(a *Ability, controller PlayerControlle
 	host := players[0]
 	if len(players) > 1 {
 		host = controller.ChoosePlayerForEffect(g, a.Controller, a.Source, players)
+	}
+	// AttachEffect.java:131: the attachments are ordered by their
+	// controllers once the host is known (CR 613.7m: their new timestamps).
+	if attachments, err = g.orderCardsByTheirOwners(controller, attachments, Battlefield); err != nil {
+		return fmt.Errorf("engine: Attach: %w", err)
 	}
 	for _, id := range attachments {
 		if g.Card(id).Zone != Battlefield {

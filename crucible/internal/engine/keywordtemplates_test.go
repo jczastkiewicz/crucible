@@ -429,7 +429,7 @@ func TestDredgeReplacesADraw(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	libraryCards(t, g, p, 5)
 	lizard := g.NewCard(corpusCard(t, "Golgari Brownscale"), p, engine.Graveyard)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueConfirmReplacementEffect(true)
 	g.DrawCards(p, 1, c)
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {

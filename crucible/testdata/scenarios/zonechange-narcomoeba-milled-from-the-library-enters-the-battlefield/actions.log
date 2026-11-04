@@ -5,6 +5,7 @@
 # accepted.
 startturn human
 advance 3
+queue cardorder 3,4
 tapformana human 2 U
 queue targets human
 queue optionaltrigger true

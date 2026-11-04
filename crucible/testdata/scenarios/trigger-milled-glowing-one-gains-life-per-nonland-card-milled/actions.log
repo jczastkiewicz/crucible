@@ -2,6 +2,7 @@
 # Glowing One's controller gains 1 life.
 startturn human
 advance 3
+queue cardorder 4,5,6,7,8
 tapformana human 2 U
 queue targets human
 castspell human 1

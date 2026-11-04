@@ -496,7 +496,7 @@ func TestRunningIsUselessDestroysCreaturesOfDifferentManaValues(t *testing.T) {
 	g.NewCard(corpusCard(t, "Running Is Useless"), p, engine.SchemeDeck)
 	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
 	angel := g.NewCard(corpusCard(t, "Serra Angel"), other, engine.Battlefield)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueCardChoice([]engine.CardID{bears})
 	c.QueueCardChoice([]engine.CardID{angel})
 	c.QueueCardChoice(nil) // a further optional pick, declined

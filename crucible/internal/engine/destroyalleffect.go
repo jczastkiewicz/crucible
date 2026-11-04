@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -93,6 +94,16 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	noRegenValid, hasNoRegenValid := a.Params.Param("NoRegenValid")
 	if hasNoRegenValid {
 		noRegenSpec = valid.Parse(noRegenValid)
+	}
+	// DestroyAllEffect.java:84-86: what can be destroyed now, ordered for the
+	// graveyard by its owners (CR 613.7m).
+	list = slices.DeleteFunc(list, func(id CardID) bool {
+		c := g.Card(id)
+		return c.Zone != Battlefield || !canBeDestroyed(c)
+	})
+	list, err := g.orderCardsByTheirOwners(controller, list, Graveyard)
+	if err != nil {
+		return fmt.Errorf("engine: DestroyAll: %w", err)
 	}
 	var destroyed []CardID
 	for _, id := range list {

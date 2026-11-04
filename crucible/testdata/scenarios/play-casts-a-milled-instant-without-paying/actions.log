@@ -9,6 +9,7 @@
 # returns to its owner's graveyard.
 startturn human
 advance 3
+queue cardorder 8,9,10,11,12
 tapformana human 2 U
 tapformana human 3 U
 tapformana human 4 U

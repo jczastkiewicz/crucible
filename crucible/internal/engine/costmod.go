@@ -48,8 +48,8 @@ var costModParams = map[string]bool{
 // that does not resolve then refuses the cast. The probe before the announce
 // (announceXFor, which only asks whether an X is left) skips such a line: a
 // reduction never touches the X.
-func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extras bool) (mana.Cost, bool) {
-	return g.costStatics(pid, card, nil, base, paying, extras)
+func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extras bool, ownReduce string) (mana.Cost, bool) {
+	return g.costStatics(pid, card, nil, base, paying, extras, ownReduce)
 }
 
 // costStatics is spellCost for a spell (act nil) or for the activation of
@@ -57,7 +57,10 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extr
 // from CostPayment.payCost): Type$ Ability and an absent Type$ reach it, and
 // ValidSpell$ Activated[.props] is read against act. A cost with no mana
 // part still takes a raise, so its base is never "no cost" there.
-func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying, extras bool) (mana.Cost, bool) {
+//
+// ownReduce is a spell's own ReduceCost$ SVar name (a Flashback keyword's
+// extra), "" for none; an activation's is read from act.
+func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying, extras bool, ownReduce string) (mana.Cost, bool) {
 	if act == nil && base.IsNoCost() {
 		return base, true
 	}
@@ -168,6 +171,15 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		if reduced, repeated, repeats, ok = g.abilityReduceCost(c, act, paying); !ok {
 			return base, false
 		}
+	} else if ownReduce != "" {
+		n, ok := g.costModAmountFor(c, pid, nil, &c.Def.Faces[0], c, ownReduce)
+		if !ok {
+			if paying {
+				g.recordPendingError(fmt.Errorf("engine: ReduceCost$ %q on %s is not resolvable yet", ownReduce, c.Name()))
+			}
+			return base, false
+		}
+		reduced = max(n, 0)
 	}
 	for _, r := range reduces {
 		raw, ok := r.s.Param("Amount")

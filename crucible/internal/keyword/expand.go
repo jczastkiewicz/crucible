@@ -874,15 +874,20 @@ func Expand(k Keyword) (Expansion, bool) {
 	case "Reconfigure":
 		// CardFactoryUtil.java:3374-3395: attach to target creature you control
 		// and unattach, each at sorcery speed. A second field is an
-		// AlternateCost$ (Razorfield Ripper's PayEnergy<3>), which no Attach
-		// this port resolves reads: left inert, as Equip's is.
+		// AlternateCost$ on both (CardFactoryUtil.java:3381, Razorfield
+		// Ripper's PayEnergy<3>): the activation offers it beside the printed
+		// cost (activationCostChoices).
 		args := k.Args()
-		if len(args) != 1 || args[0] == "" {
+		if len(args) < 1 || len(args) > 2 || args[0] == "" {
 			return Expansion{}, false
 		}
+		both := " | SorcerySpeed$ True | Secondary$ True"
+		if len(args) == 2 && args[1] != "" {
+			both += " | AlternateCost$ " + args[1]
+		}
 		return Expansion{Abilities: []string{
-			"AB$ Attach | ValidTgts$ Creature.YouCtrl+Other | TgtPrompt$ Select target creature you control | AILogic$ Pump | Cost$ " + args[0] + " | SorcerySpeed$ True | Secondary$ True",
-			"AB$ Unattach | Defined$ Self | IsPresent$ Card.Self+AttachedTo Creature | Cost$ " + args[0] + " | SorcerySpeed$ True | Secondary$ True",
+			"AB$ Attach | ValidTgts$ Creature.YouCtrl+Other | TgtPrompt$ Select target creature you control | AILogic$ Pump | Cost$ " + args[0] + both,
+			"AB$ Unattach | Defined$ Self | IsPresent$ Card.Self+AttachedTo Creature | Cost$ " + args[0] + both,
 		}}, true
 	case "Cipher":
 		// CardFactoryUtil.java:3796-3821: while this card is exiled and
@@ -969,10 +974,11 @@ func ExpandSuspend(k Keyword, permanent bool) (Expansion, bool) {
 // expandEquip is CardFactoryUtil.java:2852's Equip branch: "Equip:<cost>
 // [:<valid>[:<description>[:<extra>[:<extra description>]]]]", an Attach
 // ability at sorcery speed aimed at a creature the controller controls (or
-// <valid>). <extra> is appended to the ability as written; the two shapes
-// whose params change what the ability costs (ReduceCost$, AlternateCost$) are
-// not read by any ability this port resolves, so an Equip carrying one is left
-// inert rather than activated at the wrong price.
+// <valid>). <extra> is appended to the ability as written
+// (CardFactoryUtil.java:2871, 2909): a ReduceCost$ is the activation's own
+// reduction (abilityReduceCost, which may read the target: Belt of Giant
+// Strength), an AlternateCost$ a second whole cost the activation offers
+// (activationCostChoices, GameActionUtil.getAdditionalCostSpell).
 func expandEquip(k Keyword) (Expansion, bool) {
 	args := k.Args()
 	if len(args) < 1 || args[0] == "" {
@@ -989,11 +995,7 @@ func expandEquip(k Keyword) (Expansion, bool) {
 	line := "AB$ Attach | Cost$ " + args[0] + " | ValidTgts$ " + valid +
 		" | TgtPrompt$ Select target " + desc + " you control | SorcerySpeed$ True"
 	if len(args) > 3 && args[3] != "" {
-		extra := args[3]
-		if strings.Contains(extra, "ReduceCost$") || strings.Contains(extra, "AlternateCost$") {
-			return Expansion{}, false
-		}
-		line += " | " + extra
+		line += " | " + args[3]
 	}
 	return Expansion{Abilities: []string{line}}, true
 }

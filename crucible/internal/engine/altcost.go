@@ -269,3 +269,36 @@ func grantAltExtra(text string) (extra unlessCost, has bool, waterbend int) {
 	uc.parsed.Parts = parts
 	return uc, hasNonManaParts(uc), waterbend
 }
+
+// chooseActivationCost is the whole cost pid activates ability of card for,
+// picked before anything is chosen or paid. The printed Cost$ comes first;
+// the ability's own AlternateCost$ (an Equip or Reconfigure keyword's extra:
+// Bloodthorn Flail's Discard<1/Card>, Razorfield Ripper's PayEnergy<3>) is a
+// second copy of the ability with that cost (GameActionUtil.
+// getAdditionalCostSpell, GameActionUtil.java:571-615); then an
+// AlternativeCost static offers the ability again with its own cost
+// (StaticAbilityAlternativeCost.java:43). With one option no question is
+// asked. False when the controller answers outside the options.
+func (g *Game) chooseActivationCost(pid PlayerID, card CardID, ability *compile.Ability, printed string, controller PlayerController) (string, bool) {
+	costs := []string{printed}
+	if own, ok := ability.Param("AlternateCost"); ok && strings.TrimSpace(own) != "" {
+		costs = append(costs, strings.TrimSpace(own))
+	}
+	probe := Ability{Source: card, Controller: pid, Params: ability, activated: true}
+	if alt, ok := g.activationAltCost(pid, card, &probe); ok {
+		costs = append(costs, alt)
+	}
+	if len(costs) == 1 {
+		return printed, true
+	}
+	labels := make([]string, len(costs))
+	labels[0] = "Pay the printed cost"
+	for i, text := range costs[1:] {
+		labels[i+1] = "Pay " + text + " instead"
+	}
+	i := controller.ChooseOption(g, pid, card, labels)
+	if i < 0 || i >= len(costs) {
+		return "", false
+	}
+	return costs[i], true
+}

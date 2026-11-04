@@ -298,13 +298,8 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if !ok {
 		return false
 	}
-	// An AlternativeCost static offers the ability again with another whole
-	// cost (StaticAbilityAlternativeCost.java:43); the player picks which one
-	// to activate before anything is chosen or paid.
-	probe := Ability{Source: card, Controller: pid, Params: ability, activated: true}
-	if alt, ok := g.activationAltCost(pid, card, &probe); ok &&
-		controller.ChooseOption(g, pid, card, []string{"Pay the printed cost", "Pay " + alt + " instead"}) == 1 {
-		costText = alt
+	if costText, ok = g.chooseActivationCost(pid, card, ability, costText, controller); !ok {
+		return false
 	}
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
@@ -449,7 +444,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// a raise with a non-mana Cost$, refuses the activation (GO-7).
 	savedResolving := g.resolving
 	g.resolving = &activated
-	manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false)
+	manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false, "")
 	g.resolving = savedResolving
 	if !ok {
 		return false

@@ -107,7 +107,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 	if uc.hasMana {
 		savedResolving := g.resolving
 		g.resolving = &activated
-		uc.mana, ok = g.costStatics(pid, card, ability, uc.mana, true, false)
+		uc.mana, ok = g.costStatics(pid, card, ability, uc.mana, true, false, "")
 		g.resolving = savedResolving
 		if !ok {
 			return false

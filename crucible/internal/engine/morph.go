@@ -64,9 +64,10 @@ type faceUpWay struct {
 // in Java's order: the face-up state's keyword abilities, then the
 // manifested or cloaked creature card's mana cost (Card.java:7588-7599).
 // Reading the face-up definition is CR 702.37e's test: a permanent that
-// would have no morph cost face up has no way. A cost naming X is not
-// offered (GO-7: Java reads the card's own X SVar, no corpus card is played
-// that way here, game-state.md).
+// would have no morph cost face up has no way. A cost naming X (Morph:X B B,
+// Morph:X X R, Disguise:X 3 W) announces X as it is paid, every X standing for
+// it (PlaySpellAbility.java:767-780: the card's SVar X is Count$xPaid), and
+// the TurnFaceUp trigger reads that X (checkTurnedFaceUpTriggers).
 func faceUpWays(c *Card) []faceUpWay {
 	if !c.IsFaceDown() || c.faceUpDef == nil {
 		return nil
@@ -93,6 +94,8 @@ func faceUpWays(c *Card) []faceUpWay {
 			continue
 		}
 		if costNamesX(w.cost) {
+			// A non-mana part naming X would need X before the mana is paid;
+			// no corpus turn-face-up cost has one (GO-7).
 			continue
 		}
 		out = append(out, w)
@@ -124,7 +127,8 @@ func (g *Game) TurnFaceUp(pid PlayerID, card CardID, way int, controller PlayerC
 		return false
 	}
 	w := ways[way]
-	uc, ok := parseUnlessCost(w.cost)
+	// An X mana shard is announced as it is paid (payManaCostX).
+	uc, ok := parseUnlessCostX(w.cost, 0, true)
 	if !ok {
 		return false
 	}
@@ -137,11 +141,12 @@ func (g *Game) TurnFaceUp(pid PlayerID, card CardID, way int, controller PlayerC
 	if uc.hasMana {
 		mc := g.faceUpCost(pid, c, w, uc.mana)
 		restore := g.payingFor(&payContext{item: act, cost: mc, special: w.key, turnFaceUp: true})
-		_, paid := g.payManaCostX(pid, mc, controller)
+		x, paid := g.payManaCostX(pid, mc, controller)
 		restore()
 		if !paid {
 			return false
 		}
+		act.xManaCostPaid, act.hasXManaCostPaid = x.value, x.announced
 	}
 	g.turnUp(controller, card)
 	if w.megamorph && g.Card(card).Zone == Battlefield {

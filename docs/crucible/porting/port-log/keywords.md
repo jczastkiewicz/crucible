@@ -135,6 +135,12 @@ the line it came from. `ok == false` leaves the keyword inert: no template, or d
 | Cascade           |             43 | `T:Mode$ SpellCast` (`ValidCard$ Card.Self`, `TriggerZones$ Stack`) running `DB$ DigUntil` (nonland, `cmcLT` the spell's `Count$CardManaCost`), then `DB$ Play` (free, optional), `DB$ ChangeZoneAll` (the rest to the bottom, random order), `DB$ Cleanup` |
 | Storm             |             37 | `T:Mode$ SpellCast` (self, from the stack) running `DB$ CopySpellAbility \| Amount$ TriggerCount$CurrentStormCount/Minus.1 \| MayChooseTarget$ True`                                                                                                        |
 | Exploit           |             25 | `T:Mode$ ChangesZone` (enters) running `DB$ Sacrifice \| SacValid$ Creature \| Optional$ True`; Sacrifice fires `Mode$ Exploited` (`exploit.go`) for a keyword-tagged ability                                                                               |
+| Ingest            |              9 | `T:Mode$ DamageDone` (combat damage to a player) running `DB$ Dig \| DigNum$ 1 \| DestinationZone$ Exile \| Defined$ TriggeredTarget`                                                                                                                       |
+| Provoke           |              8 | `T:Mode$ Attacks` (`OptionalDecider$ You`) running `DB$ MustBlock \| Duration$ UntilEndOfCombat` on a target the defending player controls, then `DB$ Untap` of it                                                                                          |
+| Decayed           |              1 | `S:Mode$ CantBlock` on Self, and `T:Mode$ Attacks` making a `DB$ DelayedTrigger \| Phase$ EndCombat` that sacrifices it                                                                                                                                     |
+| Gravestorm        |              3 | `T:Mode$ SpellCast` (self, from the stack) copying it `Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent` times                                                                                                                                    |
+| Undaunted         |              5 | `S:Mode$ ReduceCost` on Self, the amount `PlayerCountOpponents$Amount` (`CostAdjustment.java:471`)                                                                                                                                                          |
+| Ravenous          |             12 | `R:Event$ Moved` (enters) putting `Count$xPaid` +1/+1 counters, and `T:Mode$ ChangesZone` (enters, X 5 or more) drawing a card                                                                                                                              |
 
 Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
 (about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
@@ -159,7 +165,7 @@ synthesized SVar whose name the card already defines. A numeric valid property r
 source card (`compareOperand`, `valid-strings.md`). Training's own `Training$ True` param is read by nothing in Forge
 and is dropped. `etbCounter` is a Forge pseudo-keyword (no `Keyword` enum value). Not expanded yet, each for a named
 reason: Rampage (`Count$Valid Creature.blockingTriggeredAttacker` needs `blocking<Defined>` in `CardProperty`) and Melee
-(`TriggeredPlayersDefenders$Amount`). Tests: `keywordtriggers_test.go`.
+(`TriggeredPlayersDefenders$Amount`, the Attacks trigger's `Defenders` is not recorded). With no template at all, so inert: Amplify (9 lines), Compleated (7), Demonstrate (6), Escalate (9), Impending (6), Increment (10), Ripple (5), Spectacle (11) and Web-slinging (10). Tests: `keywordtriggers_test.go`.
 
 ### Flashback is casting infrastructure, not an expansion
 

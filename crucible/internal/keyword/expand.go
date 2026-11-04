@@ -155,6 +155,81 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self+counters_EQ0_" + counter + " | TriggerZones$ Battlefield | Secondary$ True | Execute$ KW" + k.Name + Slot},
 			SVars:    []SVarDef{{"KW" + k.Name + Slot, "DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Battlefield | WithCountersType$ " + counter}},
 		}, true
+	case "Ingest":
+		// CardFactoryUtil.java's Ingest: whenever this deals combat damage to a
+		// player, that player exiles the top card of their library.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Secondary$ True | TriggerZones$ Battlefield | Execute$ KWIngest" + Slot},
+			SVars:    []SVarDef{{"KWIngest" + Slot, "DB$ Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | Defined$ TriggeredTarget"}},
+		}, true
+	case "Provoke":
+		// CardFactoryUtil.java's Provoke: whenever this attacks, you may have
+		// target creature defending player controls untap and block it if able.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | OptionalDecider$ You | Secondary$ True | Execute$ KWProvoke" + Slot},
+			SVars: []SVarDef{
+				{"KWProvoke" + Slot, "DB$ MustBlock | Duration$ UntilEndOfCombat | ValidTgts$ Creature.ControlledBy TriggeredDefendingPlayer | SubAbility$ KWProvokeUntap" + Slot},
+				{"KWProvokeUntap" + Slot, "DB$ Untap | Defined$ Targeted"},
+			},
+		}, true
+	case "Decayed":
+		// CardFactoryUtil.java's two Decayed branches: it can't block, and when
+		// it attacks it is sacrificed at end of combat.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics:  []string{"Mode$ CantBlock | ValidCard$ Creature.Self | Secondary$ True"},
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ KWDecayed" + Slot},
+			SVars: []SVarDef{
+				{"KWDecayed" + Slot, "DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ KWDecayedSac" + Slot},
+				{"KWDecayedSac" + Slot, "DB$ Sacrifice"},
+			},
+		}, true
+	case "Gravestorm":
+		// CardFactoryUtil.java's Gravestorm: when you cast this spell, copy it
+		// for each permanent put into a graveyard this turn.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Execute$ KWGravestorm" + Slot},
+			SVars: []SVarDef{
+				{"KWGravestorm" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ KWGravestormCount" + Slot + " | MayChooseTarget$ True"},
+			},
+			Amounts: []SVarDef{{"KWGravestormCount" + Slot, "Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent"}},
+		}, true
+	case "Undaunted":
+		// CardFactoryUtil.java's Undaunted: this spell costs {1} less for each
+		// opponent (CostAdjustment.java:471-472, the controller's opponents).
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Secondary$ True | Amount$ KWUndaunted" + Slot + " | EffectZone$ All"},
+			Amounts: []SVarDef{{"KWUndaunted" + Slot, "PlayerCountOpponents$Amount"}},
+		}, true
+	case "Ravenous":
+		// CardFactoryUtil.java's two Ravenous branches: it enters with X +1/+1
+		// counters, and draws a card as it enters if X is 5 or more.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWRavenous" + Slot},
+			Triggers:     []string{"Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | CheckSVar$ KWRavenousX" + Slot + " | SVarCompare$ GE5 | Secondary$ True | Execute$ KWRavenousDraw" + Slot},
+			SVars: []SVarDef{
+				{"KWRavenous" + Slot, "DB$ PutCounter | CounterType$ P1P1 | ETB$ True | CounterNum$ KWRavenousX" + Slot},
+				{"KWRavenousDraw" + Slot, "DB$ Draw"},
+			},
+			Amounts: []SVarDef{{"KWRavenousX" + Slot, "Count$xPaid"}},
+		}, true
 	case "Exalted":
 		if k.Details != "" {
 			return Expansion{}, false

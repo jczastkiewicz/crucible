@@ -68,8 +68,7 @@ func (addOrRemoveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerCo
 				return fmt.Errorf("engine: AddOrRemoveCounter: RemoveConditionSVar$ on a card with no counter, where Java adds one regardless (CountersPutOrRemoveEffect.java:93-95)")
 			}
 			if !each && ctype != "" {
-				c.Counters.Add(ctype, n)
-				emitCounterChanged(g, a.Source, CardEntity(id), ctype, n)
+				g.putOneKind(controller, decider, a, id, ctype, n)
 			}
 			continue
 		}
@@ -111,8 +110,8 @@ func addOrRemoveCounter(g *Game, a *Ability, controller PlayerController, decide
 		return err
 	}
 	if add {
-		c.Counters.Add(kind, n)
-		emitCounterChanged(g, a.Source, CardEntity(id), kind, n)
+		// Card.addCounter with the decider placing (CountersPutOrRemoveEffect.java:143).
+		g.putOneKind(controller, decider, a, id, kind, n)
 		return nil
 	}
 	before := c.Counters.Count(kind)

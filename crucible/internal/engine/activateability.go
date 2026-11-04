@@ -168,8 +168,8 @@ import (
 // candidates already found feasible and returns them to hand (returnCards,
 // returncost.go, reused wholesale the identical way the self-return branch
 // above already reuses it), then an AddCounter component puts AddCounterN
-// counters of AddCounterType on the source (Card.Counters, counters.go) and
-// emits the identical CounterChanged event putCounterEffect's own does, then
+// counters of AddCounterType on the source through the AddCounter
+// replacements and triggers, as a cost (payCounterCost, counteradded.go), then
 // a SubCounter component removes SubCounterN counters the identical way with
 // a negative delta, then a SelfExileFromGrave component exiles the source
 // from the graveyard (exileFromGraveyard, exilefromgrave.go), then a
@@ -542,9 +542,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	g.payCostCards(controller, pid, chosen, &activated)
 	if shape.AddCounterType != "" {
-		ct := CounterType(strings.ToUpper(shape.AddCounterType))
-		c.Counters.Add(ct, shape.AddCounterN)
-		emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
+		g.payCounterCost(controller, pid, card, CounterType(strings.ToUpper(shape.AddCounterType)), shape.AddCounterN)
 	}
 	if shape.SubCounterType != "" {
 		ct := CounterType(strings.ToUpper(shape.SubCounterType))

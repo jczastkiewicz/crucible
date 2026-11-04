@@ -1701,7 +1701,7 @@ func notFirstCardInDrawStepExempts(g *Game, r *compile.Ability, player PlayerID)
 // putCounterEffect is called: both need a *Registry (effect.go) to chain a
 // SubAbility$ once their own body finishes, which drawReplaced's own caller
 // chain (DrawCards, turn.go) has no way to reach -- reusing the underlying
-// primitives (drawEvent/Card.Counters.Add) directly instead sidesteps
+// primitives (drawEvent/addCardCounters) directly instead sidesteps
 // that, at the cost of never chaining a SubAbility$ of its own, which is why
 // a is refused outright when it names one rather than run with the chained
 // half silently dropped (GO-7). Reports whether a recognized shape actually
@@ -1714,7 +1714,7 @@ func applyDrawReplacement(g *Game, controller PlayerController, host *Card, a *c
 	case strings.EqualFold(a.Name, "Draw"):
 		return applyDrawReplacementDraw(g, controller, host, a, amounts)
 	case strings.EqualFold(a.Name, "PutCounter"):
-		return applyDrawReplacementPutCounter(g, host, a, amounts)
+		return applyDrawReplacementPutCounter(g, controller, host, a, amounts)
 	}
 	return false
 }
@@ -1771,7 +1771,7 @@ func applyDrawReplacementDraw(g *Game, controller PlayerController, host *Card, 
 // definedCounterTargets (putcountereffect.go): no real corpus line combines
 // this shape with a player-facing Defined$ value, and "Self" needs no
 // controller or target list to resolve at all.
-func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amounts map[string]expr.Amount) bool {
+func applyDrawReplacementPutCounter(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount) bool {
 	defined, ok := a.Param("Defined")
 	if !ok || !strings.EqualFold(defined, "Self") {
 		return false
@@ -1788,8 +1788,11 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 	if !ok {
 		return false
 	}
-	host.Counters.Add(counterType, amount)
-	emitCounterChanged(g, host.ID, CardEntity(host.ID), counterType, amount)
+	// PutCounterEffect's own placement: the host's controller puts them,
+	// through the AddCounter replacements and triggers.
+	if n := g.countersReplaced(controller, host.Controller(), CardEntity(host.ID), counterType, amount); n > 0 {
+		g.addCardCounters(controller, host.Controller(), host.ID, host.ID, counterType, n)
+	}
 	return true
 }
 
@@ -2266,17 +2269,29 @@ func onlyParams(r *compile.Ability, keys ...string) bool {
 // kind ct that placer's effect is about to put on object. Returns how many
 // to put instead -- n when nothing applies. Checks ValidCard$ (a card
 // receiving), ValidPlayer$ (a player receiving), ValidObject$ (either),
-// ValidCounterType$, ValidSource$ (placer) and EffectOnly$ (every caller is
-// an effect). ValidCause$ skips the line: this port does not track what
+// ValidCounterType$, ValidSource$ (placer) and EffectOnly$ (the caller is an
+// effect). ValidCause$ skips the line: this port does not track what
 // caused a placement. A Mode$ CantPutCounter static naming the object and
 // kind (cantPutCounter, staticability.go) puts none at all, before any
 // replacement is asked: Card.canReceiveCounters.
 func (g *Game) countersReplaced(controller PlayerController, placer PlayerID, object EntityID, ct CounterType, n int) int {
+	return g.countersReplacedBy(controller, placer, object, ct, n, true)
+}
+
+// countersReplacedBy is countersReplaced with effect saying whether an effect
+// puts the counters (AbilityKey.EffectOnly, GameEntityCounterTable.java:127):
+// an activation cost's AddCounter part does not, so an EffectOnly$ line
+// (Doubling Season, Selesnya Loft Gardens) leaves a planeswalker's loyalty
+// cost alone (ReplaceAddCounter.java:30-35).
+func (g *Game) countersReplacedBy(controller PlayerController, placer PlayerID, object EntityID, ct CounterType, n int, effect bool) int {
 	if g.cantPutCounter(object, ct) {
 		return 0
 	}
 	g.eachReplacement("AddCounter", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		if !onlyParams(r, "validcard", "validplayer", "validobject", "validcountertype", "validsource", "effectonly") {
+			return false
+		}
+		if _, ok := r.Param("EffectOnly"); ok && !effect {
 			return false
 		}
 		if !replacementObjectMatches(g, r, h, object) {
@@ -2298,7 +2313,7 @@ func (g *Game) countersReplaced(controller PlayerController, placer PlayerID, ob
 		if sub == nil {
 			return false
 		}
-		ev := replacementEvent{amountName: "CounterNum", amount: n, counterType: ct, affected: object}
+		ev := replacementEvent{amountName: "CounterNum", amount: n, counterType: ct, affected: object, placer: placer}
 		if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
 			return false
 		}

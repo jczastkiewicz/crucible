@@ -60,8 +60,11 @@ type replacementEvent struct {
 	redirect       EntityID
 	redirectAmount int
 
-	// counterType is AddCounter's counter kind.
+	// counterType is AddCounter's counter kind; placer the player putting
+	// the counters, the key of Java's GameEntityCounterTable row that
+	// ReplaceCounter's ValidSource$ reads (NoPlayer for none).
 	counterType CounterType
+	placer      PlayerID
 
 	// mana is ProduceMana's produced mana.
 	mana producedMana
@@ -622,7 +625,10 @@ func doXMath(n int, op string) (int, bool) {
 // expression over the original number ("that many plus one", "twice that
 // many"). ValidCounterType$ limits it to one kind. ChooseCounter$ only
 // matters when counters come from several sources at once, which this
-// port's single-source placements never do. ValidSource$ is rejected.
+// port's single-source placements never do. ValidSource$ leaves the counters
+// alone unless the player placing them matches (ReplaceCounterEffect.java:63-65,
+// Vorinclex's and Halving Season's You and Opponent lines); a placement with
+// no placer matches nothing, as Java's null player does.
 type replaceCounterEffect struct{}
 
 func (replaceCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
@@ -630,14 +636,23 @@ func (replaceCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 	if ev == nil {
 		return nil
 	}
-	if err := rejectParams(a, "ReplaceCounter", "ValidSource"); err != nil {
-		return err
-	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
 	}
 	if ev.amountName != "CounterNum" {
 		return fmt.Errorf("engine: ReplaceCounter: not replacing counters")
+	}
+	if v, ok := a.Params.Param("ValidSource"); ok {
+		if ev.placer == NoPlayer {
+			return nil
+		}
+		matched, recognized := matchesPlayerSpec(g, ev.placer, a.Controller, a.Source, v)
+		if !recognized {
+			return fmt.Errorf("engine: ReplaceCounter: ValidSource$ %q is not resolvable", v)
+		}
+		if !matched {
+			return nil
+		}
 	}
 	value, ok := a.Params.Param("Amount")
 	if !ok {

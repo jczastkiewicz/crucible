@@ -133,6 +133,10 @@ type unlessCost struct {
 	// itself. Blight<N> is AddCounter<N/M1M1/Creature.YouCtrl>
 	// (CostBlight extends CostPutCounter).
 	addCounterSpec string
+	// activation is set while the cost pays for an activated ability being
+	// activated (payActivatedUnlessCost): its AddCounter part is a cost, not
+	// an effect, for an EffectOnly$ AddCounter replacement.
+	activation bool
 	// exileGraveN/exileGraveSpec are ExileFromGrave<N/Type>: N cards of the
 	// type exiled from the payer's graveyard (CostExile).
 	exileGraveN    int
@@ -1369,7 +1373,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		if uc.addCounterSpec != "" {
 			target = g.chosenUnlessCards(controller, pid, a.Source, g.unlessCounterTargets(pid, a.Source, uc), 1, 1)[0]
 		}
-		if n := g.countersReplaced(controller, pid, CardEntity(target), uc.addCounterType, uc.addCounterN); n > 0 {
+		if n := g.countersReplacedBy(controller, pid, CardEntity(target), uc.addCounterType, uc.addCounterN, !uc.activation); n > 0 {
 			// The payer places (CostPutCounter.java:182).
 			g.addCardCounters(controller, pid, a.Source, target, uc.addCounterType, n)
 		}

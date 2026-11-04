@@ -487,9 +487,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			tapChosenPermanents(g, controller, chosen)
 		}
 		if shape.AddCounterType != "" {
-			ct := CounterType(strings.ToUpper(shape.AddCounterType))
-			c.Counters.Add(ct, shape.AddCounterN)
-			emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
+			g.payCounterCost(controller, pid, card, CounterType(strings.ToUpper(shape.AddCounterType)), shape.AddCounterN)
 		}
 		if shape.SubCounterType != "" {
 			ct := CounterType(strings.ToUpper(shape.SubCounterType))

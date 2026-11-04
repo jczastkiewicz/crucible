@@ -151,6 +151,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 // may pay it), then its other parts, each recorded in the ability's paid
 // lists.
 func (g *Game) payActivatedUnlessCost(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost) bool {
+	uc.activation = true
 	mc, taps := uc.mana, []CardID(nil)
 	if uc.waterbendN > 0 {
 		mc, taps = g.waterbendReduce(controller, pid, a.Source, uc)

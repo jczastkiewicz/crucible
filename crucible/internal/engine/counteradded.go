@@ -52,6 +52,18 @@ func (g *Game) addCardCounters(controller PlayerController, placer PlayerID, sou
 	g.checkCounterBatchTriggers(controller, placer, id, ct, n, first)
 }
 
+// payCounterCost is CostPutCounter's own placement on the source
+// (CostPutCounter.java:182, :201-207): the payer puts n counters of ct on
+// card through the AddCounter replacements, as a cost and not an effect, so
+// Vizier of Remedies and Vorinclex apply and Doubling Season does not, and
+// the counters fire CounterAdded and enter the turn's log like any other
+// placement.
+func (g *Game) payCounterCost(controller PlayerController, payer PlayerID, card CardID, ct CounterType, n int) {
+	if n = g.countersReplacedBy(controller, payer, CardEntity(card), ct, n, false); n > 0 {
+		g.addCardCounters(controller, payer, card, card, ct, n)
+	}
+}
+
 // counterAddedParams are the params this port reads on each mode; a trigger
 // naming any other is skipped rather than fired without its condition (GO-7).
 // The general ones (TriggerZones$, IsPresent$, OptionalDecider$, ...) are read

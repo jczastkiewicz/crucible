@@ -3,6 +3,7 @@
 # trigger records the declared attackers (AbilityKey.Attackers,
 # TriggerAttackersDeclared.java:91), so each of the two attacking lions takes 2
 # and dies; the lion that stayed home is untouched.
+queue cardorder 1,2
 startturn human
 advance 5
 queue attackers 1,2

@@ -2,4 +2,5 @@
 # copies; this is three, proving the loop that destroys every id but the
 # kept one runs for more than a single "the other one" pair.
 queue legendarykeep 2
+queue cardorder 1,3
 startturn human

@@ -171,7 +171,7 @@ func TestExcessSVarTargetedByReadsTheWholeChain(t *testing.T) {
 	targeted := g.NewCard(coloredCreatureDef(t, "R", "2", "2"), other, engine.Battlefield)
 	radiant := g.NewCard(coloredCreatureDef(t, "R", "1", "1"), other, engine.Battlefield)
 	g.NewCard(coloredCreatureDef(t, "R", "1", "1"), other, engine.Battlefield)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueTargets([]engine.EntityID{engine.CardEntity(targeted)})
 	c.QueueTargets([]engine.EntityID{engine.CardEntity(radiant)})
 	resolveLine(t, g, p, c,

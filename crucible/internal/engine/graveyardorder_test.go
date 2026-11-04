@@ -33,6 +33,12 @@ func TestCardsMovingTogetherGoInTheOwnersOrder(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, engine.Battlefield},
+		{"lethal damage", func(_ *testing.T, g *engine.Game, _ engine.PlayerID, c *engine.ScriptedController, cards []engine.CardID) {
+			for _, id := range cards {
+				g.Card(id).Damage.Marked = 3
+			}
+			engine.CheckStateBasedActions(g, c)
+		}, engine.Battlefield},
 		{"sacrifice", func(t *testing.T, g *engine.Game, p engine.PlayerID, c *engine.ScriptedController, cards []engine.CardID) {
 			c.QueueSacrificeChoice(cards)
 			resolveLine(t, g, p, c, "DB$ Sacrifice | Defined$ You | SacValid$ Creature.powerEQ3 | Amount$ 3")

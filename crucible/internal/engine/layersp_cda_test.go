@@ -13,7 +13,7 @@ import (
 // not on the battlefield (CR 604.3: a CDA functions in every zone).
 
 func checkSBA(g *engine.Game) {
-	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, keepingOrder())
 }
 
 func TestCDARememberedAmountAndManaCost(t *testing.T) {

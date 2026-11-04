@@ -8,6 +8,7 @@
 # CamouflageEffect.java:22). With this seed the Hero's pile lands on the
 # Wurm and the Lion's on the Bears: the Hero dies to the Wurm, the Bears and
 # the Lion trade. Nobody is unblocked, so ai stays at 20.
+queue cardorder 5,6
 startturn human
 advance 5
 queue attackers 3,4

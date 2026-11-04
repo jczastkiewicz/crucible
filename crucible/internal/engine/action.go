@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -275,6 +276,22 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	return false, performed
 }
 
+// sbaOrder orders cards a state-based action puts into graveyards together
+// by their owners (GameAction.java:1591-1615, orderCardsByTheirOwners, CR
+// 613.7m). Java collects one list per kind of move each pass -- put into the
+// graveyard (0 toughness, legend, planeswalker, world rule, battles, Auras),
+// destroyed (lethal damage), sacrificed (Sagas) -- and asks each once; each
+// rule here asks for its own cards (quirks.md). A bad answer is recorded
+// and the cards keep their order.
+func (g *Game) sbaOrder(controller PlayerController, ids []CardID) []CardID {
+	ordered, err := g.orderCardsByTheirOwners(controller, ids, Graveyard)
+	if err != nil {
+		g.recordPendingError(fmt.Errorf("engine: state-based actions: %w", err))
+		return ids
+	}
+	return ordered
+}
+
 // assignSectors is CR 704.5u (stateBasedAction704_5u, GameAction.java:
 // 1801-1828), run once a permanent has Space sculptor (Space Beleren): every
 // creature without a sector has its controller assign it Alpha, Beta or
@@ -465,6 +482,7 @@ func destroyLethalToughness(g *Game, controller PlayerController) bool {
 	// stack in one APNAP pass (beginTriggerBatch).
 	g.beginTriggerBatch()
 	defer g.endTriggerBatch(controller)
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
@@ -524,6 +542,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 	// One APNAP pass for the dies triggers and ChangesZoneAll, as above.
 	g.beginTriggerBatch()
 	defer g.endTriggerBatch(controller)
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		if g.destroyInstead(controller, id) || g.regenerate(controller, id) {
 			continue
@@ -574,6 +593,7 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) bool {
 			}
 		}
 	}
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
@@ -666,6 +686,7 @@ func destroyZeroDefense(g *Game, controller PlayerController) bool {
 			}
 		}
 	}
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
@@ -774,6 +795,7 @@ func resolveLegendRule(g *Game, controller PlayerController) bool {
 				}
 			}
 		}
+		removed = g.sbaOrder(controller, removed)
 		for _, id := range removed {
 			performed = true
 			g.moveToGraveyard(controller, id)
@@ -848,16 +870,17 @@ func resolveWorldRule(g *Game, controller PlayerController) bool {
 		}
 	}
 
-	performed := false
+	var lost []CardID
 	for _, id := range worlds {
-		if tied == 1 && id == newest {
-			continue
+		if tied != 1 || id != newest {
+			lost = append(lost, id)
 		}
-		performed = true
+	}
+	for _, id := range g.sbaOrder(controller, lost) {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
-	return performed
+	return len(lost) > 0
 }
 
 // cleanupDanglingAttachments is CR 704.5's attachment-legality rule: an
@@ -954,6 +977,7 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	for _, id := range toUnattach {
 		g.Unattach(id)
 	}
+	toGraveyard = g.sbaOrder(controller, toGraveyard)
 	for _, id := range toGraveyard {
 		// Move unattaches id itself as a side effect of leaving the
 		// battlefield (game.go), so there is nothing left to do here.
@@ -1046,6 +1070,7 @@ func resolveRoleRule(g *Game, controller PlayerController) bool {
 			}
 		}
 	}
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)

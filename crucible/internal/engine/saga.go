@@ -87,6 +87,8 @@ func sacrificeCompletedSagas(g *Game, controller PlayerController) bool {
 	if len(done) == 0 {
 		return false
 	}
+	// GameAction.java:1612-1615: the sacrifice list is ordered by owner first.
+	done = g.sbaOrder(controller, done)
 	sacrificeCards(g, controller, &Ability{Source: done[0], Controller: g.Card(done[0]).Controller()}, done)
 	return true
 }

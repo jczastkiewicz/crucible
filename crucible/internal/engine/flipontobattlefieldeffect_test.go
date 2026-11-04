@@ -314,7 +314,7 @@ func TestFlipOntoBattlefieldBattleFallback(t *testing.T) {
 	g.Card(loc).ProtectingPlayer = other
 	b := g.NewCard(battleDef(t, "Test Battle B"), p, engine.Battlefield)
 	g.Card(b).ProtectingPlayer = other
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueCardChoice([]engine.CardID{loc})
 	if _, err := resolveNow(t, g, p, c, nil, "DB$ FlipOntoBattlefield"); err != nil {
 		t.Fatalf("resolve: %v", err)

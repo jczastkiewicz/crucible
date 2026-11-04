@@ -789,7 +789,7 @@ func TestCheckStateBasedActionsLethalToughnessDies(t *testing.T) {
 	negative := g.NewCard(creatureDefPT(t, "2", "-1"), a, engine.Battlefield)
 	alive := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
 
-	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, keepingOrder())
 
 	if z := g.Card(dead).Zone; z != engine.Graveyard {
 		t.Errorf("zero-toughness creature zone = %v, want Graveyard", z)
@@ -904,7 +904,7 @@ func TestCheckStateBasedActionsZeroLoyaltyDies(t *testing.T) {
 	// to give it its printed starting loyalty (destroyZeroLoyalty's own doc
 	// comment), which is itself what this test exercises.
 
-	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, keepingOrder())
 
 	if z := g.Card(dead).Zone; z != engine.Graveyard {
 		t.Errorf("zero-loyalty planeswalker zone = %v, want Graveyard", z)
@@ -1009,7 +1009,7 @@ func TestCheckStateBasedActionsLethalDamageDies(t *testing.T) {
 	g.Card(excess).Damage.Mark(10, false)
 	g.Card(survives).Damage.Mark(2, false)
 
-	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, keepingOrder())
 
 	if z := g.Card(exact).Zone; z != engine.Graveyard {
 		t.Errorf("creature dealt exactly lethal damage, zone = %v, want Graveyard", z)
@@ -1375,7 +1375,7 @@ func TestCheckStateBasedActionsWorldRuleTieDestroysBoth(t *testing.T) {
 	second := g.NewCard(worldDef(t, "Tied World Two"), p, engine.Battlefield)
 	g.Card(second).Timestamp = g.Card(first).Timestamp
 
-	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, keepingOrder())
 
 	if z := g.Card(first).Zone; z != engine.Graveyard {
 		t.Errorf("first tied World zone = %v, want Graveyard", z)

@@ -6,6 +6,7 @@
 # them 2/2 and 1/1: the Giant deals Hezrou 2, the Lion deals the Bears 1, and
 # both blockers die. Fired twice, the Lion would die before damage and the
 # Bears would take none.
+queue cardorder 3,4
 startturn human
 advance 5
 queue attackers 1,2

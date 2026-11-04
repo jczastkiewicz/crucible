@@ -723,6 +723,8 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.Counters.Any()
 	case strings.HasPrefix(name, "counters_"):
 		return countersMatches(c, name)
+	case strings.HasPrefix(name, "countersReceivedThisTurn_"):
+		return g.countersReceivedMatches(c, name, sourceController)
 	case name == "enchanted":
 		return attachedByType(g, c, "Aura")
 	case name == "equipped":
@@ -1952,12 +1954,10 @@ func castSaManaSpent(spec string, spent int) bool {
 // operator+operand run together the way compareMatches' own tokens are, and
 // a CounterType name -- the caller's `counters_` prefix match already spent
 // the underscore that separates them. `countersReceivedThisTurn_<op><n>_<type>_<player>`
-// (Java: `splitProperty[0].endsWith("ReceivedThisTurn")`, a per-turn count
-// this port does not track, game-state.md's "Not ported yet") never reaches
-// here at all: Java's own property spells that segment with no underscore
-// of its own, "countersReceivedThisTurn", so it does not match the caller's
-// `counters_` prefix either -- the three-part check below is defensive, not
-// what does the excluding. CounterType is an open string (counters.go's own
+// (Java: `splitProperty[0].endsWith("ReceivedThisTurn")`) is
+// countersReceivedMatches: its first segment has no underscore of its own,
+// so it does not match the caller's `counters_` prefix -- the three-part
+// check below is defensive, not what does the excluding. CounterType is an open string (counters.go's own
 // doc comment), so the type name needs no lookup, only a cast.
 func countersMatches(c *Card, name string) bool {
 	parts := strings.Split(name, "_")
@@ -1973,6 +1973,44 @@ func countersMatches(c *Card, name string) bool {
 		return false
 	}
 	return compareOp(c.Counters.Count(CounterType(parts[2])), operator, operand)
+}
+
+// countersReceivedMatches is the countersReceivedThisTurn_<op><n>_<type>_<players>
+// property (CardProperty.java:1489-1505, Kid Loki): the counters of type that
+// players matching the player string put on c this turn, compared with n.
+// Java sums Game.getCounterAddedThisTurn with "Card.StrictlySelf" read from c
+// (Game.java:1366-1388), so only placements on c's current object count: a
+// record whose zoneStamp differs is an earlier object of the card (CR 400.7,
+// equalsWithGameTimestamp). Java's n is calculateAmount; every corpus line
+// writes a literal. A player string this port cannot read matches nothing.
+func (g *Game) countersReceivedMatches(c *Card, name string, sourceController PlayerID) bool {
+	parts := strings.Split(name, "_")
+	if len(parts) != 4 {
+		return false
+	}
+	operator, ok := operatorPrefix(parts[1])
+	if !ok {
+		return false
+	}
+	operand, err := strconv.Atoi(strings.TrimPrefix(parts[1], operator))
+	if err != nil {
+		return false
+	}
+	n := 0
+	for i := range g.countersAddedThisTurn {
+		a := &g.countersAddedThisTurn[i]
+		if a.counter != CounterType(parts[2]) || a.card.ID != c.ID || a.card.zoneStamp != c.zoneStamp {
+			continue
+		}
+		who, ok := matchesPlayerSpec(g, a.putter, sourceController, c.ID, parts[3])
+		if !ok {
+			return false
+		}
+		if who {
+			n += a.n
+		}
+	}
+	return compareOp(n, operator, operand)
 }
 
 // counterOperators is compareOp's own operator set, Java's order

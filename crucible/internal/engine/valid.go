@@ -156,18 +156,15 @@ func baseMatches(c *Card, name string) bool {
 // fallthrough CardState.hasProperty eventually reaches for one
 // (`internal/cardtype.CoreTypeNames`'s own doc comment).
 //
-// Java's `YouCtrl`/`OppCtrl`/`YouOwn`/`OppOwn` compare against the
-// controller/owner `game.getChangeZoneLKIInfo` resolves, not
-// `card.getController()`/`card.getOwner()` directly -- last-known
-// information for a card whose own zone change is mid-resolution. This
-// port has no LKI tracking (game-state.md's "Not ported yet"), so these
-// read `c.Controller()`/`c.Owner` as of now, which agrees with Java's LKI
-// everywhere except the one moment a card's own leaving is what a property
-// is trying to describe. `Self`/`Other`/`StrictlyOther` carry the same
-// simplification one step further: Java's "Strictly" forms are
-// game-timestamp-aware (telling a card from a same-named copy of itself
-// apart), which this port also has no tracking for, so they read
-// identically to their non-"Strictly" counterparts.
+// Java's `YouCtrl`/`YouDontCtrl`/`OppCtrl` compare against the controller
+// `game.getChangeZoneLKIInfo` resolves (CardProperty.java:47-48): for the
+// object a card was as it left the battlefield, its last-known copy, kept
+// until the stack next empties (Game.java:306-321, MagicStack.java:736); any
+// other object misses the table and reads its own controller. The owner forms
+// read the live owner. Here the leave triggers read their own frozen copy
+// (Game.LKI), which is the object Java's lookup returns, so these read
+// `c.Controller()`/`c.Owner` of the card they are given. `StrictlySelf`/
+// `StrictlyOther` read as `Self`/`Other` (quirks.md row).
 //
 // `OppCtrl`/`OppOwn` are `X.getOpponents().contains(sourceController)` in
 // Java, which is team-aware. This port has no team system, so both read as
@@ -891,11 +888,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.Owner != sourceController
 	case strings.HasPrefix(name, "StrictlyOther"), strings.HasPrefix(name, "Other"):
 		// StrictlySelf/StrictlyOther are Java's game-timestamp-aware forms
-		// of Self/Other, for telling a card from a same-named copy of
-		// itself apart. This port has no LKI/game-timestamp tracking
-		// (game-state.md's "Not ported yet"), so both read as plain
-		// identity, the same simplification Self's own doc comment already
-		// makes for YouCtrl/OppCtrl's LKI gap.
+		// of Self/Other (Card.equalsWithGameTimestamp): the candidate must
+		// be the host object, not an earlier or later one of the same card.
+		// source is a CardID here, not the host object's zoneStamp, so both
+		// read as plain identity (quirks.md row).
 		return c.ID != source
 	case strings.HasPrefix(name, "Self"), name == "StrictlySelf":
 		// StrictlySelf is Self's game-timestamp-aware twin

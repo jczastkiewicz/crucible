@@ -62,13 +62,10 @@ import (
 // (amount.go) is wired into Mode$ Continuous's own PT params, `ptParam`,
 // continuous.go, not this text field yet), the rest of 704.5v's
 // own exception (a Battle whose own trigger is still on the stack -- always
-// false today, destroyZeroDefense's own doc comment), and the legend rule's
-// own Corner Case 1, a Corner-Case-2 permanent's own borrowed names colliding
-// with some OTHER legendary's own literal printed name (resolveLegendRule's
-// doc comment) -- needs a card-name lookup across every creature card this
-// game ever printed, which this port's `*Game` holds no reference for. A
-// rule this port has not implemented simply never fires, the same as it
-// would in a real game with no permanent that rule applies to.
+// false today, destroyZeroDefense's own doc comment). A rule this port has
+// not implemented simply never fires, the same as it would in a real game
+// with no permanent that rule applies to. The legend rule's Corner Case 1
+// reads the game's *carddb.DB (resolveLegendRule).
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give

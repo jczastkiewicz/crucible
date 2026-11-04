@@ -87,3 +87,34 @@ func TestRemoveCounterReplacementReducesLoyaltyLoss(t *testing.T) {
 		})
 	}
 }
+
+// CR 704.5q's guard (GameAction.java:1875-1877): +1/+1 and -1/-1 counters
+// annihilate only when both kinds can be removed; an Event$ RemoveCounter
+// Layer$ CantHappen line on either kind keeps both piles.
+func TestCounterAnnihilationSkipsCountersThatCantBeRemoved(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name     string
+		guard    bool
+		wantPlus int
+	}{
+		{"guarded", true, 2},
+		{"unguarded", false, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			if tc.guard {
+				g.NewCard(scriptDef(t, "Test Keeper", "Enchantment",
+					"R:Event$ RemoveCounter | ValidCard$ Creature | ValidCounterType$ M1M1 | Layer$ CantHappen"), p, engine.Battlefield)
+			}
+			bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+			g.Card(bear).Counters.Add(engine.P1P1, 2)
+			g.Card(bear).Counters.Add(engine.M1M1, 1)
+			engine.CheckStateBasedActions(g, engine.NewScriptedController())
+			if got := g.Card(bear).Counters.Count(engine.P1P1); got != tc.wantPlus {
+				t.Errorf("+1/+1 counters = %d, want %d", got, tc.wantPlus)
+			}
+		})
+	}
+}

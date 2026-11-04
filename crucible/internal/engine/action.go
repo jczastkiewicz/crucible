@@ -75,10 +75,9 @@ import (
 // the same result in any order. Kept anyway: it costs nothing, and a future
 // port of that card should not have to notice these were ever reordered.
 //
-// Java's `canRemoveCounters` guard on 704.5q -- some cards grant "counters
-// can't be removed from CARDNAME" -- is a static ability, so it is not
-// checked either: nothing this port can build yet grants that effect, so its
-// absence changes no card's behaviour today.
+// Java's `canRemoveCounters` guard on 704.5q and 704.5r -- an Event$
+// RemoveCounter Layer$ CantHappen line -- is removeCounterBlocked
+// (annihilateCounters, trimDreamCounters).
 //
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
 // can make another one true (destroying a permanent can, in turn, empty an
@@ -392,13 +391,14 @@ func assignEnduringStories(g *Game) (performed bool) {
 
 // annihilateCounters is CR 704.5q: N +1/+1 and N -1/-1 counters are removed
 // together, where N is the smaller pile. A card carrying only one kind, or
-// neither, is untouched. Sourced from id itself: the rule is self-inflicted,
+// neither, is untouched, and so is one either kind cannot be removed from
+// (GameAction.java:1875-1877, Card.canRemoveCounters: removeCounterBlocked). Sourced from id itself: the rule is self-inflicted,
 // not a card's ability doing it, the same as Move's ETB loyalty/defense grant
 // (game.go) has no other card to attribute it to.
 func annihilateCounters(g *Game, id CardID) bool {
 	c := g.Card(id)
 	plus, minus := c.Counters.Count(P1P1), c.Counters.Count(M1M1)
-	if plus == 0 || minus == 0 {
+	if plus == 0 || minus == 0 || g.removeCounterBlocked(id, P1P1) || g.removeCounterBlocked(id, M1M1) {
 		return false
 	}
 	remove := plus
@@ -415,8 +415,7 @@ func annihilateCounters(g *Game, id CardID) bool {
 // trimDreamCounters is CR 704.5r (stateBasedAction704_5r, GameAction.java:
 // 1867): a card holding more Dream counters than a Mode$ MaxCounter static
 // allows loses the excess. Java asks the Dream kind only, and skips the trim
-// when canRemoveCounters says no -- that guard is not ported (704.5q's own
-// is not either).
+// when canRemoveCounters says no (GameAction.java:1902, removeCounterBlocked).
 func trimDreamCounters(g *Game, id CardID) bool {
 	c := g.Card(id)
 	have := c.Counters.Count("DREAM")
@@ -424,7 +423,7 @@ func trimDreamCounters(g *Game, id CardID) bool {
 		return false
 	}
 	limit, capped := g.maxCounter(id, "DREAM")
-	if !capped || have <= limit {
+	if !capped || have <= limit || g.removeCounterBlocked(id, "DREAM") {
 		return false
 	}
 	c.Counters.Add("DREAM", limit-have)

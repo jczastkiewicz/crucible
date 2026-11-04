@@ -242,7 +242,10 @@ func replacingAmount(g *Game, a *Ability, value string, ev *replacementEvent) (i
 	if n, ok := resolveReplaceCountAmount(g, a.Amounts, source, value, ev.amount, ev.amountName); ok {
 		return n, true
 	}
-	return resolveNamedAmount(g, a.Amounts, source, value)
+	// An SVar reading another that is a ReplaceCount$ (Rock Hydra's
+	// SVar$NumDmg/LimitMax.Y, NumDmg ReplaceCount$DamageAmount): the event's
+	// values stand in for them first.
+	return resolveNamedAmount(g, replaceCountAmounts(g, a.Amounts, source, a.Params, ev), source, value)
 }
 
 // replaceDamageEffect is ReplaceDamageEffect.java: prevent Amount$ (default

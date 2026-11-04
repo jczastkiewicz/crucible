@@ -841,10 +841,11 @@ func TestDamageToCreatureReducedByReplaceDamage(t *testing.T) {
 	}
 }
 
-// TestDamageToCreatureNotReducedByChainedSubAbility proves a ReplaceWith$
-// target naming its own SubAbility$ is refused outright rather than run with
-// the chained half silently dropped (GO-7): the full 3 damage still applies.
-func TestDamageToCreatureNotReducedByChainedSubAbility(t *testing.T) {
+// TestDamageToCreatureReducedThenChainResolves proves a ReplaceDamage target
+// naming its own SubAbility$ prevents its share and then resolves the chain
+// (ReplacementHandler.executeReplaceDamageBufferedSA): 2 of the 3 damage is
+// marked and the blocker's controller draws a card.
+func TestDamageToCreatureReducedThenChainResolves(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -866,6 +867,8 @@ func TestDamageToCreatureNotReducedByChainedSubAbility(t *testing.T) {
 		t.Fatalf("compile: %v", err)
 	}
 	blocker := g.NewCard(def, b, engine.Battlefield)
+	libraryCards(t, g, b, 1)
+	hand := len(g.Zone(engine.Hand, b).Cards())
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
@@ -875,8 +878,11 @@ func TestDamageToCreatureNotReducedByChainedSubAbility(t *testing.T) {
 	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
-	if g.Card(blocker).Damage.Marked != 3 {
-		t.Errorf("blocker damage marked = %d, want 3 -- a chained ReplaceWith$ target must not dispatch, so the full damage must apply", g.Card(blocker).Damage.Marked)
+	if g.Card(blocker).Damage.Marked != 2 {
+		t.Errorf("blocker damage marked = %d, want 2", g.Card(blocker).Damage.Marked)
+	}
+	if got := len(g.Zone(engine.Hand, b).Cards()) - hand; got != 1 {
+		t.Errorf("blocker's controller drew %d, want 1", got)
 	}
 }
 

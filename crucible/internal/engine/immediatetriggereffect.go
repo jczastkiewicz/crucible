@@ -19,16 +19,24 @@ import (
 // resolution order. OptionalDecider$ You makes it a "may". The copies carry
 // the spawning ability's X.
 // RememberSVarAmount$ remembers an Integer (NumberEntity), which
-// Count$TriggerRememberAmount sums; Static$ and the triggering-object copies
-// fail closed.
+// Count$TriggerRememberAmount sums. Static$ True resolves the copies at once,
+// without the stack (resolveStaticTriggers), as a static trigger does;
+// AfterReplacement$ True (Melira, the Living Cure) is Java's wait for the
+// replacement that spawned it to finish (TriggerImmediate.java:37), which
+// this port does not model: the copies resolve inside the replacement chain
+// (quirks.md). The triggering-object copies fail closed.
 type immediateTriggerEffect struct{}
 
 func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "ImmediateTrigger", "Static", "AfterReplacement"); err != nil {
-		return err
+	static := false
+	if v, ok := a.Params.Param("Static"); ok {
+		if !strings.EqualFold(v, "True") {
+			return fmt.Errorf("engine: ImmediateTrigger: Static$ %q not resolvable", v)
+		}
+		static = true
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -103,6 +111,10 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 			Amounts: a.Amounts, Optional: optional, TriggerRemembered: r,
 			xManaCostPaid: a.xManaCostPaid, hasXManaCostPaid: true, spawnerPaid: &spawnerPaid, spawnerTriggered: &spawnerTriggered,
 		})
+	}
+	if static {
+		g.resolveStaticTriggers(controller, abilities)
+		return g.TakePendingError()
 	}
 	g.pushTriggeredAbilities(controller, abilities)
 	return nil

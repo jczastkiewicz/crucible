@@ -905,9 +905,9 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // The remaining 9 name a named-SVar Amount$ this dispatch cannot resolve
 // (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, each its own further
 // mechanic -- a depleting shield counter, an X spent on the spell, mana
-// paid, ...), one (rock_hydra.txt's) also chaining its own `SubAbility$`
-// (the identical chained-target refusal `applyDrawReplacement` already
-// gives, GO-7).
+// paid, ...); rock_hydra.txt's SVar$NumDmg/LimitMax.Y reads the damage
+// through replacingAmount and chains its counter removal
+// (runReplaceWithChain).
 //
 // A second real ReplaceWith$ shape resolves here too now: `DB$ ReplaceEffect
 // | VarName$ DamageAmount | VarValue$ ...` (ReplaceEffect.java's own
@@ -1210,15 +1210,10 @@ func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Ca
 // (putcountereffect.go) outright -- RemoveCounter and PutCounter share the
 // identical param. CounterNum$ resolves through resolveReplaceCountAmount
 // (above, against "DamageAmount"), defaulting to 1 the identical way
-// putCounterEffect's own CounterNum$ already does. SubAbility$ refuses
-// outright, the identical chained-target refusal every other hand-run
-// dispatch in this file already gives (5 real lines, underdark_beholder.txt's
-// own "remove counters, then sacrifice if none left" among them).
-//
-// 26 of the corpus's own 31 real DamageDone lines naming DB$ RemoveCounter/
-// PutCounter resolve end to end, jared_carthalion_true_heir.txt's
-// CheckDefinedPlayer$ You.isMonarch among them (checkDefinedPlayerMatches,
-// amountrecords.go). The 5 chaining SubAbility$ above stay unresolved.
+// putCounterEffect's own CounterNum$ already does. A line chaining
+// SubAbility$ is left to damageReplacement's Registry path, which resolves
+// the whole chain (5 real lines, underdark_beholder.txt's own "remove
+// counters, then sacrifice if none left" among them).
 func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a *compile.Ability, amounts map[string]expr.Amount, amount int) bool {
 	remove := strings.EqualFold(a.Name, "RemoveCounter")
 	if !remove && !strings.EqualFold(a.Name, "PutCounter") {
@@ -2049,9 +2044,8 @@ func resolveGainLifeReplacementAmount(g *Game, amounts map[string]expr.Amount, h
 // (replaceeffect.go) -- the code the Registry dispatches to, run on the
 // spot with ev as its replacing object, which is how ReplacementHandler
 // runs a ReplaceWith$ ability. Reports whether it ran and changed the
-// event. A chained SubAbility$ is refused, since ReplacementHandler buffers
-// that chain to run after the event, a step this port does not model; so
-// is any param the effect itself rejects. Either way the line is skipped,
+// event. A chained SubAbility$ resolves once the head has changed the event
+// (runReplaceWithChain). A param the effect itself rejects skips the line,
 // never half applied (GO-7), and ev is left as it was.
 func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) bool {
 	api, ok := APIByName(sub.Name)
@@ -2065,16 +2059,44 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 	if !ok {
 		return false
 	}
-	if _, chained := sub.Param("SubAbility"); chained {
-		return false
-	}
 	a := Ability{API: api, Source: h.ID, Controller: h.Controller(), Params: sub, Amounts: amounts, replacing: ev}
 	saved := *ev
 	if err := eff.Resolve(g, &a, controller); err != nil {
 		*ev = saved
 		return false
 	}
-	return ev.result != replacementNotReplaced
+	if ev.result == replacementNotReplaced {
+		return false
+	}
+	for _, chain := range sub.Subs {
+		if strings.EqualFold(chain.Key, "SubAbility") {
+			g.runReplaceWithChain(controller, h, amounts, chain.Ability, saved, *ev)
+			break
+		}
+	}
+	return true
+}
+
+// runReplaceWithChain resolves chain, the SubAbility$ a Replace* ReplaceWith$
+// head names (Forcefield's and Aegis of Honor's exile of their own effect,
+// Rock Hydra's counter removal, Melira's reflexive trigger), once the head
+// has changed the event: ReplacementHandler.executeReplacement resolves the
+// whole ability at once (AbilityUtils.resolve, AbilityUtils.java:1302-1330).
+// Its replacing object is the event before the head, except for damage: Java
+// buffers a DamageDone chain and resolves it with DamageAmount set to the
+// damage prevented (ReplacementHandler.java:600-668, :649), so Rock Hydra
+// removes one counter per point it prevented. The chain resolves here, not
+// after every prevention choice (quirks.md). A chain that fails records a
+// pending error (GO-7); the head's change stands.
+func (g *Game) runReplaceWithChain(controller PlayerController, h *Card, amounts map[string]expr.Amount, chain *compile.Ability, before, after replacementEvent) {
+	ev := before
+	if before.amountName == "DamageAmount" {
+		ev.amount = max(before.amount-after.amount, 0)
+	}
+	ev.result = after.result
+	if err := g.runReplacementChain(controller, h, replaceCountAmounts(g, amounts, h, chain, &ev), chain, &ev); err != nil {
+		g.recordPendingError(err)
+	}
 }
 
 // runReplaceWithChoice is a ReplaceWith$ GenericChoice (Jinnie Fay): the
@@ -2121,9 +2143,7 @@ func (g *Game) runReplaceWithChoice(controller PlayerController, h *Card, amount
 // ev.result to learn whether their event changed, and an ordinary DB$ API
 // leaves it at replacementNotReplaced, so routing one through there would
 // run the ability and then let the event happen anyway. A chained
-// SubAbility$ is refused, runReplaceWith's own reason: ReplacementHandler
-// buffers that chain to run after the event, a step this port does not
-// model.
+// SubAbility$ is refused (GO-7).
 func (g *Game) runReplaceWithEffect(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) error {
 	name := h.Def.Name
 	api, ok := APIByName(sub.Name)

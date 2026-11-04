@@ -1086,16 +1086,13 @@ func (g *Game) LKI(id CardID) *Card {
 //
 // Leaving the battlefield freezes a copy of the card into [Game.lki] before
 // clearing Counters, Damage, Tapped, PT/TypeMod/ColorMod/KeywordMod and any
-// attachment; entering it sets SummonSick and, for a planeswalker or a
-// Battle, its printed starting loyalty/defense as counters (CR 121.5,
-// 704.5v). Java gets all three for free: GameAction.changeZone builds a new
-// Card object for the destination zone (CardCopyService.copyCard), so a
-// field simply is not copied onto it, a freshly-built permanent starts sick
-// unless something says otherwise, and a planeswalker's loyalty is set once
-// at that same construction -- CR 121.5 puts loyalty nowhere near Layer 7,
-// so it has no computed accessor the way Power/Toughness do; it is exactly
-// its Loyalty counter count from the moment of entry, full stop
-// (the removed port log's "Loyalty is not a layer" section has the full citation).
+// attachment; entering it sets SummonSick. Java gets both for free:
+// GameAction.changeZone builds a new Card object for the destination zone
+// (CardCopyService.copyCard), so a field simply is not copied onto it, and a
+// freshly-built permanent starts sick unless something says otherwise. A
+// planeswalker's printed loyalty and a battle's defense are not Move's: they
+// are etbCounter replacements of the card's own (CardState.java:595-600),
+// placed with the entry's other counters (applyEnterCounters, entercounters.go).
 // A CardID is stable across zone changes here instead (ADR-0009) — the same
 // struct persists, so a creature that dies with three +1/+1 counters would return
 // from the graveyard still carrying them unless this clears them, a Raise
@@ -1302,17 +1299,8 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.enterRoom()
 		c.SummonSick = true
 		c.cameUnderControl, c.enteredTurn = true, g.turn
-		// A Mode$ CantPutCounter static stops the printed loyalty and defense
-		// counters too (Card.canReceiveCounters, the "etbCounter" replacement's
-		// own placement).
-		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) && !g.cantPutCounter(CardEntity(id), Loyalty) {
-			c.Counters.Add(Loyalty, loyalty)
-			emitCounterChanged(g, id, CardEntity(id), Loyalty, loyalty)
-		}
-		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) && !g.cantPutCounter(CardEntity(id), Defense) {
-			c.Counters.Add(Defense, defense)
-			emitCounterChanged(g, id, CardEntity(id), Defense, defense)
-		}
+		// The printed loyalty and defense counters are the entry's own
+		// replacements (applyEnterCounters, entercounters.go).
 	}
 
 	// CR's own "descend" tracker (Zone.add's own "!rollback" branch, Java):

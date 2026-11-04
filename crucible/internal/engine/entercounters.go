@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -60,6 +61,17 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 			}
 		}
 		piles = append(piles, p)
+	}
+	// A planeswalker's printed loyalty and a battle's defense are etbCounter
+	// replacements of the card's own (CardState.java:595-600, getLoyaltyRep
+	// and getDefenseRep), placed by its controller (makeEtbCounter): they join
+	// the table, so Vorinclex doubles them and a Mode$ CantPutCounter static
+	// stops them (countersReplaced), and they fire CounterAdded.
+	if n, ok := movedCard.BaseLoyalty(); ok && n > 0 && movedCard.Type().Has(cardtype.Planeswalker) {
+		addPile(enterPile{ct: Loyalty, n: n, source: moved, placer: movedCard.Controller()})
+	}
+	if n, ok := movedCard.BaseDefense(); ok && n > 0 && movedCard.Type().Has(cardtype.Battle) {
+		addPile(enterPile{ct: Defense, n: n, source: moved, placer: movedCard.Controller()})
 	}
 	// Replacements whose ReplaceWith$ chain goes on past the PutCounter (an
 	// Effect card's "enters with an additional counter", then exiles itself:

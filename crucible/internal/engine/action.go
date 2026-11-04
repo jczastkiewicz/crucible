@@ -566,10 +566,10 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 // Card.Counters.Count(Loyalty) directly rather than calling a "current
 // loyalty" accessor that would just be that same call one level removed.
 //
-// Move itself puts a starting loyalty counter on a planeswalker that enters
-// the battlefield through real play (CR 121.5, Game.Move's own doc
-// comment) -- CastSpell/PlayLand-driven entries get it for free. A
-// permanent placed directly by setup.state (Game.NewCard) does not, the
+// A planeswalker that enters the battlefield through real play gets its
+// starting loyalty from the entry's counters (CR 121.5, applyEnterCounters,
+// entercounters.go). A permanent placed directly by setup.state
+// (Game.NewCard) or by a bare Game.Move does not, the
 // same "exactly what the fixture says" contract NewCard's own doc comment
 // gives every other battlefield-entry field -- a fixture naming a
 // planeswalker there still sets Counters:LOYALTY= itself if it wants one.

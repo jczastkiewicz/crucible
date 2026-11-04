@@ -144,3 +144,57 @@ func TestReplaceCounterValidSourceReadsThePlacer(t *testing.T) {
 		}
 	}
 }
+
+// TestPrintedLoyaltyAndDefenseAreEntryCounters proves a planeswalker's
+// printed loyalty and a battle's defense are etbCounter replacements of the
+// card's own (CardState.java:595-600), placed by its controller: they enter
+// with the permanent, emit CounterChanged from it, are doubled by Vorinclex,
+// Monstrous Raider and come back fresh when the card enters again.
+func TestPrintedLoyaltyAndDefenseAreEntryCounters(t *testing.T) {
+	t.Parallel()
+
+	for _, vorinclex := range []bool{false, true} {
+		g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		if vorinclex {
+			g.NewCard(corpusCard(t, "Vorinclex, Monstrous Raider"), p, engine.Battlefield)
+		}
+		walker := g.NewCard(planeswalkerDefLoyalty(t, "5"), p, engine.Hand)
+		battle := g.NewCard(battleDefDefense(t, "4"), p, engine.Hand)
+		var sink recordingSink
+		g.SetSink(&sink)
+		c := engine.NewScriptedController()
+		c.QueueCardOrder([]engine.CardID{walker, battle})
+		c.QueueBattleProtector(other)
+		resolveLine(t, g, p, c, "DB$ ChangeZoneAll | ChangeType$ Planeswalker.YouOwn,Battle.YouOwn | Origin$ Hand | Destination$ Battlefield")
+		loyalty, defense := 5, 4
+		if vorinclex {
+			loyalty, defense = 10, 8
+		}
+		if got := g.Card(walker).Counters.Count(engine.Loyalty); got != loyalty {
+			t.Errorf("vorinclex %v: loyalty = %d, want %d", vorinclex, got, loyalty)
+		}
+		if got := g.Card(battle).Counters.Count(engine.Defense); got != defense {
+			t.Errorf("vorinclex %v: defense = %d, want %d", vorinclex, got, defense)
+		}
+		found := false
+		for _, e := range sink.events {
+			if e.Kind == engine.CounterChanged && e.Source == walker && e.Target == engine.CardEntity(walker) &&
+				int(e.Amount) == loyalty && e.Detail == uint32(engine.CounterDetailLoyalty) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("vorinclex %v: no CounterChanged for the walker's %d loyalty", vorinclex, loyalty)
+		}
+		if vorinclex {
+			continue
+		}
+		g.Card(walker).Counters.Add(engine.Loyalty, -5)
+		g.Move(walker, engine.Graveyard, p)
+		resolveLine(t, g, p, c, "DB$ ChangeZoneAll | ChangeType$ Planeswalker.YouOwn | Origin$ Graveyard | Destination$ Battlefield")
+		if got := g.Card(walker).Counters.Count(engine.Loyalty); got != 5 {
+			t.Errorf("loyalty after entering again = %d, want 5", got)
+		}
+	}
+}

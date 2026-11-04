@@ -234,7 +234,15 @@ func deckInfos(gt sim.Gauntlet) []store.DeckInfo {
 	for i, d := range decks {
 		sorted := append([]string(nil), d.Cards...)
 		sort.Strings(sorted)
-		sum := sha256.Sum256([]byte(strings.Join(sorted, "\n")))
+		text := strings.Join(sorted, "\n")
+		if len(d.Commanders) > 0 {
+			// Two lists that differ only in their commander are different
+			// decks (ADR-0055); a list with none keeps its old digest.
+			cmds := append([]string(nil), d.Commanders...)
+			sort.Strings(cmds)
+			text += "\n[Commander]\n" + strings.Join(cmds, "\n")
+		}
+		sum := sha256.Sum256([]byte(text))
 		infos[i] = store.DeckInfo{Name: d.Name, Hash: hex.EncodeToString(sum[:8])}
 	}
 	return infos

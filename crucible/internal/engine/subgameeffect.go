@@ -47,10 +47,11 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 
 // subgameEffect resolves SP$ Subgame.
 //
-// Resolved: StartingLife$ (every seat's starting life, default
-// defaultStartingLife), RememberPlayers$ Win / NotWin (the main-game players who
-// won, or did not win, the subgame, remembered on the host -- a draw makes
-// every player NotWin, GameOutcome.isWinner being false for all).
+// Resolved: StartingLife$ (every seat's starting life, default each seat's
+// own, Game.java:375-378), RememberPlayers$ Win / NotWin (the main-game
+// players who won, or did not win, the subgame, remembered on the host -- a
+// draw makes every player NotWin, GameOutcome.isWinner being false for
+// all). The subgame shares the main game's variants (SubgameEffect.java:38).
 //
 // Rejected before anything is built, each a shape the real three lines never
 // reach:
@@ -97,7 +98,9 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	life := defaultStartingLife
+	// -1 is Java's "no StartingLife$": each seat starts at its registered
+	// starting life (Game.java:375-378), the main game's StartingLife.
+	life := -1
 	if raw, ok := a.Params.Param("StartingLife"); ok {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
@@ -220,12 +223,19 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 	}
 	sub := NewGame(g.db, g.rand, names)
 	sub.registry = g.registry
+	// new Game(players, maingame.getRules(), ...) (SubgameEffect.java:38):
+	// the subgame plays under the main game's variants.
+	sub.variants = g.variants
 	subSeats := sub.Players()
 	var sideboard []sideboardCard
 	for i, pid := range seats {
 		sp := subSeats[i]
 		// Player.setStartingLife (Player.java:423-428) sets life too.
-		sub.Player(sp).Life, sub.Player(sp).StartingLife = life, life
+		seatLife := life
+		if seatLife < 0 {
+			seatLife = g.Player(pid).StartingLife
+		}
+		sub.Player(sp).Life, sub.Player(sp).StartingLife = seatLife, seatLife
 		copyCardsInto(g, sub, g.Zone(Library, pid).CardsIncludingPhasedOut(), sp, Library)
 
 		// CR 720.4: getCardsInOwnedBy(outsideZones, p) (Game.java:645-651),

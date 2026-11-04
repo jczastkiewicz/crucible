@@ -45,9 +45,10 @@ out).
 
 Option 1. `engine.Variant` is a bit set with `VariantCommander`; `Game.HasVariant` reads it. `Game.SetupVariant` is the
 setup call (before the opening hands): it applies the variant and sets every seat's starting life and life to the
-variant's (40). `AlterAttribute` Commander applies the variant without touching life, as Java does. Each player carries
-`StartingLife` (`Player.startingLife`), which `StartingLife`/`YourStartingLife` read, a Subgame's `StartingLife$` sets
-and RestartGame restores.
+variant's (40). `AlterAttribute` Commander applies the variant without touching life, as Java does. A Subgame shares the
+main game's variants and, with no `StartingLife$`, starts each seat at its own starting life (`SubgameEffect.java:38`,
+`Game.java:375-378`). Each player carries `StartingLife` (`Player.startingLife`), which
+`StartingLife`/`YourStartingLife` read, a Subgame's `StartingLife$` sets and RestartGame restores.
 
 `Game.SeatCommander` puts a card in the owner's Command zone and designates it (`addCommander`), so the Commander Effect
 follows it as in Java. `Player.commanderDamage` is an ordered list of (real commander, amount), added to in
@@ -57,8 +58,9 @@ move (Java's flag at `:847-848`, which `moveMerged`'s per-component moves also r
 the legend rule and only when the pass did nothing else, walks each player's graveyard then exile and asks the owner
 through `ConfirmEffect`, clearing the mark either way.
 
-`sim.Plan.Variant` (CLI `-variant commander`, recorded in the run manifest) seats each deck's Commander section after
-the library and before the sticker sheets; without the variant the section is ignored.
+`sim.Plan.Variant` (CLI `-variant commander`, recorded in the run manifest, the commanders in the deck digest) seats
+each deck's Commander section after the library and before the sticker sheets; without the variant the section is
+ignored.
 
 Not ported: Brawl, Oathbreaker, TinyLeaders, Planeswalker; partner and companion; deck legality and color identity;
 `initCommanderColor`'s color choice; the merged-commander replacement suppression (`quirks.md`).

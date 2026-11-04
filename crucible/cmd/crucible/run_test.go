@@ -181,3 +181,18 @@ func TestParseVariantReadsCommanderOrNothing(t *testing.T) {
 		t.Error(`parseVariant("brawl"): want an error`)
 	}
 }
+
+func TestDeckHashTellsCommandersApart(t *testing.T) {
+	t.Parallel()
+	main := []string{"Mountain", "Mountain"}
+	infos := deckInfos(sim.Gauntlet{
+		Target: sim.Deck{Name: "a", Cards: main},
+		Opponents: []sim.Opponent{
+			{Deck: sim.Deck{Name: "b", Cards: main, Commanders: []string{"Krenko, Mob Boss"}}},
+			{Deck: sim.Deck{Name: "c", Cards: main, Commanders: []string{"Zada, Hedron Grinder"}}},
+		},
+	})
+	if infos[0].Hash == infos[1].Hash || infos[1].Hash == infos[2].Hash {
+		t.Errorf("hashes %v: want three distinct digests", infos)
+	}
+}

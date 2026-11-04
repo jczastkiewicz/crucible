@@ -138,9 +138,11 @@ func (g *Game) returnCommandersToCommandZone(controller PlayerController) bool {
 	moved := false
 	for _, pid := range g.Players() {
 		for _, z := range []ZoneType{Graveyard, Exile} {
-			for _, id := range g.Zone(z, pid).Cards() {
+			// threadSafeIterable: a snapshot, since each return removes a
+			// card from the zone being walked.
+			for _, id := range slices.Clone(g.Zone(z, pid).Cards()) {
 				c := g.Card(id)
-				if !c.commander || !c.toCommandZone {
+				if c.Zone != z || !c.commander || !c.toCommandZone {
 					continue
 				}
 				c.toCommandZone = false

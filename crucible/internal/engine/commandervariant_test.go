@@ -206,3 +206,73 @@ func TestSeatCommanderPutsADesignatedCommanderInTheCommandZone(t *testing.T) {
 		t.Errorf("Command zone = %v, want the commander then its effect", got)
 	}
 }
+
+// subgameObserver records what the subgame looks like when it asks who
+// starts.
+type subgameObserver struct {
+	*engine.ScriptedController
+	variant bool
+	life    []int
+}
+
+func (o *subgameObserver) ChooseStartingPlayer(g *engine.Game, decider engine.PlayerID, first bool) engine.PlayerID {
+	o.variant = g.HasVariant(engine.VariantCommander)
+	for _, pid := range g.Players() {
+		o.life = append(o.life, g.Player(pid).Life)
+	}
+	return o.ScriptedController.ChooseStartingPlayer(g, decider, first)
+}
+
+// A subgame shares the main game's rules (SubgameEffect.java:38) and, with
+// no StartingLife$, starts each seat at its own starting life
+// (Game.java:375-378): 40 inside a Commander game.
+func TestSubgameOfACommanderGamePlaysCommanderAtForty(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetupVariant(engine.VariantCommander)
+	subgameLands(t, g, p, 2)
+	subgameLands(t, g, other, 2)
+	obs := &subgameObserver{ScriptedController: subgameController(p)}
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	host := g.NewCard(etbChainDef(t, "Test Shape", "DB$ Subgame | RememberPlayers$ Win"), p, engine.Hand)
+	if !g.CastSpell(p, host, obs) {
+		t.Fatal("cast failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), obs); err != nil {
+		t.Fatal(err)
+	}
+	if !obs.variant {
+		t.Error("subgame lost the Commander variant")
+	}
+	if len(obs.life) != 2 || obs.life[0] != 40 || obs.life[1] != 40 {
+		t.Errorf("subgame life = %v, want [40 40]", obs.life)
+	}
+}
+
+// Two commanders in one graveyard both go back when both owners' answers
+// agree: the walk is over a snapshot of the zone (threadSafeIterable).
+func TestTwoCommandersInOneGraveyardBothReturn(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetupVariant(engine.VariantCommander)
+	var cmds []engine.CardID
+	for range 2 {
+		id := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+		g.AddCommander(p, id)
+		cmds = append(cmds, id)
+	}
+	for _, id := range cmds {
+		g.Move(id, engine.Graveyard, p)
+	}
+	c := engine.NewScriptedController()
+	c.QueueConfirmEffect(true)
+	c.QueueConfirmEffect(true)
+	engine.CheckStateBasedActions(g, c)
+	for _, id := range cmds {
+		if got := g.Card(id).Zone; got != engine.Command {
+			t.Errorf("commander %d in %v, want the Command zone", id, got)
+		}
+	}
+}

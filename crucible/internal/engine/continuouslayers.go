@@ -376,7 +376,7 @@ func layerTypeChange(g *Game, host *Card, s *compile.Ability) (TypeEffect, bool)
 		}
 	}
 	reg := g.db.Types()
-	e := TypeEffect{Timestamp: host.Timestamp}
+	e := TypeEffect{Timestamp: host.Timestamp, CharacteristicDefining: hasParamOn(s, "CharacteristicDefining")}
 
 	add, hasAdd := s.Param("AddType")
 	var addWords []string
@@ -491,7 +491,7 @@ func layerColorChange(host *Card, s *compile.Ability) (ColorEffect, bool) {
 	if !ok {
 		return ColorEffect{}, false
 	}
-	e := ColorEffect{Timestamp: host.Timestamp, Overwrite: overwrite}
+	e := ColorEffect{Timestamp: host.Timestamp, Overwrite: overwrite, CharacteristicDefining: hasParamOn(s, "CharacteristicDefining")}
 	switch v {
 	case "ChosenColor":
 		e.Colors = host.Memory.ChosenColors()
@@ -898,7 +898,8 @@ func applyChangelings(g *Game) {
 		if !ok {
 			return
 		}
-		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all})
+		// Changeling is a characteristic-defining ability (CR 702.73a).
+		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all, CharacteristicDefining: true})
 	}
 }
 

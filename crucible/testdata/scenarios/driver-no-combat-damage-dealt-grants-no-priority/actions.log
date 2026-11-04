@@ -1,0 +1,12 @@
+# CR 510.2, PhaseHandler.java:339-341: when no combat damage is assigned
+# (Ornithopter attacks with 0 power), the combat damage step deals none and
+# grants no priority. After First Strike Damage (Upkeep, Main1, BeginCombat,
+# Declare Attackers, Declare Blockers, First Strike Damage: six steps, turn 1
+# skips its draw), human queues a mana ability; stepping into Combat Damage
+# never asks for it, so the Mountain stays untapped and ai loses no life.
+startturn human
+queue attackers 1
+queue attacktarget ai
+step 6
+queue action human tapformana 2 R
+step

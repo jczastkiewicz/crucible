@@ -24,12 +24,17 @@ type TypeMod struct {
 // "becomes an artifact creature" (RemoveCardTypes$ plus Types$) keeps what it
 // adds.
 type TypeEffect struct {
-	Timestamp             uint64
-	AddTypes, RemoveTypes cardtype.Line
-	RemoveCardTypes       bool
-	RemoveSuperTypes      bool
-	RemoveSubTypes        bool
-	DropSubtype           func(string) bool
+	Timestamp uint64
+	// CharacteristicDefining marks a CDA's change (Mistform Ultimus's "is
+	// every creature type", Changeling): Java keeps those in
+	// changedCardTypesCharacterDefining, applied before every other change
+	// (CR 613.3, Card.java:4057-4066).
+	CharacteristicDefining bool
+	AddTypes, RemoveTypes  cardtype.Line
+	RemoveCardTypes        bool
+	RemoveSuperTypes       bool
+	RemoveSubTypes         bool
+	DropSubtype            func(string) bool
 	// RemoveLandTypes is CardChangedType.isRemoveLandTypes: the effect sets
 	// a land's subtype (Blood Moon, Evil Presence), so the land loses every
 	// ability its printed text gave it (CR 305.7, Card.hasRemoveIntrinsic).
@@ -73,14 +78,20 @@ func (tm TypeMod) clone() TypeMod {
 	return TypeMod{effects: append([]TypeEffect(nil), tm.effects...)}
 }
 
-// foldType applies every TypeEffect to base in Timestamp order (CR 613.7),
+// foldType applies every TypeEffect to base, the characteristic-defining ones
+// first (CR 613.3), each group in Timestamp order (CR 613.7),
 // each in TypeEffect's own removal-then-addition order, before the next
 // effect (by timestamp) runs against the result -- CR 613.8's dependency
 // reordering is not in play, foldPT's own doc comment gives the identical
 // reason.
 func foldType(base cardtype.Line, effects []TypeEffect) cardtype.Line {
 	sorted := append([]TypeEffect(nil), effects...)
-	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Timestamp < sorted[j].Timestamp })
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].CharacteristicDefining != sorted[j].CharacteristicDefining {
+			return sorted[i].CharacteristicDefining
+		}
+		return sorted[i].Timestamp < sorted[j].Timestamp
+	})
 	result := base
 	for _, e := range sorted {
 		if e.RemoveCardTypes {

@@ -254,15 +254,20 @@ func replacingAmount(g *Game, a *Ability, value string, ev *replacementEvent) (i
 // is spent is exiled. The prevented amount is recorded as the host's
 // PreventedDamage SVar. Nothing left means the damage is replaced
 // outright.
+//
+// DivideShield$ True (here and on ReplaceSplitDamage) is ReplacementHandler's
+// ask that the decider divide a "next N damage" shield among the targets of
+// one simultaneous damage event (ReplacementHandler.java:756-776). This port
+// deals damage one source and one target at a time, so the shield is spent
+// on the targets in the order their damage is dealt and the division is
+// never asked (quirks.md). One target -- a source hitting only you -- gives
+// Java's result (Harm's Way, Shining Shoal).
 type replaceDamageEffect struct{}
 
 func (replaceDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	ev := a.replacing
 	if ev == nil {
 		return nil
-	}
-	if err := rejectParams(a, "ReplaceDamage", "DivideShield"); err != nil {
-		return err
 	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
@@ -344,9 +349,6 @@ func (replaceSplitDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController)
 	ev := a.replacing
 	if ev == nil {
 		return nil
-	}
-	if err := rejectParams(a, "ReplaceSplitDamage", "DivideShield"); err != nil {
-		return err
 	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil

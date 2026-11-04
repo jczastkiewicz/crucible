@@ -882,32 +882,15 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // observable against a corpus with no two such permanents combined on one
 // battlefield today.
 //
-// Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, only 27
-// are ever named by a literal top-level `R:Event$ DamageDone` line at all --
-// the same `face.Replacements` walk every other dispatch in this file uses,
-// the removed port log's own "`Event$ DamageDone`" section has the other 12's own
-// accounting (each blocked by an entirely different missing mechanism, not
-// by anything specific to this shape). 16 of those 27 resolve end to end
-// through this and replaceDamageEffect (replaceeffect.go): every real line naming
-// a plain integer Amount$, no SubAbility$ of its own and no DivideShield$ (a
-// shield's own remaining capacity split across more than one simultaneous
-// instance of damage in the same resolution, a fold this dispatch has no
-// state for) -- guardian_seraph.txt's/orbs_of_warding.txt's/the five
-// Sphere-of-*.txt's own real "prevent N of that damage" lines among them. 2
-// more of the 27 resolve their own card-target half only
-// (reidane_god_of_the_worthy_valkmira_protectors_shield.txt's/
-// plated_pegasus.txt's own `ValidTarget$ You,Permanent.YouCtrl`/
-// `Permanent,Player` -- valid.Parse's own comma-as-OR already matches the
-// `Permanent...` alternative through Matches below, but matchesPlayerSpec
-// (damageReplacedPlayer, below), unlike valid.Parse, does not split a
-// ValidTarget$ on comma, so "or dealt to you" itself never resolves -- a
-// general ValidTarget$ comma dispatch across both matchers is not built).
-// The remaining 9 name a named-SVar Amount$ this dispatch cannot resolve
-// (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, each its own further
-// mechanic -- a depleting shield counter, an X spent on the spell, mana
-// paid, ...); rock_hydra.txt's SVar$NumDmg/LimitMax.Y reads the damage
-// through replacingAmount and chains its counter removal
-// (runReplaceWithChain).
+// A `DB$ ReplaceDamage` ReplaceWith$ prevents its Amount$ through
+// replaceDamageEffect (replaceeffect.go): a plain integer, a Number$ SVar (a
+// depleting shield the effect card spends, then exiles), or an amount read
+// off the damage (ReplaceCount$DamageAmount, or an SVar naming one: Rock
+// Hydra's SVar$NumDmg/LimitMax.Y). DivideShield$ is spent in dealing order
+// (replaceDamageEffect). A chained SubAbility$ resolves after the
+// head (runReplaceWithChain). ValidTarget$ is comma-OR on both halves:
+// valid.Parse for a card, matchesPlayerSpec for a player, so Reidane's and
+// Plated Pegasus's "you or a permanent you control" shield both.
 //
 // A second real ReplaceWith$ shape resolves here too now: `DB$ ReplaceEffect
 // | VarName$ DamageAmount | VarValue$ ...` (ReplaceEffect.java's own

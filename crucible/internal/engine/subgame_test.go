@@ -398,3 +398,24 @@ func TestSubgameTurnCapIsAnError(t *testing.T) {
 	c := discardingController{subgameController(p)}
 	wantSubgameError(t, subgameCast(t, g, p, c, "DB$ Subgame"), "subgame did not end within 1000 turns")
 }
+
+// A commander in the Command zone crosses into the subgame as a commander
+// there (CR 720.4, initVariantsZonesSubgame) and, still in the subgame's
+// Command zone at the end, stays in the main game's (CR 720.5c).
+func TestSubgameCommanderStaysInTheCommandZone(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	subgameLands(t, g, p, 3)
+	subgameLands(t, g, other, 3)
+	cmd := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Command)
+	g.AddCommander(p, cmd)
+
+	resolveLine(t, g, p, subgameController(p), "DB$ Subgame")
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if got := g.Card(cmd).Zone; got != engine.Command || !g.IsCommander(cmd) {
+		t.Errorf("commander in %v (commander %v), want Command", got, g.IsCommander(cmd))
+	}
+}

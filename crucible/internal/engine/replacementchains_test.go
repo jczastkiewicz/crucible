@@ -85,3 +85,31 @@ func TestMeliraAllowsOnePoisonCounterPerTurn(t *testing.T) {
 		}
 	}
 }
+
+// TestDividedRedirectShieldSendsTheNextTwoDamage proves Harm's Way's shape:
+// a "next 2 damage" ReplaceSplitDamage with DivideShield$ deals 2 of a 3
+// damage hit to its remembered target instead, then is spent, so a second
+// hit is dealt in full.
+func TestDividedRedirectShieldSendsTheNextTwoDamage(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	ctl := engine.NewScriptedController()
+	if _, err := resolveNow(t, g, p, ctl, []engine.EntityID{engine.PlayerEntity(other)},
+		"DB$ Effect | ValidTgts$ Any | ReplacementEffects$ ReDamage | RememberObjects$ Targeted",
+		"ReDamage", "Event$ DamageDone | ActiveZones$ Command | ValidTarget$ You,Permanent.YouCtrl | ReplaceWith$ SplitDamage | DamageTarget$ Remembered | Description$ Redirect.",
+		"SplitDamage", "DB$ ReplaceSplitDamage | DamageTarget$ Remembered | VarName$ ShieldAmount | DivideShield$ True",
+		"ShieldAmount", "Number$2"); err != nil {
+		t.Fatalf("Effect: %v", err)
+	}
+	for i, want := range [][2]int{{1, 2}, {3, 0}} {
+		mine, theirs := g.Player(p).Life, g.Player(other).Life
+		if _, err := resolveNow(t, g, other, ctl, nil, "DB$ DealDamage | Defined$ Opponent | NumDmg$ 3"); err != nil {
+			t.Fatalf("hit %d: %v", i+1, err)
+		}
+		if got := [2]int{mine - g.Player(p).Life, theirs - g.Player(other).Life}; got != want {
+			t.Errorf("hit %d: (p lost, other lost) = %v, want %v", i+1, got, want)
+		}
+	}
+}

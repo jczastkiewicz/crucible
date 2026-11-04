@@ -373,27 +373,6 @@ func TestReplaceCounterValidCounterTypeMismatchStillLetsAMatchingReplacementRun(
 	}
 }
 
-// TestReplaceSplitDamageRejectsDivideShield proves DivideShield$ (a shape
-// this port does not model) makes the replacement fail to resolve, so
-// eachReplacement treats it as not applied and the damage lands whole --
-// rather than silently redirecting as if DivideShield$ were not there.
-func TestReplaceSplitDamageRejectsDivideShield(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	host := resolveLine(t, g, p, engine.NewScriptedController(),
-		"DB$ Effect | RememberObjects$ Self | ReplacementEffects$ RedirectDamage | Duration$ Permanent | SubAbility$ DBDamage",
-		"RedirectDamage", "Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ RedirectDmg | DamageTarget$ You | Description$ The next 1 damage is dealt to you instead.",
-		"RedirectDmg", "DB$ ReplaceSplitDamage | DamageTarget$ You | DivideShield$ True",
-		"DBDamage", "DB$ DealDamage | Defined$ Self | NumDmg$ 3")
-	if got := g.Player(p).Life; got != 20 {
-		t.Errorf("controller life = %d, want 20 -- DivideShield$ True makes the replacement fail to resolve, none redirected", got)
-	}
-	if z := g.Card(host).Zone; z != engine.Graveyard {
-		t.Errorf("1/1 creature zone = %v, want Graveyard -- all 3 damage hits it, unredirected", z)
-	}
-}
-
 // TestReplaceEffectFailsClosedOnMalformedLines proves ReplaceEffect's own
 // error branches leave the event unedited rather than propagating: a
 // rejected VarKey$, an unmet Condition gate, a VarName$ that does not name

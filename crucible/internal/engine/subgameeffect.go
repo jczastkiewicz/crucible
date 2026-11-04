@@ -78,11 +78,10 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 // library (GameAction.java:815-824, SubgameEffect.java:205-212), which needs
 // identity across two games' arenas this port does not track.
 //
-// Nothing to port: Vanguard avatars and Commanders
-// (initVariantsZonesSubgame) -- this port has neither, so the main game's
-// Command zone never holds one, and the post-game commander move
-// (SubgameEffect.java:214-238) and Subgame-zone return (:205-212) always
-// find nothing. Merged holds a mutated permanent's components (mutate.go).
+// Commanders cross over (initVariantsZonesSubgame, returnSubgameCommanders);
+// Vanguard avatars have nothing to port, since this port deals none, and the
+// Subgame-zone return (:205-212) always finds nothing (above). Merged holds a
+// mutated permanent's components (mutate.go).
 // The GameEventSubgameStart/End, DayTimeChanged and Zone view events are UI
 // refreshes with no rules content.
 type subgameEffect struct{}
@@ -149,6 +148,9 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 			source.Memory.Remember(PlayerEntity(pid))
 		}
 	}
+	for i, pid := range seats {
+		g.returnSubgameCommanders(c, sub, pid, subSeats[i])
+	}
 	// SubgameEffect.java:240-244: player.shuffle(sa), then each variant deck.
 	for _, pid := range seats {
 		g.Shuffle(Library, pid)
@@ -159,6 +161,29 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 		}
 	}
 	return nil
+}
+
+// returnSubgameCommanders is CR 720.5c (SubgameEffect.java:213-237): a
+// commander in pid's Command zone whose name no commander in the subgame
+// seat sp's Command zone still has left it during the subgame, so it moves
+// to pid's library -- through the Moved replacements, so the Commander
+// Effect may send it back to the Command zone, as GameAction.moveTo does.
+func (g *Game) returnSubgameCommanders(controller PlayerController, sub *Game, pid, sp PlayerID) {
+	stayed := map[string]bool{}
+	for _, id := range sub.Zone(Command, sp).Cards() {
+		if card := sub.Card(id); card.commander {
+			stayed[card.Name()] = true
+		}
+	}
+	var moved []CardID
+	for _, id := range g.Zone(Command, pid).Cards() {
+		if card := g.Card(id); card.commander && !card.IsEffect && !stayed[card.Name()] {
+			moved = append(moved, id)
+		}
+	}
+	for _, id := range moved {
+		g.moveByEffect(controller, id, Library, 0, NoPlayer, false)
+	}
 }
 
 // sideboardCard is one card buildSubgame put in a subgame Sideboard, with
@@ -238,6 +263,14 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 		for _, kind := range subgameExtraDecks {
 			if z := existingZone(g, kind, pid); z != nil {
 				copyCardsInto(g, sub, z.Cards(), sp, kind)
+			}
+		}
+		// initVariantsZonesSubgame (SubgameEffect.java:70-79): each commander
+		// in the main-game player's Command zone gets a fresh copy in the
+		// subgame's, a commander there too.
+		for _, id := range g.Zone(Command, pid).Cards() {
+			if card := g.Card(id); card.commander && !card.IsEffect {
+				sub.addCommander(sp, sub.NewCard(card.Def, sp, Command))
 			}
 		}
 		sub.Shuffle(Library, sp)

@@ -886,11 +886,11 @@ func TestDamageToCreatureReducedThenChainResolves(t *testing.T) {
 	}
 }
 
-// TestDamageToPlayerNotReducedByDivideShieldAmount proves DivideShield$ (a
-// shield's own remaining capacity split across more than one simultaneous
-// instance of damage) refuses outright rather than applying the reduction
-// without tracking that split (GO-7): the full 3 damage still applies.
-func TestDamageToPlayerNotReducedByDivideShieldAmount(t *testing.T) {
+// TestDamageToPlayerReducedByDivideShieldAmount proves a DivideShield$ shield
+// prevents damage to its one target in full: the division among several
+// simultaneous targets is never asked, damage being dealt one target at a
+// time (quirks.md).
+func TestDamageToPlayerReducedByDivideShieldAmount(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -910,8 +910,8 @@ func TestDamageToPlayerNotReducedByDivideShieldAmount(t *testing.T) {
 	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
-	if g.Player(b).Life != 17 {
-		t.Errorf("defender life = %d, want 17 -- DivideShield$ is not resolved, so the full 3 damage must apply", g.Player(b).Life)
+	if g.Player(b).Life != 20 {
+		t.Errorf("defender life = %d, want 20 -- the shield prevents all 3", g.Player(b).Life)
 	}
 }
 

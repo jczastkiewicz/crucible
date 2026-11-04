@@ -1,6 +1,7 @@
 // The replacement Event$ values that resize or replace a player's own count:
-// Scry (ScryNum, "Num"), Mill ("Number"), DrawCards ("Number") and PayLife
-// ("Amount", Ashiok, Wicked Manipulator). Each is
+// Scry (ScryNum, "Num"), Proliferate ("Num", Tekuthal, Inquiry Dominus), Mill
+// ("Number"), DrawCards ("Number") and PayLife ("Amount", Ashiok, Wicked
+// Manipulator). Each is
 // asked once per player before the action runs, with the count as the event's
 // number, so a ReplaceEffect (Kenessos, Bruvac the Grandiloquent, Quantum
 // Riddler) updates it and any other ReplaceWith$ ability (Eligeth's "draw that
@@ -8,8 +9,9 @@
 // card") replaces the whole event.
 //
 // Ported from forge-game/src/main/java/forge/game/replacement/{ReplaceScry,
-// ReplaceMill,ReplaceDrawCards,ReplacePayLife}.java and the call sites in
-// ScryEffect, MillEffect, Player.drawCards and Player.payLife.
+// ReplaceProliferate,ReplaceMill,ReplaceDrawCards,ReplacePayLife}.java and the
+// call sites in ScryEffect, CountersProliferateEffect, MillEffect,
+// Player.drawCards and Player.payLife.
 
 package engine
 
@@ -22,9 +24,10 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
-// playerAmountReplaced runs the CR 616 walk for event ("Scry", "Mill",
-// "DrawCards" or "PayLife") about pid doing it amount times, amountName being the
-// AbilityKey the number travels under ("Num" for Scry, "Number" otherwise).
+// playerAmountReplaced runs the CR 616 walk for event ("Scry", "Proliferate",
+// "Mill", "DrawCards" or "PayLife") about pid doing it amount times, amountName
+// being the AbilityKey the number travels under ("Num" for Scry and
+// Proliferate, "Amount" for PayLife, "Number" otherwise).
 // It returns the number to use and whether the event was replaced outright
 // (the caller then does nothing). A line's ValidPlayer$ is matched against
 // pid, Number$ ("GE2") or Amount$ ("LEY", an SVar operand) against the amount; Optional$ is the handler's own
@@ -38,7 +41,9 @@ func (g *Game) playerAmountReplaced(controller PlayerController, event, amountNa
 			if sub == nil || !strings.EqualFold(r.Name, event) || !hostInActiveZones(h, r, z) {
 				return
 			}
-			if !onlyParams(r, "validplayer", "number", "amount", "optional", "optionaldecider") {
+			// AILogic$ is the AI's hint (Tekuthal's DoubleLife); no rules code
+			// reads it.
+			if !onlyParams(r, "validplayer", "number", "amount", "optional", "optionaldecider", "ailogic") {
 				g.recordPendingError(fmt.Errorf("engine: %q: Event$ %s: a param is not resolvable yet", h.Def.Name, event))
 				return
 			}

@@ -82,7 +82,7 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 // (initVariantsZonesSubgame) -- this port has neither, so the main game's
 // Command zone never holds one, and the post-game commander move
 // (SubgameEffect.java:214-238) and Subgame-zone return (:205-212) always
-// find nothing. Merged is scanned but always empty (Mutate is not ported).
+// find nothing. Merged holds a mutated permanent's components (mutate.go).
 // The GameEventSubgameStart/End, DayTimeChanged and Zone view events are UI
 // refreshes with no rules content.
 type subgameEffect struct{}

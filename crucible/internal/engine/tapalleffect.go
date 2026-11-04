@@ -12,10 +12,8 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/TapAllEffect.java's
-// resolve. Not ported: TriggerType.TapAll (the batch trigger, not the
-// per-card one) -- tapEffect.go's own identical reasoning, checkTapsTriggers
-// already firing per card below covers every real corpus T: line that
-// exists.
+// resolve. Mode$ Taps fires per card and Mode$ TapAll once for the batch
+// (checkTapAllTriggers), as tapEffect's.
 
 package engine
 

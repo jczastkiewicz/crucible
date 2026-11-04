@@ -286,3 +286,39 @@ func TestEchoXCostsYourLifeTotal(t *testing.T) {
 		t.Errorf("mana left = %d, want 0: the echo cost was X = 3", left)
 	}
 }
+
+// Thick-Skinned Goblin's "you may pay {0} rather than pay the echo cost"
+// (SacrificeEffect.java:40-42): taking it keeps the creature without the
+// echo cost being asked; declining asks the echo cost as usual.
+func TestThickSkinnedGoblinPaysEchoWithZero(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		zero bool
+		want engine.ZoneType
+	}{
+		{"zero", true, engine.Battlefield},
+		{"declined", false, engine.Graveyard},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			libraryCards(t, g, p, 8)
+			libraryCards(t, g, other, 8)
+			g.NewCard(corpusCard(t, "Thick-Skinned Goblin"), p, engine.Battlefield)
+			buggy := g.NewCard(corpusCard(t, "Goblin War Buggy"), p, engine.Battlefield)
+			g.SetTurnState(2, p, engine.Untap)
+			c := engine.NewScriptedController()
+			c.QueueConfirmEffect(tc.zero)
+			if !tc.zero {
+				c.QueueConfirmPayCost(false)
+			}
+			toUpkeep(t, g, c, p, mana.Red, 2)
+			if got := g.Card(buggy).Zone; got != tc.want {
+				t.Errorf("after the upkeep the Buggy is in %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

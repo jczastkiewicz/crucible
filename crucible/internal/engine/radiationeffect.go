@@ -32,7 +32,7 @@ var radiationUnresolvedParams = [...]string{
 // other M6 effect's own does.
 type radiationEffect struct{}
 
-func (radiationEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (radiationEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
@@ -64,12 +64,14 @@ func (radiationEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	for _, pid := range players {
-		p := g.Player(pid)
-		// Player.addCounter: GameEntity.addCounter refuses a placement a
-		// Mode$ CantPutCounter static forbids (Player.canReceiveCounters).
-		if amount > 0 && g.cantPutCounter(PlayerEntity(pid), Radiation) {
+		if amount > 0 {
+			// Player.addRadCounters into the effect's counter table, as
+			// poisonEffect's: replacements, then addPlayerCounters, which
+			// brings the Radiation effect card.
+			g.putPlayerCounters(controller, a.Controller, a.Source, pid, Radiation, amount)
 			continue
 		}
+		p := g.Player(pid)
 		p.Counters.Add(Radiation, amount)
 		emitCounterChanged(g, a.Source, PlayerEntity(pid), Radiation, amount)
 		g.syncRadiationEffect(pid)

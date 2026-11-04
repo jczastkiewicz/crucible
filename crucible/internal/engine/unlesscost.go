@@ -1362,10 +1362,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.youCounterN > 0 {
-		if n := g.countersReplaced(controller, pid, PlayerEntity(pid), uc.youCounterType, uc.youCounterN); n > 0 {
-			g.Player(pid).Counters.Add(uc.youCounterType, n)
-			emitCounterChanged(g, a.Source, PlayerEntity(pid), uc.youCounterType, n)
-		}
+		g.putPlayerCounters(controller, pid, a.Source, pid, uc.youCounterType, uc.youCounterN)
 	}
 	g.payExtraParts(controller, a, pid, uc, rec)
 	if uc.addCounterN > 0 {
@@ -1556,6 +1553,10 @@ func addManaColorOf(field string) mana.Colors {
 	return 0
 }
 
+// payZeroEchoKeyword is the player keyword Thick-Skinned Goblin grants; only
+// the Echo$ branch reads it (SacrificeEffect.java:40).
+const payZeroEchoKeyword = "You may pay 0 rather than pay the echo cost for permanents you control."
+
 // upkeepCostPaid is the Echo$ and CumulativeUpkeep$ branches of
 // SacrificeEffect.resolve: pay the cost or lose the permanent. proceed is true
 // when the sacrifice goes ahead -- the cost was not paid and the permanent is
@@ -1567,6 +1568,12 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	cumulative, isCumulative := a.Params.Param("CumulativeUpkeep")
 	if !isEcho && !isCumulative {
 		return true, nil
+	}
+	if isEcho && g.Player(a.Controller).HasKeyword(payZeroEchoKeyword) && controller.ConfirmEffect(g, a.Controller, a.Source) {
+		// SacrificeEffect.java:40-42 (Thick-Skinned Goblin): pay {0} instead,
+		// asked before the echo cost; paid, so PayEcho fires with Paid true.
+		g.checkUpkeepPaidTriggers(controller, source.ID, false, true, "")
+		return false, nil
 	}
 	text, n := echo, 1
 	if isCumulative {

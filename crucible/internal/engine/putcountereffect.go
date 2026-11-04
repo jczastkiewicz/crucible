@@ -392,8 +392,7 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 			if rememberPut {
 				source.Memory.Remember(PlayerEntity(pid))
 			}
-			g.Player(pid).Counters.Add(k.kind, n)
-			emitCounterChanged(g, a.Source, PlayerEntity(pid), k.kind, n)
+			g.addPlayerCounters(controller, placer, a.Source, pid, k.kind, n)
 		}
 	}
 	for i, pk := range placed {

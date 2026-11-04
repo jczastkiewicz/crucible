@@ -12,10 +12,8 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/TapEffect.java's
-// resolve. Not ported: TriggerType.TapAll (2 real corpus T: lines, not
-// worth building -- taptype.go's own identical reasoning for the same
-// trigger, reached from a cost-paid tap rather than a script-driven one
-// there).
+// resolve. Mode$ Taps fires per card as it taps and Mode$ TapAll once for
+// every card the effect tapped (checkTapAllTriggers, triggerhooks.go).
 
 package engine
 

@@ -476,10 +476,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 		g.noteLifeLost(controller, target, lost)
 	}
 	if poison > 0 {
-		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {
-			g.Player(target).Counters.Add(Poison, n)
-			emitCounterChanged(g, source, PlayerEntity(target), Poison, n)
-		}
+		g.putPlayerCounters(controller, g.Card(source).Controller(), source, target, Poison, poison)
 	}
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)
 	if table != nil {

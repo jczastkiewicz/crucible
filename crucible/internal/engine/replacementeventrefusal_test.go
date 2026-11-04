@@ -7,9 +7,8 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
-// TestEffectsRefuseWhileTheirReplacementEventIsLive proves
-// Proliferate and Tap fail while a replacement for their event is in
-// play, instead of ignoring it (GO-7).
+// TestEffectsRefuseWhileTheirReplacementEventIsLive proves Tap fails while a
+// replacement for its event is in play, instead of ignoring it (GO-7).
 func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
 	t.Parallel()
 
@@ -17,7 +16,6 @@ func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
 		event, line string
 		zone        engine.ZoneType
 	}{
-		{"Proliferate", "DB$ Proliferate", engine.Battlefield},
 		{"Tap", "DB$ Tap | Defined$ Self", engine.Battlefield},
 	}
 	for _, tt := range tests {

@@ -48,9 +48,9 @@ import (
 // controller is asked to pay the cost (Cumulative upkeep's, multiplied by the
 // AGE counters it now holds, one more each time) and the permanent is
 // sacrificed when it is not paid, unless its controller has changed since the
-// trigger. Not ported: the PayEcho/PayCumulativeUpkeep triggers each fires (5
-// corpus cards), and the player keyword "You may pay 0 rather than pay the
-// echo cost" (1 card).
+// trigger. Mode$ PayEcho and PayCumulativeUpkeep fire once the player answers
+// (checkUpkeepPaidTriggers), and Thick-Skinned Goblin's player keyword pays
+// an echo cost with {0} (upkeepCostPaid, unlesscost.go).
 //
 // SubAbility$ chains through resolveSubAbility (subability.go,
 // Registry.Resolve, effect.go) once this effect's own body finishes,

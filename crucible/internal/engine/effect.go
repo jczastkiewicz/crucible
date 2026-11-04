@@ -156,7 +156,33 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if g != nil && g.pendingErr != nil {
 		return nil
 	}
-	return r.resolveSubAbility(g, a, controller)
+	if err := r.resolveSubAbility(g, a, controller); err != nil || a.API == APICharm {
+		return err
+	}
+	return resolveSplicedTail(g, a, controller)
+}
+
+// resolveSplicedTail resolves the abilities spliced onto a non-Charm spell
+// (splice.go), after the spell's own chain: they are its tail, as
+// appendSubAbility put them (AbilityUtils.java:3249). A Charm's charmEffect
+// resolves them with its modes.
+func resolveSplicedTail(g *Game, a *Ability, controller PlayerController) error {
+	for _, mode := range a.Modes {
+		if g.pendingErr != nil {
+			return nil
+		}
+		m := mode
+		m.hostTransforms, m.hasHostTransforms = a.hostTransforms, a.hasHostTransforms
+		m.damageMap = a.damageMap
+		m.rootSpell = a.spell || a.rootSpell
+		r := g.registry
+		err := r.resolve(g, &m, controller)
+		g.registry = r
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // resolveEffectBatched runs one effect's body inside a trigger batch

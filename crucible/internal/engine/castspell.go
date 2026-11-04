@@ -1254,8 +1254,20 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 			opts.raiseMana, opts.hasRaiseMana = cost, true
 		}
 	}
+	// Splice (PlaySpellAbility.java:608): after the modes, before the targets.
+	charmModes := len(a.Modes)
+	if !c.IsCopiedSpell && !g.chooseSplices(controller, pid, c, &a, &opts.optional) {
+		return false
+	}
 	if !g.resolveTargets(controller, &a) || !g.resolveChainTargets(controller, &a) {
 		return false
+	}
+	// The spliced abilities are the chain's tail: their targets come last
+	// (setupTargets walks the chain).
+	for i := charmModes; i < len(a.Modes); i++ {
+		if !g.resolveTargets(controller, &a.Modes[i]) || !g.resolveChainTargets(controller, &a.Modes[i]) {
+			return false
+		}
 	}
 	// Targets are chosen: from here the spell is "on the stack" for an
 	// EffectZone$ Stack CantTarget line (targetAsk.casting), and its cost is

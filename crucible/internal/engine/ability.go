@@ -212,6 +212,9 @@ type Ability struct {
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
+	// splicedFrom is, for a mode chooseSplices added, the card spliced onto
+	// the spell (splice.go); NoCard for a Charm mode.
+	splicedFrom CardID
 	// charmRoot is the Charm line a mode belongs to, nil elsewhere:
 	// SpellAbility.getRootAbility for a mode (askOf, staticability.go).
 	charmRoot *compile.Ability

@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game ability control effecthelpers card condition parts zone id destroyeffect
+//enginelint:allow game ability control effecthelpers card condition parts zone id destroyeffect splice
 
 import (
 	"fmt"
@@ -106,6 +106,18 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if hasParam(a, "RememberForCounter") {
 			source.Memory.Remember(t)
 		}
+		if hasParam(a, "RememberSplicedOntoCounteredSpell") {
+			// CounterEffect.java:96-98 (Minamo's Meddling), before the
+			// counterable check: the cards spliced onto the spell, which its
+			// sub-ability discards by name.
+			if sid, ok := g.spellItemOf(id); ok {
+				if item, onStack := g.stackItem(sid); onStack {
+					for _, spliced := range splicedCards(item) {
+						source.Memory.Remember(CardEntity(spliced))
+					}
+				}
+			}
+		}
 		if c.Zone != Stack || c.HasKeyword("This spell can't be countered.") {
 			continue
 		}
@@ -135,6 +147,7 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 				countered = &snapshot
 			}
 		}
+
 		counteredMatches := g.counteredMatches(id, countered, a)
 		g.removeSpellFromStack(id)
 		spellDest, err := counterDestination(g, a, controller, dest)

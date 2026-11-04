@@ -386,3 +386,32 @@ func packLines(cards []*Print) []string {
 	}
 	return out
 }
+
+// An unsupported card request (CardPool.add's placeholder) takes the rarity
+// its named edition lists it under, or, with no edition named, the first
+// edition that lists it; a name no edition lists is Unknown in "???". The
+// placeholder has no rules.
+func TestUnsupportedRequestFindsTheListedRarity(t *testing.T) {
+	t.Parallel()
+
+	e, err := parseEdition(sampleEdition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &Pool{editions: []*Edition{e}, byCode: map[string]*Edition{"tst": e}, alias: map[string]*Edition{}}
+	for _, tc := range []struct {
+		req, edition string
+		rarity       Rarity
+	}{
+		{"Second Card", "TST", Common},
+		{"First Card|TST", "TST", Rare},
+		{"Missing Card|TST", "TST", Unknown},
+		{"Missing Card", unknownCode, Unknown},
+		{"Second Card|NOPE", unknownCode, Unknown},
+	} {
+		pr := p.unsupported(tc.req)
+		if pr.Edition != tc.edition || pr.Rarity != tc.rarity || pr.Rules() != nil {
+			t.Errorf("unsupported(%q) = %s %v, rules %v; want %s %v, none", tc.req, pr.Edition, pr.Rarity, pr.Rules(), tc.edition, tc.rarity)
+		}
+	}
+}

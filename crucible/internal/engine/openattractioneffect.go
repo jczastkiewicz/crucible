@@ -2,6 +2,21 @@ package engine
 
 //enginelint:allow ability card condition control defined effecthelpers game id memory parts player zone zonemove
 
+import "github.com/jczastkiewicz/crucible/internal/carddb/compile"
+
+// SeatAttractionDeck is Player.initVariantsZones' Attractions step
+// (Player.java:3062-3070): the deck's Attractions section goes into pid's
+// Attraction deck, shuffled when it is not empty. Java seats it in every
+// game, not only under a variant.
+func (g *Game) SeatAttractionDeck(pid PlayerID, defs []*compile.Card) {
+	for _, def := range defs {
+		g.NewCard(def, pid, AttractionDeck)
+	}
+	if len(defs) > 0 {
+		g.Shuffle(AttractionDeck, pid)
+	}
+}
+
 // openAttractionEffect is OpenAttractionEffect.java (Unfinity's "open an
 // Attraction"): each named player puts the top Amount$ (default 1) cards of
 // their own Attraction deck onto the battlefield.

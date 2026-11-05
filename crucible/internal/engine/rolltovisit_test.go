@@ -1,6 +1,8 @@
 package engine_test
 
 import (
+	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
@@ -130,5 +132,46 @@ func TestAnAttractionVisitedTwiceInATurnCountsOnce(t *testing.T) {
 	resolveLine(t, g, p, c, count, "X", "PlayerCountPropertyYou$AttractionsVisitedThisTurn")
 	if got := g.Player(p).Life; got != 43 {
 		t.Errorf("life = %d, want 43 (cleanup zeroed the count)", got)
+	}
+}
+
+// Player.initVariantsZones seats the Attractions and Contraptions sections
+// as their decks, each shuffled with the game's generator; an empty section
+// draws nothing from it.
+func TestSeatedAttractionAndContraptionDecksAreShuffled(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		zone engine.ZoneType
+		seat func(*engine.Game, engine.PlayerID, []*compile.Card)
+	}{
+		{engine.AttractionDeck, (*engine.Game).SeatAttractionDeck},
+		{engine.ContraptionDeck, (*engine.Game).SeatContraptionDeck},
+	} {
+		t.Run(tc.zone.String(), func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			var defs []*compile.Card
+			var names []string
+			for i := range 10 {
+				name := "Ride " + strconv.Itoa(i)
+				defs = append(defs, attractionDef(t, name, ""))
+				names = append(names, name)
+			}
+			tc.seat(g, p, defs)
+			var got []string
+			for _, id := range g.Zone(tc.zone, p).Cards() {
+				got = append(got, g.Card(id).Name())
+			}
+			if len(got) != len(names) || slices.Equal(got, names) {
+				t.Errorf("%v = %v, want the ten cards shuffled", tc.zone, got)
+			}
+			sorted := slices.Clone(got)
+			slices.Sort(sorted)
+			if !slices.Equal(sorted, names) {
+				t.Errorf("%v holds %v, want %v", tc.zone, sorted, names)
+			}
+		})
 	}
 }

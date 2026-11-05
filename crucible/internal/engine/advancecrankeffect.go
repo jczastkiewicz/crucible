@@ -78,6 +78,18 @@ func (g *Game) advanceCrankCounter(controller PlayerController, pid PlayerID, so
 	}
 }
 
+// SeatContraptionDeck is Player.initVariantsZones' Contraptions step
+// (Player.java:3081-3089), after the sticker sheets: the deck's Contraptions
+// section goes into pid's Contraption deck, shuffled when it is not empty.
+func (g *Game) SeatContraptionDeck(pid PlayerID, defs []*compile.Card) {
+	for _, def := range defs {
+		g.NewCard(def, pid, ContraptionDeck)
+	}
+	if len(defs) > 0 {
+		g.Shuffle(ContraptionDeck, pid)
+	}
+}
+
 // controlsContraption is Java's getCardsIn(Battlefield).anyMatch(
 // Card::isContraption) for pid (PhaseHandler.java:263).
 func (g *Game) controlsContraption(pid PlayerID) bool {

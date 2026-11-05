@@ -471,3 +471,35 @@ func TestRecorderKeepsHandTenures(t *testing.T) {
 		t.Error("no tenure rows stored")
 	}
 }
+
+// The Attractions and Contraptions sections become the deck's Attraction and
+// Contraption decks, seated in every game; a batch checks their names.
+func TestDeckAttractionAndContraptionDecksAreReadAndChecked(t *testing.T) {
+	t.Parallel()
+	d := deck.Parse("t.dck", []byte("[Main]\n1 Island\n[Attractions]\n2 Ride\n[Contraptions]\n1 Gadget\n"))
+	got := sim.DeckFromList("T", d)
+	if want := []string{"Ride", "Ride"}; !slices.Equal(got.Attractions, want) {
+		t.Errorf("attractions %v, want %v", got.Attractions, want)
+	}
+	if want := []string{"Gadget"}; !slices.Equal(got.Contraptions, want) {
+		t.Errorf("contraptions %v, want %v", got.Contraptions, want)
+	}
+
+	s := spec(t)
+	s.DB = blankDB(t, "Blank", "Ride", "Gadget")
+	s.Decks[0].Attractions = []string{"Ride", "Ride"}
+	s.Decks[0].Contraptions = []string{"Gadget"}
+	if _, err := sim.RunBatch(context.Background(), s, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []func(*sim.Deck){
+		func(d *sim.Deck) { d.Attractions = []string{"No Such Ride"} },
+		func(d *sim.Deck) { d.Contraptions = []string{"No Such Ride"} },
+	} {
+		s := spec(t)
+		bad(&s.Decks[0])
+		if _, err := sim.RunBatch(context.Background(), s, 1, 1); err == nil || !strings.Contains(err.Error(), "No Such Ride") {
+			t.Errorf("unknown card: err = %v, want it named", err)
+		}
+	}
+}

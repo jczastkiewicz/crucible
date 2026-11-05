@@ -53,8 +53,9 @@ func (o Outcome) String() string { return outcomeNames[o] }
 
 // Deck is one side's main deck, one entry per card (copies repeated), its
 // sticker sheets (the Stickers section, CR 123.2a), its commanders (the
-// Commander section), its Vanguard avatars (Avatar) and its planar deck
-// (Planes), seated at the start of each game. A variant section is seated
+// Commander section), its Vanguard avatars (Avatar), its planar deck
+// (Planes) and its Attraction and Contraption decks, seated at the start of
+// each game. A variant section is seated
 // only under its variant (Plan.Variant): Java builds the game from the main
 // deck and reads each section only for its variant (Match.java:344,
 // RegisteredPlayer.java:135-181, ADR-0055, ADR-0056).
@@ -65,16 +66,23 @@ type Deck struct {
 	Commanders []string
 	Avatars    []string
 	Planes     []string
+	// Attractions and Contraptions are the Attraction and Contraption
+	// decks, seated in every game (RegisteredPlayer.java:229-241).
+	Attractions  []string
+	Contraptions []string
 }
 
-// DeckFromList flattens a parsed decklist's main, Stickers and Commander
-// sections.
+// DeckFromList flattens a parsed decklist's main, Stickers, Commander,
+// Avatar, Planes, Attractions and Contraptions sections.
 func DeckFromList(name string, d *deck.Deck) Deck {
 	out := Deck{Name: name}
 	for _, sec := range []struct {
 		section deck.Section
 		into    *[]string
-	}{{deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes}} {
+	}{
+		{deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes},
+		{deck.Attractions, &out.Attractions}, {deck.Contraptions, &out.Contraptions},
+	} {
 		for _, e := range d.Cards(sec.section) {
 			for i := 0; i < e.Count; i++ {
 				*sec.into = append(*sec.into, e.Name)
@@ -92,6 +100,16 @@ func DeckFromList(name string, d *deck.Deck) Deck {
 		}
 	}
 	return out
+}
+
+// defsOf looks up each name, already checked against db by RunBatch.
+func defsOf(db *compile.DB, names []string) []*compile.Card {
+	defs := make([]*compile.Card, 0, len(names))
+	for _, name := range names {
+		def, _ := db.Card(name)
+		defs = append(defs, def)
+	}
+	return defs
 }
 
 // Job is one game of a plan: the decks in seat order and who goes first.
@@ -234,7 +252,7 @@ func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
 				continue
 			}
 			checked[d.Name] = true
-			for _, name := range slices.Concat(d.Cards, d.Stickers, d.Commanders, d.Avatars, d.Planes) {
+			for _, name := range slices.Concat(d.Cards, d.Stickers, d.Commanders, d.Avatars, d.Planes, d.Attractions, d.Contraptions) {
 				if _, ok := plan.DB.Card(name); !ok {
 					return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
 				}
@@ -452,16 +470,14 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 				g.SeatCommander(pid, def)
 			}
 		}
-		// Player.initVariantsZones (Player.java:3072-3079): three of the
-		// deck's sheets, at random, into the StickerSheets zone.
+		// Player.initVariantsZones (Player.java:3062-3089): the Attraction
+		// deck, three of the deck's sheets at random into the StickerSheets
+		// zone, then the Contraption deck, each deck shuffled.
+		g.SeatAttractionDeck(pid, defsOf(plan.DB, d.Attractions))
 		if len(d.Stickers) > 0 {
-			sheets := make([]*compile.Card, 0, len(d.Stickers))
-			for _, name := range d.Stickers {
-				def, _ := plan.DB.Card(name)
-				sheets = append(sheets, def)
-			}
-			g.SeatStickerSheets(pid, sheets)
+			g.SeatStickerSheets(pid, defsOf(plan.DB, d.Stickers))
 		}
+		g.SeatContraptionDeck(pid, defsOf(plan.DB, d.Contraptions))
 	}
 	var rec *telemetry.Recorder
 	if plan.Store != nil {

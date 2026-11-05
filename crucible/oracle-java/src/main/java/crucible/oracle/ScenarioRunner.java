@@ -271,6 +271,9 @@ public final class ScenarioRunner {
         } catch (ScenarioController.Checkpoint reached) {
             // the controller stopped the loop at the checkpoint
         }
+        // A card choice is popped only when it fits a question (S16); one
+        // left over means Java never asked what Go did.
+        answers.checkCardChoicesUsed();
 
         GameState post = new GameState();
         post.initFromGame(game);

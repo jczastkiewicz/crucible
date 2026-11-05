@@ -212,6 +212,7 @@ type loader struct {
 	enchantsPlayer []playerAttachRef
 	remembers      []refList
 	imprints       []refList
+	chosen         []refList
 	// exiledWith pairs a card with the fixture id of the host it was
 	// exiled with (ExiledWith:), resolved with the rest.
 	exiledWith []attachRef
@@ -289,7 +290,7 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 	c := ld.game.Card(id)
 	c.IsToken = isToken
 
-	var remembered, imprinted []int
+	var remembered, imprinted, chosen []int
 	for _, info := range fields[1:] {
 		switch {
 		// Set: and Art: pick a printing. Crucible plays cards, not printings
@@ -432,6 +433,14 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			for _, n := range strings.Split(strings.TrimPrefix(info, "NamedCard:"), ",") {
 				c.Memory.AddNamedCard(n)
 			}
+		case strings.HasPrefix(info, "ChosenCards:"):
+			// GameState.java:1408-1414, set after every card is placed
+			// (:1081-1083).
+			ids, err := parseIDList(strings.TrimPrefix(info, "ChosenCards:"))
+			if err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+			chosen = ids
 		case strings.HasPrefix(info, "Imprinting:"):
 			ids, err := parseIDList(strings.TrimPrefix(info, "Imprinting:"))
 			if err != nil {
@@ -444,6 +453,9 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 	}
 	if remembered != nil {
 		ld.remembers = append(ld.remembers, refList{id, remembered})
+	}
+	if chosen != nil {
+		ld.chosen = append(ld.chosen, refList{id, chosen})
 	}
 	if imprinted != nil {
 		ld.imprints = append(ld.imprints, refList{id, imprinted})
@@ -523,6 +535,15 @@ func (ld *loader) resolveRefs() error {
 				return fmt.Errorf("imprinting %d: no card has that id", refID)
 			}
 			ld.game.Card(r.card).Memory.Imprint(target)
+		}
+	}
+	for _, r := range ld.chosen {
+		for _, refID := range r.ids {
+			target, ok := ld.idToCard[refID]
+			if !ok {
+				return fmt.Errorf("chosencards %d: no card has that id", refID)
+			}
+			ld.game.Card(r.card).Memory.Choose(target)
 		}
 	}
 	for _, e := range ld.exiledWith {

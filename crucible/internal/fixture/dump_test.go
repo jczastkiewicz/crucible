@@ -316,6 +316,37 @@ func TestDumpZoneGating(t *testing.T) {
 	}
 }
 
+// ChosenCards: (Zenos yae Galvus's chosen creature) names the chosen card by
+// id and loads back into the same card's chosen list.
+func TestChosenCardsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears", "Llanowar Elves")
+	l := load(t, db, "humanbattlefield=Grizzly Bears|Id:1|ChosenCards:2;Llanowar Elves|Id:2\n")
+	bf := l.Game.Zone(engine.Battlefield, l.Game.Players()[0]).Cards()
+	if got := l.Game.Card(bf[0]).Memory.Chosen(); len(got) != 1 || got[0] != bf[1] {
+		t.Fatalf("Grizzly Bears chose %v after load, want [%v] (Llanowar Elves)", got, bf[1])
+	}
+
+	st := fixture.Dump(l)
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	st2, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	l2, err := fixture.Load(st2, db, javarand.New(1))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	bf2 := l2.Game.Zone(engine.Battlefield, l2.Game.Players()[0]).Cards()
+	if got := l2.Game.Card(bf2[0]).Memory.Chosen(); len(got) != 1 || got[0] != bf2[1] {
+		t.Errorf("Grizzly Bears chose %v after the round trip, want [%v]; dumped %q", got, bf2[1], buf.String())
+	}
+}
+
 // Imprinting round-trips the same way RememberedCards does, and a
 // remembered player -- not just a card -- must not show up in
 // RememberedCards:, which is a comma id list of cards only.

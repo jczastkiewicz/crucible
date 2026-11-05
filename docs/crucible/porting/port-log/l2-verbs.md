@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `cardchoice`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
 
 ## What it does
 
@@ -39,6 +39,7 @@ How the runner turns a fixture into a Java game. Each is a place the Go harness 
 | S13 | `tapformana`, `castspell` and `playland` are plays, each with the turn and phase Go ran it in. The seat makes the next play at its first priority in that turn and phase: it plays the card's first spell or land ability through `PlaySpellAbility.playSpellAbility`, a refusal an error. A `tapformana` is made at whichever seat's priority comes first, by the source's controller, for the named color (choosing that color for any-color mana). A play after a `resolvestack` or `passpriority` waits for an empty stack | Go's harness acts outside the priority loop; Java acts only when it is asked, at a priority. The stack between two casts is what `resolvestack` drained in Go |
 | S14 | A `resolvestack` in Untap or Cleanup makes the scenario not runnable | Go's harness resolves there; Java gives no priority there (CR 502.4, 514.3), so its triggers wait for the next step |
 | S15 | A `queue action <player> ...` line is due at the priority round that takes it in Go: the next `passpriority`'s turn and phase, or the step a `step` line enters. The player takes it at their first priority at or after that point, once every earlier play is made; an action of a later round than the one before, or after a `resolvestack` or `passpriority`, waits for an empty stack. `pass` passes, `cast` and `playland` play as S13, `tapformana` taps, `activate N` and `manaability N` activate the card's Nth ability: its `A:` lines, then those its keywords and granting effects add, in `CardState.getSpellAbilities` order after the basic spell or land ability, as Go's `abilityAt` counts them. A door, `unlockdoor`, `foretell`, `plot`, `suspend` and `turnfaceup` are unmapped. A checkpoint in a step without priority does not wait for queued actions | Go's `ScriptedController` keeps one action queue per player, asked at each priority (`TakeAction`); a step without priority asks no one, so what it does not take stays queued |
+| S16 | A `queue cardchoice` answer is popped by whichever of `chooseCardsForEffect`, `chooseSingleEntityForEffect`, `chooseEntitiesForEffect`, `chooseSingleCardForZoneChange`, `chooseCardsToDiscardFrom`, `chooseCardsToRevealFromHand`, `chooseCardsToDiscardUnlessType`, `chooseCardsToDelve` and `chooseCardsForCost` is asked first while it fits: every id one of the options, the count within the question's minimum (0 when optional) and maximum. A question it does not fit gets the upstream default answer. An answer left queued at the checkpoint is a Java error | Go asks one `ChooseCardsForEffect` where Java splits the question by purpose; the fit test keeps an answer for the question Go asked, and the leftover check catches a Java run that never asked it |
 
 ## Verbs
 
@@ -48,7 +49,7 @@ An `actions.log` line is mapped to a Java answer, a checkpoint, or nothing. A sc
 | --- | --- | --- | --- |
 | `startturn <player>` | 823 | `devModeSet(null, p, false, 0)`, then `PhaseHandler.setupFirstTurn(p, null)`: Java's first turn counts up from 0, as Go's `Game.StartTurn` always begins turn 1 at Untap | mapped |
 | `advance [n]` | 767 | A checkpoint: Java's own loop walks to Go's final step (S8) | mapped |
-| `queue <kind> ...` | 753 | `attackers`, `blocks`, `attacktarget`, `targets`: `ScenarioAnswers`, popped by `ScenarioController` (S3); `targets stack:N` is unmapped. `paygeneric`: nothing, the pool pays in Java's own order. `cardorder`: `orderMoveToZoneList` pops it and checks it names each card once, as Go's `checkChoice`; the state-based check `GameState.applyToGame` runs during setup keeps the given order. `action`: S15 | mapped for those seven kinds |
+| `queue <kind> ...` | 753 | `attackers`, `blocks`, `attacktarget`, `targets`: `ScenarioAnswers`, popped by `ScenarioController` (S3); `targets stack:N` is unmapped. `paygeneric`: nothing, the pool pays in Java's own order. `cardorder`: `orderMoveToZoneList` pops it and checks it names each card once, as Go's `checkChoice`; the state-based check `GameState.applyToGame` runs during setup keeps the given order. `cardchoice`: S16. `action`: S15 | mapped for those eight kinds |
 | `declareattackers`, `declareblockers`, `firststrikedamage`, `combatdamage` | 375, 359, 28, 353 | Checkpoints Java reaches in its own loop, asking the controllers for the queued declarations | mapped |
 | `tapformana` | 343 | A play (S13): `AbilityManaPart.canProduce`, `setExpressChoice` for any-color mana, `playSpellAbilityNoStack` | mapped |
 | `paymanacost` | 28 | — | unmapped |
@@ -82,7 +83,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 609 same, 4 differs, 0 random, 257 not runnable (256 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
+The current run: 629 same, 4 differs, 0 random, 237 not runnable (236 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
@@ -93,6 +94,6 @@ The current run: 609 same, 4 differs, 0 random, 257 not runnable (256 with an un
 ## Not ported yet
 
 - `ScenarioController`'s answers for the other queue kinds (ADR-0060), Go's defaults and panics, and dividing combat damage among several blockers (`queue damage`)
-- The other verbs and queue kinds. By the first unmapped line per scenario: `queue cardchoice` 24, `queue confirmpaycost` 22, `queue confirmeffect` 15, `queue optionaltrigger` 13, `queue paymanacost` 12, `expecterror` 12
+- The other verbs and queue kinds. By the first unmapped line per scenario: `queue confirmpaycost` 22, `queue confirmeffect` 18, `queue optionaltrigger` 13, `queue paymanacost` 12, `expecterror` 12
 - A seat's own order of its simultaneous triggers: they go on the stack in upstream's list order, Go's in its default order (`queue triggerorder`, which no scenario queues)
 - A created id (ADR-0059, open plan R21a-c)

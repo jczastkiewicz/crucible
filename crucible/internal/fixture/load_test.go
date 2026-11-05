@@ -486,6 +486,7 @@ func TestLoadMalformedCardAnnotationsFail(t *testing.T) {
 		"Grizzly Bears|Owner:nobody",
 		"Grizzly Bears|RememberedCards:x",
 		"Grizzly Bears|Imprinting:x",
+		"Grizzly Bears|ChosenCards:x",
 	}
 	for _, entry := range cases {
 		t.Run(entry, func(t *testing.T) {
@@ -523,6 +524,19 @@ func TestLoadImprintingMissingIDErrors(t *testing.T) {
 	}
 	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
 		t.Error("Imprinting naming a nonexistent id loaded without error")
+	}
+}
+
+func TestLoadChosenCardsMissingIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears")
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=Grizzly Bears|ChosenCards:99\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("ChosenCards naming a nonexistent id loaded without error")
 	}
 }
 

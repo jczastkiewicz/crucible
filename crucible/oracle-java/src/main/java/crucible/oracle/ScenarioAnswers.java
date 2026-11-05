@@ -25,7 +25,7 @@ import forge.game.player.Player;
 final class ScenarioAnswers {
     /** The queue kinds mapped so far; a scenario queueing any other is unmapped. */
     static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
-            "cardorder");
+            "cardorder", "cardchoice");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -44,6 +44,7 @@ final class ScenarioAnswers {
     private final Deque<String> attackTargets = new ArrayDeque<>();
     private final Deque<List<String>> targets = new ArrayDeque<>();
     private final Deque<List<Integer>> cardOrders = new ArrayDeque<>();
+    private final Deque<List<Integer>> cardChoices = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -79,6 +80,7 @@ final class ScenarioAnswers {
             case "paygeneric" -> {
             }
             case "cardorder" -> cardOrders.add(ids(value));
+            case "cardchoice" -> cardChoices.add(value.strip().equals("none") ? List.of() : ids(value));
             default -> throw new IllegalStateException("queue kind " + kind);
         }
     }
@@ -219,6 +221,43 @@ final class ScenarioAnswers {
             throw new IllegalStateException("card order " + order + " for " + cards);
         }
         return out;
+    }
+
+    /**
+     * The next card choice answer (Go's ChooseCardsForEffect) as cards of
+     * options, popped only when it fits: each id one of options, between min
+     * and max of them. Null when none is queued or the next one is for a
+     * later question; the caller then answers the upstream default.
+     */
+    List<Card> nextCardChoice(Iterable<? extends GameEntity> options, int min, int max) {
+        List<Integer> next = cardChoices.peek();
+        if (next == null || next.size() < min || next.size() > max) {
+            return null;
+        }
+        List<Card> out = new ArrayList<>();
+        for (int id : next) {
+            int javaId = card(id).getId();
+            Card match = null;
+            for (GameEntity e : options) {
+                if (e instanceof Card c && c.getId() == javaId && !out.contains(c)) {
+                    match = c;
+                    break;
+                }
+            }
+            if (match == null) {
+                return null;
+            }
+            out.add(match);
+        }
+        cardChoices.poll();
+        return out;
+    }
+
+    /** Throws when a queued card choice was never popped. */
+    void checkCardChoicesUsed() {
+        if (!cardChoices.isEmpty()) {
+            throw new IllegalStateException("card choices never asked for: " + cardChoices);
+        }
     }
 
     /** True once bind ran: the setup is applied. */

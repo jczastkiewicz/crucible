@@ -12,12 +12,15 @@ import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.GameObject;
 import forge.game.card.Card;
+import forge.game.card.CardCollection;
 import forge.game.card.CardCollectionView;
+import forge.game.player.DelayedReveal;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.keyword.Keyword;
 import forge.card.mana.ManaCost;
 import forge.game.cost.CostPartMana;
+import forge.game.cost.CostPartWithList;
 import forge.game.mana.ManaConversionMatrix;
 import forge.game.mana.ManaCostBeingPaid;
 import forge.game.player.PlaySpellAbility;
@@ -29,6 +32,7 @@ import forge.game.spellability.TargetRestrictions;
 import forge.game.trigger.WrappedAbility;
 import forge.game.zone.ZoneType;
 import forge.util.ITriggerEvent;
+import forge.util.collect.FCollectionView;
 import forge.gamesimulationtests.util.PlayerControllerForTests;
 
 /**
@@ -327,6 +331,90 @@ final class ScenarioController extends PlayerControllerForTests {
             return "";
         }
         throw new IllegalStateException("naming a card for " + sa + " needs queue cardname");
+    }
+
+    // A card choice for an effect pops queue cardchoice when the answer fits
+    // the question; Go asks ChooseCardsForEffect where Java asks any of
+    // these four. Otherwise the upstream default answers.
+    @Override
+    public CardCollectionView chooseCardsForEffect(CardCollectionView sourceList, SpellAbility sa, String title,
+            int min, int max, boolean isOptional, Map<String, Object> params) {
+        List<Card> chosen = answers.bound() ? answers.nextCardChoice(sourceList, isOptional ? 0 : min, max) : null;
+        return chosen != null ? new CardCollection(chosen)
+                : super.chooseCardsForEffect(sourceList, sa, title, min, max, isOptional, params);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends GameEntity> T chooseSingleEntityForEffect(FCollectionView<T> optionList,
+            DelayedReveal delayedReveal, SpellAbility sa, String title, boolean isOptional, Player targetedPlayer,
+            Map<String, Object> params) {
+        List<Card> chosen = answers.bound() ? answers.nextCardChoice(optionList, isOptional ? 0 : 1, 1) : null;
+        if (chosen == null) {
+            return super.chooseSingleEntityForEffect(optionList, delayedReveal, sa, title, isOptional, targetedPlayer,
+                    params);
+        }
+        return chosen.isEmpty() ? null : (T) chosen.get(0);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends GameEntity> List<T> chooseEntitiesForEffect(FCollectionView<T> optionList, int min, int max,
+            DelayedReveal delayedReveal, SpellAbility sa, String title, Player relatedPlayer,
+            Map<String, Object> params) {
+        List<Card> chosen = answers.bound() ? answers.nextCardChoice(optionList, min, max) : null;
+        return chosen != null ? (List<T>) chosen
+                : super.chooseEntitiesForEffect(optionList, min, max, delayedReveal, sa, title, relatedPlayer, params);
+    }
+
+    @Override
+    public Card chooseSingleCardForZoneChange(ZoneType destination, List<ZoneType> origin, SpellAbility sa,
+            CardCollection fetchList, DelayedReveal delayedReveal, String selectPrompt, boolean isOptional,
+            Player decider) {
+        List<Card> chosen = answers.bound() ? answers.nextCardChoice(fetchList, isOptional ? 0 : 1, 1) : null;
+        if (chosen == null) {
+            return super.chooseSingleCardForZoneChange(destination, origin, sa, fetchList, delayedReveal,
+                    selectPrompt, isOptional, decider);
+        }
+        return chosen.isEmpty() ? null : chosen.get(0);
+    }
+
+    // Go's discard, reveal, delve and cost picks are ChooseCardsForEffect
+    // too (discardeffect.go, costassist.go, chosencosts.go).
+    @Override
+    public CardCollection chooseCardsToDiscardFrom(Player playerDiscard, SpellAbility sa, CardCollection validCards,
+            int min, int max, CardCollectionView visibleToChooser) {
+        List<Card> chosen = answers.nextCardChoice(validCards, min, max);
+        return chosen != null ? new CardCollection(chosen)
+                : super.chooseCardsToDiscardFrom(playerDiscard, sa, validCards, min, max, visibleToChooser);
+    }
+
+    @Override
+    public CardCollectionView chooseCardsToRevealFromHand(int min, int max, CardCollectionView valid) {
+        List<Card> chosen = answers.nextCardChoice(valid, min, max);
+        return chosen != null ? new CardCollection(chosen) : super.chooseCardsToRevealFromHand(min, max, valid);
+    }
+
+    @Override
+    public CardCollectionView chooseCardsToDiscardUnlessType(int min, CardCollectionView hand, String[] unlessTypes,
+            SpellAbility sa) {
+        List<Card> chosen = answers.nextCardChoice(hand, 1, min);
+        return chosen != null ? new CardCollection(chosen)
+                : super.chooseCardsToDiscardUnlessType(min, hand, unlessTypes, sa);
+    }
+
+    @Override
+    public CardCollectionView chooseCardsToDelve(int genericAmount, CardCollection grave) {
+        List<Card> chosen = answers.nextCardChoice(grave, 0, Math.min(genericAmount, grave.size()));
+        return chosen != null ? new CardCollection(chosen) : super.chooseCardsToDelve(genericAmount, grave);
+    }
+
+    @Override
+    public CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa,
+            CostPartWithList cpl, int amount, boolean isOptional, String prompt) {
+        List<Card> chosen = answers.nextCardChoice(optionList, isOptional ? 0 : amount, amount);
+        return chosen != null ? new CardCollection(chosen)
+                : super.chooseCardsForCost(optionList, sa, cpl, amount, isOptional, prompt);
     }
 
     // Cards moving into one zone together go in the queued order (CR

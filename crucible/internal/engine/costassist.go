@@ -145,7 +145,7 @@ func convokePay(g *Game, picks, candidates []CardID, generic int, shards []mana.
 // settle taps and exiles what the paid cost used. A delved card leaves its
 // graveyard: its graveyard-origin triggers wait for the spell's SpellCast
 // batch (noteGraveyardExit): settle runs only inside castSpellChosen, which
-// holds them.
+// holds them. It is exiled with the spell (CostAdjustment.java:273-276).
 func (a costAssist) settle(g *Game, controller PlayerController) {
 	tapChosenPermanents(g, controller, a.tap)
 	if a.delveHost != NoCard {
@@ -155,6 +155,7 @@ func (a costAssist) settle(g *Game, controller PlayerController) {
 		c := g.Card(id)
 		from := c.Zone
 		g.Move(id, Exile, c.Owner)
+		g.markExiledWith(id, a.delveHost)
 		g.noteGraveyardExit(id, from)
 	}
 }

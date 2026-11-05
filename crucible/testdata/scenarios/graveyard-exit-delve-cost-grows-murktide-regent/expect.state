@@ -4,6 +4,6 @@ activephase=Main1
 humanlife=20
 humanhand=Forest;Forest;Forest
 humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Murktide Regent|Counters:P1P1=2
-humangraveyard=Treasure Cruise
-humanexile=Opt;Opt
+humangraveyard=Treasure Cruise|Id:1
+humanexile=Opt|ExiledWith:1;Opt|ExiledWith:1
 ailife=20

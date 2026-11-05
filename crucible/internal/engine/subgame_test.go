@@ -305,17 +305,14 @@ func TestSubgameRejectsUnresolvableShapes(t *testing.T) {
 	}
 }
 
-// A scheme or planar deck needs the game-start actions Archenemy and
-// Planechase add (archenemy first, a plane face up), which this port's game
-// start does not have.
-func TestSubgameRejectsSchemeAndPlanarDecks(t *testing.T) {
+// A scheme deck needs Archenemy's game start (the archenemy first), which
+// this port does not have.
+func TestSubgameRejectsSchemeDecks(t *testing.T) {
 	t.Parallel()
 
-	for _, kind := range []engine.ZoneType{engine.SchemeDeck, engine.PlanarDeck} {
-		g, p, other := newTwoPlayerGame(t)
-		g.NewCard(flowCardDef(t, "Deck Card", "Artifact", ""), other, kind)
-		wantSubgameError(t, subgameCast(t, g, p, engine.NewScriptedController(), "DB$ Subgame"), kind.String()+" not resolvable yet")
-	}
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(flowCardDef(t, "Deck Card", "Artifact", ""), other, engine.SchemeDeck)
+	wantSubgameError(t, subgameCast(t, g, p, engine.NewScriptedController(), "DB$ Subgame"), "SchemeDeck not resolvable yet")
 }
 
 // A Companion among a player's outside-the-game cards would be offered as

@@ -276,3 +276,43 @@ func TestTwoCommandersInOneGraveyardBothReturn(t *testing.T) {
 		}
 	}
 }
+
+// planeObserver records whether the subgame had a face-up plane and Planar
+// Dice by the time a player first took an action in it.
+type planeObserver struct {
+	*engine.ScriptedController
+	main          *engine.Game
+	plane, looked bool
+}
+
+func (o *planeObserver) TakeAction(g *engine.Game, pid engine.PlayerID) engine.Action {
+	if g != o.main && !o.looked {
+		o.looked, o.plane = true, g.ActivePlane() != engine.NoCard
+	}
+	return o.ScriptedController.TakeAction(g, pid)
+}
+
+// A Subgame of a Planechase game copies the planar decks and, under the
+// shared rules, turns its first plane up after the mulligans
+// (SubgameEffect.java:115, GameAction.java:2377-2381).
+func TestSubgameOfAPlanechaseGameTurnsAPlaneUp(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetupVariant(engine.VariantPlanechase)
+	planarDeck(g, p, plainPlane(t, "Here"), plainPlane(t, "There"))
+	subgameLands(t, g, p, 2)
+	subgameLands(t, g, other, 2)
+	obs := &planeObserver{ScriptedController: subgameController(p), main: g}
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	host := g.NewCard(etbChainDef(t, "Test Shape", "DB$ Subgame | RememberPlayers$ Win"), p, engine.Hand)
+	if !g.CastSpell(p, host, obs) {
+		t.Fatal("cast failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), obs); err != nil {
+		t.Fatal(err)
+	}
+	if !obs.looked || !obs.plane {
+		t.Errorf("subgame acted %v, plane face up %v; want both", obs.looked, obs.plane)
+	}
+}

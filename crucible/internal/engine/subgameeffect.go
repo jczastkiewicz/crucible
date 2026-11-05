@@ -61,10 +61,11 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 //   - RememberPlayers$ naming anything but Win/NotWin: Java ignores it
 //     silently (SubgameEffect.java:174-181), which is a script bug to name,
 //     not a shape to reproduce.
-//   - A main-game player with a SchemeDeck or PlanarDeck: GameAction.startGame
-//     puts the archenemy first (determineFirstTurnPlayer, :2393-2400) and
-//     turns a plane face up (initPlane, :2358-2363) for those variants, and
-//     this port's game start has neither.
+//   - A main-game player with a SchemeDeck: GameAction.startGame puts the
+//     archenemy first (determineFirstTurnPlayer, :2393-2400), and this port's
+//     game start has no Archenemy setup. A PlanarDeck plays: the subgame,
+//     under the main game's variants, turns its first plane up after the
+//     mulligans (startSubgame, InitPlanechase).
 //
 // Rejected while the subgame is built, before it plays: a card with
 // Companion among a player's outside-the-game cards. Player.assignCompanion
@@ -121,10 +122,8 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 		}
 	}
 	for _, pid := range seats {
-		for _, kind := range [...]ZoneType{SchemeDeck, PlanarDeck} {
-			if z := existingZone(g, kind, pid); z != nil && z.Len() > 0 {
-				return fmt.Errorf("engine: Subgame: %v not resolvable yet (no game-start variant setup)", kind)
-			}
+		if z := existingZone(g, SchemeDeck, pid); z != nil && z.Len() > 0 {
+			return fmt.Errorf("engine: Subgame: %v not resolvable yet (no game-start variant setup)", SchemeDeck)
 		}
 	}
 
@@ -339,6 +338,12 @@ func startSubgame(sub *Game, reg *Registry, c PlayerController) error {
 	// nothing in this port concedes, and an ended game's turn driver
 	// returns at once anyway.
 	PerformMulligans(sub, c, first)
+	// GameAction.java:2377-2381, under the shared rules.
+	if sub.HasVariant(VariantPlanechase) {
+		if err := sub.InitPlanechase(first); err != nil {
+			return err
+		}
+	}
 	first, err := RunOpeningHandActions(sub, reg, c, first)
 	if err != nil {
 		return err

@@ -121,3 +121,53 @@ func TestActivePlaneFollowsTheTurnUnderThePlanechaseVariant(t *testing.T) {
 		}
 	}
 }
+
+// Rolling through the opponent's Planar Dice card (Activator$ Player) is the
+// activator's roll: the planeswalker face walks the activator's planar deck.
+func TestPlanarDieRolledThroughTheOpponentsCardIsTheActivators(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := planarDieGame(t, dieWalk)
+	mine := planarDeck(g, p, plainPlane(t, "Here"), plainPlane(t, "There"))
+	planarDeck(g, other, plainPlane(t, "Theirs"), plainPlane(t, "Theirs Too"))
+	if err := g.InitPlanechase(p); err != nil {
+		t.Fatal(err)
+	}
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, planarDiceCard(t, g, other), 0, c) {
+		t.Fatal("p could not roll through the opponent's card")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if g.ActivePlane() != mine[1] {
+		t.Errorf("active plane %v (%s), want p's There", g.ActivePlane(), g.Card(g.ActivePlane()).Def.Name)
+	}
+}
+
+// A clone keeps the variants and the planar die count (Game.Clone lists its
+// fields one by one).
+func TestCloneKeepsVariantsAndPlanarDieCount(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := planarDieGame(t, dieBlank)
+	g.SetupVariant(engine.VariantCommander | engine.VariantPlanechase)
+	planarDeck(g, p, plainPlane(t, "Here"), plainPlane(t, "There"))
+	planarDeck(g, other, plainPlane(t, "Theirs"))
+	if err := g.InitPlanechase(p); err != nil {
+		t.Fatal(err)
+	}
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, planarDiceCard(t, g, p), 0, c) {
+		t.Fatal("roll failed")
+	}
+	cl := g.Clone()
+	if !cl.HasVariant(engine.VariantCommander) || !cl.HasVariant(engine.VariantPlanechase) {
+		t.Error("the clone lost a variant")
+	}
+	unpaid := engine.NewScriptedController()
+	unpaid.QueuePayGeneric(mana.ShardG)
+	if cl.ActivateAbility(p, planarDiceCard(t, cl, p), 0, unpaid) {
+		t.Error("the clone's second roll cost nothing: the count was not copied")
+	}
+}

@@ -34,7 +34,10 @@ actually means. It does not mean the normal turn loop continues on reset state. 
    triggers, then `startFirstTurn(activator)`.
 
 So Java's real order is: reset, then `ReturnFromExile` resolves against the reset state (the stack round finishes), then
-the driver exits, then a fresh opening-hand/mulligan/first-turn sequence runs before play resumes. This port's
+the driver exits, then a fresh opening-hand/mulligan/first-turn sequence runs before play resumes. CR 727.4 orders it
+the other way: the restarting effect finishes, and its further instructions are followed, just before the first turn's
+untap step, after opening hands and mulligans. In Java the returned permanents are on the battlefield while players
+mulligan; this port reproduces Java's order (a `quirks.md` and a `forge-java-defects.md` row). This port's
 `Game.Step`/`Game.Run` (ADR-0026) assume the phase/turn state they read is the state their own prior call left it in;
 mulligans and opening hands are explicitly out of scope for the driver, run by the caller before `StartTurn` (ADR-0026,
 "Explicitly out of scope"). `RestartGame` needs the caller to run that same setup again, mid-game — a second, larger
@@ -116,10 +119,10 @@ after the reset has shuffled Karn into its library mid-resolution.
 
 **What resets, scoped to the real corpus line:** every player's zones (except the
 `RestrictFromZone$ Exile | RestrictFromValid$ Card.!ExiledWithSource,Spell,Card.Aura` carve-out) shuffle into a fresh
-library; the stack resets; delayed-command state clears (this port's `delayedTrigger` list today, and `scheduledAction`
-too if ADR-0030 has landed by the time this is implemented — check `git log` for `ADR-0030`'s implementing commit rather
-than assuming either way); monarch/initiative/daytime clear; trigger suppression during the reset itself reuses whatever
-this port's `Shuffle`/`MoveAll`-family effects already use for a bulk move that must not fire per-card triggers.
+library; the stack resets; delayed triggers and `scheduledAction` entries clear; monarch/initiative/daytime clear; each
+player's life returns to their starting life and their counters and per-turn and per-game tallies clear (a new game, CR
+727.1); the activator starts it (CR 727.1a); trigger suppression during the reset itself reuses whatever this port's
+`Shuffle`/`MoveAll`-family effects already use for a bulk move that must not fire per-card triggers.
 
 ## Consequences
 

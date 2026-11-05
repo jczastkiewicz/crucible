@@ -85,6 +85,41 @@ func TestBecomesBlockedBlocksTheWholeBand(t *testing.T) {
 	}
 }
 
+// AttackerBlocked runs for the targeted member only, as Java's
+// BecomesBlockedEffect runs it for each target (BecomesBlockedEffect.java:37-47,
+// quirks.md): CR 509.3c would run it for the whole band.
+func TestBecomesBlockedOnABandTriggersForTheTargetOnly(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, a, engine.Main1)
+	hero := g.NewCard(corpusCard(t, "Benalish Hero"), a, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), a, engine.Battlefield)
+	g.NewCard(triggerWatcherDef(t, "Test Blocked Watcher",
+		"Mode$ AttackerBlocked | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigPut",
+		"TrigPut", "DB$ PutCounter | Defined$ TriggeredAttacker | CounterType$ P1P1 | CounterNum$ 1"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{hero, bears})
+	ac.QueueBands([][]engine.CardID{{hero, bears}})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	declareBlockers(t, g, bc)
+	g.SetTurnState(1, a, engine.DeclareBlockers)
+	c := engine.NewScriptedController()
+	if _, err := resolveNow(t, g, b, c, []engine.EntityID{engine.CardEntity(bears)},
+		"DB$ BecomesBlocked | ValidTgts$ Creature.attacking"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := [2]int{p1p1(g, hero), p1p1(g, bears)}; got != [2]int{0, 1} {
+		t.Errorf("+1/+1 counters (Hero, Bears) = %v, want [0 1]: AttackerBlocked runs for the target only", got)
+	}
+}
+
 // Two creatures without banding cannot share a band with one that has it
 // (AttackingBand.isValidBand), a band member must be a declared attacker,
 // and with no banding creature attacking nobody is asked.

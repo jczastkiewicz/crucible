@@ -10,7 +10,10 @@ A trigger line carrying `Static$ True` never uses the stack in Forge. `TriggerHa
 static trigger first, before any other trigger of the same event (`TriggerHandler.java:300-309`), and
 `runSingleTriggerInternal` resolves it on the spot through `playTrigger` instead of `addSimultaneousStackEntry`
 (`TriggerHandler.java:522-527`). CR 605.1b is the rules basis for the mana half: a triggered mana ability ("whenever …
-is tapped for mana, add …") resolves immediately and is never put on the stack.
+is tapped for mana, add …") resolves immediately and is never put on the stack. Overabundance's damage rides in the same
+mana ability. The other modes' `Static$ True` lines are not triggered abilities in CR terms: they script a continuous
+effect, an effect's own follow-up ("if you cast a creature spell this way, it gains haste") or a static ("you draw a
+card during each opponent's draw step") as a trigger, so no rule puts them on the stack either.
 
 The corpus has 246 `T:` lines with `Static$ True`: `ChangesZone` 125, `TapsForMana` 49, `SpellCast` 17, `Phase` 17,
 `TurnBegin` 8, `DamageDone` 6, a tail. Of the 49 `TapsForMana` lines, the `Execute$` is `DB$ Mana` 29 times (Utopia

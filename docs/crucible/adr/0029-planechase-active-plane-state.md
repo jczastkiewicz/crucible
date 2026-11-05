@@ -54,11 +54,10 @@ Planechase deck exists; scoping their full ability surface is out of scope for t
 2. `Game.ActivePlane CardID` (`NoCard` = none), `Game.PlanechaseActive bool` set once at construction.
 3. Conflate "not Planechase" and "no active plane" into one nilable field, no separate bool.
 
-**Whose plane is it (needed for `leaveCurrentPlane`'s per-player return zone):**
+**Who is the planar controller (CR 901.6; `leaveCurrentPlane` fires `PlaneswalkedFrom` for that player only):**
 
 1. New `Player.CurrentPlane CardID` field, mirroring Java's `Player.currentPlanes`.
-2. Derive it from the plane card's own `Card.ZoneOwner` — already the field that answers "whose Command zone is this
-   card in" for every other Command-zone card.
+2. Derive it from the plane card's own `Card.ZoneOwner`, the player whose Command zone the face-up plane sits in.
 
 **Extra planar-die rolls and mid-roll discard (`PlanarDice.roll`'s replacement-driven "ignore" step,
 `PlayerController.choosePDRollToIgnore`):**
@@ -71,15 +70,17 @@ Planechase deck exists; scoping their full ability surface is out of scope for t
 
 **State shape: Option 2.** `Game.ActivePlane CardID` (`NoCard` sentinel) plus `Game.PlanechaseActive bool`. Every real
 Java invocation drives the list to size ≤1 (Context); a single field is simpler and GO-9-idiomatic. `PlanechaseActive`
-is set once at game construction, true when any player's `PlanarDeck` zone is non-empty after setup — this reproduces
+turns true when setup seats a card in a `PlanarDeck` (`NewCard`; play only ever moves cards there) — this reproduces
 Java's `hasAppliedVariant(GameType.Planechase)` gate (`GameAction.java:2358`) without inventing new variant-flag
 plumbing Crucible's fixture-driven setup has no other use for (YAGNI): a deck with no planes behaves exactly like Java's
 `null` case. Two real corpus lines (Spatial Merging, Norn's Seedcore — Context, above) do need concurrent multi-plane;
 kept as `Planeswalk`'s own rejected shapes rather than reopening this decision for 2 lines. Revisit to a slice via a
 superseding ADR if a future porter's corpus count makes that trade worth it.
 
-**Plane ownership: Option 2.** No new `Player` field. `g.Card(activePlane).ZoneOwner` already answers "whose Command
-zone is this plane in," reused by `leaveCurrentPlane`'s per-player-loop port. Avoids duplicating state two ways.
+**Planar controller: Option 2.** No new `Player` field. `g.Card(activePlane).ZoneOwner` is the planar controller; under
+the Planechase variant each turn change moves the plane to the new active player's Command zone (CR 901.6, ADR-0056).
+Planeswalking away puts the plane on the bottom of its `Owner`'s planar deck (CR 701.31b), not the planar controller's.
+Avoids duplicating state two ways.
 
 **Extra rolls: Option 2, defer.** `RollPlanarDice` ports the single-roll dominant shape only; `Ignore`/extra-`Number`
 replacement shapes return `"not resolvable yet"` like every other port's unresolved-shape convention (PORT-8's sibling

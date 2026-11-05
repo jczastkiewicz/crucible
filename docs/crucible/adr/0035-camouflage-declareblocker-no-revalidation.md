@@ -52,23 +52,20 @@ state the one real corpus line reaches every time Camouflage faces a Menace crea
 Camouflage simply fail against any Menace attacker. Both are cheap here: `g.minMaxBlockers` already exists
 (`blockvalidation.go`).
 
-**A Forge bug sits on the exact path this ADR builds** (logged in `forge-java-defects.md` in the implementing commit,
-per that file's own "lands in the same commit as the port that found it" convention, not here):
-`CamouflageEffect.java:78-80`'s pool filter
-(`for (final Card blocker : pool) { if (!CombatUtil.canBlock(blocker)) pool.remove(blocker); }`) removes from the
-`ArrayList` it iterates, throwing `ConcurrentModificationException` for any defender with an unblockable creature in the
-candidate pool unless that creature happens to sit second-to-last — the common case on the human-declarer path this ADR
-builds, not an edge case.
+**The pool filter.** `CamouflageEffect.java:77-78` drops every creature `CombatUtil.canBlock(blocker)` rejects before
+the declarer is offered anything, as the card's text has it: a creature that cannot block simply blocks nothing. It used
+to remove from the list it iterated and throw `ConcurrentModificationException` (`forge-java-defects.md`); #12370 fixed
+it with `removeIf`.
 
 ## Decision Drivers
 
 - PORT-7/PORT-8: reproduce what Java's replaced path actually does (its own repair loop, not this port's normal
-  validator), and report the crash bug rather than silently working around it by re-validating instead.
+  validator).
 - ADR-0024 Decision 2 ("nothing dropped on the controller's behalf") is a real exception here, not a violation to paper
   over: Java's own steady-state loop is precisely "something dropped on the controller's behalf," on this one replaced
   path only, and the exception is scoped to it explicitly rather than loosening ADR-0024 generally.
-- Corpus-first: one real line, but it reaches both the min/max branches and the crash bug through ordinary board state
-  (a Menace attacker, an unblockable creature), so both are in scope despite the API having only one script line.
+- Corpus-first: one real line, but it reaches both the min/max branches and the pool filter through ordinary board state
+  (a Menace attacker, a tapped creature), so both are in scope despite the API having only one script line.
 
 ## Considered Options
 
@@ -104,21 +101,15 @@ defender."
 
 **Piles, shuffle, filter (unchanged from ADR-0031's own correct parts):** one `ChooseCardsForEffect` call per attacker
 (`combat.getAttackers()` — every attacker, not scoped to one defender; diverges from the printed card text in a 3+
-player game, matches it in two-player, the only shape the real line's own reachability needs), a chosen creature removed
-from the pool so it is not offered twice. Attacker order is shuffled with `g.rand` — this needs a `javarand`-family
-equivalent of `Collections.shuffle` if one does not already exist, matching `CardLists.shuffle`
-(`CardLists.java:164-165`). Each pile is filtered by `canBlockCombat` (this port's own name for
-`CombatUtil.canBlock(blocker, combat)`, `CamouflageEffect.java:28`) before assignment.
+player game, matches it in two-player, the only shape the real line's own reachability needs). A chosen creature leaves
+the pool unless it can block any number of creatures or more additional ones than it has been piled for
+(`CamouflageEffect.java:86-94`; the card's "creatures that can block additional creatures may likewise be put into
+additional piles"). Attacker order is shuffled with `g.rand` — this needs a `javarand`-family equivalent of
+`Collections.shuffle` if one does not already exist, matching `CardLists.shuffle` (`CardLists.java:164-165`). Each pile
+is filtered by `canBlockCombat` (this port's own name for `CombatUtil.canBlock(blocker, combat)`,
+`CamouflageEffect.java:28`) before assignment.
 
-**The crash bug's own fail-closed shape (mitigation only, the bug itself logged at implementation time):** when a
-defender's candidate pool contains a creature `canBlockCombat` would reject, this port returns an `error` before
-assigning anything, rather than silently dropping it (which would diverge from Java's own crash-or-skip-neighbor
-behavior in a way no diff could explain), reproducing a crash (which PORT-8 rules out — Go doesn't have Java's
-mutate-during-iterate hazard to reproduce even if it wanted to), or filtering the offending creature out of the pool
-before offering it to the declarer (which would silently hand Java's crash bug a Go-only escape hatch no diff could
-explain either, letting a game continue past a state Java's own algorithm cannot reach). CR 509.1's own "declare legal
-blockers" contract is met by failing the whole declaration closed, not by editing the choice down to one Java itself
-never gets to offer.
+**Pool:** the defender's creatures less those `canBlockAtAll` rejects, as Java's filter (Context).
 
 ## Consequences
 
@@ -140,5 +131,5 @@ other `Defined$` reader already has.
 ## Related
 
 ADR-0031 (the hook mechanism this keeps), ADR-0024 (combat declaration legality — the exception this scopes),
-`docs/crucible/porting/forge-java-defects.md` (the `ConcurrentModificationException` row, logged when implemented),
+`docs/crucible/porting/forge-java-defects.md` (the `ConcurrentModificationException` section, fixed by #12370),
 `effects-batch-d.md` (git `624d87dba16`) (`Camouflage`'s original deferred row).

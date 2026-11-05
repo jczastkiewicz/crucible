@@ -445,11 +445,10 @@ is the human branch, the one every non-AI declarer takes.
 
 **Proposed fix:** `pool.removeIf(blocker -> !CombatUtil.canBlock(blocker));`, or `CardLists.filter`.
 
-**Crucible meanwhile:** `camouflagePiles` (`camouflageeffect.go`) returns an `error` naming the creature before the
-declarer is offered any pile, when `canBlockAtAll` rejects one of the defender's creatures
-(`TestCamouflageFailsClosedOnACreatureThatCannotBlock`). That includes Java's second-to-last case, which does not crash
-but leaves the last creature unchecked. Filtering silently would play a game state Java never reaches; ADR-0035 has the
-reasoning.
+**Upstream:** fixed as proposed (`removeIf`) by #12370, carried on master in `88d5c9e2907`.
+
+**Crucible:** `camouflagePiles` (`camouflageeffect.go`) filters the pool the same way
+(`TestCamouflageLeavesOutACreatureThatCannotBlock`).
 
 ### `PlaySpellAbility.java:766-782`, `PlayerControllerHuman.java:374-381` — X named only by a RaiseCost part is neither asked nor capped
 

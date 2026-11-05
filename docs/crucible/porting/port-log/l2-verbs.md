@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 869 scenarios. Three verbs are mapped (`startturn`, `advance`, `step`), so most scenarios are not runnable yet; no CI job and no `l2-baseline.txt` yet (phase 2)
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Three verbs are mapped (`startturn`, `advance`, `step`), so most scenarios are not runnable yet; no CI job and no `l2-baseline.txt` yet (phase 2)
 
 ## What it does
 
@@ -76,13 +76,12 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 61 same, 3 differs, 0 random, 805 not runnable (804 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). Each `differs` scenario needs a Go fix, a `quirks.md` row or a `forge-java-defects.md` row before phase 2's baseline (ADR-0060).
+The current run: 63 same, 2 differs, 0 random, 805 not runnable (804 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). Each `differs` scenario needs a Go fix, a `quirks.md` row or a `forge-java-defects.md` row before phase 2's baseline (ADR-0060).
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
-| F1 | `life-loss-below-zero-also-loses` | Go ends the game at Untap; Java reaches Untap with the player at -5 and no check | Go deviation: `beginStep` (`turn.go`) checks state-based actions after every step, Untap and the steps that give no priority included; Java checks only when a player would receive priority (CR 704.3, 502.4; `PhaseHandler.checkStateBasedEffects`). Fix open: three engine tests read at Untap layer state that only that check rebuilds, where Java's Untap runs `checkStaticAbilities` itself (`Untap.java:76`) |
-| F2 | `life-loss-eliminates-one-player-game-continues` | Java gives `ai` life 0 | Java tooling candidate, unverified (PORT-8: a Java test first): `applyGameOnThread` sets a life below zero by `Game.getPlayers` index after the load-time pass (`GameState.java:697-701`); the human, at 0 life (set before the pass, `:1183`), has already lost, so index 0 is `ai` |
-| F3 | `world-rule-keeps-newest` | Java puts both world enchantments in the graveyard | Java tooling candidate, unverified: `setupPlayerState` puts battlefield cards in play with `moveToPlay` outside a `CardZoneTable`, which alone sets `worldTimestamp` (`CardZoneTable.java:109`); both stay at -1, a tie, and CR 704.5k puts both in the graveyard |
+| F1 | `life-loss-eliminates-one-player-game-continues` | Java gives `ai` life 0 | Java tooling candidate, unverified (PORT-8: a Java test first): `applyGameOnThread` sets a life below zero by `Game.getPlayers` index after the load-time pass (`GameState.java:697-701`); the human, at 0 life (set before the pass, `:1183`), has already lost, so index 0 is `ai` |
+| F2 | `world-rule-keeps-newest` | Java puts both world enchantments in the graveyard | Java tooling candidate, unverified: `setupPlayerState` puts battlefield cards in play with `moveToPlay` outside a `CardZoneTable`, which alone sets `worldTimestamp` (`CardZoneTable.java:109`); both stay at -1, a tie, and CR 704.5k puts both in the graveyard |
 
 ## Not ported yet
 

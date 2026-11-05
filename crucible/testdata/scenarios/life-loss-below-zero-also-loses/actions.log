@@ -2,4 +2,8 @@
 # covers zero; this proves the check is p.Life <= 0 (action.go), not
 # p.Life == 0, against a negative total nothing in this port currently
 # produces on its own but a fixture can still assert against directly.
+# A negative setup life is set after the load-time pass (GameState.java:695-702,
+# fixture.ApplyStateEffects) and Untap gives no priority (CR 502.4, 704.3), so
+# the first check is the one at Upkeep's priority.
 startturn human
+advance

@@ -413,6 +413,13 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		priority = false // CR 514.3, PhaseHandler.java:422
 	}
 	g.checkPhaseTriggers(controller)
+	if !priority && g.activePhase != Cleanup {
+		// CR 704.3: state-based actions are checked when a player would
+		// receive priority (PhaseHandler.checkStateBasedEffects); Untap and
+		// a damage step with no damage give none. Cleanup checks them
+		// itself (CR 514.3a, PhaseHandler.java:425).
+		return false, nil
+	}
 	_, performed := checkStateBasedActions(g, controller)
 	// A trigger held in an open trigger batch (an EndTurn resolution's) is
 	// Java's hasSimultaneousStackEntries: it counts as on the stack.
@@ -499,6 +506,10 @@ func (g *Game) untapStepBounce(controller PlayerController) {
 func (g *Game) untapStep(controller PlayerController) {
 	g.untapStepPhasing(controller)
 	g.dayTimeAtUntap(controller)
+	// Untap.executeAt's checkStaticAbilities (Untap.java:76): the step gives
+	// no priority, so no state-based check rebuilds the layers before the
+	// untap reads them (an expired "doesn't untap", a "can't untap" static).
+	g.refreshLayers()
 	g.untapStepBounce(controller)
 	// Exert and summoning sickness clear for every permanent the active player
 	// controls, whether or not it untaps (Untap.java:167-169).

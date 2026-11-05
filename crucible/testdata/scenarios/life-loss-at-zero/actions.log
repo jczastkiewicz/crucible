@@ -1,4 +1,5 @@
 # CR 704.5a: a player at zero or less life loses, checked at the top of
-# every state-based-action pass -- StartTurn's own Untap-step beginPhase is
-# the first one, so no advance is needed to reach it.
+# every state-based-action pass -- a zero setup life is set before the
+# load-time pass (GameState.java:1183, fixture.ApplyStateEffects), so the
+# player has lost before StartTurn.
 startturn human

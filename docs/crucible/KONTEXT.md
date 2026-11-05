@@ -18,7 +18,7 @@ this file only points at them (DOC-11).
 | Engine gaps              | [game-state.md](porting/port-log/game-state.md) "Not ported yet"               | The M6 backlog: silent misses, not refusals                                   |
 | Java oddities reproduced | [quirks.md](porting/port-log/quirks.md)                                        | One row per quirk or deviation                                                |
 | Java defects             | [forge-java-defects.md](porting/forge-java-defects.md)                         | `Not filed` rows wait for R3                                                  |
-| L2 runner                | [l2-verbs.md](porting/port-log/l2-verbs.md)                                    | Phase 1 local: 3 verbs mapped, 61 same, 3 differs (F1 Go Untap check open)    |
+| L2 runner                | [l2-verbs.md](porting/port-log/l2-verbs.md)                                    | Phase 1 local: 3 verbs mapped, 63 same, 2 differs (both Java tooling)         |
 
 ## Waiting on the owner
 

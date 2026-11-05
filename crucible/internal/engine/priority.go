@@ -108,12 +108,10 @@ func (g *Game) canActSorcerySpeed(pid PlayerID) bool {
 // (PhaseHandler.java:240-451). Untap never does (CR 502.4). Cleanup only
 // does when a state-based action found something to do or the stack is
 // non-empty (CR 514.3a) -- checked here, not cached, since it can only be
-// known by actually running the check. The no-attackers/no-damage
-// combat-step cases (PhaseHandler.java:305-344) need a real per-step body
-// this port's own Combat does not have yet (turn.go's header) and are
-// deferred, not silently wrong: nothing calls PassPriority from those steps
-// until the turn structure wires it in. Every other phase grants it
-// unconditionally.
+// known by actually running the check. Every other phase grants it,
+// combat steps included: the driven turn skips a damage step that assigns
+// nothing itself (beginPhase, PhaseHandler.java:321-344), so PassPriority
+// only reaches one when a fixture walks there with advance.
 func (g *Game) givesPriority(phase PhaseType, controller PlayerController) bool {
 	switch phase {
 	case Untap:

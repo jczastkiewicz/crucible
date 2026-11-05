@@ -123,22 +123,22 @@ Option 1 chosen.
    when `CheckStateBasedActions` finds something to do or the stack is non-empty (CR 514.3a) — `givesPriority` runs that
    check itself for `Cleanup` (it can only be known by actually running it, not cached), rather than `beginPhase`'s own
    Cleanup body carrying a separate repeat-check; `PassPriority` is not wired into `beginPhase` yet (Decision, point 2),
-   so there is only one caller to check it today. Combat steps with no attackers/no damage to assign
-   (`COMBAT_DECLARE_ATTACKERS` with zero attackers, a first-strike-damage step with no first strikers) do not grant it
-   either in Java — this port's own Combat is thin enough that this rule is stated now and wired in once each of those
-   steps has a real body to guard, not implemented in `givesPriority` itself yet. Every other step/phase grants it
-   unconditionally.
-5. **`CastSpell` and `ActivateAbility` gain a CR 307.1 timing check in place of their current blanket gate**, and a
-   controller's chosen action that fails it is an error, not a silent skip or a re-prompt. Both functions today reject
-   any cast/activate unless `pid == g.activePlayer`, the phase is `Main1`/`Main2`, and the stack is empty
-   (`castspell.go:59-61`, `activateability.go:215-217`) — correct for a permanent, an Aura, or a Sorcery (CR 307.1
-   itself), but it also blocks an Instant or an instant-speed activated ability from ever being cast as a response,
-   which is the entire point of this ADR. The gate splits by object, checked inline where each function already returns
-   `false` today:
-   - Permanent, Aura, Sorcery: keep exactly the existing check (CR 307.1 — your turn, a main phase, empty stack).
-   - Instant: no timing restriction (CR 307.1 already excludes Instants) — legal whenever `TakeAction`'s caller has
-     priority to be asked at all, which `PassPriority`'s own loop already only does for a live player during a
-     priority-granting step (Decision, point 4).
+   so there is only one caller to check it today. Declare attackers grants it even with zero attackers: Java's `Combat`
+   exists from beginning of combat on, so `inCombat()` is true (`:312`), as CR 508.2 requires; CR 508.8 then skips
+   declare blockers and both damage steps (`skipDamageSteps`, `:229`). A damage step in which no damage is assigned
+   grants no priority in Java (`:328`, `:340`), which CR 510.3 does not allow; the turn driver reproduces that
+   (ADR-0026), `givesPriority` does not. Every other step/phase grants it unconditionally.
+5. **`CastSpell` and `ActivateAbility` gain a sorcery-timing check (CR 307.1 for a sorcery; 301.1, 302.1, 303.1, 306.1
+   and 310.1 for each permanent type) in place of their current blanket gate**, and a controller's chosen action that
+   fails it is an error, not a silent skip or a re-prompt. Both functions today reject any cast/activate unless
+   `pid == g.activePlayer`, the phase is `Main1`/`Main2`, and the stack is empty (`castspell.go:59-61`,
+   `activateability.go:215-217`) — correct for a permanent, an Aura, or a Sorcery, but it also blocks an Instant or an
+   instant-speed activated ability from ever being cast as a response, which is the entire point of this ADR. The gate
+   splits by object, checked inline where each function already returns `false` today:
+   - Permanent, Aura, Sorcery: keep exactly the existing check (your turn, a main phase, empty stack).
+   - Instant: no timing restriction (CR 304.1) — legal whenever `TakeAction`'s caller has priority to be asked at all,
+     which `PassPriority`'s own loop already only does for a live player during a priority-granting step (Decision,
+     point 4).
    - Activated ability: legal at instant speed unless its own top `A:AB$`/`A:AR$` line — `abilities[index]`, the exact
      `compile.Ability` `ActivateAbility` is asked to activate, never a `SubAbility$`/`DB$` chained off it or a spell's
      own `SP$` line — carries `SorcerySpeed$ true` or `Planeswalker$` (a loyalty ability), both read via
@@ -168,7 +168,7 @@ Option 1 chosen.
      `MustBlock`'s own ADR (Context) applies rather than re-decides: a controller's answer is trusted up to the legality
      checks this port can cheaply run inline; a check that would require re-deriving the full legal-action set (Java's
      own approach) is deferred, not silently skipped.
-   - Existing tests asserting an Instant is rejected outside `Main1`/`Main2` (if any) are a deliberate CR 307.1 fix, not
+   - Existing tests asserting an Instant is rejected outside `Main1`/`Main2` (if any) are a deliberate CR 304.1 fix, not
      a regression — named as such in the implementing commit.
 6. **No new event.** A pass is not telemetry-worthy on its own (ADR-0013's own volume argument — a pass happens far more
    often than every event this port already emits combined) and every existing `expect.events` fixture file must stay
@@ -178,11 +178,8 @@ Option 1 chosen.
 **Explicitly out of scope:** mana abilities (CR 605, which do not use the stack and do not pass priority the normal
 way); split second; a real `AIController` (M7); `MagicStack.undoStack`; `Play` and `CopySpellAbility` themselves (this
 ADR only removes their remaining blocker); the general CR 608.2b fizzle check past an Aura's own `Target`
-(Consequences); Flash — a non-Instant permanent carrying the `Flash` keyword (parsed, `keyword/defined.go:90`) should be
-castable at instant speed too, but `canActSorcerySpeed`'s split only ever checks `cardtype.Instant`, so a Flash
-permanent queued as a response fails CR 307.1's check exactly like any other permanent. A real gap, not a silent wrong
-answer — `PassPriority` still errors rather than allowing it, so nothing plays out incorrectly, it is simply not yet
-possible to cast a Flash permanent as a response.
+(Consequences). Flash (CR 702.8a) is a rules read beside the Instant check (`HasKeyword("Flash")`, ADR-0038), not part
+of this decision.
 
 ## Consequences
 
@@ -208,7 +205,7 @@ not: `TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack` asserted that a
 declines outside a main phase — exactly the blanket-gate behavior this ADR replaces. It is renamed and split into
 `TestActivateAbilityInstantSpeedByDefault` (the same ability now activates during combat, correctly) and
 `TestActivateAbilityDeclinesSorcerySpeedOutsideMainPhase` (an otherwise-identical ability marked `SorcerySpeed$` still
-declines) — a deliberate CR 307.1 fix, not a regression, named as such in the implementing commit.
+declines) — a deliberate CR 602.5d fix, not a regression, named as such in the implementing commit.
 
 ## Related
 

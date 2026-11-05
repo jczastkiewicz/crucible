@@ -195,6 +195,9 @@ func Write(w io.Writer, s *State) error {
 		if p.NumRingTemptedYou != 0 {
 			fmt.Fprintf(&b, "%snumringtemptedyou=%d\n", name, p.NumRingTemptedYou)
 		}
+		if p.Speed != 0 {
+			fmt.Fprintf(&b, "%sspeed=%d\n", name, p.Speed)
+		}
 		if p.Lost {
 			fmt.Fprintf(&b, "%slost=true\n", name)
 		}

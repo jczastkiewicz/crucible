@@ -5,4 +5,5 @@ humanlife=20
 humanwon=true
 humanbattlefield=Laboratory Maniac
 ailife=20
+ailost=true
 over=true

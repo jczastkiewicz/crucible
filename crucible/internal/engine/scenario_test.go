@@ -175,6 +175,9 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		if got, want := gp.LandsPlayedLastTurn, wp.LandsPlayedLastTurn; got != want {
 			t.Errorf("%s: lands played last turn = %d, want %d", gp.Name, got, want)
 		}
+		if got, want := gp.Speed, wp.Speed; got != want {
+			t.Errorf("%s: speed = %d, want %d", gp.Name, got, want)
+		}
 		if g, w := got.RingTemptedYou(gotPlayers[i]), want.RingTemptedYou(wantPlayers[i]); g != w {
 			t.Errorf("%s: numringtemptedyou = %d, want %d", gp.Name, g, w)
 		}

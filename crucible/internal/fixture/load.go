@@ -37,7 +37,7 @@ type Loaded struct {
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
 	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
-	// no corresponding engine.Player field (PersistentMana, Speed, ...). Silently dropping these would make a fixture that names,
+	// no corresponding engine.Player field (PersistentMana, ...). Silently dropping these would make a fixture that names,
 	// say, a Monstrous creature pass while testing something other than what
 	// it says.
 	Unapplied []string
@@ -108,6 +108,7 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		}
 		g.Player(pid).LandsPlayed = ps.LandsPlayed
 		g.Player(pid).LandsPlayedLastTurn = ps.LandsPlayedLastTurn
+		g.Player(pid).Speed = ps.Speed
 		for _, z := range []struct {
 			text string
 			kind engine.ZoneType
@@ -561,15 +562,17 @@ func parseIDList(value string) ([]int, error) {
 // steal, a static pump or an already-lethal permanent in the fixture is
 // settled before the first step instead of at the first pass after it.
 //
-// Java sets a zero or negative life after that pass "for puzzles that rely on
+// Java sets a negative life after that pass "for puzzles that rely on
 // pre-setting negative life" (GameState.java:695-702); the same here, the
-// pass seeing such a player at 1 life. Load itself stays inert so that
+// pass seeing such a player at 1 life. A zero life is set before it
+// (setupPlayerState's life >= 0, GameState.java:1183), so the pass sees it
+// and the player loses at load. Load itself stays inert so that
 // expect.state, which is read back through Load, is never altered by it.
 func (l *Loaded) ApplyStateEffects(controller engine.PlayerController) {
 	g := l.Game
 	saved := map[engine.PlayerID]int{}
 	for _, pid := range g.Players() {
-		if p := g.Player(pid); p.Life <= 0 {
+		if p := g.Player(pid); p.Life < 0 {
 			saved[pid] = p.Life
 			p.Life = 1
 		}

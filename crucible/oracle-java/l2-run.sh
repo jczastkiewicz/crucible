@@ -25,7 +25,7 @@ if [ -z "${L2_NO_BUILD:-}" ]; then
 fi
 cp="$root/forge-gui-desktop/target/test-classes:$root/forge-gui-desktop/target/classes:$(cat "$work/cp.txt")"
 if [ -z "${L2_NO_BUILD:-}" ]; then
-	javac -nowarn -d "$work/classes" -cp "$cp" crucible/oracle-java/src/main/java/crucible/oracle/ScenarioRunner.java >&2
+	javac -nowarn -d "$work/classes" -cp "$cp" crucible/oracle-java/src/main/java/crucible/oracle/Scenario*.java >&2
 fi
 # Forge finds its res/ tree relative to the working directory, as upstream's
 # own tests run it: from forge-gui-desktop.

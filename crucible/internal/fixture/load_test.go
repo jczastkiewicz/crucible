@@ -1,6 +1,7 @@
 package fixture_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -604,5 +605,24 @@ func TestLoadTokenNotInTheDatabaseFails(t *testing.T) {
 	}
 	if _, err := fixture.Load(st, tokenDB(t, "w_1_1_soldier"), javarand.New(1)); err == nil {
 		t.Error("an unknown token script loaded without error")
+	}
+}
+
+// The load-time state-effects pass sees a setup's zero life, which Java sets
+// before it (GameState.java:1183), but not a negative one, which Java sets
+// after it (GameState.java:695-702).
+func TestApplyStateEffectsLosesAtZeroLifeButNotBelow(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		life     int
+		wantLost bool
+	}{{0, true}, {-5, false}} {
+		l := load(t, testDB(t), "humanlife="+strconv.Itoa(tc.life)+"\nailife=20\n")
+		l.ApplyStateEffects(engine.NewScriptedController())
+		p := l.Game.Player(l.Game.Players()[0])
+		if p.Lost != tc.wantLost || p.Life != tc.life {
+			t.Errorf("life %d: lost = %v, life = %d after the pass, want lost %v", tc.life, p.Lost, p.Life, tc.wantLost)
+		}
 	}
 }

@@ -33,6 +33,9 @@ func TestNormalizeRules(t *testing.T) {
 		{"N9 a lost player keeps only lost=", "p1life=20\np0lost=true\nover=true\n",
 			"humanlife=0\nhumanlost=true\nhumangraveyard=Bears\nailife=20\nover=true\n",
 			"ailife=20\nhumanlost=true\nover=true\n"},
+		{"N10 token script", "p0battlefield=t:Zombie Token,P:2,T:2,Cost:no cost,Color:B,Types:Creature-Zombie,Keywords:,Image:b_2_2_zombie%7CFDC%7C5%7C1|SummonSick\n",
+			"humanbattlefield=T:b_2_2_zombie|SummonSick\n", "humanbattlefield=T:b_2_2_zombie|SummonSick\n"},
+		{"N10 a token with no image stays", "p0battlefield=t:Odd Token,P:1\n", "humanbattlefield=t:Odd Token,P:1\n", "humanbattlefield=t:Odd Token,P:1\n"},
 		{"N7 token order", "p0battlefield=Bears|Tapped|Counters:P1P1=1|SummonSick\n",
 			"humanbattlefield=Bears|SummonSick|Counters:P1P1=1|Tapped\n", "humanbattlefield=Bears|Counters:P1P1=1|SummonSick|Tapped\n"},
 	}

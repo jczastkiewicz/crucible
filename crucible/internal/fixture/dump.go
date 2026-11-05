@@ -68,6 +68,7 @@ func Dump(l *Loaded) *State {
 		ps.ManaPool = dumpManaPool(g.Player(pid).ManaPool)
 		ps.LandsPlayed = g.Player(pid).LandsPlayed
 		ps.LandsPlayedLastTurn = g.Player(pid).LandsPlayedLastTurn
+		ps.Speed = g.Player(pid).Speed
 		ps.NumRingTemptedYou = g.RingTemptedYou(pid)
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)

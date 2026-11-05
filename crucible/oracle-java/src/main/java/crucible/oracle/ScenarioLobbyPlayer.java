@@ -1,0 +1,37 @@
+package crucible.oracle;
+
+import java.util.function.BooleanSupplier;
+
+import forge.LobbyPlayer;
+import forge.game.Game;
+import forge.game.player.IGameEntitiesFactory;
+import forge.game.player.Player;
+import forge.game.player.PlayerController;
+
+/** Seats a player under a {@link ScenarioController} (LobbyPlayerForTests' shape). */
+final class ScenarioLobbyPlayer extends LobbyPlayer implements IGameEntitiesFactory {
+    private final BooleanSupplier atCheckpoint;
+    private ScenarioController controller;
+
+    ScenarioLobbyPlayer(String name, BooleanSupplier atCheckpoint) {
+        super(name);
+        this.atCheckpoint = atCheckpoint;
+    }
+
+    @Override
+    public Player createIngamePlayer(Game game, int id) {
+        Player p = new Player(getName(), game, id);
+        controller = new ScenarioController(game, p, this, atCheckpoint);
+        p.setFirstController(controller);
+        return p;
+    }
+
+    @Override
+    public PlayerController createMindSlaveController(Player master, Player slave) {
+        return controller;
+    }
+
+    @Override
+    public void hear(LobbyPlayer player, String message) {
+    }
+}

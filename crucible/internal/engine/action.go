@@ -166,6 +166,17 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 		}
 	}
 	if wins > 0 {
+		if wins == 1 {
+			// GameAction.checkGameOverCondition (GameAction.java:1944-1966):
+			// the rest lose to OpponentWon, which no GameLoss replacement
+			// sees (Player.loseConditionMet, Player.java:2000-2006).
+			for _, id := range g.Players() {
+				if id != winner {
+					g.Player(id).Lost = true
+				}
+			}
+			g.onPlayersLost(controller)
+		}
 		g.over = true
 		actor := winner
 		if wins > 1 {

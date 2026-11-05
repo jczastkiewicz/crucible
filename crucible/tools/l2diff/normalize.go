@@ -69,6 +69,7 @@ var zoneKeys = []string{"hand", "library", "graveyard", "battlefield", "exile", 
 //	N8 lines are sorted by key.
 //	N9 a player who lost keeps only its lost= key: GameState.initFromGame
 //	   writes the players still in the game (Game.getPlayers).
+//	N10 Java's token description becomes Go's "T:<token script>".
 func Normalize(text string, side Side) (string, error) {
 	type line struct{ key, value string }
 	var lines []line
@@ -156,6 +157,9 @@ func normalizeZone(key, value string, side Side, renumber map[string]string) str
 	for _, card := range splitCards(value) {
 		toks := strings.Split(card, "|")
 		name := toks[0]
+		if side == JavaSide {
+			name = javaToken(name)
+		}
 		if side == JavaSide && strings.HasSuffix(key, "command") && slices.Contains(designations, name) {
 			continue
 		}
@@ -188,6 +192,23 @@ func normalizeZone(key, value string, side Side, renumber map[string]string) str
 		cards = append(cards, strings.Join(append([]string{name}, keep...), "|"))
 	}
 	return strings.Join(cards, ";")
+}
+
+// javaToken is N10: GameState.toString writes a token as its full
+// description, "t:Zombie Token,P:2,...,Image:b_2_2_zombie%7CFDC%7C5%7C1";
+// fixture.Write as its token script, "T:b_2_2_zombie", which is the Image
+// key's first field. A name that is not such a token is returned as is.
+func javaToken(name string) string {
+	if !strings.HasPrefix(name, "t:") {
+		return name
+	}
+	_, img, ok := strings.Cut(name, ",Image:")
+	if !ok {
+		return name
+	}
+	script, _, _ := strings.Cut(img, "%7C")
+	script, _, _ = strings.Cut(script, ",")
+	return "T:" + script
 }
 
 func splitCards(v string) []string {

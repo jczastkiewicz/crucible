@@ -51,9 +51,11 @@ func TestGutExilesTheFoughtCreatureWithItself(t *testing.T) {
 	}
 }
 
-// TestReplaceDyingWithoutExiledWithMarksNothing proves the plain shape (Lava
-// Coil) still exiles without naming a host: the mark is the param's.
-func TestReplaceDyingWithoutExiledWithMarksNothing(t *testing.T) {
+// TestReplaceDyingWithoutExiledWithMarksTheEffect proves the plain shape
+// (Lava Coil) exiles the card with the effect card itself: the ChangeZone's
+// handleExiledWith takes its host (SpellAbilityEffect.java:1084-1112), and
+// ExiledWithEffectSource$ only swaps in the effect's source.
+func TestReplaceDyingWithoutExiledWithMarksTheEffect(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
@@ -63,8 +65,8 @@ func TestReplaceDyingWithoutExiledWithMarksNothing(t *testing.T) {
 	if z := g.Card(victim).Zone; z != engine.Exile {
 		t.Fatalf("victim zone = %v, want Exile", z)
 	}
-	if got := g.Card(victim).ExiledWith(); got != engine.NoCard {
-		t.Errorf("ExiledWith = %v, want none", got)
+	if got := g.Card(victim).ExiledWith(); got == engine.NoCard || !g.Card(got).IsEffect {
+		t.Errorf("ExiledWith = %v, want the effect card", got)
 	}
 }
 

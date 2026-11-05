@@ -440,6 +440,11 @@ func (g *Game) movedDestination(controller PlayerController, id CardID, dest Zon
 				return false
 			}
 			p.exiledWith = h.effectLife.host
+		} else if z == Exile {
+			// ChangeZoneEffect exiles through handleExiledWith with the
+			// replacement's host as the source (SpellAbilityEffect.java:
+			// 1084-1112): Rest in Peace's exiled cards are exiled with it.
+			p.exiledWith = h.ID
 		}
 		for _, s := range sub.Subs {
 			if strings.EqualFold(s.Key, "SubAbility") {

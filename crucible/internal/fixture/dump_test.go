@@ -213,6 +213,25 @@ func TestDumpAndWriteRoundTripLandsPlayed(t *testing.T) {
 	}
 }
 
+// speed= (CR 702.179) loads into Player.Speed and round-trips through Dump
+// and Write, the key GameState.toString writes for every player.
+func TestDumpAndWriteRoundTripSpeed(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nhumanspeed=3\n")
+	if got := l.Game.Player(l.Game.Players()[0]).Speed; got != 3 {
+		t.Fatalf("Speed after Load = %d, want 3", got)
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "humanspeed=3") {
+		t.Fatalf("Write did not emit speed=3:\n%s", buf.String())
+	}
+}
+
 // Dump round-trips Protector through Write and back, the same as
 // Lost/Won/Over above -- Crucible-only, no Java GameState key to diverge
 // from (game-state-fixture.md's Load section has the reason).

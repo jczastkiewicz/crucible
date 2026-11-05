@@ -2,10 +2,13 @@ package crucible.oracle;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -13,18 +16,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import forge.GuiDesktop;
+import forge.StaticData;
 import forge.deck.Deck;
 import forge.game.Game;
 import forge.game.GameRules;
 import forge.game.GameStage;
 import forge.game.GameState;
 import forge.game.GameType;
+import forge.game.card.Card;
 import forge.game.Match;
 import forge.game.phase.PhaseHandler;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
-import forge.gamesimulationtests.util.LobbyPlayerForTests;
 import forge.gui.GuiBase;
 import forge.localinstance.properties.ForgePreferences.FPref;
 import forge.model.FModel;
@@ -39,18 +43,23 @@ import forge.util.ThreadUtil;
  * Usage: ScenarioRunner <manifest> <out dir>. Each manifest line is a scenario
  * directory, the Go run's final turn and its phase, tab-separated (l2diff
  * emit); the runner steps Java's own loop (PhaseHandler.mainLoopStep) until it
- * reaches that point with an empty stack, and writes <name>.state,
- * <name>.unmapped (the lines no l2-verbs.md row maps) or <name>.error. One JVM
+ * reaches that point (S8, l2-verbs.md), and writes <name>.state,
+ * <name>.unmapped (the lines no l2-verbs.md row maps, or a setup card
+ * GameState cannot load) or <name>.error. One JVM
  * runs the whole manifest: loading the card database takes most of a run.
  */
 public final class ScenarioRunner {
     private static final int MAX_STEPS = 100_000;
+    private static final int DEFERRED_ID = 900_000;
     // The actions.log verbs l2-verbs.md maps; a scenario using any other is
     // reported unmapped and not run (ADR-0060).
-    private static final Set<String> MAPPED = Set.of("startturn");
+    private static final Set<String> MAPPED = Set.of("startturn", "advance", "step");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
     // value, or the P<i> value of a player token (GameState.getPlayerString).
     // Never a counter type such as P1P1.
+    // A setup zone line (GameState.ZONES) and its card list.
+    private static final Pattern ZONE_LINE = Pattern.compile(
+            "^(?:human|ai|p\\d+)(?:battlefield|hand|graveyard|library|exile|command|sideboard)=(.+)$");
     private static final Pattern SEAT = Pattern.compile(
             "(^p|^activeplayer=p|(?:Owner|EnchantingPlayer|Protector):P)(-?\\d+)");
 
@@ -129,7 +138,13 @@ public final class ScenarioRunner {
         }
 
         List<String> setupLines = new ArrayList<>(Files.readAllLines(dir.resolve("setup.state")));
-        Game game = newGame(playerCount(setupLines));
+        String lost = notInCommonCards(setupLines);
+        if (lost != null) {
+            return new String[] {"unmapped", "setup card " + lost + " is not in GameState's card pool\n"};
+        }
+        Target target = new Target(turn, phase);
+        Game game = newGame(playerCount(setupLines), target);
+        target.game = game;
         if (setupLines.stream().noneMatch(l -> l.startsWith("activeplayer="))) {
             // GameState.applyGameOnThread indexes the active player's state
             // and fails without one; Go's fixture.Load needs none. The first
@@ -137,9 +152,13 @@ public final class ScenarioRunner {
             actions.stream().filter(l -> l.startsWith("startturn ")).findFirst()
                     .ifPresent(l -> setupLines.add("activeplayer=" + l.split("\\s+")[1]));
         }
+        Map<Integer, Integer> damage = deferDamage(setupLines);
         GameState setup = new GameState();
         setup.parse(setupLines);
         setup.applyToGame(game);
+        if (markDamage(setup, damage)) {
+            game.getAction().checkStateEffects(true);
+        }
         // The seed TestScenarios gives javarand (ADR-0060).
         MyRandom.setRandom(new Random(1));
 
@@ -153,22 +172,61 @@ public final class ScenarioRunner {
                     game.getPhaseHandler().devModeSet(null, p, false, 0);
                     game.getPhaseHandler().setupFirstTurn(p, null);
                 }
+                // Checkpoints: Java's own loop reaches the phase Go walks to.
+                case "advance", "step" -> {
+                }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }
         }
 
+        // S8: the checkpoint is the first priority Java gives at Go's final
+        // turn and phase, after its state-based actions and with the triggers
+        // they raised on the stack -- where Go's advance stops; after a final
+        // step, the first one with the stack empty. Untap and Cleanup give
+        // none (CR 502.4, 514.3), so there it is reaching them.
         PhaseHandler ph = game.getPhaseHandler();
+        target.drain = !actions.isEmpty() && actions.get(actions.size() - 1).split("\\s+")[0].equals("step");
+        target.armed = true;
         int steps = 0;
-        while (!(ph.getTurn() == turn && ph.is(phase) && game.getStack().isEmpty()) && !game.isGameOver()) {
-            if (++steps > MAX_STEPS) {
-                throw new IllegalStateException("never reached turn " + turn + " " + phase);
+        try {
+            while (!game.isGameOver()) {
+                if (target.reached() && (ph.is(PhaseType.UNTAP) || ph.is(PhaseType.CLEANUP))) {
+                    break;
+                }
+                if (ph.getTurn() > turn) {
+                    throw new IllegalStateException("passed turn " + turn + " " + phase + " without a priority there");
+                }
+                if (++steps > MAX_STEPS) {
+                    throw new IllegalStateException("never reached turn " + turn + " " + phase);
+                }
+                ph.mainLoopStep();
             }
-            ph.mainLoopStep();
+        } catch (ScenarioController.Checkpoint reached) {
+            // the controller stopped the loop at the checkpoint
         }
 
         GameState post = new GameState();
         post.initFromGame(game);
         return new String[] {"state", registeredIndexes(game, post.toString()) + crucibleKeys(game)};
+    }
+
+    // GameState.processCardsForZone looks a card up in the common cards only
+    // (GameState.java:1305) and drops any other, a Scheme or a Plane, with
+    // a line on stderr: the Java run would play a different board.
+    private static String notInCommonCards(List<String> setupLines) {
+        for (String line : setupLines) {
+            Matcher m = ZONE_LINE.matcher(line);
+            if (!m.matches()) {
+                continue;
+            }
+            for (String card : m.group(1).split(";")) {
+                String name = card.split("\\|")[0];
+                if (!name.startsWith("t:") && !name.startsWith("T:") && StaticData.instance().getCommonCards().getCard(name) == null) {
+                    return name;
+                }
+            }
+        }
+        return null;
     }
 
     // GameState.initFromGame numbers players by Game.getPlayers, which drops a
@@ -180,6 +238,12 @@ public final class ScenarioRunner {
         List<Player> all = game.getRegisteredPlayers();
         StringBuilder sb = new StringBuilder();
         for (String line : text.split("\n", -1)) {
+            if (line.startsWith("activeplayer=")) {
+                // initFromGame writes p-1 when the active player has lost.
+                Player turn = game.getPhaseHandler().getPlayerTurn();
+                sb.append("activeplayer=p").append(all.indexOf(turn)).append('\n');
+                continue;
+            }
             Matcher m = SEAT.matcher(line);
             StringBuilder fixed = new StringBuilder();
             while (m.find()) {
@@ -221,6 +285,66 @@ public final class ScenarioRunner {
         return sb.toString();
     }
 
+    // S11: a setup card's Damage: is marked after applyToGame, then the
+    // runner runs the load-time checkStateEffects(true) once more.
+    // GameState.applyGameOnThread marks it and runs that pass before its own
+    // copyLastState, so no Moved replacement sees the lethal damage (Rest in
+    // Peace's Bears reach the graveyard; the same board settles with the
+    // replacement at the first priority). fixture.ApplyStateEffects runs the
+    // pass with the replacements in effect. Each damaged card gets an Id:
+    // handle if it has none, from DEFERRED_ID up.
+    private static Map<Integer, Integer> deferDamage(List<String> setupLines) {
+        Map<Integer, Integer> damage = new HashMap<>();
+        int next = DEFERRED_ID;
+        for (int i = 0; i < setupLines.size(); i++) {
+            String line = setupLines.get(i);
+            int eq = line.indexOf('=');
+            if (eq < 0 || !line.contains("Damage:")) {
+                continue;
+            }
+            List<String> cards = new ArrayList<>();
+            for (String card : line.substring(eq + 1).split(";")) {
+                List<String> toks = new ArrayList<>(List.of(card.split("\\|")));
+                Integer dmg = null;
+                Integer id = null;
+                for (String t : toks) {
+                    if (t.startsWith("Damage:")) {
+                        dmg = Integer.parseInt(t.substring(7));
+                    } else if (t.startsWith("Id:")) {
+                        id = Integer.parseInt(t.substring(3));
+                    }
+                }
+                if (dmg != null) {
+                    toks.removeIf(t -> t.startsWith("Damage:"));
+                    if (id == null) {
+                        id = next++;
+                        toks.add("Id:" + id);
+                    }
+                    damage.put(id, dmg);
+                }
+                cards.add(String.join("|", toks));
+            }
+            setupLines.set(i, line.substring(0, eq + 1) + String.join(";", cards));
+        }
+        return damage;
+    }
+
+    // Reads GameState's private idToCard (ADR-0060 allows reflection in the
+    // runner; a renamed field fails here, loudly).
+    @SuppressWarnings("unchecked")
+    private static boolean markDamage(GameState setup, Map<Integer, Integer> damage) throws ReflectiveOperationException {
+        if (damage.isEmpty()) {
+            return false;
+        }
+        Field f = GameState.class.getDeclaredField("idToCard");
+        f.setAccessible(true);
+        Map<Integer, Card> idToCard = (Map<Integer, Card>) f.get(setup);
+        for (Map.Entry<Integer, Integer> e : damage.entrySet()) {
+            idToCard.get(e.getKey()).setDamage(e.getValue());
+        }
+        return true;
+    }
+
     // Two seats, or more when the setup names a p<i> slot past them
     // (fixture.playerSlot's p2, p3).
     private static int playerCount(List<String> setupLines) {
@@ -233,12 +357,34 @@ public final class ScenarioRunner {
         return n;
     }
 
-    private static Game newGame(int seats) {
+    // The run's checkpoint, which the controllers read at each priority.
+    // Armed once the actions are applied, so setup and startturn never stop.
+    private static final class Target {
+        final int turn;
+        final PhaseType phase;
+        Game game;
+        boolean armed;
+        // Go's step plays the step's priority round out (engine.Game.Step):
+        // after a final step the checkpoint waits for an empty stack.
+        boolean drain;
+
+        Target(int turn, PhaseType phase) {
+            this.turn = turn;
+            this.phase = phase;
+        }
+
+        boolean reached() {
+            PhaseHandler ph = game.getPhaseHandler();
+            return armed && ph.getTurn() == turn && ph.is(phase) && (!drain || game.getStack().isEmpty());
+        }
+    }
+
+    private static Game newGame(int seats, Target target) {
         List<RegisteredPlayer> players = new ArrayList<>();
         for (int i = 0; i < seats; i++) {
             String name = i == 0 ? "human" : i == 1 ? "ai" : "p" + i;
             RegisteredPlayer rp = new RegisteredPlayer(new Deck(name));
-            rp.setPlayer(new LobbyPlayerForTests(name, null));
+            rp.setPlayer(new ScenarioLobbyPlayer(name, target::reached));
             players.add(rp);
         }
         Match match = new Match(new GameRules(GameType.Constructed), players, "L2");
@@ -247,10 +393,12 @@ public final class ScenarioRunner {
         return game;
     }
 
+    // By registered seat: getPlayers drops a player who lost, and
+    // applyGameOnThread's late setLife can make one lose at load.
     private static Player player(Game game, String name) {
         return switch (name) {
-            case "human" -> game.getPlayers().get(0);
-            case "ai" -> game.getPlayers().get(1);
+            case "human" -> game.getRegisteredPlayers().get(0);
+            case "ai" -> game.getRegisteredPlayers().get(1);
             default -> throw new IllegalStateException("player " + name);
         };
     }

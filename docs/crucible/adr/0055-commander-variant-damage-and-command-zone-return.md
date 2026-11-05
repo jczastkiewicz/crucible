@@ -71,9 +71,11 @@ Not ported: Brawl, Oathbreaker, TinyLeaders, Planeswalker; partner and companion
 damage from one commander ends the game, so Commander batch runs play the real format. You're in Command now gets the
 same rules, as in Java. **Bad:** the SBA runs after the whole legend rule rather than inside Java's per-player loop, so
 when one player's legend rule acts and another's commander is waiting, the return lands one pass later (same result
-before priority, a quirks row). Whether a commander returns depends on the controller's `ConfirmEffect` answer; the
-probe controller's yes budget decides it until M7. **Neutral:** variant-less games are unchanged except that commander
-damage is counted, which nothing reads without the variant.
+before priority, a quirks row). Java's own gate, offering the return only in a pass where no other state-based action
+acted, already differs from CR 704.3, which performs every applicable state-based action at once; a mark set on the
+move, not "since the last check" (CR 903.9a), keeps the offer open for that later pass. Whether a commander returns
+depends on the controller's `ConfirmEffect` answer; the probe controller's yes budget decides it until M7. **Neutral:**
+variant-less games are unchanged except that commander damage is counted, which nothing reads without the variant.
 
 ## Related
 

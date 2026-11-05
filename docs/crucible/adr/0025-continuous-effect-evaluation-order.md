@@ -13,13 +13,13 @@ Urborg's effect depends on Blood Moon, so Blood Moon applies first whatever the 
 
 Java, in `GameAction.checkStaticAbilities`:
 
-| Aspect     | Java                                                                                                                                                                                                                                                                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rebuild    | Every call clears all static effects and re-applies from scratch (`GameAction.java:1088`); no fixed-point loop                                                                                                                                                                                                 |
-| Order      | One pass over `COPY, CONTROL, TEXT, TYPE, COLOR, ABILITIES, CHARACTERISTIC, SETPT, MODIFYPT, RULES` (`StaticAbilityLayer.java:46`, `GameAction.java:1120`)                                                                                                                                                     |
-| Dependency | Within `COPY, CONTROL, TEXT, TYPE, ABILITIES, CHARACTERISTIC, SETPT` only (`StaticAbilityLayer.java:47-48`): build a dependency graph over the layer's remaining effects (`:1273`, edges `:1324-1341`), break cycles (CR 613.8b, `:1362-1369`), apply one with no dependency, re-evaluate (CR 613.8c, `:1164`) |
-| CDAs       | Exempt from the dependency search, by Forge's own assumption (`GameAction.java:1131-1132`)                                                                                                                                                                                                                     |
-| Amounts    | `SetPower$`/`SetToughness$` `Count$` amounts evaluated on every pass, uncached (`StaticAbilityContinuous.java:146`, `:151`)                                                                                                                                                                                    |
+| Aspect     | Java                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rebuild    | Every call clears all static effects and re-applies from scratch (`GameAction.java:1088`); no fixed-point loop                                                                                                                                                                                                                                                                                  |
+| Order      | One pass over `COPY, CONTROL, TEXT, TYPE, COLOR, ABILITIES, CHARACTERISTIC, SETPT, MODIFYPT, RULES` (`StaticAbilityLayer.java:46`, `GameAction.java:1120`). `SWITCHPT` (7d) is commented out: `Card.getNetPower` swaps the total at read time when the switch count is odd (`Card.java:4448`). `RULES` is not a CR layer: CR 613.10-11 apply player and rules effects after all characteristics |
+| Dependency | Within `COPY, CONTROL, TEXT, TYPE, ABILITIES, CHARACTERISTIC, SETPT` only (`StaticAbilityLayer.java:47-48`): build a dependency graph over the layer's remaining effects (`:1273`, edges `:1324-1341`), break cycles (CR 613.8b, `:1362-1369`), apply one with no dependency, re-evaluate (CR 613.8c, `:1164`)                                                                                  |
+| CDAs       | Exempt from the dependency search (`GameAction.java:1131-1132`). CR 613.8a(c) exempts only a pair of one CDA and one non-CDA effect; two CDAs can depend on each other, which Forge does not check                                                                                                                                                                                              |
+| Amounts    | `SetPower$`/`SetToughness$` `Count$` amounts evaluated on every pass, uncached (`StaticAbilityContinuous.java:146`, `:151`)                                                                                                                                                                                                                                                                     |
 
 This port rebuilds from scratch every state-check pass too (`action.go:173-195`), but in the wrong order: control, then
 **P/T (Layer 7)**, then type (4), color (5), keywords (6), rules, names. Each of type, color and keyword clears its own
@@ -48,16 +48,18 @@ Characteristic-defining P/T is already in place (`applyOneCharacteristicDefining
 ## Decision
 
 1. **One rebuild pass applies layers in Java's order** — copy (already the `Def` swap), control, text, type, color,
-   abilities, 7a, 7b, 7c, rules — and each layer's `Affected$`/condition evaluation sees every earlier layer's result
-   from this pass. Resolved one-shot effects of a layer (pumps today) apply inside that layer, not after all of them.
+   abilities, 7a, 7b, 7c, rules — with 7d (CR 613.4d) read at the end of the P/T fold as Java does, and each layer's
+   `Affected$`/condition evaluation sees every earlier layer's result from this pass. Resolved one-shot effects of a
+   layer (pumps today) apply inside that layer, not after all of them.
 2. **Within the seven layers Java checks, dependency ordering follows `findStaticAbilityToApply`**: CR 613.8a dependency
    as Java tests it, cycles broken as Java breaks them, one effect applied at a time with the rest re-evaluated, CDAs
    exempt. Color, 7c and rules stay timestamp-only, as in Java. Java tests dependency by trial application: apply the
    other effect, recompute the first's affected set, compare (`GameAction.java:1312-1331`). The port therefore needs to
    evaluate one layer with and without a given effect; hand-written, no graph library.
-3. **The set of statics is fixed at the start of a pass**, as Java collects it once per call
-   (`GameAction.java:1098-1115`): a static ability granted in Layer 6 (ADR-0023) applies from the next pass, matching
-   Java.
+3. **A static granted during a pass joins it after the layer that granted it**, as Java adds it to its queue
+   (`GameAction.java:1176-1190`): one granted in Layer 6 (ADR-0023) applies in Layer 7 and the rules effects of the same
+   pass, never in Layers 1-5, which are already applied. That is CR 613.1's single pass; the `quirks.md` row names the
+   Layer 1-5 params it drops.
 4. **Amounts stay live**: a CDA or `SetPower$` amount is evaluated on every pass it applies, never cached across passes.
 5. **Rebuild-from-scratch stays the model**, including for `Game.Clone`.
 
@@ -70,7 +72,7 @@ the other Layer 4/6 dependency cases, resolve as in Java.
 scenario and names each changed `expect.state`/`expect.events` as a fix. The dependency search costs one trial
 application per effect pair per dependency layer on each pass; typical boards have a handful of effects per layer.
 
-**Neutral:** Layer 3 text effects have no applier yet (ADR-0023, Decision 5); its slot in the order is reserved.
+**Neutral:** Layer 3 text effects apply in their slot through `applyContinuousText` (ADR-0039).
 
 ## Related
 

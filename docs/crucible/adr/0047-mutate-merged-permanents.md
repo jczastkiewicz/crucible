@@ -6,11 +6,11 @@
 
 ## Context
 
-Mutate (CR 702.140, 702.140b-d) merges a creature spell with a non-Human creature its owner controls. The result is one
-permanent whose characteristics are the top component's and whose abilities are those of every component. The corpus has
-34 `K:Mutate:<cost>` cards (28 distinct costs), 32 `Mode$ Mutates` triggers (31 `ValidCard$ Card.Self`), and several
-`Count$TimesMutated` readers. The engine has no merged permanent: `ZoneType.Merged` exists but nothing fills it
-(`subgameeffect.go` scans it empty), and `saspec.go` lists `Mutate` as unevaluated.
+Mutate (CR 702.140, 702.140b-d) merges a creature spell with a non-Human creature that has the same owner (CR 702.140a),
+whoever controls it. The result is one permanent whose characteristics are the top component's and whose abilities are
+those of every component. The corpus has 34 `K:Mutate:<cost>` cards (28 distinct costs), 32 `Mode$ Mutates` triggers (31
+`ValidCard$ Card.Self`), and several `Count$TimesMutated` readers. The engine has no merged permanent: `ZoneType.Merged`
+exists but nothing fills it (`subgameeffect.go` scans it empty), and `saspec.go` lists `Mutate` as unevaluated.
 
 Java models it with a `mergedCards` list on the target (`Card.java:114`, top at index 0), a `mergedTo` back pointer on
 each other component, a Layer 1 clone state built by `CardFactory.getMutatedCloneStates` (`CardFactory.java:757-783`:
@@ -54,8 +54,9 @@ patched, when the list changes. `IsToken` is read from the top component (`Card.
 
 **Casting.** The keyword expands to a spell with the mutate alternative cost and
 `ValidTgts$ Creature.sharesOwnerWith+nonHuman`. When the target is gone or illegal at resolution the card resolves as a
-creature spell (`MagicStack.java:628-633`). `Mutates` fires once, for the target, after the merge; `Count$TimesMutated`
-reads a counter on the target.
+creature spell (`MagicStack.java:628-633`, CR 702.140b). `Mutates` fires once, for the target, after the merge (CR
+702.140d); `Count$TimesMutated` reads `Card.timesMutated` on the target, a plain tally like Java's `getTimesMutated`,
+not a counter proliferate could see.
 
 **Leaving the battlefield.** `moveByEffect` of a card with `merged` moves every component to the destination, in the
 order the owner chooses (`OrderCardsForZone`; the cause's controller for exile), then clears the list. Batch triggers

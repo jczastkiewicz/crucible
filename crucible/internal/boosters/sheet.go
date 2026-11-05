@@ -20,9 +20,11 @@ type Sheet struct {
 func newSheet(name string) *Sheet { return &Sheet{name: name} }
 
 // add is PrintSheet.add(card, weight): ItemPool.add is ConcurrentHashMap.merge
-// with a sum. A nil print or a weight of 0 or less adds nothing.
+// with a sum. A nil print or a weight of 0 or less adds nothing, and neither
+// does a placeholder of a card no script defines (PrintSheet.java:55-59:
+// "boosters never deal placeholder cards").
 func (s *Sheet) add(p *Print, weight int) error {
-	if p == nil || weight <= 0 {
+	if p == nil || p.rules == nil || weight <= 0 {
 		return nil
 	}
 	idx := len(s.prints)

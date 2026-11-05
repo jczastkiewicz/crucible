@@ -15,7 +15,7 @@ Abandoned	Mode	2	-	-	token:2
 Abandoned	Static	1	-	-	bool:1
 Abandoned	ValidCard	2	-	valid:5	token:2
 AbilityCast	ActivationLimit	4	-	int:1	int:4
-AbilityCast	Condition	2	-	-	token:2
+AbilityCast	CheckSVar	1	-	amount:1	token:1
 AbilityCast	Execute	47	-	-	token:47
 AbilityCast	Mode	47	-	-	token:47
 AbilityCast	OneOff	1	-	-	bool:1
@@ -47,7 +47,7 @@ AbilityTriggered	ValidMode	4	-	-	token:4
 AbilityTriggered	ValidSource	3	-	-	token:3
 AbilityTriggered	ValidSpellAbility	1	-	-	token:1
 ActivateAbility	DB	1	-	-	token:1
-ActivateAbility	Defined	1	-	defined:68	token:1
+ActivateAbility	Defined	1	-	defined:70	token:1
 ActivateAbility	ManaAbility	2	-	-	bool:2
 ActivateAbility	SP	1	-	-	token:1
 ActivateAbility	SpellDescription	1	-	-	prose:1
@@ -90,7 +90,7 @@ AddOrRemoveCounter	Cost	4	-	-	token:2,int:1,prose:1
 AddOrRemoveCounter	CounterNum	10	amount:1	amount:11	int:10
 AddOrRemoveCounter	CounterType	9	counter:2	counter:3	token:9
 AddOrRemoveCounter	DB	7	-	-	token:7
-AddOrRemoveCounter	Defined	5	-	defined:68	token:5
+AddOrRemoveCounter	Defined	5	-	defined:70	token:5
 AddOrRemoveCounter	DefinedPlayer	1	defined:2	defined:1	token:1
 AddOrRemoveCounter	EachExistingCounter	2	-	-	bool:2
 AddOrRemoveCounter	Optional	1	-	-	bool:1
@@ -134,7 +134,7 @@ AddTurn	ConditionSVarCompare	3	-	-	token:3
 AddTurn	Cost	13	-	-	token:7,prose:6
 AddTurn	CostDesc	1	-	text:1	token:1
 AddTurn	DB	32	-	-	token:32
-AddTurn	Defined	18	-	defined:68	token:18
+AddTurn	Defined	18	-	defined:70	token:18
 AddTurn	Exhaust	1	-	-	bool:1
 AddTurn	ExtraTurnDelayedTrigger	7	svarref:1	-	token:7
 AddTurn	ExtraTurnDelayedTriggerExecute	7	svarref:1	-	token:7
@@ -161,7 +161,7 @@ AdvanceCrank	AILogic	1	-	-	token:1
 AdvanceCrank	Cost	1	-	-	prose:1
 AdvanceCrank	SpellDescription	1	-	-	prose:1
 Airbend	DB	13	-	-	token:13
-Airbend	Defined	2	-	defined:68	prose:1,token:1
+Airbend	Defined	2	-	defined:70	prose:1,token:1
 Airbend	SP	1	-	-	token:1
 Airbend	SpellDescription	4	-	-	prose:4
 Airbend	SubAbility	2	-	-	token:2
@@ -181,7 +181,7 @@ AlterAttribute	ConditionSVarCompare	1	-	-	token:1
 AlterAttribute	ConditionZone	1	-	-	token:1
 AlterAttribute	Cost	43	-	-	token:35,prose:8
 AlterAttribute	DB	125	-	-	token:125
-AlterAttribute	Defined	82	-	defined:68	token:78,prose:4
+AlterAttribute	Defined	82	-	defined:70	token:78,prose:4
 AlterAttribute	IncludeAllComponentCards	1	-	-	bool:1
 AlterAttribute	Optional	2	-	-	bool:2
 AlterAttribute	RememberAltered	1	-	-	bool:1
@@ -243,7 +243,7 @@ Amass	ConditionDefined	2	-	-	token:2
 Amass	ConditionPresent	2	-	valid:1	token:2
 Amass	Cost	3	-	-	int:1,prose:1,token:1
 Amass	DB	64	-	-	token:64
-Amass	Defined	1	-	defined:68	token:1
+Amass	Defined	1	-	defined:70	token:1
 Amass	Num	77	amount:2	amount:4	int:64,token:13
 Amass	Planeswalker	1	-	-	bool:1
 Amass	RememberAmass	5	-	-	bool:5
@@ -280,7 +280,7 @@ Animate	ConditionSVarCompare	5	-	-	token:5
 Animate	Cost	496	-	-	token:294,prose:146,int:56
 Animate	CostDesc	2	-	text:1	prose:2
 Animate	DB	698	-	-	token:698
-Animate	Defined	883	-	defined:68	token:875,prose:8
+Animate	Defined	883	-	defined:70	token:875,prose:8
 Animate	DefinedDesc	1	-	-	prose:1
 Animate	Duration	539	-	-	token:539
 Animate	Exhaust	5	-	-	bool:5
@@ -359,7 +359,7 @@ AnimateAll	ConditionManaSpent	1	-	-	token:1
 AnimateAll	ConditionPresent	6	-	valid:1	token:6
 AnimateAll	Cost	26	-	-	token:12,prose:10,int:4
 AnimateAll	DB	82	-	-	token:82
-AnimateAll	Defined	1	-	defined:68	token:1
+AnimateAll	Defined	1	-	defined:70	token:1
 AnimateAll	Duration	43	-	-	token:43
 AnimateAll	IsCurse	3	-	-	bool:3
 AnimateAll	Keywords	11	-	-	token:7,prose:4
@@ -413,14 +413,14 @@ AssignCombatDamageAsUnblocked	Optional	18	-	-	bool:18
 AssignCombatDamageAsUnblocked	ValidCard	19	-	valid:5	token:19
 AssignGroup	AILogic	5	-	-	token:5
 AssignGroup	Choices	5	-	valid:9	token:5
-AssignGroup	Defined	5	-	defined:68	token:5
+AssignGroup	Defined	5	-	defined:70	token:5
 AssignGroup	SP	5	-	-	token:5
 AssignGroup	SpellDescription	5	-	-	prose:5
 AssignNoCombatDamage	Description	28	-	-	prose:28
 AssignNoCombatDamage	Mode	28	-	-	token:28
 AssignNoCombatDamage	ValidCard	28	-	valid:5	token:28
 Assimilate	DB	5	-	-	token:5
-Assimilate	Defined	4	-	defined:68	token:4
+Assimilate	Defined	4	-	defined:70	token:4
 Assimilate	SubAbility	4	-	-	token:4
 Assimilate	TgtZone	1	-	zone:4	token:1
 Assimilate	ValidTgts	1	-	amount:1,valid:2	token:1
@@ -440,7 +440,7 @@ Attach	ConditionDefined	9	-	-	token:9
 Attach	ConditionPresent	9	-	valid:1	token:9
 Attach	Cost	702	-	-	int:631,prose:53,token:18
 Attach	DB	269	-	-	token:269
-Attach	Defined	151	-	defined:68	token:150,prose:1
+Attach	Defined	151	-	defined:70	token:150,prose:1
 Attach	IsCurse	1	-	-	bool:1
 Attach	Move	6	-	-	bool:6
 Attach	Object	91	defined:1	defined:3	token:80,prose:11
@@ -532,9 +532,8 @@ AttackerUnblockedOnce	ValidDefenders	1	-	-	token:1
 AttackersDeclared	ActivationLimit	1	-	int:1	int:1
 AttackersDeclared	AttackedTarget	30	-	-	token:30
 AttackersDeclared	AttackingPlayer	173	-	-	token:173
-AttackersDeclared	CheckDefinedPlayer	1	-	-	token:1
+AttackersDeclared	CheckDefinedPlayer	2	-	-	prose:1,token:1
 AttackersDeclared	CheckSVar	15	-	amount:1	token:15
-AttackersDeclared	Condition	1	-	-	token:1
 AttackersDeclared	Execute	257	-	-	token:257
 AttackersDeclared	FirstCombat	1	-	-	bool:1
 AttackersDeclared	GameActivationLimit	1	-	int:1	int:1
@@ -565,9 +564,8 @@ Attacks	Alone	104	-	-	bool:104
 Attacks	AttackDifferentPlayers	1	-	-	bool:1
 Attacks	Attacked	69	-	-	token:68,prose:1
 Attacks	Blessing	1	-	-	bool:1
-Attacks	CheckDefinedPlayer	2	-	-	token:2
-Attacks	CheckSVar	29	-	amount:1	token:29
-Attacks	Condition	6	-	-	token:6
+Attacks	CheckDefinedPlayer	3	-	-	token:3
+Attacks	CheckSVar	34	-	amount:1	token:29,amount:5
 Attacks	DefendingPlayerPoisoned	1	-	-	bool:1
 Attacks	Delirium	7	-	-	bool:7
 Attacks	Execute	1942	-	-	token:1942
@@ -584,7 +582,7 @@ Attacks	PrecostDesc	2	-	text:1	prose:2
 Attacks	PresentCompare	44	-	-	token:44
 Attacks	PresentPlayer	1	-	-	token:1
 Attacks	PresentZone	6	-	zone:1	token:6
-Attacks	SVarCompare	22	-	-	token:22
+Attacks	SVarCompare	27	-	-	token:22,amount:5
 Attacks	Secondary	376	-	-	bool:376
 Attacks	Static	1	-	-	bool:1
 Attacks	TargetMax	1	-	-	int:1
@@ -612,7 +610,7 @@ BecomeMonarch	ConditionPresent	1	-	valid:1	token:1
 BecomeMonarch	ConditionSVarCompare	2	-	-	token:2
 BecomeMonarch	Cost	4	-	-	prose:4
 BecomeMonarch	DB	60	-	-	token:60
-BecomeMonarch	Defined	6	-	defined:68	token:6
+BecomeMonarch	Defined	6	-	defined:70	token:6
 BecomeMonarch	Execute	5	-	-	token:5
 BecomeMonarch	IsPresent	1	-	-	token:1
 BecomeMonarch	Mode	5	-	-	token:5
@@ -639,7 +637,7 @@ BecomesBlocked	AB	1	-	-	token:1
 BecomesBlocked	ActivationAfterBlockers	2	-	-	bool:2
 BecomesBlocked	ActivationPhases	5	-	-	prose:5
 BecomesBlocked	Cost	1	-	-	token:1
-BecomesBlocked	Defined	1	-	defined:68	prose:1
+BecomesBlocked	Defined	1	-	defined:70	prose:1
 BecomesBlocked	RememberTargets	1	-	-	bool:1
 BecomesBlocked	SP	4	-	-	token:4
 BecomesBlocked	SpellDescription	5	-	-	prose:5
@@ -723,7 +721,7 @@ Blight	AB	1	-	-	token:1
 Blight	ConditionCheckSVar	1	-	-	token:1
 Blight	Cost	1	-	-	prose:1
 Blight	DB	5	-	-	token:5
-Blight	Defined	5	-	defined:68	token:5
+Blight	Defined	5	-	defined:70	token:5
 Blight	Num	6	amount:2	amount:4	int:6
 Blight	SorcerySpeed	1	-	-	bool:1
 Blight	SpellDescription	1	-	-	prose:1
@@ -761,7 +759,7 @@ Blocks	TriggerZones	36	-	-	token:36
 Blocks	ValidBlocked	8	-	-	token:8
 Blocks	ValidCard	168	-	valid:5	token:168
 Bond	DB	50	-	-	token:50
-Bond	Defined	50	-	defined:68	token:50
+Bond	Defined	50	-	defined:70	token:50
 Bond	ValidCards	50	valid:1	valid:5	token:50
 Branch	AB	6	-	-	token:6
 Branch	AILogic	4	-	-	token:4
@@ -770,7 +768,7 @@ Branch	BranchConditionSVar	123	-	amount:1	token:107,amount:16
 Branch	BranchConditionSVarCompare	89	-	-	token:87,amount:2
 Branch	Cost	6	-	-	int:3,prose:3
 Branch	DB	99	-	-	token:99
-Branch	Defined	1	-	defined:68	token:1
+Branch	Defined	1	-	defined:70	token:1
 Branch	FalseSubAbility	102	-	-	token:102
 Branch	PlayerTurn	1	-	defined:2	bool:1
 Branch	SP	18	-	-	token:18
@@ -787,7 +785,7 @@ Branch	ValidTgts	13	-	amount:1,valid:2	token:13
 Camouflage	AILogic	1	-	-	token:1
 Camouflage	DB	1	-	-	token:1
 Camouflage	Defender	1	defined:1	-	token:1
-Camouflage	Defined	1	-	defined:68	token:1
+Camouflage	Defined	1	-	defined:70	token:1
 CanAdapt	Description	1	-	-	prose:1
 CanAdapt	Mode	1	-	-	token:1
 CanAdapt	ValidCard	1	-	valid:5	token:1
@@ -1080,7 +1078,7 @@ ChangeCombatants	Attacking	9	-	-	bool:5,prose:2,token:2
 ChangeCombatants	ConditionDefined	3	-	-	token:3
 ChangeCombatants	ConditionPresent	3	-	valid:1	token:3
 ChangeCombatants	DB	9	-	-	token:9
-ChangeCombatants	Defined	6	-	defined:68	token:5,prose:1
+ChangeCombatants	Defined	6	-	defined:70	token:5,prose:1
 ChangeCombatants	Optional	1	-	-	bool:1
 ChangeCombatants	SubAbility	4	-	-	token:4
 ChangeCombatants	TargetMax	1	-	-	token:1
@@ -1091,7 +1089,7 @@ ChangeCombatants	ValidTgts	3	-	amount:1,valid:2	token:3
 ChangeSpeed	ConditionCheckSVar	2	-	-	amount:2
 ChangeSpeed	ConditionSVarCompare	2	-	-	amount:1,token:1
 ChangeSpeed	DB	2	-	-	token:2
-ChangeSpeed	Defined	2	-	defined:68	token:2
+ChangeSpeed	Defined	2	-	defined:70	token:2
 ChangeSpeed	Mode	2	-	-	token:2
 ChangeTargets	AB	7	-	-	token:7
 ChangeTargets	ChangeSingleTarget	3	-	-	bool:3
@@ -1105,7 +1103,7 @@ ChangeTargets	ConditionTargetValidTargeting	3	-	-	token:3
 ChangeTargets	ConditionTargetsSingleTarget	2	-	-	bool:2
 ChangeTargets	Cost	7	-	-	token:6,prose:1
 ChangeTargets	DB	22	-	-	token:22
-ChangeTargets	Defined	15	-	defined:68	token:14,prose:1
+ChangeTargets	Defined	15	-	defined:70	token:14,prose:1
 ChangeTargets	DefinedMagnet	5	-	-	token:5
 ChangeTargets	GameActivationLimit	1	-	int:1	int:1
 ChangeTargets	ModeCost	1	-	-	int:1
@@ -1127,7 +1125,7 @@ ChangeText	ChangeColorWord	9	-	-	prose:9
 ChangeText	ChangeTypeWord	8	-	-	prose:8
 ChangeText	Cost	1	-	-	token:1
 ChangeText	DB	11	-	-	token:11
-ChangeText	Defined	9	-	defined:68	token:9
+ChangeText	Defined	9	-	defined:70	token:9
 ChangeText	Duration	11	-	-	token:11
 ChangeText	ForbiddenNewTypes	1	text:1	-	token:1
 ChangeText	SP	5	-	-	token:5
@@ -1137,7 +1135,7 @@ ChangeText	TgtPrompt	8	-	-	prose:8
 ChangeText	TgtZone	7	-	zone:4	token:7
 ChangeText	ValidTgts	8	-	amount:1,valid:2	token:7,prose:1
 ChangeX	DB	2	-	-	token:2
-ChangeX	Defined	2	-	defined:68	token:2
+ChangeX	Defined	2	-	defined:70	token:2
 ChangeX	Value	2	amount:1	amount:1	amount:1,int:1
 ChangeZone	AB	1371	-	-	token:1371
 ChangeZone	AILifeThreshold	1	-	int:1	int:1
@@ -1197,7 +1195,7 @@ ChangeZone	ConditionZone	4	-	-	token:4
 ChangeZone	Cost	1413	-	-	prose:998,token:327,int:88
 ChangeZone	CostDesc	22	-	text:1	prose:19,token:3
 ChangeZone	DB	4851	-	-	token:4851
-ChangeZone	Defined	2158	-	defined:68	token:2133,prose:25
+ChangeZone	Defined	2158	-	defined:70	token:2133,prose:25
 ChangeZone	DefinedDesc	4	text:1	-	prose:3,token:1
 ChangeZone	DefinedPlayer	331	defined:2	defined:1	token:331
 ChangeZone	DestAltSVar	6	-	-	amount:3,prose:2,token:1
@@ -1285,7 +1283,7 @@ ChangeZone	StaticEffect	50	-	-	token:50
 ChangeZone	StaticEffectCheckSVar	1	-	amount:1	token:1
 ChangeZone	StaticEffectSVarCompare	1	-	-	token:1
 ChangeZone	SubAbility	2399	-	-	token:2399
-ChangeZone	Tapped	491	-	-	bool:491
+ChangeZone	Tapped	490	-	-	bool:490
 ChangeZone	TargetMax	613	-	-	int:479,token:134
 ChangeZone	TargetMin	620	-	-	int:577,token:43
 ChangeZone	TargetType	10	-	valid:2	token:10
@@ -1340,7 +1338,7 @@ ChangeZoneAll	ConditionSVarCompare	9	-	-	token:9
 ChangeZoneAll	Cost	86	-	-	prose:54,token:32
 ChangeZoneAll	CostDesc	1	-	text:1	prose:1
 ChangeZoneAll	DB	521	-	-	token:521
-ChangeZoneAll	Defined	49	-	defined:68	token:49
+ChangeZoneAll	Defined	49	-	defined:70	token:49
 ChangeZoneAll	DefinedPlayer	3	defined:1	defined:1	token:3
 ChangeZoneAll	Destination	746	zone:1	zone:10	token:746
 ChangeZoneAll	Duration	7	-	-	token:7
@@ -1465,7 +1463,7 @@ ChangesZoneAll	TriggerZones	130	-	-	token:130
 ChangesZoneAll	ValidCards	128	-	valid:5	token:127,prose:1
 ChangesZoneAll	ValidCause	4	-	-	token:4
 ChaosEnsues	DB	17	-	-	token:17
-ChaosEnsues	Defined	1	defined:1	defined:68	token:1
+ChaosEnsues	Defined	1	defined:1	defined:70	token:1
 ChaosEnsues	Execute	158	-	-	token:158
 ChaosEnsues	Mode	158	-	-	token:158
 ChaosEnsues	OptionalDecider	6	-	defined:2	token:6
@@ -1524,10 +1522,10 @@ ChooseCard	ConditionManaNotSpent	1	-	-	prose:1
 ChooseCard	ConditionPresent	6	-	valid:1	token:6
 ChooseCard	ConditionSVarCompare	6	-	-	token:6
 ChooseCard	ControlAndNot	1	-	-	bool:1
-ChooseCard	ControlledByPlayer	48	-	-	token:48
+ChooseCard	ControlledByPlayer	49	-	-	token:49
 ChooseCard	Cost	32	-	-	prose:15,token:12,int:5
 ChooseCard	DB	376	-	-	token:376
-ChooseCard	Defined	224	-	defined:68	token:223,prose:1
+ChooseCard	Defined	224	-	defined:70	token:223,prose:1
 ChooseCard	DefinedCards	19	defined:1	defined:1	token:18,prose:1
 ChooseCard	ETB	1	-	-	bool:1
 ChooseCard	EachBasicType	4	-	-	bool:4
@@ -1578,7 +1576,7 @@ ChooseColor	Choices	1	-	valid:9	token:1
 ChooseColor	ColorsFrom	1	defined:1	-	prose:1
 ChooseColor	Cost	32	-	-	prose:19,token:9,int:4
 ChooseColor	DB	92	-	-	token:92
-ChooseColor	Defined	125	-	defined:68	token:125
+ChooseColor	Defined	125	-	defined:70	token:125
 ChooseColor	Exclude	10	-	-	token:10
 ChooseColor	Forecast	1	-	-	bool:1
 ChooseColor	InstantSpeed	1	-	-	bool:1
@@ -1604,7 +1602,7 @@ ChooseDirection	SubAbility	3	-	-	token:3
 ChooseDirection	Ultimate	1	-	-	bool:1
 ChooseEvenOdd	AILogic	2	-	-	token:2
 ChooseEvenOdd	DB	4	-	-	token:4
-ChooseEvenOdd	Defined	3	-	defined:68	token:3
+ChooseEvenOdd	Defined	3	-	defined:70	token:3
 ChooseEvenOdd	SP	2	-	-	token:2
 ChooseEvenOdd	SpellDescription	5	-	-	prose:5
 ChooseEvenOdd	StackDescription	2	-	-	token:2
@@ -1617,7 +1615,7 @@ ChooseNumber	ConditionCheckSVar	1	-	-	token:1
 ChooseNumber	ConditionSVarCompare	1	-	-	token:1
 ChooseNumber	Cost	4	-	-	prose:2,token:2
 ChooseNumber	DB	46	-	-	token:46
-ChooseNumber	Defined	36	-	defined:68	token:36
+ChooseNumber	Defined	36	-	defined:70	token:36
 ChooseNumber	GuessCorrect	1	-	-	token:1
 ChooseNumber	GuessWrong	1	-	-	token:1
 ChooseNumber	Guesser	1	defined:1	-	token:1
@@ -1656,7 +1654,7 @@ ChoosePlayer	ConditionPresent	1	-	valid:1	token:1
 ChoosePlayer	ConditionSVarCompare	3	-	-	token:3
 ChoosePlayer	Cost	6	-	-	prose:4,token:2
 ChoosePlayer	DB	122	-	-	token:122
-ChoosePlayer	Defined	121	-	defined:68	token:121
+ChoosePlayer	Defined	121	-	defined:70	token:121
 ChoosePlayer	DontNotify	1	-	-	bool:1
 ChoosePlayer	Optional	1	-	-	bool:1
 ChoosePlayer	OrOtherConditionSVarCompare	1	-	-	token:1
@@ -1700,7 +1698,7 @@ ChooseType	ChooseNoted	6	-	-	bool:6
 ChooseType	ChooseType2	2	-	-	bool:2
 ChooseType	Cost	33	-	-	token:14,int:11,prose:8
 ChooseType	DB	120	-	-	token:120
-ChooseType	Defined	142	-	defined:68	token:142
+ChooseType	Defined	142	-	defined:70	token:142
 ChooseType	ETB	1	-	-	bool:1
 ChooseType	InvalidTypes	8	-	-	token:8
 ChooseType	IsCurse	1	-	-	bool:1
@@ -1727,7 +1725,7 @@ ClaimThePrize	ConditionDefined	1	-	-	token:1
 ClaimThePrize	ConditionPresent	1	-	valid:1	token:1
 ClaimThePrize	DB	1	-	-	token:1
 Clash	DB	27	-	-	token:27
-Clash	Defined	1	defined:1	defined:68	token:1
+Clash	Defined	1	defined:1	defined:70	token:1
 Clash	OtherwiseSubAbility	3	-	-	token:3
 Clash	RememberClasher	2	-	-	bool:2
 Clash	SP	2	-	-	token:2
@@ -1769,7 +1767,7 @@ Cleanup	ConditionCompare	1	-	-	token:1
 Cleanup	ConditionDefined	1	-	-	token:1
 Cleanup	ConditionPresent	1	-	valid:1	prose:1
 Cleanup	DB	3600	-	-	token:3600
-Cleanup	Defined	28	-	defined:68	token:28
+Cleanup	Defined	28	-	defined:70	token:28
 Cleanup	ForgetDefined	33	defined:1	-	token:33
 Cleanup	Log	34	-	-	bool:34
 Cleanup	ShowCurrentCard	1	-	defined:2	token:1
@@ -1782,7 +1780,7 @@ Cleanup	UnlessSwitched	1	-	-	bool:1
 Cloak	Amount	2	amount:1	amount:14	int:2
 Cloak	Choices	1	valid:1	valid:9	token:1
 Cloak	DB	11	-	-	token:11
-Cloak	Defined	10	-	defined:68	token:9,prose:1
+Cloak	Defined	10	-	defined:70	token:9,prose:1
 Cloak	DefinedPlayer	1	-	defined:1	token:1
 Cloak	RememberCloaked	1	-	-	bool:1
 Cloak	Shuffle	2	-	-	bool:2
@@ -1816,7 +1814,7 @@ Clone	CopyFromChosenName	1	-	-	bool:1
 Clone	Cost	23	-	-	int:9,prose:9,token:5
 Clone	CostDesc	1	-	text:1	prose:1
 Clone	DB	156	-	-	token:156
-Clone	Defined	65	defined:2	defined:68	token:65
+Clone	Defined	65	defined:2	defined:70	token:65
 Clone	Duration	64	-	-	token:64
 Clone	Embalm	1	-	-	bool:1
 Clone	ExcludeChosen	2	-	-	bool:2
@@ -1886,7 +1884,7 @@ Connive	ActiveZones	1	-	-	token:1
 Connive	ConniveNum	3	amount:1	amount:1	token:3
 Connive	Cost	5	-	-	prose:2,token:2,int:1
 Connive	DB	48	-	-	token:48
-Connive	Defined	7	-	defined:68	token:7
+Connive	Defined	7	-	defined:70	token:7
 Connive	Description	1	-	-	prose:1
 Connive	Event	1	-	-	token:1
 Connive	PlayerTurn	1	-	defined:2	bool:1
@@ -2018,7 +2016,7 @@ ControlPlayer	ConditionOptionalPaid	2	-	-	bool:2
 ControlPlayer	Controller	2	defined:1	-	token:2
 ControlPlayer	Cost	3	-	-	prose:2,token:1
 ControlPlayer	DB	6	-	-	token:6
-ControlPlayer	Defined	2	-	defined:68	token:2
+ControlPlayer	Defined	2	-	defined:70	token:2
 ControlPlayer	Planeswalker	1	-	-	bool:1
 ControlPlayer	ReduceCost	1	-	-	token:1
 ControlPlayer	SP	2	-	-	token:2
@@ -2033,7 +2031,7 @@ ControlPlayer	ValidTgts	9	-	amount:1,valid:2	token:9
 ControlSpell	ConditionDefined	1	-	-	token:1
 ControlSpell	ConditionPresent	1	-	valid:1	token:1
 ControlSpell	DB	3	-	-	token:3
-ControlSpell	Defined	3	-	defined:68	token:3
+ControlSpell	Defined	3	-	defined:70	token:3
 ControlSpell	Mode	6	-	-	token:6
 ControlSpell	NewController	1	-	-	token:1
 ControlSpell	Remember	1	-	-	bool:1
@@ -2081,7 +2079,7 @@ CopyPermanent	Controller	28	defined:1	-	token:28
 CopyPermanent	Cost	133	-	-	prose:104,token:17,int:12
 CopyPermanent	CostDesc	2	-	text:1	prose:2
 CopyPermanent	DB	351	-	-	token:351
-CopyPermanent	Defined	339	-	defined:68	token:316,prose:23
+CopyPermanent	Defined	339	-	defined:70	token:316,prose:23
 CopyPermanent	DefinedName	21	-	-	prose:13,token:8
 CopyPermanent	DoesntHaveThisAbility	1	-	-	bool:1
 CopyPermanent	ForEach	59	defined:1	-	token:59
@@ -2162,7 +2160,7 @@ CopySpellAbility	Controller	36	defined:1	-	token:36
 CopySpellAbility	CopyForEachCanTarget	11	-	-	token:9,prose:2
 CopySpellAbility	Cost	60	-	-	prose:41,int:10,token:9
 CopySpellAbility	DB	286	-	-	token:286
-CopySpellAbility	Defined	294	-	defined:68	token:291,prose:3
+CopySpellAbility	Defined	294	-	defined:70	token:291,prose:3
 CopySpellAbility	DefinedTarget	3	defined:1	-	token:3
 CopySpellAbility	GameActivationLimit	2	-	int:1	int:2
 CopySpellAbility	IgnoreFreeze	3	-	-	bool:3
@@ -2217,7 +2215,7 @@ Counter	ConditionWouldDestroy	1	-	-	token:1
 Counter	Cost	77	-	-	prose:52,token:24,int:1
 Counter	CostDesc	2	-	text:1	prose:1,token:1
 Counter	DB	159	-	-	token:159
-Counter	Defined	71	-	defined:68	token:65,prose:6
+Counter	Defined	71	-	defined:70	token:65,prose:6
 Counter	Description	128	-	-	prose:128
 Counter	Destination	45	-	zone:10	token:45
 Counter	DestinationChoice	1	-	-	token:1
@@ -2567,7 +2565,7 @@ DealDamage	CounterNum	1	-	amount:11	int:1
 DealDamage	DB	1651	-	-	token:1651
 DealDamage	DamageMap	70	-	-	bool:70
 DealDamage	DamageSource	190	defined:2	defined:2	token:186,prose:4
-DealDamage	Defined	841	defined:1	defined:68	token:832,prose:9
+DealDamage	Defined	841	defined:1	defined:70	token:832,prose:9
 DealDamage	Description	1	-	-	prose:1
 DealDamage	DivideEvenly	1	-	-	token:1
 DealDamage	DividedAsYouChoose	74	-	amount:1	int:47,token:25,amount:2
@@ -2637,7 +2635,7 @@ Debuff	Activator	5	-	-	token:5
 Debuff	AllSuffixKeywords	1	-	-	token:1
 Debuff	Cost	26	-	-	int:11,token:8,prose:7
 Debuff	DB	24	-	-	token:24
-Debuff	Defined	34	-	defined:68	token:34
+Debuff	Defined	34	-	defined:70	token:34
 Debuff	Duration	4	-	-	token:4
 Debuff	Keywords	52	-	-	token:42,prose:10
 Debuff	SP	3	-	-	token:3
@@ -2727,7 +2725,7 @@ Destroy	ConditionSVarCompare	9	-	-	token:9
 Destroy	Cost	298	-	-	prose:204,token:91,int:3
 Destroy	CostDesc	8	-	text:1	prose:7,token:1
 Destroy	DB	776	-	-	token:776
-Destroy	Defined	246	-	defined:68	token:242,prose:4
+Destroy	Defined	246	-	defined:70	token:242,prose:4
 Destroy	Description	6	-	-	prose:6
 Destroy	Event	23	-	-	token:23
 Destroy	ForgetOtherTargets	2	-	-	bool:2
@@ -2827,7 +2825,7 @@ Destroyed	ValidCauser	2	-	-	token:2
 Detain	AB	1	-	-	token:1
 Detain	Cost	1	-	-	prose:1
 Detain	DB	10	-	-	token:10
-Detain	Defined	1	-	defined:68	prose:1
+Detain	Defined	1	-	defined:70	prose:1
 Detain	SP	2	-	-	token:2
 Detain	SpellDescription	4	-	-	prose:4
 Detain	SubAbility	1	-	-	token:1
@@ -2870,7 +2868,7 @@ Dig	ConditionSVarCompare	5	-	-	token:5
 Dig	ConditionZone	1	-	-	token:1
 Dig	Cost	181	-	-	prose:96,token:77,int:8
 Dig	DB	686	-	-	token:686
-Dig	Defined	374	-	defined:68	token:374
+Dig	Defined	374	-	defined:70	token:374
 Dig	DefinedExiler	2	-	-	token:2
 Dig	DestZone2Optional	2	-	-	bool:2
 Dig	DestinationZone	739	zone:1	-	token:739
@@ -2942,7 +2940,7 @@ DigMultiple	ChooseAmount	1	amount:1	-	int:1
 DigMultiple	ChosenZone	1	zone:1	-	token:1
 DigMultiple	Cost	2	-	-	token:2
 DigMultiple	DB	3	-	-	token:3
-DigMultiple	Defined	1	-	defined:68	token:1
+DigMultiple	Defined	1	-	defined:70	token:1
 DigMultiple	DestinationZone	4	zone:1	-	token:4
 DigMultiple	DestinationZone2	7	-	-	token:7
 DigMultiple	DigNum	12	amount:1	amount:2	int:10,amount:1,token:1
@@ -2973,7 +2971,7 @@ DigUntil	ConditionSVarCompare	4	-	-	token:4
 DigUntil	Cost	31	-	-	prose:22,token:7,int:2
 DigUntil	CostDesc	3	-	text:1	prose:3
 DigUntil	DB	204	-	-	token:204
-DigUntil	Defined	127	-	defined:68	token:127
+DigUntil	Defined	127	-	defined:70	token:127
 DigUntil	DigZone	4	zone:1	-	token:4
 DigUntil	Exhaust	1	-	-	bool:1
 DigUntil	ForgetOtherRemembered	3	-	-	bool:3
@@ -3042,7 +3040,7 @@ Discard	ConditionZone	1	-	-	token:1
 Discard	Cost	143	-	-	token:81,prose:58,int:4
 Discard	CostDesc	3	-	text:1	prose:2,token:1
 Discard	DB	841	-	-	token:841
-Discard	Defined	712	-	defined:68	token:709,prose:3
+Discard	Defined	712	-	defined:70	token:709,prose:3
 Discard	DefinedCards	27	defined:2	defined:1	token:21,prose:6
 Discard	DiscardMessage	1	-	-	prose:1
 Discard	DiscardValid	100	-	-	token:98,prose:2
@@ -3109,7 +3107,7 @@ Discover	ActivationZone	1	-	-	token:1
 Discover	ConditionCheckSVar	1	-	-	token:1
 Discover	Cost	12	-	-	prose:10,int:1,token:1
 Discover	DB	21	-	-	token:21
-Discover	Defined	1	-	defined:68	token:1
+Discover	Defined	1	-	defined:70	token:1
 Discover	Execute	2	-	-	token:2
 Discover	Mode	2	-	-	token:2
 Discover	Num	35	amount:1	amount:4	int:23,token:10,amount:2
@@ -3131,7 +3129,7 @@ Draft	ConditionPresent	1	-	valid:1	token:1
 Draft	ConditionSVarCompare	3	-	-	token:3
 Draft	Cost	7	-	-	prose:4,token:3
 Draft	DB	36	-	-	token:36
-Draft	Defined	3	defined:2	defined:68	token:3
+Draft	Defined	3	defined:2	defined:70	token:3
 Draft	DraftNum	2	amount:1	-	int:2
 Draft	Planeswalker	1	-	-	bool:1
 Draft	RememberDrafted	19	-	-	bool:19
@@ -3142,7 +3140,7 @@ Draft	StackDescription	8	-	-	token:6,prose:2
 Draft	SubAbility	22	-	-	token:22
 Draft	TriggerZones	2	-	-	token:2
 DrainMana	DB	5	-	-	token:5
-DrainMana	Defined	5	-	defined:68	token:5
+DrainMana	Defined	5	-	defined:70	token:5
 DrainMana	DrainMana	1	-	-	bool:1
 DrainMana	RememberDrainedMana	1	-	-	bool:1
 DrainMana	SubAbility	1	-	-	token:1
@@ -3180,7 +3178,7 @@ Draw	ConditionZone	4	-	-	token:4
 Draw	Cost	1189	-	-	prose:880,token:279,int:30
 Draw	CostDesc	23	-	text:1	prose:17,token:6
 Draw	DB	2738	-	-	token:2738
-Draw	Defined	1392	-	defined:68	token:1376,prose:16
+Draw	Defined	1392	-	defined:70	token:1376,prose:16
 Draw	Description	49	-	-	prose:49
 Draw	Event	64	-	-	token:64
 Draw	Exhaust	3	-	-	bool:3
@@ -3282,7 +3280,7 @@ EachDamage	AILogic	1	-	-	token:1
 EachDamage	Cost	2	-	-	token:2
 EachDamage	DB	25	-	-	token:25
 EachDamage	DamageDesc	2	-	-	prose:2
-EachDamage	Defined	12	-	defined:68	token:11,prose:1
+EachDamage	Defined	12	-	defined:70	token:11,prose:1
 EachDamage	DefinedDamagers	20	defined:1	-	token:13,prose:7
 EachDamage	EachToItself	3	-	-	bool:3
 EachDamage	NumDmg	29	amount:1	amount:15,svarref:1	amount:25,int:3,token:1
@@ -3346,7 +3344,7 @@ Effect	CostDesc	4	-	text:1	prose:4
 Effect	CounterNum	1	-	amount:11	int:1
 Effect	CounterType	1	-	counter:3	token:1
 Effect	DB	1420	-	-	token:1420
-Effect	Defined	11	-	defined:68	token:11
+Effect	Defined	11	-	defined:70	token:11
 Effect	Description	10	-	-	prose:10
 Effect	Duration	778	-	-	token:777,prose:1
 Effect	EffectOwner	52	defined:1	-	token:52
@@ -3428,7 +3426,7 @@ EndTurn	AB	2	-	-	token:2
 EndTurn	ConditionPlayerTurn	1	-	-	bool:1
 EndTurn	Cost	2	-	-	prose:1,token:1
 EndTurn	DB	4	-	-	token:4
-EndTurn	Defined	1	-	defined:68	token:1
+EndTurn	Defined	1	-	defined:70	token:1
 EndTurn	Optional	1	-	-	bool:1
 EndTurn	PlayerTurn	1	-	defined:2	bool:1
 EndTurn	SP	3	-	-	token:3
@@ -3438,7 +3436,7 @@ EndTurn	SubAbility	1	-	-	token:1
 Endure	AB	2	-	-	token:2
 Endure	Cost	2	-	-	prose:2
 Endure	DB	11	-	-	token:11
-Endure	Defined	2	-	defined:68	token:2
+Endure	Defined	2	-	defined:70	token:2
 Endure	Num	13	amount:1	amount:4	int:10,token:3
 Endure	SorcerySpeed	1	-	-	bool:1
 Endure	SpellDescription	1	-	-	prose:1
@@ -3472,7 +3470,7 @@ ExchangeControl	ActivationPhases	1	-	-	token:1
 ExchangeControl	CantFizzle	1	-	-	bool:1
 ExchangeControl	Cost	4	-	-	prose:2,int:1,token:1
 ExchangeControl	DB	29	-	-	token:29
-ExchangeControl	Defined	23	defined:2	defined:68	token:23
+ExchangeControl	Defined	23	defined:2	defined:70	token:23
 ExchangeControl	ModeCost	3	-	-	int:3
 ExchangeControl	Optional	3	-	-	bool:3
 ExchangeControl	RememberExchanged	4	-	-	bool:4
@@ -3520,14 +3518,14 @@ ExchangeLife	TgtPrompt	3	-	-	prose:3
 ExchangeLife	ValidTgts	9	-	amount:1,valid:2	token:9
 ExchangeLifeVariant	AB	3	-	-	token:3
 ExchangeLifeVariant	Cost	3	-	-	token:2,int:1
-ExchangeLifeVariant	Defined	2	-	defined:68	token:2
+ExchangeLifeVariant	Defined	2	-	defined:70	token:2
 ExchangeLifeVariant	Mode	3	-	-	token:3
 ExchangeLifeVariant	SpellDescription	3	-	-	prose:3
 ExchangeLifeVariant	StackDescription	1	-	-	prose:1
 ExchangeLifeVariant	ValidTgts	1	-	amount:1,valid:2	token:1
 ExchangePower	BasePower	1	-	-	bool:1
 ExchangePower	DB	2	-	-	token:2
-ExchangePower	Defined	1	-	defined:68	token:1
+ExchangePower	Defined	1	-	defined:70	token:1
 ExchangePower	Duration	2	-	-	token:2
 ExchangePower	SpellDescription	1	-	-	prose:1
 ExchangePower	TargetMax	1	-	-	int:1
@@ -3536,7 +3534,7 @@ ExchangePower	TargetUnique	1	-	-	bool:1
 ExchangePower	TgtPrompt	1	-	-	prose:1
 ExchangePower	ValidTgts	2	-	amount:1,valid:2	token:2
 ExchangeTextBox	DB	2	-	-	token:2
-ExchangeTextBox	Defined	1	-	defined:68	prose:1
+ExchangeTextBox	Defined	1	-	defined:70	prose:1
 ExchangeTextBox	Duration	1	-	-	token:1
 ExchangeTextBox	TargetMax	1	-	-	int:1
 ExchangeTextBox	TargetMin	1	-	-	int:1
@@ -3573,7 +3571,7 @@ Explore	AILogic	1	-	-	token:1
 Explore	ActiveZones	2	-	-	token:2
 Explore	Cost	4	-	-	prose:4
 Explore	DB	38	-	-	token:38
-Explore	Defined	7	-	defined:68	token:6,prose:1
+Explore	Defined	7	-	defined:70	token:6,prose:1
 Explore	Description	2	-	-	prose:2
 Explore	Event	2	-	-	token:2
 Explore	Num	5	amount:1	amount:4	int:4,token:1
@@ -3604,7 +3602,7 @@ Fight	ConditionCheckSVar	1	-	-	token:1
 Fight	ConditionSVarCompare	1	-	-	token:1
 Fight	Cost	8	-	-	prose:4,int:3,token:1
 Fight	DB	142	-	-	token:142
-Fight	Defined	150	-	defined:68	token:146,prose:4
+Fight	Defined	150	-	defined:70	token:146,prose:4
 Fight	ExcessSVar	2	-	-	token:2
 Fight	ExcessSVarCondition	2	-	valid:1	token:2
 Fight	Execute	1	-	-	token:1
@@ -3643,7 +3641,7 @@ FlipCoin	ConditionDefined	2	-	-	token:2
 FlipCoin	ConditionPresent	3	-	valid:1	token:3
 FlipCoin	Cost	21	-	-	token:9,prose:8,int:4
 FlipCoin	DB	58	-	-	token:58
-FlipCoin	Defined	4	-	defined:68	token:4
+FlipCoin	Defined	4	-	defined:70	token:4
 FlipCoin	FlipUntilYouLose	5	-	-	bool:5
 FlipCoin	Flipper	6	defined:1	-	token:6
 FlipCoin	ForEachPlayer	1	defined:1	-	token:1
@@ -3750,7 +3748,7 @@ GainControl	ConditionSVarCompare	6	-	-	token:6
 GainControl	Cost	58	-	-	token:37,prose:19,int:2
 GainControl	CostDesc	1	-	text:1	prose:1
 GainControl	DB	204	-	-	token:204
-GainControl	Defined	96	-	defined:68	token:94,prose:2
+GainControl	Defined	96	-	defined:70	token:94,prose:2
 GainControl	LoseControl	177	-	-	token:177
 GainControl	MaxTotalTargetCMC	1	-	-	int:1
 GainControl	NewController	92	-	-	token:92
@@ -3814,7 +3812,7 @@ GainLife	ConditionZone	3	-	-	token:3
 GainLife	Cost	227	-	-	prose:147,token:67,int:13
 GainLife	CostDesc	1	-	text:1	prose:1
 GainLife	DB	1568	-	-	token:1568
-GainLife	Defined	1071	-	defined:68	token:1068,prose:3
+GainLife	Defined	1071	-	defined:70	token:1068,prose:3
 GainLife	Description	22	-	-	prose:22
 GainLife	Event	22	-	-	token:22
 GainLife	IsPresent	2	-	-	token:2
@@ -3850,7 +3848,7 @@ GainOwnership	ConditionCompare	2	-	-	token:2
 GainOwnership	ConditionDefined	4	-	-	token:4
 GainOwnership	ConditionPresent	4	-	valid:1	token:4
 GainOwnership	DB	10	-	-	token:10
-GainOwnership	Defined	10	-	defined:68	token:10
+GainOwnership	Defined	10	-	defined:70	token:10
 GainOwnership	DefinedPlayer	10	-	defined:1	token:10
 GainOwnership	SP	1	-	-	token:1
 GainOwnership	SpellDescription	3	-	-	prose:3
@@ -3902,7 +3900,7 @@ GenericChoice	ConditionZone	1	-	-	token:1
 GenericChoice	Cost	21	-	-	token:10,prose:7,int:4
 GenericChoice	DB	132	-	-	token:132
 GenericChoice	DamageMap	2	-	-	bool:2
-GenericChoice	Defined	115	-	defined:68	token:115
+GenericChoice	Defined	115	-	defined:70	token:115
 GenericChoice	FallbackAbility	14	-	-	token:14
 GenericChoice	Guess	2	-	-	bool:2
 GenericChoice	IsCurse	1	-	-	bool:1
@@ -3934,7 +3932,7 @@ GiveGift	ValidPlayer	1	-	-	token:1
 Goad	AB	7	-	-	token:7
 Goad	Cost	7	-	-	prose:5,token:2
 Goad	DB	64	-	-	token:64
-Goad	Defined	43	-	defined:68	token:29,prose:14
+Goad	Defined	43	-	defined:70	token:29,prose:14
 Goad	DefinedDesc	1	-	-	prose:1
 Goad	Duration	10	-	-	token:10
 Goad	NoLonger	1	-	-	bool:1
@@ -3955,7 +3953,7 @@ Haunt	DB	10	-	-	token:10
 Haunt	TgtPrompt	10	-	-	prose:10
 Haunt	ValidTgts	10	-	amount:1,valid:2	token:10
 HealDamage	DB	19	-	-	token:19
-HealDamage	Defined	19	-	defined:68	token:19
+HealDamage	Defined	19	-	defined:70	token:19
 HealDamage	SubAbility	18	-	-	token:18
 Heist	DB	9	-	-	token:9
 Heist	Num	1	amount:1	amount:4	int:1
@@ -3996,7 +3994,7 @@ ImmediateTrigger	ConditionZone	2	-	-	token:2
 ImmediateTrigger	Cost	153	-	-	token:68,prose:59,int:26
 ImmediateTrigger	CostDesc	1	-	text:1	prose:1
 ImmediateTrigger	DB	188	-	-	token:188
-ImmediateTrigger	Defined	1	-	defined:68	token:1
+ImmediateTrigger	Defined	1	-	defined:70	token:1
 ImmediateTrigger	Execute	341	-	-	token:341
 ImmediateTrigger	IsPresent	1	-	-	token:1
 ImmediateTrigger	OptionalDecider	2	-	defined:2	token:2
@@ -4028,7 +4026,7 @@ Incubate	ConditionDefined	1	-	-	token:1
 Incubate	ConditionPresent	1	-	valid:1	token:1
 Incubate	Cost	2	-	-	prose:2
 Incubate	DB	31	-	-	token:31
-Incubate	Defined	1	-	defined:68	token:1
+Incubate	Defined	1	-	defined:70	token:1
 Incubate	SP	2	-	-	token:2
 Incubate	SorcerySpeed	1	-	-	bool:1
 Incubate	SpellDescription	13	-	-	prose:13
@@ -4047,7 +4045,7 @@ Intensify	ConditionDefined	1	-	-	token:1
 Intensify	ConditionPresent	1	-	valid:1	token:1
 Intensify	ConditionSVarCompare	1	-	-	token:1
 Intensify	DB	22	-	-	token:22
-Intensify	Defined	1	-	defined:68	token:1
+Intensify	Defined	1	-	defined:70	token:1
 Intensify	DefinedDesc	7	-	-	prose:7
 Intensify	SpellDescription	5	-	-	prose:5
 Intensify	SubAbility	2	-	-	token:2
@@ -4062,7 +4060,7 @@ Investigate	ConditionDefined	4	-	-	token:4
 Investigate	ConditionPresent	4	-	valid:1	token:4
 Investigate	Cost	16	-	-	prose:15,token:1
 Investigate	DB	129	-	-	token:129
-Investigate	Defined	14	-	defined:68	token:14
+Investigate	Defined	14	-	defined:70	token:14
 Investigate	Num	35	amount:2	amount:4	token:17,int:15,amount:3
 Investigate	Optional	3	-	-	bool:3
 Investigate	RememberInvestigatingPlayers	2	-	-	bool:2
@@ -4155,7 +4153,7 @@ LifeReduced	ValidPlayer	11	-	-	token:11
 LookAt	AB	2	-	-	token:2
 LookAt	Cost	2	-	-	prose:2
 LookAt	DB	4	-	-	token:4
-LookAt	Defined	4	-	defined:68	prose:3,token:1
+LookAt	Defined	4	-	defined:70	prose:3,token:1
 LookAt	SpellDescription	2	-	-	prose:2
 LookAt	StackDescription	3	-	-	token:3
 LookAt	SubAbility	3	-	-	token:3
@@ -4179,7 +4177,7 @@ LoseLife	ConditionZone	1	-	-	token:1
 LoseLife	Cost	135	-	-	prose:79,token:48,int:8
 LoseLife	CostDesc	3	-	text:1	prose:3
 LoseLife	DB	1127	-	-	token:1127
-LoseLife	Defined	905	-	defined:68	token:903,prose:2
+LoseLife	Defined	905	-	defined:70	token:903,prose:2
 LoseLife	ForgetOtherTargets	2	-	-	bool:2
 LoseLife	IsCurse	1	-	-	bool:1
 LoseLife	IsPresent	3	-	-	token:3
@@ -4229,7 +4227,7 @@ LosesGame	ConditionPresent	4	-	valid:1	token:4
 LosesGame	ConditionSVarCompare	7	-	-	token:7
 LosesGame	Cost	2	-	-	prose:1,token:1
 LosesGame	DB	54	-	-	token:54
-LosesGame	Defined	55	-	defined:68	token:55
+LosesGame	Defined	55	-	defined:70	token:55
 LosesGame	Execute	8	-	-	token:8
 LosesGame	Mode	8	-	-	token:8
 LosesGame	Planeswalker	1	-	-	bool:1
@@ -4262,7 +4260,7 @@ MakeCard	ConditionSVarCompare	2	-	-	token:2
 MakeCard	Conjure	215	-	-	bool:215
 MakeCard	Cost	21	-	-	token:11,prose:10
 MakeCard	DB	206	-	-	token:206
-MakeCard	Defined	6	defined:1	defined:68	token:6
+MakeCard	Defined	6	defined:1	defined:70	token:6
 MakeCard	DefinedName	75	-	-	token:74,prose:1
 MakeCard	Exhaust	2	-	-	bool:2
 MakeCard	FaceDown	1	-	-	bool:1
@@ -4330,7 +4328,7 @@ Mana	ConditionZone	1	-	-	token:1
 Mana	Cost	2283	-	-	token:1927,prose:332,int:24
 Mana	CostDesc	7	-	text:1	prose:7
 Mana	DB	280	-	-	token:280
-Mana	Defined	83	-	defined:68	token:83
+Mana	Defined	83	-	defined:70	token:83
 Mana	Each	2	amount:1	-	int:1,token:1
 Mana	Exhaust	1	-	-	bool:1
 Mana	InstantSpeed	3	-	-	bool:3
@@ -4393,7 +4391,7 @@ ManaReflected	ConditionDefined	1	-	-	token:1
 ManaReflected	ConditionPresent	1	-	valid:1	token:1
 ManaReflected	Cost	24	-	-	token:22,prose:2
 ManaReflected	DB	23	-	-	token:23
-ManaReflected	Defined	22	-	defined:68	token:22
+ManaReflected	Defined	22	-	defined:70	token:22
 ManaReflected	IsPresent	1	-	-	prose:1
 ManaReflected	Produced	1	-	-	token:1
 ManaReflected	ReflectProperty	47	-	-	token:47
@@ -4413,7 +4411,7 @@ Manifest	ChoiceZone	2	zone:1	zone:4	token:2
 Manifest	Choices	2	valid:1	valid:9	token:2
 Manifest	Cost	4	-	-	prose:2,int:1,token:1
 Manifest	DB	25	-	-	token:25
-Manifest	Defined	8	-	defined:68	token:5,prose:3
+Manifest	Defined	8	-	defined:70	token:5,prose:3
 Manifest	DefinedPlayer	3	-	defined:1	token:3
 Manifest	RememberManifested	7	-	-	bool:7
 Manifest	SP	5	-	-	token:5
@@ -4476,7 +4474,7 @@ Mill	ConditionPresent	5	-	valid:1	token:5
 Mill	ConditionSVarCompare	1	-	-	token:1
 Mill	Cost	100	-	-	prose:53,token:43,int:4
 Mill	DB	451	-	-	token:451
-Mill	Defined	383	-	defined:68	token:383
+Mill	Defined	383	-	defined:70	token:383
 Mill	Description	2	-	-	prose:2
 Mill	Event	2	-	-	token:2
 Mill	IfDesc	1	-	-	bool:1
@@ -4546,7 +4544,7 @@ MoveCounter	Cost	14	-	-	prose:8,token:5,int:1
 MoveCounter	CounterNum	41	-	amount:11	int:27,token:14
 MoveCounter	CounterType	46	-	counter:3	token:46
 MoveCounter	DB	30	-	-	token:30
-MoveCounter	Defined	21	-	defined:68	token:21
+MoveCounter	Defined	21	-	defined:70	token:21
 MoveCounter	NonZero	1	-	-	bool:1
 MoveCounter	RememberAmount	1	-	-	bool:1
 MoveCounter	RememberPut	1	-	-	bool:1
@@ -4595,7 +4593,7 @@ Moved	ValidCard	2228	-	valid:5	token:2216,prose:12
 Moved	ValidCause	10	-	-	token:9,prose:1
 Moved	ValidLKI	85	-	-	token:75,prose:10
 MultiplePiles	ChosenPile	1	-	-	token:1
-MultiplePiles	Defined	1	-	defined:68	token:1
+MultiplePiles	Defined	1	-	defined:70	token:1
 MultiplePiles	Piles	1	int:1	-	int:1
 MultiplePiles	RandomChosen	1	-	-	bool:1
 MultiplePiles	SP	1	-	-	token:1
@@ -4610,7 +4608,7 @@ MultiplyCounter	ConditionSVarCompare	6	-	-	token:6
 MultiplyCounter	Cost	10	-	-	prose:8,token:2
 MultiplyCounter	CounterType	44	counter:1	counter:3	token:44
 MultiplyCounter	DB	46	-	-	token:46
-MultiplyCounter	Defined	40	-	defined:68	token:34,prose:6
+MultiplyCounter	Defined	40	-	defined:70	token:34,prose:6
 MultiplyCounter	Multiplier	6	int:1	-	int:6
 MultiplyCounter	SP	1	-	-	token:1
 MultiplyCounter	SpellDescription	17	-	-	prose:17
@@ -4638,7 +4636,7 @@ MustBlock	Choices	1	valid:1	valid:9	token:1
 MustBlock	Chooser	1	-	-	token:1
 MustBlock	Cost	11	-	-	prose:5,token:5,int:1
 MustBlock	DB	26	-	-	token:26
-MustBlock	Defined	2	-	defined:68	prose:1,token:1
+MustBlock	Defined	2	-	defined:70	prose:1,token:1
 MustBlock	DefinedAttacker	10	defined:2	defined:2	token:9,prose:1
 MustBlock	Description	24	-	-	prose:24
 MustBlock	Duration	14	-	-	token:14
@@ -4677,7 +4675,7 @@ NameCard	ConditionPresent	3	-	valid:1	token:3
 NameCard	ConditionSVarCompare	1	-	-	token:1
 NameCard	Cost	16	-	-	prose:8,token:8
 NameCard	DB	58	-	-	token:58
-NameCard	Defined	82	-	defined:68	token:82
+NameCard	Defined	82	-	defined:70	token:82
 NameCard	ExcludeChosen	2	-	-	bool:2
 NameCard	Planeswalker	3	-	-	bool:3
 NameCard	PlayerTurn	2	-	defined:2	bool:2
@@ -4770,7 +4768,7 @@ PeekAndReveal	ConditionCheckSVar	2	-	-	token:2
 PeekAndReveal	ConditionSVarCompare	2	-	-	token:2
 PeekAndReveal	Cost	36	-	-	prose:16,int:11,token:9
 PeekAndReveal	DB	106	-	-	token:106
-PeekAndReveal	Defined	46	-	defined:68	token:46
+PeekAndReveal	Defined	46	-	defined:70	token:46
 PeekAndReveal	ImprintRevealed	8	-	-	bool:8
 PeekAndReveal	NoPeek	59	-	-	bool:59
 PeekAndReveal	NoReveal	50	-	-	bool:50
@@ -4874,7 +4872,7 @@ Phases	ConditionPresent	5	-	valid:1	token:5
 Phases	ConditionZone	1	-	-	token:1
 Phases	Cost	11	-	-	prose:8,token:2,int:1
 Phases	DB	57	-	-	token:57
-Phases	Defined	43	-	defined:68	token:38,prose:5
+Phases	Defined	43	-	defined:70	token:38,prose:5
 Phases	IsCurse	4	-	-	bool:4
 Phases	PhaseInOrOut	9	-	-	bool:9
 Phases	Planeswalker	2	-	-	bool:2
@@ -4908,7 +4906,7 @@ Planeswalk	ActiveZones	1	-	-	token:1
 Planeswalk	ConditionCheckSVar	1	-	-	token:1
 Planeswalk	ConditionSVarCompare	1	-	-	token:1
 Planeswalk	DB	30	-	-	token:30
-Planeswalk	Defined	2	defined:1	defined:68	token:2
+Planeswalk	Defined	2	defined:1	defined:70	token:2
 Planeswalk	Description	3	-	-	prose:3
 Planeswalk	DontPlaneswalkAway	1	-	-	bool:1
 Planeswalk	Event	3	-	-	token:3
@@ -4956,7 +4954,7 @@ Play	CopyFromChosenName	8	-	-	bool:8
 Play	Cost	38	-	-	prose:20,token:16,int:2
 Play	CostDesc	1	-	text:1	prose:1
 Play	DB	552	-	-	token:552
-Play	Defined	391	-	defined:68	token:388,prose:3
+Play	Defined	391	-	defined:70	token:388,prose:3
 Play	DefinedDesc	6	text:1	-	prose:5,token:1
 Play	DescriptionFromChosenName	1	-	-	bool:1
 Play	Destination	1	-	zone:10	token:1
@@ -5026,7 +5024,7 @@ Poison	ConditionCheckSVar	1	-	-	token:1
 Poison	ConditionSVarCompare	1	-	-	token:1
 Poison	Cost	1	-	-	token:1
 Poison	DB	34	-	-	token:34
-Poison	Defined	31	-	defined:68	token:31
+Poison	Defined	31	-	defined:70	token:31
 Poison	Num	37	amount:2	amount:4	int:34,token:3
 Poison	Planeswalker	1	-	-	bool:1
 Poison	SP	2	-	-	token:2
@@ -5047,7 +5045,7 @@ PreventDamage	CombatDamage	1	-	-	bool:1
 PreventDamage	Cost	86	-	-	token:55,prose:25,int:6
 PreventDamage	CostDesc	1	-	text:1	prose:1
 PreventDamage	DB	14	-	-	token:14
-PreventDamage	Defined	22	-	defined:68	token:20,prose:2
+PreventDamage	Defined	22	-	defined:70	token:20,prose:2
 PreventDamage	DividedAsYouChoose	5	-	amount:1	int:3,token:2
 PreventDamage	InstantSpeed	1	-	-	bool:1
 PreventDamage	PlayerChoices	1	defined:1	-	token:1
@@ -5117,7 +5115,7 @@ Protection	ConditionPresent	1	-	valid:1	token:1
 Protection	ConditionSVarCompare	1	-	-	token:1
 Protection	Cost	30	-	-	token:16,prose:13,int:1
 Protection	DB	8	-	-	token:8
-Protection	Defined	9	-	defined:68	token:9
+Protection	Defined	9	-	defined:70	token:9
 Protection	Duration	1	-	-	token:1
 Protection	Gains	53	defined:1	-	token:52,prose:1
 Protection	Radiance	1	-	-	bool:1
@@ -5183,7 +5181,7 @@ Pump	Cost	1629	-	-	prose:776,token:701,int:152
 Pump	CostDesc	14	-	text:1	prose:14
 Pump	CounterNum	1	-	amount:11	int:1
 Pump	DB	2920	-	-	token:2920
-Pump	Defined	2408	-	defined:68	token:2376,prose:32
+Pump	Defined	2408	-	defined:70	token:2376,prose:32
 Pump	DefinedKW	14	-	-	token:14
 Pump	DefinedLandwalk	1	-	-	token:1
 Pump	Description	1	-	-	prose:1
@@ -5281,7 +5279,7 @@ PumpAll	ConditionZone	3	-	-	token:3
 PumpAll	Cost	218	-	-	prose:139,token:66,int:13
 PumpAll	CostDesc	1	-	text:1	prose:1
 PumpAll	DB	659	-	-	token:659
-PumpAll	Defined	3	-	defined:68	token:3
+PumpAll	Defined	3	-	defined:70	token:3
 PumpAll	Duration	55	-	-	token:55
 PumpAll	Exhaust	4	-	-	bool:4
 PumpAll	GameActivationLimit	1	-	int:1	int:1
@@ -5359,7 +5357,7 @@ PutCounter	CounterType	4158	counter:1	counter:3	token:4141,prose:17
 PutCounter	CounterTypePerDefined	3	-	-	bool:3
 PutCounter	CounterTypes	19	-	-	token:17,prose:2
 PutCounter	DB	3469	-	-	token:3469
-PutCounter	Defined	2661	-	defined:68	token:2648,prose:13
+PutCounter	Defined	2661	-	defined:70	token:2648,prose:13
 PutCounter	Description	1	-	-	prose:1
 PutCounter	DividedAsYouChoose	54	-	amount:1	int:40,token:14
 PutCounter	DividedRandomly	2	-	-	bool:2
@@ -5479,7 +5477,7 @@ PutSticker	ChoiceZone	1	zone:1	zone:4	token:1
 PutSticker	Choices	25	valid:1	valid:9	token:25
 PutSticker	Cost	2	-	-	prose:2
 PutSticker	DB	36	-	-	token:36
-PutSticker	Defined	13	-	defined:68	token:13
+PutSticker	Defined	13	-	defined:70	token:13
 PutSticker	Kind	19	text:1	-	token:19
 PutSticker	MaxTickets	1	amount:1	-	token:1
 PutSticker	NoTicketCost	1	-	-	bool:1
@@ -5488,7 +5486,7 @@ PutSticker	SorcerySpeed	1	-	-	bool:1
 PutSticker	SpellDescription	5	-	-	prose:5
 PutSticker	SubAbility	10	-	-	token:10
 Radiation	DB	23	-	-	token:23
-Radiation	Defined	19	-	defined:68	token:19
+Radiation	Defined	19	-	defined:70	token:19
 Radiation	Num	23	amount:1	amount:4	int:17,token:5,amount:1
 Radiation	SpellDescription	2	-	-	prose:2
 Radiation	SubAbility	3	-	-	token:3
@@ -5515,7 +5513,7 @@ RearrangeTopOfLibrary	AB	7	-	-	token:7
 RearrangeTopOfLibrary	AIRespondsToOwnAbility	1	-	-	bool:1
 RearrangeTopOfLibrary	Cost	7	-	-	prose:3,int:2,token:2
 RearrangeTopOfLibrary	DB	22	-	-	token:22
-RearrangeTopOfLibrary	Defined	26	-	defined:68	token:26
+RearrangeTopOfLibrary	Defined	26	-	defined:70	token:26
 RearrangeTopOfLibrary	MayShuffle	5	-	-	bool:5
 RearrangeTopOfLibrary	NumCards	35	amount:2	amount:6	int:31,token:4
 RearrangeTopOfLibrary	RearrangePlayer	1	defined:1	-	token:1
@@ -5563,7 +5561,7 @@ Regenerate	ConditionZone	1	-	-	token:1
 Regenerate	Cost	246	-	-	token:120,prose:109,int:17
 Regenerate	CostDesc	2	-	text:1	prose:2
 Regenerate	DB	16	-	-	token:16
-Regenerate	Defined	33	-	defined:68	token:27,prose:6
+Regenerate	Defined	33	-	defined:70	token:27,prose:6
 Regenerate	IsPresent	2	-	-	prose:1,token:1
 Regenerate	PrecostDesc	2	-	text:1	prose:2
 Regenerate	RegenerationAbility	4	-	-	token:4
@@ -5577,7 +5575,7 @@ Regenerate	SubAbility	6	-	-	token:6
 Regenerate	TgtPrompt	29	-	-	prose:29
 Regenerate	ValidTgts	62	-	amount:1,valid:2	token:62
 Regeneration	DB	3	-	-	token:3
-Regeneration	Defined	3	-	defined:68	token:3
+Regeneration	Defined	3	-	defined:70	token:3
 RemoveCounter	AB	20	-	-	token:20
 RemoveCounter	AILogic	3	-	-	token:3
 RemoveCounter	AITgts	8	-	valid:1	token:8
@@ -5601,7 +5599,7 @@ RemoveCounter	CounterNum	322	-	amount:11	int:240,token:82
 RemoveCounter	CounterNumShared	1	-	-	bool:1
 RemoveCounter	CounterType	331	-	counter:3	token:331
 RemoveCounter	DB	307	-	-	token:307
-RemoveCounter	Defined	236	-	defined:68	token:235,prose:1
+RemoveCounter	Defined	236	-	defined:70	token:235,prose:1
 RemoveCounter	Description	2	-	-	prose:2
 RemoveCounter	Event	2	-	-	token:2
 RemoveCounter	IsDamage	1	-	-	bool:1
@@ -5651,7 +5649,7 @@ RemoveFromCombat	ConditionDefined	1	-	-	token:1
 RemoveFromCombat	ConditionPresent	1	-	valid:1	token:1
 RemoveFromCombat	Cost	3	-	-	int:1,prose:1,token:1
 RemoveFromCombat	DB	25	-	-	token:25
-RemoveFromCombat	Defined	26	-	defined:68	token:25,prose:1
+RemoveFromCombat	Defined	26	-	defined:70	token:25,prose:1
 RemoveFromCombat	OpponentTurn	1	-	-	bool:1
 RemoveFromCombat	RememberRemovedFromCombat	1	-	-	bool:1
 RemoveFromCombat	SP	2	-	-	token:2
@@ -5662,17 +5660,17 @@ RemoveFromCombat	TgtPrompt	5	-	-	prose:5
 RemoveFromCombat	UnblockCreaturesBlockedOnlyBy	4	defined:1	-	token:4
 RemoveFromCombat	ValidTgts	5	-	amount:1,valid:2	token:5
 RemoveFromGame	DB	1	-	-	token:1
-RemoveFromGame	Defined	1	-	defined:68	token:1
+RemoveFromGame	Defined	1	-	defined:70	token:1
 RemoveFromGame	StackDescription	1	-	-	prose:1
 RemoveFromMatch	DB	2	-	-	token:2
-RemoveFromMatch	Defined	1	-	defined:68	token:1
+RemoveFromMatch	Defined	1	-	defined:70	token:1
 RemoveFromMatch	IncludeSideboard	1	-	-	bool:1
 RemoveFromMatch	LogMessage	1	-	-	prose:1
 RemoveFromMatch	RemoveFromInventory	1	-	-	bool:1
 RemoveFromMatch	RemoveType	1	-	-	token:1
 RemoveFromMatch	StackDescription	1	-	-	prose:1
 ReorderZone	DB	1	-	-	token:1
-ReorderZone	Defined	2	-	defined:68	token:2
+ReorderZone	Defined	2	-	defined:70	token:2
 ReorderZone	Random	1	-	-	bool:1
 ReorderZone	SP	1	-	-	token:1
 ReorderZone	SpellDescription	1	-	-	prose:1
@@ -5804,7 +5802,7 @@ Reveal	AnyNumber	19	-	-	bool:19
 Reveal	ConditionCheckSVar	1	-	-	token:1
 Reveal	Cost	17	-	-	prose:13,token:4
 Reveal	DB	39	-	-	token:39
-Reveal	Defined	35	-	defined:68	token:35
+Reveal	Defined	35	-	defined:70	token:35
 Reveal	IsCurse	3	-	-	bool:3
 Reveal	NumCards	6	amount:1,int:1	amount:6	token:4,int:2
 Reveal	Optional	5	-	-	bool:5
@@ -5826,7 +5824,7 @@ RevealHand	AB	2	-	-	token:2
 RevealHand	AIPhyrexianPayment	1	-	int:1	token:1
 RevealHand	Cost	2	-	-	prose:1,token:1
 RevealHand	DB	46	-	-	token:46
-RevealHand	Defined	33	-	defined:68	token:33
+RevealHand	Defined	33	-	defined:70	token:33
 RevealHand	ImprintRevealed	2	-	-	bool:2
 RevealHand	IsCurse	3	-	-	bool:3
 RevealHand	Look	25	-	-	bool:25
@@ -5877,7 +5875,7 @@ RollDice	Amount	23	amount:1,text:1	amount:14	int:16,token:6,amount:1
 RollDice	ChosenSVar	5	-	-	token:5
 RollDice	Cost	25	-	-	prose:14,token:6,int:5
 RollDice	DB	94	-	-	token:94
-RollDice	Defined	4	-	defined:68	token:4
+RollDice	Defined	4	-	defined:70	token:4
 RollDice	Description	5	-	-	prose:5
 RollDice	DifferentResults	1	-	-	bool:1
 RollDice	ETB	2	-	-	bool:2
@@ -5941,7 +5939,7 @@ RolledDieOnce	TriggerDescription	8	-	-	prose:8
 RolledDieOnce	TriggerZones	8	-	-	token:8
 RolledDieOnce	ValidPlayer	8	-	-	token:8
 RunChaos	DB	1	-	-	token:1
-RunChaos	Defined	1	-	defined:68	token:1
+RunChaos	Defined	1	-	defined:70	token:1
 RunChaos	SubAbility	1	-	-	token:1
 Sacrifice	AB	27	-	-	token:27
 Sacrifice	AILogic	10	-	-	token:10
@@ -5961,7 +5959,7 @@ Sacrifice	ConditionZone	1	-	-	token:1
 Sacrifice	Cost	30	-	-	prose:15,token:13,int:2
 Sacrifice	CumulativeUpkeep	85	-	-	int:40,token:36,prose:9
 Sacrifice	DB	1049	-	-	token:1049
-Sacrifice	Defined	417	-	defined:68	token:417
+Sacrifice	Defined	417	-	defined:70	token:417
 Sacrifice	Destroy	4	-	-	bool:4
 Sacrifice	Echo	52	-	-	prose:38,int:7,token:7
 Sacrifice	Mandatory	1	-	-	bool:1
@@ -6005,7 +6003,7 @@ SacrificeAll	ConditionSVarCompare	1	-	-	token:1
 SacrificeAll	Controller	34	defined:1	-	token:34
 SacrificeAll	Cost	6	-	-	token:3,int:2,prose:1
 SacrificeAll	DB	147	-	-	token:147
-SacrificeAll	Defined	81	defined:1	defined:68	token:80,prose:1
+SacrificeAll	Defined	81	defined:1	defined:70	token:80,prose:1
 SacrificeAll	ImprintSacrificed	1	-	-	bool:1
 SacrificeAll	Planeswalker	1	-	-	bool:1
 SacrificeAll	RememberSacrificed	13	-	-	bool:13
@@ -6065,7 +6063,7 @@ Scry	ConditionSVarCompare	4	-	-	token:4
 Scry	ConditionZone	1	-	-	token:1
 Scry	Cost	60	-	-	prose:44,token:13,int:3
 Scry	DB	363	-	-	token:363
-Scry	Defined	8	-	defined:68	token:7,prose:1
+Scry	Defined	8	-	defined:70	token:7,prose:1
 Scry	Description	2	-	-	prose:2
 Scry	Event	2	-	-	token:2
 Scry	Execute	24	-	-	token:24
@@ -6117,7 +6115,7 @@ Seek	ConditionSVarCompare	1	-	-	token:1
 Seek	ConditionZone	1	-	-	token:1
 Seek	Cost	18	-	-	prose:13,token:5
 Seek	DB	95	-	-	token:95
-Seek	Defined	8	-	defined:68	token:8
+Seek	Defined	8	-	defined:70	token:8
 Seek	DefinedCards	2	defined:1	defined:1	token:2
 Seek	Exhaust	3	-	-	bool:3
 Seek	GameActivationLimit	5	-	int:1	int:5
@@ -6175,7 +6173,7 @@ SetLife	ConditionDefined	1	-	-	token:1
 SetLife	ConditionPresent	1	-	valid:1	token:1
 SetLife	Cost	4	-	-	prose:2,token:2
 SetLife	DB	35	-	-	token:35
-SetLife	Defined	36	-	defined:68	token:36
+SetLife	Defined	36	-	defined:70	token:36
 SetLife	LifeAmount	44	amount:2	amount:7	int:23,token:21
 SetLife	Planeswalker	2	-	-	bool:2
 SetLife	PlayerChoices	3	defined:1	-	token:3
@@ -6207,7 +6205,7 @@ SetState	ConditionSVarCompare	17	-	-	token:17
 SetState	ConditionZone	4	-	-	token:4
 SetState	Cost	118	-	-	prose:92,token:23,int:3
 SetState	DB	357	-	-	token:357
-SetState	Defined	328	-	defined:68	token:323,prose:5
+SetState	Defined	328	-	defined:70	token:323,prose:5
 SetState	ETB	36	-	-	bool:36
 SetState	FaceDownPower	3	-	amount:1	int:3
 SetState	FaceDownSetType	3	-	-	prose:3
@@ -6247,7 +6245,7 @@ Shuffle	ConditionPresent	1	-	valid:1	token:1
 Shuffle	ConditionSVarCompare	2	-	-	token:2
 Shuffle	Cost	9	-	-	prose:8,int:1
 Shuffle	DB	52	-	-	token:52
-Shuffle	Defined	44	-	defined:68	token:44
+Shuffle	Defined	44	-	defined:70	token:44
 Shuffle	IsPresent	1	-	-	token:1
 Shuffle	Optional	1	-	-	bool:1
 Shuffle	PresentCompare	1	-	-	token:1
@@ -6267,7 +6265,7 @@ Shuffled	TriggerZones	5	-	-	token:5
 Shuffled	ValidPlayer	5	-	-	token:5
 SkipPhase	ConditionManaSpent	1	-	-	token:1
 SkipPhase	DB	14	-	-	token:14
-SkipPhase	Defined	11	-	defined:68	token:11
+SkipPhase	Defined	11	-	defined:70	token:11
 SkipPhase	Duration	7	-	-	token:7
 SkipPhase	IsCurse	4	-	-	bool:4
 SkipPhase	Phase	8	-	-	token:8
@@ -6279,7 +6277,7 @@ SkipPhase	SubAbility	3	-	-	token:3
 SkipPhase	ValidTgts	7	-	amount:1,valid:2	token:7
 SkipTurn	AILogic	1	-	-	token:1
 SkipTurn	DB	13	-	-	token:13
-SkipTurn	Defined	13	-	defined:68	token:13
+SkipTurn	Defined	13	-	defined:70	token:13
 SkipTurn	NumTurns	13	amount:2	-	int:12,token:1
 Specializes	Execute	47	-	-	token:47
 Specializes	Mode	47	-	-	token:47
@@ -6414,7 +6412,7 @@ Surveil	ConditionPresent	4	-	valid:1	token:4
 Surveil	ConditionSVarCompare	3	-	-	token:3
 Surveil	Cost	46	-	-	prose:31,token:14,int:1
 Surveil	DB	180	-	-	token:180
-Surveil	Defined	1	-	defined:68	token:1
+Surveil	Defined	1	-	defined:70	token:1
 Surveil	Execute	16	-	-	token:16
 Surveil	Exhaust	1	-	-	bool:1
 Surveil	FirstTime	1	-	-	bool:1
@@ -6488,7 +6486,7 @@ Tap	ConditionSVarCompare	33	-	-	token:33
 Tap	Cost	188	-	-	prose:135,token:48,int:5
 Tap	CostDesc	2	-	text:1	prose:2
 Tap	DB	1235	-	-	token:1235
-Tap	Defined	980	-	defined:68	token:980
+Tap	Defined	980	-	defined:70	token:980
 Tap	Description	1	-	-	prose:1
 Tap	ETB	829	-	-	bool:829
 Tap	Event	1	-	-	token:1
@@ -6532,7 +6530,7 @@ TapAll	ConditionCheckSVar	1	-	-	token:1
 TapAll	ConditionSVarCompare	1	-	-	token:1
 TapAll	Cost	8	-	-	int:3,prose:3,token:2
 TapAll	DB	56	-	-	token:56
-TapAll	Defined	4	-	defined:68	token:4
+TapAll	Defined	4	-	defined:70	token:4
 TapAll	Execute	2	-	-	token:2
 TapAll	Mode	2	-	-	token:2
 TapAll	Planeswalker	2	-	-	bool:2
@@ -6555,7 +6553,7 @@ TapAll	ValidTgts	12	-	amount:1,valid:2	token:12
 TapOrUntap	AB	17	-	-	token:17
 TapOrUntap	Cost	17	-	-	prose:12,token:4,int:1
 TapOrUntap	DB	27	-	-	token:27
-TapOrUntap	Defined	3	-	defined:68	token:3
+TapOrUntap	Defined	3	-	defined:70	token:3
 TapOrUntap	IsPresent	2	-	-	token:2
 TapOrUntap	PresentCompare	1	-	-	token:1
 TapOrUntap	SP	9	-	-	token:9
@@ -6774,7 +6772,7 @@ TwoPiles	ConditionCheckSVar	1	-	-	token:1
 TwoPiles	ConditionSVarCompare	1	-	-	token:1
 TwoPiles	Cost	1	-	-	token:1
 TwoPiles	DB	30	-	-	token:30
-TwoPiles	Defined	23	-	defined:68	token:23
+TwoPiles	Defined	23	-	defined:70	token:23
 TwoPiles	DefinedCards	21	defined:1	defined:1	token:21
 TwoPiles	DefinedPiles	4	-	-	token:4
 TwoPiles	FaceDown	8	-	-	token:7,bool:1
@@ -6798,7 +6796,7 @@ Unattach	ConditionDefined	1	-	-	token:1
 Unattach	ConditionPresent	1	-	valid:1	token:1
 Unattach	Cost	21	-	-	int:16,token:3,prose:2
 Unattach	DB	7	-	-	token:7
-Unattach	Defined	29	-	defined:68	token:27,prose:2
+Unattach	Defined	29	-	defined:70	token:27,prose:2
 Unattach	IsPresent	21	-	-	prose:21
 Unattach	SP	1	-	-	token:1
 Unattach	Secondary	21	-	-	bool:21
@@ -6857,7 +6855,7 @@ Untap	ConditionZone	1	-	-	token:1
 Untap	Cost	173	-	-	token:84,prose:61,int:28
 Untap	CostDesc	2	-	text:1	prose:2
 Untap	DB	297	-	-	token:297
-Untap	Defined	239	defined:1	defined:68	token:239
+Untap	Defined	239	defined:1	defined:70	token:239
 Untap	Description	214	-	-	prose:214
 Untap	ETB	6	-	-	bool:6
 Untap	EnduringStory	1	-	-	bool:1
@@ -6911,7 +6909,7 @@ UntapAll	ConditionSVarCompare	2	-	-	token:2
 UntapAll	ControllerUntaps	1	-	-	bool:1
 UntapAll	Cost	10	-	-	prose:5,token:5
 UntapAll	DB	98	-	-	token:98
-UntapAll	Defined	4	-	defined:68	token:3,prose:1
+UntapAll	Defined	4	-	defined:70	token:3,prose:1
 UntapAll	Execute	1	-	-	token:1
 UntapAll	Mode	1	-	-	token:1
 UntapAll	ModeCost	2	-	-	int:1,prose:1
@@ -6956,7 +6954,7 @@ Venture	AB	9	-	-	token:9
 Venture	ActivationZone	1	-	-	token:1
 Venture	Cost	9	-	-	prose:7,token:2
 Venture	DB	38	-	-	token:38
-Venture	Defined	16	-	defined:68	token:16
+Venture	Defined	16	-	defined:70	token:16
 Venture	Planeswalker	2	-	-	bool:2
 Venture	PrecostDesc	1	-	text:1	prose:1
 Venture	SorcerySpeed	6	-	-	bool:6
@@ -6964,7 +6962,7 @@ Venture	SpellDescription	9	-	-	prose:9
 Venture	SubAbility	1	-	-	token:1
 VillainousChoice	Choices	13	-	valid:9	token:13
 VillainousChoice	DB	12	-	-	token:12
-VillainousChoice	Defined	11	-	defined:68	token:10,prose:1
+VillainousChoice	Defined	11	-	defined:70	token:10,prose:1
 VillainousChoice	SP	1	-	-	token:1
 VillainousChoice	SpellDescription	3	-	-	prose:3
 VillainousChoice	StackDescription	1	-	-	prose:1
@@ -6980,7 +6978,7 @@ VisitAttraction	ValidPlayer	2	-	-	token:2
 Vote	AILogic	13	-	-	token:13
 Vote	Choices	28	-	valid:9	token:28
 Vote	DB	23	-	-	token:23
-Vote	Defined	37	-	defined:68	token:37
+Vote	Defined	37	-	defined:70	token:37
 Vote	EachVote	2	-	-	bool:2
 Vote	Execute	3	-	-	token:3
 Vote	List	3	-	-	token:3
@@ -7012,7 +7010,7 @@ WinsGame	ConditionPresent	5	-	valid:1	token:5
 WinsGame	ConditionSVarCompare	15	-	-	token:15
 WinsGame	Cost	1	-	-	prose:1
 WinsGame	DB	43	-	-	token:43
-WinsGame	Defined	43	-	defined:68	token:43
+WinsGame	Defined	43	-	defined:70	token:43
 WinsGame	SP	1	-	-	token:1
 WinsGame	SpellDescription	3	-	-	prose:3
 WinsGame	SubAbility	3	-	-	token:3

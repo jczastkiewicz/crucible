@@ -4,6 +4,8 @@ import (
 	"errors"
 	"slices"
 	"testing"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // The Java collections whose order a sheet depends on, checked against values
@@ -413,5 +415,28 @@ func TestUnsupportedRequestFindsTheListedRarity(t *testing.T) {
 		if pr.Edition != tc.edition || pr.Rarity != tc.rarity || pr.Rules() != nil {
 			t.Errorf("unsupported(%q) = %s %v, rules %v; want %s %v, none", tc.req, pr.Edition, pr.Rarity, pr.Rules(), tc.edition, tc.rarity)
 		}
+	}
+}
+
+// A sheet never holds a placeholder of a card no script defines: PrintSheet.add
+// skips it (PrintSheet.java:55-59), so a booster cannot deal one.
+func TestSheetSkipsPlaceholders(t *testing.T) {
+	t.Parallel()
+
+	p := &Pool{byCode: map[string]*Edition{}, alias: map[string]*Edition{}}
+	sh := newSheet("test")
+	if err := sh.add(p.unsupported("Missing Card"), 1); err != nil {
+		t.Fatal(err)
+	}
+	scripted := &Print{Name: "Real Card", Edition: "TST", rules: &compile.Card{Name: "Real Card"}}
+	scripted.hash = scripted.hashOf()
+	if err := sh.add(scripted, 2); err != nil {
+		t.Fatal(err)
+	}
+	if got := sh.distinct(); got != 1 {
+		t.Errorf("distinct prints = %d, want 1 (the placeholder skipped)", got)
+	}
+	if got := sh.countAll(); got != 2 {
+		t.Errorf("total weight = %d, want 2", got)
 	}
 }

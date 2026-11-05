@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -101,8 +102,8 @@ func TestAbilityCastWatcherSeesItsControllersActivations(t *testing.T) {
 }
 
 // ValidSA$ Activated.Loyalty against an ability with a Planeswalker$ marker,
-// and Activated.hasTapCost: the SpellAbility properties the 44 AbilityCast
-// lines name.
+// Activated.hasTapCost and SacrificedToPay: the SpellAbility properties the
+// AbilityCast lines name.
 func TestAbilityCastValidSAProperties(t *testing.T) {
 	t.Parallel()
 
@@ -113,6 +114,11 @@ func TestAbilityCastValidSAProperties(t *testing.T) {
 		{"Activated.hasTapCost", "AB$ GainLife | Cost$ T | Defined$ You | LifeAmount$ 1", true},
 		{"Activated.hasTapCost", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1", false},
 		{"Activated.!hasTapCost", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1", true},
+		// Ashnod the Uncaring's "if one or more permanents were sacrificed to
+		// activate it" (SpellAbilityProperty.java:42-43).
+		{"SpellAbility.!ManaAbility+SacrificedToPay", "AB$ GainLife | Cost$ Sac<1/CARDNAME> | Defined$ You | LifeAmount$ 1", true},
+		{"SpellAbility.!ManaAbility+SacrificedToPay", "AB$ GainLife | Cost$ Sac<1/Creature.Other> | Defined$ You | LifeAmount$ 1", true},
+		{"SpellAbility.!ManaAbility+SacrificedToPay", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1", false},
 		{"Triggered", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1", false},
 		{"Spell", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1", false},
 	} {
@@ -122,8 +128,12 @@ func TestAbilityCastValidSAProperties(t *testing.T) {
 			"T:Mode$ AbilityCast | ValidSA$ "+tc.spec+" | TriggerZones$ Battlefield | Execute$ TrigGain", gainThreeSVar), p, engine.Battlefield)
 		src := g.NewCard(creatureDefWithAbility(t, "Test Source", tc.abilityText), p, engine.Battlefield)
 		g.Card(src).SummonSick = false
+		fodder := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 		sba(g)
 		c := engine.NewScriptedController()
+		if strings.Contains(tc.abilityText, "Creature.Other") {
+			c.QueueSacrificeChoice([]engine.CardID{fodder})
+		}
 		if !g.ActivateAbility(p, src, 0, c) {
 			t.Fatalf("%s: activation failed", tc.spec)
 		}

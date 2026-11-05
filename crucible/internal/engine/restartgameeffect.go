@@ -234,7 +234,7 @@ func (g *Game) resetPlayerForRestart(pid PlayerID) {
 	p.SpellsCastThisTurn = 0
 	p.spellsCastThisGame = 0
 	p.expendThisTurn = 0
-	p.LandsPlayed, p.LandsPlayedLastTurn = 0, 0
+	p.LandsPlayed, p.LandsPlayedMyLastTurn = 0, 0
 	// p.onCleanupPhase() rolls the draws over (Player.java:2474), then
 	// RestartGameEffect.java:67 zeroes the life lost last turn.
 	p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, 0

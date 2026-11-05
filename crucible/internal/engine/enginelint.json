@@ -47,7 +47,7 @@
     "manaability": ["manaability.go", "activatemanaability.go"],
     "land": ["land.go"],
     "castspell": ["castspell.go", "activateability.go"],
-    "trigger": ["trigger.go", "blockerstriggers.go", "madnesstrigger.go"],
+    "trigger": ["trigger.go", "blockerstriggers.go", "madnesstrigger.go", "triggerevent.go"],
     "statictrigger": ["statictrigger.go"],
     "panharmonicon": ["panharmonicon.go"],
     "continuous": ["continuous.go"],

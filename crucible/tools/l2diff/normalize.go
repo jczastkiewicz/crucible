@@ -37,7 +37,7 @@ func JavaPhase(name string) string {
 }
 
 // zeroKeys are per-player counts both writers may print as 0 (rule N4).
-var zeroKeys = []string{"landsplayed", "landsplayedlastturn", "numringtemptedyou", "speed"}
+var zeroKeys = []string{"landsplayed", "numringtemptedyou", "speed"}
 
 // playerTokens are card tokens whose value names a player (rule N1):
 // GameState.getPlayerString writes "P<i>", fixture.Write the player's name.

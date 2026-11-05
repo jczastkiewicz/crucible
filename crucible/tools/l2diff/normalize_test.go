@@ -16,7 +16,7 @@ func TestNormalizeRules(t *testing.T) {
 		{"N2 phase constant", "activephase=END_OF_TURN\n", "activephase=End of Turn\n", "activephase=END_OF_TURN\n"},
 		{"N3 printing tokens", "p0battlefield=Plains|Set:MAR|Art:1|Tapped\n", "humanbattlefield=Plains|Tapped\n",
 			"humanbattlefield=Plains|Tapped\n"},
-		{"N4 empty and zero keys", "p0hand=\np0landsplayed=0\np0speed=0\np0numringtemptedyou=0\np0landsplayedlastturn=0\np0life=20\n",
+		{"N4 empty and zero keys", "p0hand=\np0landsplayed=0\np0speed=0\np0numringtemptedyou=0\np0life=20\n",
 			"humanlife=20\n", "humanlife=20\n"},
 		{"N4 a non-zero count stays", "p0landsplayed=1\n", "humanlandsplayed=1\n", "humanlandsplayed=1\n"},
 		{"N5 ids renumbered and references rewritten",

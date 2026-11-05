@@ -104,6 +104,9 @@ type Game struct {
 	// that name its targets, triggering objects and paid cards read it
 	// (amountcontext.go, valid.go); nil outside both.
 	resolving *Ability
+	// triggerEvent is the event a trigger's conditions are being read
+	// against (withTriggerEvent, triggerevent.go); nil outside that check.
+	triggerEvent *triggerEventCheck
 	// layering counts the continuous-effect passes running now
 	// (applyContinuousLayers, which a refresh can enter again): while it is
 	// non-zero a permanent's power is mid-rebuild, so handlePaid
@@ -2152,4 +2155,13 @@ func cloneCastSince(m map[PlayerID][]castRecord) map[PlayerID][]castRecord {
 type preventedEntry struct {
 	target EntityID
 	amount int
+}
+
+// triggerEventCheck is Trigger.checkWith's checkedEvent (Trigger.java:428-446):
+// the trigger host whose conditions are being read, its controller, and the
+// triggering objects the event gives it (triggerevent.go).
+type triggerEventCheck struct {
+	source     CardID
+	controller PlayerID
+	objects    triggeredObjects
 }

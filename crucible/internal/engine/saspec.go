@@ -141,6 +141,10 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 			return a.API == APIMana && a.activated, true
 		}
 		return a.Params.Record == compile.Activated && strings.EqualFold(a.Params.Name, "Mana"), true
+	case prop == "SacrificedToPay":
+		// SpellAbilityProperty.java:42-43: its cost sacrificed one or more
+		// permanents (the paid Sacrificed list; Ashnod the Uncaring).
+		return len(a.paid.sacrificed) > 0, true
 	case prop == "hasTapCost":
 		if a.Params == nil {
 			return false, true

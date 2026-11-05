@@ -2308,6 +2308,7 @@ validBase	Wraith
 validBase	Wurm
 validBase	You
 validBase	Zombie
+validProperty	!Active
 validProperty	!AllColors
 validProperty	!Attached
 validProperty	!CardOwner
@@ -2719,7 +2720,6 @@ validProperty	Ninjutsu
 validProperty	Nissa
 validProperty	NoAbilities
 validProperty	Noble
-validProperty	NonActive
 validProperty	NotDefinedOriginalHost
 validProperty	NotDefinedParentTarget
 validProperty	NotDefinedReplacedSimultaneousETB
@@ -2758,7 +2758,7 @@ validProperty	Otter
 validProperty	Outlast
 validProperty	Outlaw
 validProperty	OwnedBy EnchantedController
-validProperty	OwnedBy Opponent.NonActive
+validProperty	OwnedBy Opponent.!Active
 validProperty	OwnedBy Player.Chosen
 validProperty	OwnedBy Player.EnchantedBy
 validProperty	OwnedBy Player.IsRemembered
@@ -2806,6 +2806,7 @@ validProperty	Rogue
 validProperty	Room
 validProperty	Rune
 validProperty	Sacrificed
+validProperty	SacrificedToPay
 validProperty	Saddle
 validProperty	SaddledThisTurn
 validProperty	Samurai

@@ -1193,7 +1193,7 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 // (matchesPlayerBase, above), then ANDs every "+"-joined property via
 // hasProperty/PlayerProperty.playerHasProperty. No real corpus line this
 // port's callers pass ever joins more than one property this way (SpellCast's
-// own ValidActivatingPlayer$ Opponent.NonActive is the single "+"-free
+// own ValidActivatingPlayer$ Opponent.!Active is the single "+"-free
 // two-clause example, the removed port log's own count), so only Base.Property is
 // split within an alternative, not Base.Property1+Property2.
 //
@@ -1323,8 +1323,8 @@ func controlsMatches(g *Game, candidate, host PlayerID, source CardID, property 
 // from the slice of PlayerProperty.playerHasProperty real corpus lines this
 // port can evaluate: a bare You/Opponent/Player value (Java's own
 // "Opponent"/"You" property branches reuse the identical base check a
-// property token gets, so this does too, via matchesPlayerBase), Active/
-// NonActive (Game.ActivePlayer(), the same accessor Matches' own
+// property token gets, so this does too, via matchesPlayerBase), Active
+// (Game.ActivePlayer(), written !Active for "not their turn", the same accessor Matches' own
 // ActivePlayerCtrl property already reads for a *Card, valid.go), Other
 // (not sourceController -- Java's own distinction from "Opponent," a
 // teammate counts as "Other" but not "Opponent," collapses into the
@@ -1414,10 +1414,10 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 	// is an opponent of every player the Defined (the word after the space,
 	// Java's split(" ")[1]) names; "PlayerUID_<n>" when candidate is player n.
 	// Any other Defined is read through definedPlayers with the refs of the
-	// ability in context (Game.resolving), as Java passes its spellAbility to
-	// getDefinedPlayers: Power Struggle's "Player.OpponentOf TriggeredPlayer".
-	// Outside that ability's context, or a Defined it cannot read, stays
-	// unrecognized (GO-7).
+	// trait in context (triggerRefs: a trigger's event, else Game.resolving),
+	// as Java passes its trait to getDefinedPlayers: Power Struggle's
+	// "Player.OpponentOf TriggeredPlayer". Outside both, or a Defined it
+	// cannot read, stays unrecognized (GO-7).
 	if rest, ok := strings.CutPrefix(property, "OpponentOf "); ok {
 		word, _, _ := strings.Cut(rest, " ")
 		switch {
@@ -1427,11 +1427,11 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 			n, err := strconv.Atoi(strings.TrimPrefix(word, "PlayerUID_"))
 			return err == nil && candidate != PlayerID(n), err == nil
 		}
-		a := g.resolving
-		if a == nil || source == NoCard || a.Source != source {
+		refs, _, inContext := g.triggerRefs(source)
+		if !inContext {
 			return false, false
 		}
-		named, err := definedPlayers(g, host, source, word, a.refs())
+		named, err := definedPlayers(g, host, source, word, refs)
 		if err != nil {
 			return false, false
 		}
@@ -1449,8 +1449,6 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 	switch property {
 	case "Active":
 		return candidate == g.ActivePlayer(), true
-	case "NonActive":
-		return candidate != g.ActivePlayer(), true
 	case "Other":
 		return candidate != host, true
 	case "EnchantedBy":

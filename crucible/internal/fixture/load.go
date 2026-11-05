@@ -114,7 +114,6 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: persistent mana -- engine.Pool has no persistence tracking yet (CR 500.4's own emptying applies to every kind of floating mana this port has)", slotName(slot)))
 		}
 		g.Player(pid).LandsPlayed = ps.LandsPlayed
-		g.Player(pid).LandsPlayedLastTurn = ps.LandsPlayedLastTurn
 		g.Player(pid).Speed = ps.Speed
 		for _, z := range []struct {
 			text string

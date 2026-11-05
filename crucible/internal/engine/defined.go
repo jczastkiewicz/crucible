@@ -78,6 +78,22 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		}
 		return all, nil
 	}
+	// AbilityUtils.java:1011-1015: Triggered<Key>AndYou is the player the
+	// Defined$ is read for, then the triggering object's players, each once
+	// (Undercellar Sweep's "you or the attacked player").
+	if rest, ok := strings.CutSuffix(defined, "AndYou"); ok && strings.HasPrefix(rest, "Triggered") {
+		ps, err := definedPlayers(g, controller, host, rest, refs)
+		if err != nil {
+			return nil, err
+		}
+		out := []PlayerID{controller}
+		for _, p := range ps {
+			if !slices.Contains(out, p) {
+				out = append(out, p)
+			}
+		}
+		return out, nil
+	}
 	if base, filter, ok := strings.Cut(defined, "."); ok && strings.HasPrefix(base, "Triggered") {
 		return triggeredPlayersFiltered(g, controller, host, base, filter, refs)
 	}

@@ -365,6 +365,9 @@ type Ability struct {
 	// recheck is a Mode$ Always trigger's ResolvingCheck$ condition, tested
 	// again as it resolves (alwaystrigger.go); nil for every other ability.
 	recheck *compile.Ability
+	// eventChecked marks a trigger match whose event conditions were read
+	// against its triggering objects (eventConditionsHold, triggerevent.go).
+	eventChecked bool
 }
 
 // chainTarget is the targets chosen for one sub-ability of a chain
@@ -870,6 +873,10 @@ type paidLists struct {
 	colors [5]int
 	// colorless is the colorless mana the activation spent (xAnnounced.colorless).
 	colorless int
+	// life is the life the cost paid, none when a replacement took the
+	// payment (SpellAbility.getAmountLifePaid, set by Player.payLife,
+	// Player.java:596): an AbilityCast trigger's LifeAmount.
+	life int
 }
 
 // voteCount is one option's vote total, the VoteNum<option> SVar of

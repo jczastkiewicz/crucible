@@ -518,20 +518,20 @@ func liveCardMeasure(head string) (func(*Card) (int, bool), bool) {
 // resolving ability on the stack recorded under key (AbilityUtils.java:638).
 // Unresolved outside that ability and for a key its mode did not record.
 func (g *Game) triggerCount(source CardID, key string) (int, bool) {
-	a := g.resolving
-	if a == nil || source == NoCard || a.Source != source {
+	refs, _, ok := g.triggerRefs(source)
+	if !ok {
 		return 0, false
 	}
-	return a.triggered.counts.count(key)
+	return refs.triggered.counts.count(key)
 }
 
 // triggerCountMax is `TriggerCountMax$<Key>`: triggerCount's largest value.
 func (g *Game) triggerCountMax(source CardID, key string) (int, bool) {
-	a := g.resolving
-	if a == nil || source == NoCard || a.Source != source {
+	refs, _, ok := g.triggerRefs(source)
+	if !ok {
 		return 0, false
 	}
-	return a.triggered.counts.countMax(key)
+	return refs.triggered.counts.countMax(key)
 }
 
 // optionalList is the paid list head names in rec: "Collected" or "Revealed".

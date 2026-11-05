@@ -844,7 +844,7 @@ func drawSpecResolvable(spec string) bool {
 		}
 		if hasProp {
 			switch prop {
-			case "targetedBy", "You", "Opponent", "Other", "Active", "NonActive":
+			case "targetedBy", "You", "Opponent", "Other", "Active", "!Active":
 			default:
 				if _, bound := boundDrawProp(prop); !bound {
 					return false
@@ -1103,6 +1103,9 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	// Player.payLife (Player.java:578-591): Event$ PayLife may replace it.
 	if uc.lifeN > 0 && !g.lifePaymentReplaced(controller, pid, uc.lifeN) {
 		g.Player(pid).Life -= uc.lifeN
+		if rec != nil {
+			rec.life += uc.lifeN
+		}
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(uc.lifeN)})
 		g.noteLifeLost(controller, pid, uc.lifeN)
 		g.checkPayLifeTriggers(controller, pid, uc.lifeN)

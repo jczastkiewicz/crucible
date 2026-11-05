@@ -521,6 +521,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// replace the payment, and then no life is lost and no PayLife trigger runs.
 	if shape.PayLifeN > 0 && !g.lifePaymentReplaced(controller, pid, shape.PayLifeN) {
 		g.Player(pid).Life -= shape.PayLifeN
+		activated.paid.life += shape.PayLifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})
 		g.noteLifeLost(controller, pid, shape.PayLifeN)
 		g.checkPayLifeTriggers(controller, pid, shape.PayLifeN)

@@ -73,7 +73,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 | N1 | Java's `p0`/`p1` become `human`/`ai`: key prefixes, the values of `activeplayer`, `monarch` and `initiative`, and the `Owner`, `EnchantingPlayer`, `Protector` tokens (`P<i>`, case folded) | `GameState.toString` writes seats by index, `fixture.Write` by name; `GameState.parsePlayerString` reads both |
 | N2 | `activephase` is the `PhaseType` constant (`MAIN1`, `END_OF_TURN`) | Java writes the constant, Go the script spelling; `PhaseType.smartValueOf` reads both |
 | N3 | Java's `Set:` and `Art:` tokens are dropped | The printing; Go's fixture has none |
-| N4 | A key with an empty value, and `landsplayed`, `landsplayedlastturn`, `numringtemptedyou`, `speed` at 0, are dropped | Java writes every key, Go only the set ones |
+| N4 | A key with an empty value, and `landsplayed`, `numringtemptedyou`, `speed` at 0, are dropped | Java writes every key, Go only the set ones |
 | N5 | `Id:` is kept only on a card an `AttachedTo`, `ExiledWith`, `RememberedCards`, `Imprinting`, `ChosenCards` or `Attacking:` token names, renumbered in dump order, and every reference rewritten | Java writes `Id:` only for a referenced card (`cardsReferencedByID`), with its own card ids; Go writes every card's `CardID` |
 | N6 | The Monarch, The Initiative and The Ring leave Java's command zone | `Game.IsDesignationCard`; Go writes `monarch=`, `initiative=` and `numringtemptedyou=` instead (ADR-0060) |
 | N7 | A card's tokens after its name are sorted | Token order is the writer's; `GameState` parses them in any order |

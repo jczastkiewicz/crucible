@@ -102,17 +102,18 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 				continue
 			}
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		// TriggerPhase's AbilityKey.Player, the turn's player
+		// (PhaseHandler.java:438), as for a card's own Mode$ Phase line.
+		objs := triggeredObjects{player: g.activePlayer}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
 		}
-		// TriggerPhase's AbilityKey.Player, the turn's player
-		// (PhaseHandler.java:438), as for a card's own Mode$ Phase line.
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
-			triggered:      triggeredObjects{player: g.activePlayer},
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -140,7 +141,8 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		objs := triggeredObjects{card: card, originalController: original}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
@@ -148,7 +150,7 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
-			triggered:      triggeredObjects{card: card, originalController: original},
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -172,7 +174,8 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		objs := triggeredObjects{spellAbility: spellID, counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
@@ -180,8 +183,7 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
-			triggered: triggeredObjects{spellAbility: spellID,
-				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -205,7 +207,8 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		objs := triggeredObjects{spellAbility: spellID}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
@@ -213,7 +216,7 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
-			triggered:      triggeredObjects{spellAbility: spellID},
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -315,11 +318,6 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
-		if !ok {
-			kept = append(kept, d)
-			continue
-		}
 		// TriggerChangesZone.java:192-196 (Origin$ Battlefield: Card is the
 		// pre-move LKI) and TriggerExiled.java:103 (the pre-move object,
 		// GameAction.java:933-942) record AbilityKey.Card, the card that moved
@@ -333,6 +331,11 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 		objs := changesZoneCardObjects(d.Trigger, left, lki)
 		if strings.EqualFold(d.Trigger.Name, "Exiled") {
 			objs = objs.withCardLKI(lki)
+		}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
+		if !ok {
+			kept = append(kept, d)
+			continue
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
@@ -395,11 +398,26 @@ func (g *Game) delayedWatchesLeaving(d delayedTrigger, left CardID, dest ZoneTyp
 	return false
 }
 
+// delayedTriggerAPI is triggerEffectAPI for d, its conditions read against
+// the triggering objects objs the event gives it (Trigger.checkWith): a
+// delayed trigger's scan has them in hand before its check.
+func (g *Game) delayedTriggerAPI(d delayedTrigger, objs triggeredObjects) (*compile.Ability, APIType, bool, bool) {
+	var sub *compile.Ability
+	var api APIType
+	var optional bool
+	ok := g.withTriggerEvent(d.Host, d.Controller, objs, func() bool {
+		var found bool
+		sub, api, optional, found = triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		return found
+	})
+	return sub, api, optional, ok
+}
+
 // delayedFire is the Ability a satisfied delayed trigger d puts on the stack
 // with the triggering objects objs, or false when its Execute$ does not
 // resolve.
 func (g *Game) delayedFire(d delayedTrigger, objs triggeredObjects) (Ability, bool) {
-	sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+	sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 	if !ok {
 		return Ability{}, false
 	}

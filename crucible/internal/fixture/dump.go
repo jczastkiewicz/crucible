@@ -68,7 +68,6 @@ func Dump(l *Loaded) *State {
 		ps.Counters = dumpCounters(g.Player(pid).Counters)
 		ps.ManaPool = dumpManaPool(g.Player(pid).ManaPool)
 		ps.LandsPlayed = g.Player(pid).LandsPlayed
-		ps.LandsPlayedLastTurn = g.Player(pid).LandsPlayedLastTurn
 		ps.Speed = g.Player(pid).Speed
 		ps.NumRingTemptedYou = g.RingTemptedYou(pid)
 

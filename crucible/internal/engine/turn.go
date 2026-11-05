@@ -846,7 +846,9 @@ func (g *Game) endCleanup() {
 			g.Card(id).regeneratedThisTurn = 0
 		}
 		p := g.Player(pid)
-		p.LandsPlayedLastTurn = p.LandsPlayed
+		if pid == g.activePlayer {
+			p.LandsPlayedMyLastTurn = p.LandsPlayed
+		}
 		p.LandsPlayed = 0
 		g.forgetPlayedLands(pid)
 		// Player.onCleanupPhase (Player.java:2474-2494): the "last turn" counts

@@ -45,6 +45,7 @@ func isStaticTrigger(t *compile.Ability) bool {
 // pushTriggeredAbilities' own BecomesTarget firing without a stack item to
 // name.
 func (g *Game) resolveStaticTriggers(controller PlayerController, matches []Ability) {
+	matches = g.eventConditionsHold(matches)
 	for i := range matches {
 		if g.pendingErr != nil {
 			return

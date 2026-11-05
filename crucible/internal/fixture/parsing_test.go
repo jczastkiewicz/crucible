@@ -253,18 +253,6 @@ func TestMalformedNumbersFail(t *testing.T) {
 	}
 }
 
-// landsplayedlastturn has to be tested before landsplayed, or the shorter
-// suffix swallows it.
-func TestLongerSuffixWins(t *testing.T) {
-	t.Parallel()
-
-	st := parse(t, "humanlandsplayed=2\nhumanlandsplayedlastturn=1\n")
-	if st.Players[0].LandsPlayed != 2 || st.Players[0].LandsPlayedLastTurn != 1 {
-		t.Errorf("landsplayed=%d lastturn=%d, want 2 and 1",
-			st.Players[0].LandsPlayed, st.Players[0].LandsPlayedLastTurn)
-	}
-}
-
 func TestUnknownPhaseFails(t *testing.T) {
 	t.Parallel()
 

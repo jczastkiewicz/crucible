@@ -119,21 +119,18 @@ type Player struct {
 	// turn.go), not something a card ability triggers.
 	ManaPool Pool
 	// LandsPlayed is how many lands this player has played this turn (CR
-	// 305.2), read by PlayLand's own per-turn limit. LandsPlayedLastTurn is
-	// last turn's count, Java's own landsPlayedLastTurn -- no card in scope
-	// reads it yet (a replacement effect keyed on "if you've played a land
-	// this turn" would), but endCleanup (turn.go) rolls it forward every
-	// turn regardless, the same "reset land-bearing state whether or not a
-	// reader exists yet" position CR 500.4's own mana-pool emptying is in.
-	// Both reset for every player at cleanup, not just the active one (CR
-	// 305.2's own scope: any player who played a land this turn, and every
-	// game player's Game.onCleanupPhase in Java runs the same reset over
-	// every registered player).
+	// 305.2), read by PlayLand's own per-turn limit. It resets for every
+	// player at cleanup (Player.onCleanupPhase, Player.java:2546): a player
+	// may play a land on another player's turn.
 	LandsPlayed int
 	// RollsThisTurn is the dice this player has rolled this turn
 	// (Player.getNumRollsThisTurn), read by a RolledDie trigger's Number$.
-	RollsThisTurn       int
-	LandsPlayedLastTurn int
+	RollsThisTurn int
+	// LandsPlayedMyLastTurn is the lands played during this player's own
+	// most recent turn, Java's landsPlayedMyLastTurn: only the player whose
+	// turn ends takes this turn's count (Player.java:2539-2545). No rules
+	// code reads it; Forge's AI does.
+	LandsPlayedMyLastTurn int
 	// CardsDrawnThisTurn is how many cards this player has drawn this turn
 	// (Java's own numDrawnThisTurn, Player.java), read by checkDrawnTriggers
 	// (trigger.go) for Mode$ Drawn's own Number$ param -- "whenever you draw

@@ -2349,6 +2349,7 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // ability's own chosen targets are exactly as real a "becomes the target of
 // a spell or ability" event as a spell's are, CR 115 draws no distinction.
 func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
+	matches = g.eventConditionsHold(matches)
 	matches = g.withPanharmonicon(matches)
 	// Static$ True triggers run first, inline, in the order found
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:300-309); the rest
@@ -2984,7 +2985,13 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 	if !triggerPhasesCheck(g, host, t) {
 		return nil, 0, false, false
 	}
-	if !triggerCommonRequirementsMet(g, host, amounts, t) {
+	// Without an event in hand the conditions naming a triggering object
+	// wait for the match's objects (eventConditionsHold, triggerevent.go).
+	checked := t
+	if g.triggerEvent == nil {
+		checked = withoutEventConditions(amounts, t)
+	}
+	if !triggerCommonRequirementsMet(g, host, amounts, checked) {
 		return nil, 0, false, false
 	}
 	optional, ok := triggerIsOptional(t)

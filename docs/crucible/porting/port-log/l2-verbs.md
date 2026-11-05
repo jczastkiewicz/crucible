@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
 
 ## What it does
 
@@ -48,7 +48,7 @@ An `actions.log` line is mapped to a Java answer, a checkpoint, or nothing. A sc
 | --- | --- | --- | --- |
 | `startturn <player>` | 823 | `devModeSet(null, p, false, 0)`, then `PhaseHandler.setupFirstTurn(p, null)`: Java's first turn counts up from 0, as Go's `Game.StartTurn` always begins turn 1 at Untap | mapped |
 | `advance [n]` | 767 | A checkpoint: Java's own loop walks to Go's final step (S8) | mapped |
-| `queue <kind> ...` | 753 | `attackers`, `blocks`, `attacktarget`, `targets`: `ScenarioAnswers`, popped by `ScenarioController` (S3); `targets stack:N` is unmapped. `paygeneric`: nothing, the pool pays in Java's own order. `action`: S15 | mapped for those six kinds |
+| `queue <kind> ...` | 753 | `attackers`, `blocks`, `attacktarget`, `targets`: `ScenarioAnswers`, popped by `ScenarioController` (S3); `targets stack:N` is unmapped. `paygeneric`: nothing, the pool pays in Java's own order. `cardorder`: `orderMoveToZoneList` pops it and checks it names each card once, as Go's `checkChoice`; the state-based check `GameState.applyToGame` runs during setup keeps the given order. `action`: S15 | mapped for those seven kinds |
 | `declareattackers`, `declareblockers`, `firststrikedamage`, `combatdamage` | 375, 359, 28, 353 | Checkpoints Java reaches in its own loop, asking the controllers for the queued declarations | mapped |
 | `tapformana` | 343 | A play (S13): `AbilityManaPart.canProduce`, `setExpressChoice` for any-color mana, `playSpellAbilityNoStack` | mapped |
 | `paymanacost` | 28 | — | unmapped |
@@ -82,17 +82,17 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 595 same, 3 differs, 0 random, 272 not runnable (271 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
+The current run: 609 same, 4 differs, 0 random, 257 not runnable (256 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
 | F1 | `life-loss-eliminates-one-player-game-continues` | Java gives `ai` life 0 | Java defect, `forge-java-defects.md` row, baselined: `applyGameOnThread` sets a life below zero by `Game.getPlayers` index after the load-time pass (`GameState.java:697-701`); the human, at 0 life (set before the pass, `:1183`), has already lost, so index 0 is `ai` |
-| F2 | `world-rule-keeps-newest` | Java puts both world enchantments in the graveyard | Fixture convention, `quirks.md` row, baselined: a fixture's battlefield cards take timestamps in declaration order; `setupPlayerState` puts battlefield cards in play with `moveToPlay` outside a `CardZoneTable`, which alone sets `worldTimestamp` (`CardZoneTable.java:109`); both stay at -1, a tie, and CR 704.5k puts both in the graveyard |
+| F2 | `world-rule-keeps-newest`, `world-rule-three-copies-keeps-newest` | Java puts every world enchantment in the graveyard | Fixture convention, `quirks.md` row, baselined: a fixture's battlefield cards take timestamps in declaration order; `setupPlayerState` puts battlefield cards in play with `moveToPlay` outside a `CardZoneTable`, which alone sets `worldTimestamp` (`CardZoneTable.java:109`); all stay at -1, a tie, and CR 704.5k puts all of them in the graveyard |
 | F3 | `mayplay-kess-exiles-the-spell-cast-from-the-graveyard` | Java writes `ExiledWith:` on the exiled Divination, naming no card | Deviation, `quirks.md` row, baselined: a `ReplaceGraveyard$ Exile` grant builds an effect card holding the exile replacement, which exiles the spell with that card as its source and is itself exiled as the spell leaves the stack (`PlayEffect.java:495-527`, `MagicStack.java:323-324`); Go redirects the move with no effect card |
 
 ## Not ported yet
 
 - `ScenarioController`'s answers for the other queue kinds (ADR-0060), Go's defaults and panics, and dividing combat damage among several blockers (`queue damage`)
-- The other verbs and queue kinds. By the first unmapped line per scenario: `queue cardorder` 25, `queue cardchoice` 23, `queue confirmpaycost` 22, `expecterror` 15, `queue confirmeffect` 13
-- A seat's own order of its simultaneous triggers: they go on the stack in upstream's list order (`queue cardorder`)
+- The other verbs and queue kinds. By the first unmapped line per scenario: `queue cardchoice` 24, `queue confirmpaycost` 22, `queue confirmeffect` 15, `queue optionaltrigger` 13, `queue paymanacost` 12, `expecterror` 12
+- A seat's own order of its simultaneous triggers: they go on the stack in upstream's list order, Go's in its default order (`queue triggerorder`, which no scenario queues)
 - A created id (ADR-0059, open plan R21a-c)

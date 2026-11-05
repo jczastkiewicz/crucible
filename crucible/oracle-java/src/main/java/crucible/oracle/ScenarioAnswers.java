@@ -11,6 +11,8 @@ import java.util.Set;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.card.Card;
+import forge.game.card.CardCollection;
+import forge.game.card.CardCollectionView;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 
@@ -22,7 +24,8 @@ import forge.game.player.Player;
  */
 final class ScenarioAnswers {
     /** The queue kinds mapped so far; a scenario queueing any other is unmapped. */
-    static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric");
+    static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
+            "cardorder");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -40,6 +43,7 @@ final class ScenarioAnswers {
     private final Deque<List<int[]>> blocks = new ArrayDeque<>();
     private final Deque<String> attackTargets = new ArrayDeque<>();
     private final Deque<List<String>> targets = new ArrayDeque<>();
+    private final Deque<List<Integer>> cardOrders = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -74,6 +78,7 @@ final class ScenarioAnswers {
             // the pool in Java's own order (ManaPool.payManaCostFromPool).
             case "paygeneric" -> {
             }
+            case "cardorder" -> cardOrders.add(ids(value));
             default -> throw new IllegalStateException("queue kind " + kind);
         }
     }
@@ -187,6 +192,31 @@ final class ScenarioAnswers {
         List<GameEntity> out = new ArrayList<>();
         for (String v : next) {
             out.add(entity(v.strip()));
+        }
+        return out;
+    }
+
+    /**
+     * The next card order answer (Go's OrderCardsForZone, Java's
+     * orderMoveToZoneList), as the cards asked about: it must name each of
+     * them once, the way Go's checkChoice does.
+     */
+    CardCollection nextCardOrder(CardCollectionView cards) {
+        List<Integer> order = cardOrders.poll();
+        if (order == null) {
+            throw new IllegalStateException("no card order queued for " + cards);
+        }
+        CardCollection out = new CardCollection();
+        for (int id : order) {
+            int javaId = card(id).getId();
+            for (Card c : cards) {
+                if (c.getId() == javaId && !out.contains(c)) {
+                    out.add(c);
+                }
+            }
+        }
+        if (out.size() != cards.size() || order.size() != cards.size()) {
+            throw new IllegalStateException("card order " + order + " for " + cards);
         }
         return out;
     }

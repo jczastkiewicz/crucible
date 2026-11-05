@@ -329,6 +329,19 @@ final class ScenarioController extends PlayerControllerForTests {
         throw new IllegalStateException("naming a card for " + sa + " needs queue cardname");
     }
 
+    // Cards moving into one zone together go in the queued order (CR
+    // 613.7m); Go asks at the same points (zonemove.go
+    // orderCardsByTheirOwners and the effects that order). The state-based
+    // check GameState.applyToGame runs during setup keeps the given order.
+    @Override
+    public CardCollectionView orderMoveToZoneList(CardCollectionView cards, ZoneType destinationZone,
+            SpellAbility source) {
+        if (!answers.bound()) {
+            return cards;
+        }
+        return answers.nextCardOrder(cards);
+    }
+
     // A trigger that never uses the stack takes its targets the same way.
     @Override
     public boolean playTrigger(Card host, WrappedAbility wrapperAbility, boolean isMandatory) {

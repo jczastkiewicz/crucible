@@ -241,7 +241,8 @@ jobs:
 
   # ADR-0060 phase 2: every testdata/scenarios fixture the Java runner can
   # play runs on both engines, and the job fails unless the scenarios whose
-  # post-states differ are exactly testdata/l2-baseline.txt's, each citing
+  # post-states differ or whose Java run errs are exactly
+  # testdata/l2-baseline.txt's, each citing
   # the quirks.md or forge-java-defects.md row that explains it.
   crucible-oracle:
     name: L2 scenario runner (Go vs Java)

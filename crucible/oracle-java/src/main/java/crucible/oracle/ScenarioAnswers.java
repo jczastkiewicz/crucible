@@ -25,7 +25,7 @@ import forge.game.player.Player;
 final class ScenarioAnswers {
     /** The queue kinds mapped so far; a scenario queueing any other is unmapped. */
     static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
-            "cardorder", "cardchoice");
+            "cardorder", "cardchoice", "confirmeffect", "optionaltrigger");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -45,6 +45,8 @@ final class ScenarioAnswers {
     private final Deque<List<String>> targets = new ArrayDeque<>();
     private final Deque<List<Integer>> cardOrders = new ArrayDeque<>();
     private final Deque<List<Integer>> cardChoices = new ArrayDeque<>();
+    private final Deque<Boolean> confirmEffects = new ArrayDeque<>();
+    private final Deque<Boolean> optionalTriggers = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -80,6 +82,8 @@ final class ScenarioAnswers {
             case "paygeneric" -> {
             }
             case "cardorder" -> cardOrders.add(ids(value));
+            case "confirmeffect" -> confirmEffects.add(bool(value));
+            case "optionaltrigger" -> optionalTriggers.add(bool(value));
             case "cardchoice" -> cardChoices.add(value.strip().equals("none") ? List.of() : ids(value));
             default -> throw new IllegalStateException("queue kind " + kind);
         }
@@ -253,10 +257,32 @@ final class ScenarioAnswers {
         return out;
     }
 
-    /** Throws when a queued card choice was never popped. */
-    void checkCardChoicesUsed() {
+    /** The next confirmeffect answer (Go's ConfirmEffect), or null when none is queued. */
+    Boolean nextConfirmEffect() {
+        return confirmEffects.poll();
+    }
+
+    /** The next optionaltrigger answer (Go's ConfirmOptionalTrigger), or null. */
+    Boolean nextOptionalTrigger() {
+        return optionalTriggers.poll();
+    }
+
+    /**
+     * Throws when a queued card choice or yes/no answer was never popped:
+     * Java never asked what Go did.
+     */
+    void checkAnswersUsed() {
         if (!cardChoices.isEmpty()) {
             throw new IllegalStateException("card choices never asked for: " + cardChoices);
+        }
+        if (!targets.isEmpty()) {
+            throw new IllegalStateException("targets never asked for: " + targets);
+        }
+        if (!confirmEffects.isEmpty()) {
+            throw new IllegalStateException("confirmeffect answers never asked for: " + confirmEffects);
+        }
+        if (!optionalTriggers.isEmpty()) {
+            throw new IllegalStateException("optionaltrigger answers never asked for: " + optionalTriggers);
         }
     }
 
@@ -315,6 +341,15 @@ final class ScenarioAnswers {
         }
         Card now = game.findById(c.getId());
         return now != null ? now : c;
+    }
+
+    // fixture/actions.go reads these with strconv.ParseBool.
+    private static boolean bool(String value) {
+        return switch (value.strip()) {
+            case "true", "1", "t", "T", "TRUE", "True" -> true;
+            case "false", "0", "f", "F", "FALSE", "False" -> false;
+            default -> throw new IllegalArgumentException("not a bool: " + value);
+        };
     }
 
     private static List<Integer> ids(String value) {

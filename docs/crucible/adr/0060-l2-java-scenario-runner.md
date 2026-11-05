@@ -104,8 +104,9 @@ Go's outcomes into Java the same way L3 does. Reason: ADR-0006 lets draw counts 
 1. Report. A CI job (`crucible-oracle`, needs the JVM) runs every runnable scenario and publishes three lists:
    `differs`, `not runnable` and `random`. Each `differs` line gets a Go fix, a `quirks.md` row or a
    `forge-java-defects.md` row (PORT-8: a Java test first).
-2. Gate. The job fails on any `differs` scenario missing from `crucible/testdata/l2-baseline.txt`. Each baseline line
-   cites its `quirks.md` or `forge-java-defects.md` row. ADR-0010's "L2 gates merges" holds from this phase on.
+2. Gate. The job fails on any `differs` scenario or Java error missing from `crucible/testdata/l2-baseline.txt`. Each
+   baseline line cites its `quirks.md` or `forge-java-defects.md` row. ADR-0010's "L2 gates merges" holds from this
+   phase on.
 
 **Out of scope:** `expect.events`. Go has no reader for it (`game-state-fixture.md`), so L2 compares post-states only
 until one exists.

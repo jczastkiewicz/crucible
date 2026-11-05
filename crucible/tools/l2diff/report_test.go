@@ -65,20 +65,26 @@ func TestDiffSortsScenariosIntoTheReportLists(t *testing.T) {
 	}
 }
 
-// With a baseline, diff fails unless the differs list is exactly the
-// baseline's scenarios, each line citing the row that explains it.
+// With a baseline, diff fails unless the differs and Java error lists are
+// exactly the baseline's scenarios, each line citing the row that explains
+// it.
 func TestDiffBaselineGatesTheDiffersList(t *testing.T) {
 	t.Parallel()
-	setup := func(t *testing.T) string {
+	setup := func(t *testing.T, withError bool) string {
 		t.Helper()
 		dir := t.TempDir()
-		for path, text := range map[string]string{
+		files := map[string]string{
 			"go/a.state":   "humanlife=20\n",
 			"go/b.state":   "humanlife=20\n",
 			"java/a.state": "p0life=19\n",
 			"java/b.state": "p0life=20\n",
 			"random.txt":   "",
-		} {
+		}
+		if withError {
+			files["go/c.state"] = "humanlife=20\n"
+			files["java/c.error"] = "java.lang.IllegalStateException: boom\n"
+		}
+		for path, text := range files {
 			full := filepath.Join(dir, path)
 			if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 				t.Fatal(err)
@@ -91,15 +97,18 @@ func TestDiffBaselineGatesTheDiffersList(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name, baseline, wantErr string
+		withError               bool
 	}{
-		{"exact", "# accepted\na\tquirks.md: row\n", ""},
-		{"missing", "", "a: differs, not in the baseline"},
-		{"stale", "a\tquirks.md: row\nb\tquirks.md: row\n", "b: in the baseline, no longer differs"},
-		{"uncited", "a\n", "a cites no quirks.md"},
+		{"exact", "# accepted\na\tquirks.md: row\n", "", false},
+		{"missing", "", "a: differs, not in the baseline", false},
+		{"stale", "a\tquirks.md: row\nb\tquirks.md: row\n", "b: in the baseline, no longer differs", false},
+		{"uncited", "a\n", "a cites no quirks.md", false},
+		{"error missing", "a\tquirks.md: row\n", "c: Java error, not in the baseline", true},
+		{"error accepted", "a\tquirks.md: row\nc\tquirks.md: row\n", "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			dir := setup(t)
+			dir := setup(t, tc.withError)
 			path := filepath.Join(dir, "baseline.txt")
 			if err := os.WriteFile(path, []byte(tc.baseline), 0o644); err != nil {
 				t.Fatal(err)

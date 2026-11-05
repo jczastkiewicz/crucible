@@ -15,6 +15,8 @@ import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardCollectionView;
 import forge.game.player.DelayedReveal;
+import forge.game.replacement.ReplacementEffect;
+import forge.game.player.PlayerActionConfirmMode;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.keyword.Keyword;
@@ -28,6 +30,7 @@ import forge.game.spellability.AbilityManaPart;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellPermanent;
+import forge.game.spellability.TargetChoices;
 import forge.game.spellability.TargetRestrictions;
 import forge.game.trigger.WrappedAbility;
 import forge.game.zone.ZoneType;
@@ -153,6 +156,27 @@ final class ScenarioController extends PlayerControllerForTests {
             return;
         }
         throw new IllegalStateException(card + " has no mana ability for " + color);
+    }
+
+    // A spell a Play effect casts is cast the way Go's castspell is, its
+    // targets from the queue (PlayerControllerHuman.playSaFromPlayEffect).
+    @Override
+    public boolean playSaFromPlayEffect(SpellAbility tgtSA) {
+        return PlaySpellAbility.playSpellAbility(this, player, tgtSA);
+    }
+
+    // Go asks ConfirmEffect whether to choose new targets for a copy
+    // (copyspellabilityeffect.go), then the targets queue.
+    @Override
+    public TargetChoices chooseNewTargetsFor(SpellAbility ability, Predicate<GameObject> filter, boolean optional) {
+        if (optional) {
+            Boolean v = answers.nextConfirmEffect();
+            if (v == null || !v) {
+                return null;
+            }
+        }
+        ability.resetTargets();
+        return chooseTargetsFor(ability) ? ability.getTargets() : null;
     }
 
     // Go's targets queue: the next answer, every entity added as chosen.
@@ -306,6 +330,11 @@ final class ScenarioController extends PlayerControllerForTests {
             if (sa.isTrigger() && !sa.isCopied()) {
                 PlaySpellAbility.playSpellAbility(this, player, sa);
             } else {
+                // A copy that may choose new targets (MayChooseTarget$) asks
+                // as PlayerControllerHuman.orderAndPlaySimultaneousSa does.
+                if (sa.isCopied() && sa.isMayChooseNewTargets()) {
+                    sa.setupNewTargets(player);
+                }
                 super.orderAndPlaySimultaneousSa(List.of(sa));
             }
         }
@@ -379,8 +408,17 @@ final class ScenarioController extends PlayerControllerForTests {
         return chosen.isEmpty() ? null : chosen.get(0);
     }
 
-    // Go's discard, reveal, delve and cost picks are ChooseCardsForEffect
-    // too (discardeffect.go, costassist.go, chosencosts.go).
+    // Go's discard, reveal, delve, cost, devour and exploit picks are
+    // ChooseCardsForEffect too (discardeffect.go, costassist.go,
+    // chosencosts.go, sacrificeeffect.go).
+    @Override
+    public CardCollectionView choosePermanentsToSacrifice(SpellAbility sa, int min, int max,
+            CardCollectionView validTargets, String message) {
+        List<Card> chosen = answers.nextCardChoice(validTargets, min, max);
+        return chosen != null ? new CardCollection(chosen)
+                : super.choosePermanentsToSacrifice(sa, min, max, validTargets, message);
+    }
+
     @Override
     public CardCollection chooseCardsToDiscardFrom(Player playerDiscard, SpellAbility sa, CardCollection validCards,
             int min, int max, CardCollectionView visibleToChooser) {
@@ -415,6 +453,30 @@ final class ScenarioController extends PlayerControllerForTests {
         List<Card> chosen = answers.nextCardChoice(optionList, isOptional ? 0 : amount, amount);
         return chosen != null ? new CardCollection(chosen)
                 : super.chooseCardsForCost(optionList, sa, cpl, amount, isOptional, prompt);
+    }
+
+    // Go's ConfirmEffect: an effect's own yes/no prompt.
+    @Override
+    public boolean confirmAction(SpellAbility sa, PlayerActionConfirmMode mode, String message, List<String> options,
+            Card cardToShow, Map<String, Object> params) {
+        Boolean v = answers.bound() ? answers.nextConfirmEffect() : null;
+        return v != null ? v : super.confirmAction(sa, mode, message, options, cardToShow, params);
+    }
+
+    // An optional replacement (ETBReplacement's Optional: Clone's "you may
+    // have it enter as a copy") is Go's ConfirmEffect too.
+    @Override
+    public boolean confirmReplacementEffect(ReplacementEffect replacementEffect, SpellAbility effectSA,
+            GameEntity affected, String question) {
+        Boolean v = answers.bound() ? answers.nextConfirmEffect() : null;
+        return v != null ? v : super.confirmReplacementEffect(replacementEffect, effectSA, affected, question);
+    }
+
+    // Go's ConfirmOptionalTrigger: an OptionalDecider$ trigger's "you may".
+    @Override
+    public boolean confirmTrigger(WrappedAbility wrapper) {
+        Boolean v = answers.bound() ? answers.nextOptionalTrigger() : null;
+        return v != null ? v : super.confirmTrigger(wrapper);
     }
 
     // Cards moving into one zone together go in the queued order (CR

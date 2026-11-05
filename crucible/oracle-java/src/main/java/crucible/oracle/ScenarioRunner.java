@@ -178,6 +178,10 @@ public final class ScenarioRunner {
                     }
                 } else if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
                     unmapped.add(line);
+                } else if (f[0].equals("startturn") && actions.subList(0, i).stream().anyMatch(l -> l.startsWith("startturn "))) {
+                    // A second startturn restarts Go's turn mid-game; Java
+                    // sets up its first turn once (PhaseHandler.setupFirstTurn).
+                    unmapped.add(line);
                 } else if (f[0].equals("queue")) {
                     answers.queue(f[1], f[2]);
                 } else if (f[0].equals("resolvestack") && Set.of("UNTAP", "CLEANUP").contains(when.get(i)[1])) {
@@ -271,9 +275,9 @@ public final class ScenarioRunner {
         } catch (ScenarioController.Checkpoint reached) {
             // the controller stopped the loop at the checkpoint
         }
-        // A card choice is popped only when it fits a question (S16); one
-        // left over means Java never asked what Go did.
-        answers.checkCardChoicesUsed();
+        // A card choice is popped only when it fits a question (S16); an
+        // answer left over means Java never asked what Go did.
+        answers.checkAnswersUsed();
 
         GameState post = new GameState();
         post.initFromGame(game);

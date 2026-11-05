@@ -201,6 +201,7 @@ func diff(dir, baseline string) error {
 		return err
 	}
 	lists := map[string][]string{}
+	var errored []string
 	for _, gf := range goFiles {
 		name := strings.TrimSuffix(filepath.Base(gf), ".state")
 		kind, detail, err := classify(dir, name, gf, slices.Contains(random, name))
@@ -208,6 +209,9 @@ func diff(dir, baseline string) error {
 			return err
 		}
 		lists[kind] = append(lists[kind], name+detail)
+		if strings.HasPrefix(detail, "\terror:") {
+			errored = append(errored, name)
+		}
 	}
 	var b strings.Builder
 	order := []string{"same", "differs", "random", "not runnable"}
@@ -226,14 +230,15 @@ func diff(dir, baseline string) error {
 	if baseline == "" {
 		return nil
 	}
-	return checkBaseline(lists["differs"], baseline)
+	return checkBaseline(lists["differs"], errored, baseline)
 }
 
-// checkBaseline is the gate: every differs scenario is in the baseline and
-// every baseline scenario still differs, so the file is the exact list of
-// accepted differences. A line is "<scenario><TAB><the quirks.md or
-// forge-java-defects.md row that explains it>"; # starts a comment.
-func checkBaseline(differs []string, path string) error {
+// checkBaseline is the gate: every differs scenario and every Java error is
+// in the baseline and every baseline scenario still differs or errs, so the
+// file is the exact list of accepted differences. A line is
+// "<scenario><TAB><the quirks.md or forge-java-defects.md row that explains
+// it>"; # starts a comment.
+func checkBaseline(differs, errored []string, path string) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -256,9 +261,14 @@ func checkBaseline(differs []string, path string) error {
 			problems = append(problems, name+": differs, not in the baseline (diffs/"+name+".diff)")
 		}
 	}
+	for _, name := range errored {
+		if !slices.Contains(accepted, name) {
+			problems = append(problems, name+": Java error, not in the baseline (java/"+name+".error)")
+		}
+	}
 	for _, name := range accepted {
-		if !slices.Contains(differs, name) {
-			problems = append(problems, name+": in the baseline, no longer differs")
+		if !slices.Contains(differs, name) && !slices.Contains(errored, name) {
+			problems = append(problems, name+": in the baseline, no longer differs or errs")
 		}
 	}
 	if len(problems) > 0 {

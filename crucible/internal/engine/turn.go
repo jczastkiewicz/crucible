@@ -376,6 +376,8 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		g.mainsThisTurn++
 		g.archenemyMain1(controller)
 		g.sagaLoreCounters(controller)
+		// :292-295, CR 703.4g.
+		g.rollToVisitAttractions(controller, g.activePlayer)
 	case CombatBegin:
 		g.combatsThisTurn++
 		// PhaseHandler.java:301: getBeginOfCombat().executeUntil(playerTurn),
@@ -780,6 +782,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false
 			g.Card(id).foughtThisTurn = false
+			g.Card(id).visitedThisTurn = false
 			g.Card(id).blockedByThisTurn = nil
 			g.Card(id).blockedThisTurn = nil
 			g.Card(id).attackedThisTurn = nil

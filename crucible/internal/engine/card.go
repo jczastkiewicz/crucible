@@ -396,6 +396,10 @@ type Card struct {
 	// resolves (FightEffect.java:169-171), reset every cleanup
 	// (Card.java:7309).
 	foughtThisTurn bool
+	// visitedThisTurn is Card.visitedThisTurn: set as an Attraction is
+	// visited (Card.java:6848, visitAttractions), reset every cleanup
+	// (Card.java:7322).
+	visitedThisTurn bool
 
 	// blockedByThisTurn is Card.getBlockedByThisTurn (Card.java:112,
 	// 1658-1666): every creature that blocked this card this turn, in the

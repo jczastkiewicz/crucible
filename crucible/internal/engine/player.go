@@ -215,6 +215,11 @@ type Player struct {
 	// records whether a cleanup has run.
 	lifeStartedThisTurnWith int
 	lifeStarted             bool
+	// attractionsVisitedThisTurn is Player.attractionsVisitedThisTurn: the
+	// Attractions visited for the first time this turn (Player.java:4039-4040),
+	// zeroed at every cleanup (Player.java:2531). Read by the
+	// AttractionsVisitedThisTurn player measure.
+	attractionsVisitedThisTurn int
 	// exploredThisTurn is Player.getNumExploredThisTurn: the explores this
 	// player's permanents made this turn, counted even when the explorer left
 	// the battlefield (ExploreEffect.java:103).

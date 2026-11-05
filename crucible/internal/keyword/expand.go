@@ -440,6 +440,15 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | Execute$ KWExploit" + Slot},
 			SVars:    []SVarDef{{"KWExploit" + Slot, "DB$ Sacrifice | SacValid$ Creature | Optional$ True"}},
 		}, true
+	case "Visit":
+		// Visit:<SVar>, CardFactoryUtil.java:1932-1945: whenever you visit
+		// this Attraction, the named ability runs.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ VisitAttraction | TriggerZones$ Battlefield | ValidCard$ Card.Self | Execute$ " + k.Details},
+		}, true
 	case "Dash":
 		// CardFactoryUtil.java:3864-3867: a permanent cast for its dash cost
 		// has haste. The cast itself is the engine's (altkeywords.go), which

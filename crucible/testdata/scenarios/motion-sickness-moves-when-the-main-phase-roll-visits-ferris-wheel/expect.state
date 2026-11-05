@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Ferris Wheel|Id:1;Motion Sickness|Id:2|AttachedTo:6
+humanlibrary=Island|Id:3;Island|Id:4
+ailife=20
+aibattlefield=Tel-Jilad Chosen|Id:5|Tapped;Nacatl Savage|Id:6|Tapped

@@ -355,7 +355,8 @@ going to agree by number. `compareGames` (`scenario_test.go`) compares the two `
 contents by name and position, `Tapped`/`SummonSick`/`Damage`/`Counters`/attachment/protector per card — which sidesteps
 the numbering question entirely and reaches fields `Dump` cannot write down at all (see below). Protector is compared by
 name too, the same reasoning `CardID` gets: two independently loaded games were never going to agree on raw `PlayerID`s
-either, only on who they name.
+either, only on who they name. An attachment is compared by its host's controller, battlefield position and name, so an
+Aura moved to the wrong one of two creatures fails.
 
 **`Lost`, `Won` and `Over` have their own keys: `lost=`, `won=`, `over=`.** `GameState.java`'s own format has none of
 these — a Java fixture is always a still-being-played snapshot, never one that asserts the game already ended — so this

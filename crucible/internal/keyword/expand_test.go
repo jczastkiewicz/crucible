@@ -159,6 +159,8 @@ func TestExpand(t *testing.T) {
 		{"Storm:1", false, ""},
 		{"Exploit", true, "Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield"},
 		{"Exploit:1", false, ""},
+		{"Visit:TrigPump", true, "Mode$ VisitAttraction | TriggerZones$ Battlefield | ValidCard$ Card.Self"},
+		{"Visit", false, ""},
 		{"Flying", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {

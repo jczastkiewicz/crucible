@@ -1,7 +1,7 @@
 # M5 Rules Coverage
 
-- **Status:** Active. P4 qualitative half open: every `missing` and `impl-no-fixture` row is listed in
-  [Backlog](#backlog)
+- **Status:** Active. [Backlog](#backlog) empty: every step, layer and SBA row is `covered` or `n/a`; the trigger-mode
+  fixtures of open plan R17 remain before P4's qualitative half is declared
 - **Applies to:** P4 exit gate, qualitative half — "every step transition, every layer, every SBA"
   ([open plan, Exit gates](../00-master-implementation-plan-open.md#exit-gates))
 
@@ -151,12 +151,12 @@ priority round per step grant. Rows about per-step priority cite the driver.
 | 502.3 — Untap: active player untaps, "doesn't untap" and exert honoured                    | `phase/Untap.java:86`                               | `turn.go:326`, `replacement.go:339`                    | `untap-and-draw`, `TestUntapSkipsExertedPermanentAndClearsFlag`, `TestUntapBlockedBySelfCantHappenReplacement`                                                 | `covered` |
 | 502.4 — Untap: no priority                                                                 | `PhaseHandler.java:251`                             | `turn.go:241`                                          | `driver-untap-grants-no-priority`                                                                                                                              | `covered` |
 | 503.1a — Upkeep: "at the beginning of upkeep" triggers                                     | `PhaseHandler.java:256-266`, `:436-441`             | `trigger.go:1781`                                      | `TestAdvancePhaseFiresPhaseTriggerAtCorrectStep`, `TestInitiativeVenturesAtUpkeep`                                                                             | `covered` |
-| n/a: Upkeep crank counter — Contraptions, Unstable, silver-bordered                        | `PhaseHandler.java:262-264`                         | —                                                      | —                                                                                                                                                              | `n/a`     |
+| Upkeep: crank counter advances (Contraptions; Unstable, silver-bordered)                   | `PhaseHandler.java:262-264`                         | `turn.go:360`, `advancecrankeffect.go`                 | `TestUpkeepAdvancesTheCrankCounterOfAContraptionController`                                                                                                    | `covered` |
 | 504.1 — Draw: active player draws                                                          | `PhaseHandler.java:268-273`                         | `turn.go:350`                                          | `untap-and-draw`, `TestDrawMovesTopOfLibraryToHand`                                                                                                            | `covered` |
 | Draw: first player skips first draw, two-player (CR 103.8a)                                | `PhaseHandler.java:221-222`                         | `turn.go:362`, `:124` (driven)                         | `TestDrawSkipsFirstPlayerFirstTurnTwoPlayer`, `driver-no-attackers-skips-blockers-and-damage-steps`                                                            | `covered` |
 | 504.2 — Draw: "at the beginning of draw step" triggers                                     | `PhaseHandler.java:436-441`                         | `trigger.go:1781`                                      | `TestAdvancePhaseFiresPhaseTriggerWhenEnchantedControllerMatches`                                                                                              | `covered` |
 | Main 1: lore counter on each Saga (Java cites CR 703.4f)                                   | `PhaseHandler.java:282-289`                         | `saga.go` (`sagaLoreCounters`)                         | `TestSagaRunsItsChaptersAndIsSacrificed`                                                                                                                       | `covered` |
-| Main 1: roll to visit Attractions (Java cites CR 703.4g; Unfinity, Legacy/Vintage-legal)   | `PhaseHandler.java:291-294`                         | —                                                      | missing                                                                                                                                                        | `missing` |
+| Main 1: roll to visit Attractions (Java cites CR 703.4g; Unfinity, Legacy/Vintage-legal)   | `PhaseHandler.java:291-294`                         | `turn.go:380`, `visitattraction.go`                    | `motion-sickness-moves-when-the-main-phase-roll-visits-ferris-wheel`, `TestMainOneRollsToVisitTheActivePlayersAttractions`                                     | `covered` |
 | n/a: Main 1 Archenemy scheme set in motion — variant                                       | `PhaseHandler.java:278-280`                         | —                                                      | —                                                                                                                                                              | `n/a`     |
 | Main 1: "at the beginning of precombat main phase" triggers                                | `PhaseHandler.java:436-441`                         | `trigger.go:1781`                                      | `TestBeginningOfStepTriggersFireOnTheirStep`, `TestAdvancePhaseSkipsMainSecondTriggerOnMain1`                                                                  | `covered` |
 | 307.1 — main phase, empty stack: sorcery-speed actions allowed                             | `player/Player.java:2512`                           | `priority.go:81`                                       | `land-play-limit-one-per-turn`, `TestPassPriorityErrorsOnIllegalTiming`                                                                                        | `covered` |
@@ -199,9 +199,7 @@ Empty: every layer row is `covered` or `n/a`.
 
 ### Backlog: step transitions
 
-| Row                  | Why this position   |
-| -------------------- | ------------------- |
-| Main 1 — Attractions | Legacy/Vintage only |
+Empty: every step row is `covered` or `n/a`.
 
 ---
 

@@ -580,10 +580,8 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 	case "OpponentsAttackedThisCombat":
 		return math(g.attackedOpponentsThisCombat(pid))
 	case "AttractionsVisitedThisTurn":
-		// AbilityUtils.java:3683: Player.getAttractionsVisitedThisTurn. The
-		// engine never visits Attractions (RollDice's ToVisitYourAttractions
-		// is refused), so no visit has been counted: always 0.
-		return math(0)
+		// AbilityUtils.java:3683: Player.getAttractionsVisitedThisTurn.
+		return math(g.Player(pid).attractionsVisitedThisTurn)
 	}
 	return 0, false
 }

@@ -193,6 +193,18 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 	}
 }
 
+// attachedHost names the card c is attached to by its controller, battlefield
+// position and name, empty when c is attached to no card: an Aura moved to
+// the wrong one of two creatures must not compare equal.
+func attachedHost(g *engine.Game, c *engine.Card) string {
+	host, ok := c.AttachedTo()
+	if !ok {
+		return ""
+	}
+	h := g.Card(host)
+	return fmt.Sprintf("%s battlefield[%d] %s", g.Player(h.ZoneOwner).Name, slices.Index(g.Zone(engine.Battlefield, h.ZoneOwner).CardsIncludingPhasedOut(), host), h.PrintedDef().Name)
+}
+
 // bearerIndex is pid's Ring-bearer's position among its controller's
 // battlefield cards, -1 for none.
 func bearerIndex(g *engine.Game, pid engine.PlayerID) int {
@@ -247,10 +259,8 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 		if gcard.Damage.Marked != wcard.Damage.Marked {
 			t.Errorf("%s damage = %d, want %d", label, gcard.Damage.Marked, wcard.Damage.Marked)
 		}
-		_, gAttached := gcard.AttachedTo()
-		_, wAttached := wcard.AttachedTo()
-		if gAttached != wAttached {
-			t.Errorf("%s attached = %v, want %v", label, gAttached, wAttached)
+		if g, w := attachedHost(got, gcard), attachedHost(want, wcard); g != w {
+			t.Errorf("%s attached to %q, want %q", label, g, w)
 		}
 		// By name, not PlayerID: got and want are two independently loaded
 		// games, the same reason nothing here compares CardIDs directly

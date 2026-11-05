@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanlibrary=Island|Id:10;Island|Id:11
+humanbattlefield=Ferris Wheel|Id:1;Motion Sickness|Id:2|AttachedTo:3
+aibattlefield=Tel-Jilad Chosen|Id:3|Tapped;Nacatl Savage|Id:4|Tapped

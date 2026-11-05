@@ -200,6 +200,12 @@ type Face struct {
 	Colors    mana.Colors
 	HasColors bool
 
+	// Lights is an Attraction's lit numbers, the face's `Lights:` line read
+	// once here (CardFace.java:100-105). A printing variant's own lights
+	// (`Variant:<n>:Lights:`) are not read: the port plays a card, not a
+	// printing (porting/port-log/deck-serializer.md).
+	Lights []int
+
 	// Keywords are the face's `K:` lines, carried through unchanged from
 	// carddb.Face -- keyword.Parse resolves one to a name at read time
 	// (engine.Card.HasKeyword's job), the same "carry the printed text,
@@ -313,6 +319,13 @@ func compileFace(face *carddb.Face) (Face, error) {
 		Type: face.Type, Power: face.Power, Toughness: face.Toughness,
 		Loyalty: face.InitialLoyalty, Defense: face.Defense, Keywords: face.Keywords,
 		ManaCost: face.ManaCost, Colors: face.Colors, HasColors: face.HasColors,
+	}
+	for _, field := range strings.Fields(face.AttractionLights) {
+		n, err := strconv.Atoi(field)
+		if err != nil {
+			return Face{}, fmt.Errorf("attraction lights %q: %w", face.AttractionLights, err)
+		}
+		out.Lights = append(out.Lights, n)
 	}
 	for _, group := range []struct {
 		lines  []string

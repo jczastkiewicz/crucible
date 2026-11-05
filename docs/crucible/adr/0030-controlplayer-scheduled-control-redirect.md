@@ -56,9 +56,10 @@ triggers, it is the engine itself toggling a redirect.
 ## Decision
 
 **Redirect state: Option 2.** A per-player stack of `(Timestamp uint64, Controller PlayerID)`. Costs one slice field on
-`Player`; nesting is cheap to support now and matches Java's own model (CR 800.4b: control reverts to the
-second-most-recent grant when the most recent one's duration ends, not necessarily to the player themself) rather than
-assuming grants never overlap, which 11 real lines don't prove either way.
+`Player`; nesting is cheap to support now and matches Java's own model rather than assuming grants never overlap, which
+11 real lines don't prove either way. CR 723.1a: of several player-control effects the most recent works, which the
+newest entry of the stack gives; an older grant still in force (a Mindslaver turn around an Opposition Agent search,
+ADR-0040) works again once the newer one ends.
 
 **Scheduling: Option 2.** A new `scheduledAction` list on `*Game`, data-only (`Kind`, `Target`, `Controller PlayerID`,
 plus the same `AtCleanup`/`ForPlayer` gating fields `delayedTrigger` already has), evaluated at the identical
@@ -101,14 +102,16 @@ give this order (`delayedTriggersOnNextTurn`, the keyed list, runs before `activ
 one); `scheduledAction`'s own runner does, at every boundary: the unkeyed batch (revokes) first, then the batch keyed to
 the active player (grants). A revoke scheduled while the current boundary's own actions run must not itself fire at that
 same boundary (snapshot the list before running it, `Phase.excute`'s own precedent). A grant is skipped if its
-controlling player has already left the game.
+controlling player has already left the game (CR 800.4b). The cleanup pair grants as the controlled player's turn begins
+and revokes as the turn after it begins, so the player is controlled for the whole turn (CR 723.1), and a grant keyed to
+a player waits for the turn they actually take (CR 723.1b).
 
 ## Consequences
 
 **Good:** unblocks the 11 real `ControlPlayer` lines. The scheduling piece is a genuinely small, additive extension of
-an existing pattern, not a new subsystem. The stack-based redirect state reproduces CR 800.4b's own revert-to-previous
-behavior for free. Reading the redirect needs no engine-wide audit: only two rules readers (Learn, Wish-family Sideboard
-origin) consult it, matching how narrow Java's own two readers are.
+an existing pattern, not a new subsystem. The stack-based redirect state gives CR 723.1a's newest-wins rule for free.
+Reading the redirect needs no engine-wide audit: only two rules readers (Learn, Wish-family Sideboard origin) consult
+it, matching how narrow Java's own two readers are.
 
 **Bad:** every future effect asking "who decides for player X" must remember X stays the acting player throughout — only
 a read that specifically needs to know _whose brain_ answers (today: none inside the engine) would consult

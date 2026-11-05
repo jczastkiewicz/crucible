@@ -35,7 +35,7 @@ State:
 2. A timestamp-keyed map per player with add and remove, as Java. Rejected: the rebuild pass already re-derives the
    value, so a map needs an explicit removal hook that Crucible does not otherwise have.
 3. Reuse ADR-0030's `controlledBy` grants. Rejected: those are one-shot scheduled grants that redirect every decision
-   (CR 800.4b); a declaration redirect is a continuous static that covers one declaration.
+   (CR 723); a declaration redirect is a continuous static that covers one declaration.
 
 Surface:
 

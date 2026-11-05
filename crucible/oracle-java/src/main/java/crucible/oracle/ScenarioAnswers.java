@@ -25,7 +25,8 @@ import forge.game.player.Player;
 final class ScenarioAnswers {
     /** The queue kinds mapped so far; a scenario queueing any other is unmapped. */
     static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
-            "cardorder", "cardchoice", "confirmeffect", "optionaltrigger");
+            "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
+            "confirmpaycost");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -47,6 +48,7 @@ final class ScenarioAnswers {
     private final Deque<List<Integer>> cardChoices = new ArrayDeque<>();
     private final Deque<Boolean> confirmEffects = new ArrayDeque<>();
     private final Deque<Boolean> optionalTriggers = new ArrayDeque<>();
+    private final Deque<Boolean> confirmPayCosts = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -84,6 +86,7 @@ final class ScenarioAnswers {
             case "cardorder" -> cardOrders.add(ids(value));
             case "confirmeffect" -> confirmEffects.add(bool(value));
             case "optionaltrigger" -> optionalTriggers.add(bool(value));
+            case "confirmpaycost" -> confirmPayCosts.add(bool(value));
             case "cardchoice" -> cardChoices.add(value.strip().equals("none") ? List.of() : ids(value));
             default -> throw new IllegalStateException("queue kind " + kind);
         }
@@ -163,6 +166,16 @@ final class ScenarioAnswers {
             return own.poll();
         }
         return null;
+    }
+
+    /**
+     * The next play when it is a tapformana of this turn and step: a cost
+     * paid before the step's priority (an attack cost, CR 508.1g) activates
+     * the mana abilities Go's harness ran in that step.
+     */
+    Play nextTapNow() {
+        Play next = plays.peek();
+        return next != null && next.verb().equals("tapformana") && now(next) ? plays.poll() : null;
     }
 
     private boolean due(Play play) {
@@ -262,6 +275,11 @@ final class ScenarioAnswers {
         return confirmEffects.poll();
     }
 
+    /** The next confirmpaycost answer (Go's ConfirmPayCost), or null. */
+    Boolean nextConfirmPayCost() {
+        return confirmPayCosts.poll();
+    }
+
     /** The next optionaltrigger answer (Go's ConfirmOptionalTrigger), or null. */
     Boolean nextOptionalTrigger() {
         return optionalTriggers.poll();
@@ -280,6 +298,9 @@ final class ScenarioAnswers {
         }
         if (!confirmEffects.isEmpty()) {
             throw new IllegalStateException("confirmeffect answers never asked for: " + confirmEffects);
+        }
+        if (!confirmPayCosts.isEmpty()) {
+            throw new IllegalStateException("confirmpaycost answers never asked for: " + confirmPayCosts);
         }
         if (!optionalTriggers.isEmpty()) {
             throw new IllegalStateException("optionaltrigger answers never asked for: " + optionalTriggers);

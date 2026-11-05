@@ -1,5 +1,6 @@
 package crucible.oracle;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +22,12 @@ import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.keyword.Keyword;
 import forge.card.mana.ManaCost;
+import forge.game.cost.Cost;
+import forge.game.cost.CostDecisionMakerBase;
 import forge.game.cost.CostPartMana;
+import forge.game.cost.CostPayment;
+import forge.ai.ComputerUtilCost;
+import forge.game.spellability.OptionalCostValue;
 import forge.game.cost.CostPartWithList;
 import forge.game.mana.ManaConversionMatrix;
 import forge.game.mana.ManaCostBeingPaid;
@@ -244,12 +250,18 @@ final class ScenarioController extends PlayerControllerForTests {
     }
 
     // The cost is paid from the pool the queued tapformana lines filled; a
-    // cost the pool cannot pay is an error, never an automatic tap.
+    // cost the pool cannot pay takes the tapformana plays Go made in this
+    // step (a cost paid before priority), else it is an error, never an
+    // automatic tap.
     @Override
     public boolean applyManaToCost(ManaCostBeingPaid toPay, SpellAbility ability, String prompt,
             ManaConversionMatrix matrix, boolean effect) {
-        if (!player.getManaPool().payManaCostFromPool(toPay, ability, false, ability.getPayingMana())) {
-            throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + ability);
+        while (!player.getManaPool().payManaCostFromPool(toPay, ability, false, ability.getPayingMana())) {
+            ScenarioAnswers.Play tap = answers.nextTapNow();
+            if (tap == null) {
+                throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + ability);
+            }
+            tapForMana(answers.card(tap.id()), tap.arg());
         }
         return true;
     }
@@ -470,6 +482,62 @@ final class ScenarioController extends PlayerControllerForTests {
             GameEntity affected, String question) {
         Boolean v = answers.bound() ? answers.nextConfirmEffect() : null;
         return v != null ? v : super.confirmReplacementEffect(replacementEffect, effectSA, affected, question);
+    }
+
+    // Go's ConfirmPayCost for an unless cost (ward, echo, a shock land's
+    // replacement): the caller trusts a true answer as paid
+    // (AbilityUtils.java:1435), so it pays here, from the pool, the way
+    // PlayerControllerAi.payCostToPreventEffect does.
+    @Override
+    public boolean payCostToPreventEffect(Cost cost, SpellAbility sa, boolean alreadyPaid,
+            FCollectionView<Player> allPayers) {
+        Boolean v = answers.bound() ? answers.nextConfirmPayCost() : null;
+        if (v == null) {
+            return super.payCostToPreventEffect(cost, sa, alreadyPaid, allPayers);
+        }
+        return v && pay(cost, sa);
+    }
+
+    // Go's ConfirmPayCost for an attack cost (Propaganda, Ghostly Prison).
+    @Override
+    public boolean payCombatCost(Card c, Cost cost, SpellAbility sa, String prompt) {
+        Boolean v = answers.nextConfirmPayCost();
+        if (v == null) {
+            throw new IllegalStateException("an attack cost for " + c + " needs queue confirmpaycost");
+        }
+        return v && pay(cost, sa);
+    }
+
+    // A cost part's cards come from queue cardchoice (ScenarioCostDecision).
+    @Override
+    public CostDecisionMakerBase getCostDecisionMaker(Player player, SpellAbility ability, boolean effect,
+            String prompt) {
+        return answers.bound() ? new ScenarioCostDecision(player, ability, effect, answers)
+                : super.getCostDecisionMaker(player, ability, effect, prompt);
+    }
+
+    private boolean pay(Cost cost, SpellAbility sa) {
+        if (!ComputerUtilCost.canPayCost(cost, sa, player, true)) {
+            return false;
+        }
+        return new CostPayment(cost, sa).payComputerCosts(getCostDecisionMaker(player, sa, true, null));
+    }
+
+    // Go asks ConfirmPayCost once per optional cost a spell offers (kicker,
+    // bargain, behold, blight, a flash cost), in the offered order.
+    @Override
+    public List<OptionalCostValue> chooseOptionalCosts(SpellAbility chosen, List<OptionalCostValue> optionalCostValues) {
+        List<OptionalCostValue> out = new ArrayList<>();
+        for (OptionalCostValue o : optionalCostValues) {
+            Boolean v = answers.nextConfirmPayCost();
+            if (v == null) {
+                throw new IllegalStateException("optional cost " + o + " needs queue confirmpaycost");
+            }
+            if (v) {
+                out.add(o);
+            }
+        }
+        return out;
     }
 
     // Go's ConfirmOptionalTrigger: an OptionalDecider$ trigger's "you may".

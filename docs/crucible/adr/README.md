@@ -70,10 +70,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0057](0057-banding-attacking-bands.md)                              | Banding: attacking bands, a band decision after the attack                      | Accepted                  |
 | [0058](0058-ai-port-structure.md)                                    | The AI port: per-game controller, generated registry, typed profiles, no clocks | Accepted                  |
 | [0059](0059-replay-log-identities-and-random-outcomes.md)            | Replay log: structural identities, random outcomes per site                     | Accepted                  |
+| [0060](0060-l2-java-scenario-runner.md)                              | L2 scenario runner on the Java engine: decision script, engine-to-engine diff   | Proposed                  |
 
 ## Numbering
 
-No gap and no missing number: 0001-0059, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0060, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

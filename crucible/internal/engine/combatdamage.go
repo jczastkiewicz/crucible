@@ -122,15 +122,25 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			}
 		}
 
-		for _, blkID := range blockers {
-			blk := g.Card(blkID)
-			if g.dealsInStep(blk, firstStrike) {
-				g.noteFirstStrikeDealer(blkID, firstStrike)
-				g.maskTurnUp(controller, blkID) // Combat.java:720
-				if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
-					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
-				}
+	}
+	// Every blocker's damage after every attacker's, as Java assigns it
+	// (Combat.java:957-958): a blocker blocking several attackers divides its
+	// damage among them (CR 510.1d) rather than dealing it to each.
+	for _, blkID := range g.combatBlockers() {
+		var attackers []CardID
+		for _, b := range g.combat.Blocks {
+			if b.Blocker == blkID && g.alive(b.Attacker) && !containsCard(attackers, b.Attacker) {
+				attackers = append(attackers, b.Attacker)
 			}
+		}
+		blk := g.Card(blkID)
+		if len(attackers) == 0 || !g.alive(blkID) || !g.dealsInStep(blk, firstStrike) {
+			continue
+		}
+		g.noteFirstStrikeDealer(blkID, firstStrike)
+		g.maskTurnUp(controller, blkID) // Combat.java:720
+		if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
+			g.dealBlockerDamage(controller, blkID, bp, attackers, &table)
 		}
 	}
 	g.checkDamageTableTriggers(controller, table, true)
@@ -241,6 +251,33 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 		if trample && power > assigned {
 			g.dealAttackTargetDamage(controller, attacker, power-assigned, deathtouch, table)
 		}
+	}
+}
+
+// combatBlockers is every blocker of this combat once, in block order
+// (Combat.getAllBlockers).
+func (g *Game) combatBlockers() []CardID {
+	var out []CardID
+	for _, b := range g.combat.Blocks {
+		if !containsCard(out, b.Blocker) {
+			out = append(out, b.Blocker)
+		}
+	}
+	return out
+}
+
+// dealBlockerDamage is Combat.assignBlockersDamage (Combat.java:743-797) for
+// one blocker: its whole damage to a lone attacker, else divided among the
+// attackers it blocks as its controller answers AssignCombatDamage, the
+// blocker in the attacker's place and the attackers as the recipients.
+func (g *Game) dealBlockerDamage(controller PlayerController, blocker CardID, power int, attackers []CardID, table *damageTable) {
+	deathtouch := g.Card(blocker).HasKeyword("Deathtouch")
+	if len(attackers) == 1 {
+		g.dealPermanentDamage(controller, blocker, attackers[0], power, deathtouch, true, table)
+		return
+	}
+	for _, a := range controller.AssignCombatDamage(g, g.Card(blocker).Controller(), blocker, attackers) {
+		g.dealPermanentDamage(controller, blocker, a.Blocker, a.Amount, deathtouch, true, table)
 	}
 }
 

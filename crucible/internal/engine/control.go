@@ -153,7 +153,11 @@ type PlayerController interface {
 	// return value's order is the order the attacking player assigns in, and
 	// is not re-checked for the "lethal before moving on" requirement CR
 	// 510.1c imposes -- trust the controller's answer, the same as
-	// ChooseLegendaryToKeep.
+	// ChooseLegendaryToKeep. A blocker blocking more than one attacker asks
+	// the same question the other way round (CR 510.1d,
+	// Combat.assignBlockersDamage): decider is its controller, attacker the
+	// blocker and blockers the attackers it blocks, each answer's Blocker a
+	// recipient attacker.
 	AssignCombatDamage(g *Game, decider PlayerID, attacker CardID, blockers []CardID) []DamageAssignment
 
 	// DiscardToHandSize decides which of decider's hand to discard at

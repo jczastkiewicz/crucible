@@ -6,7 +6,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
-// TestCastSpellWardEachInstanceFiresIndependently is CR 702.21g: a
+// TestCastSpellWardEachInstanceFiresIndependently is CR 113.2c: a
 // permanent with two or more Ward instances has each fire on its own --
 // protectionEach's own "check every line" precedent (ADR-0027's
 // implementing pack), reused for checkWardTriggers (trigger.go, ADR-0028).

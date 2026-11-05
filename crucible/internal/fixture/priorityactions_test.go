@@ -89,7 +89,7 @@ func TestRunActionsStepAndRun(t *testing.T) {
 	l := load(t, db, "humanlife=20\nailife=20\n")
 	c := engine.NewScriptedController()
 
-	// Upkeep, then Main1: turn 1 skips the draw step (CR 103.7a).
+	// Upkeep, then Main1: turn 1 skips the draw step (CR 103.8a).
 	if err := runActions(t, l, c, "startturn human\nstep\nstep 1\n"); err != nil {
 		t.Fatalf("RunActions: %v", err)
 	}

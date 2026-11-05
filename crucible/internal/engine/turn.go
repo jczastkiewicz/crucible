@@ -196,7 +196,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 
 // drivenSkips is PhaseHandler.isSkippingPhase (PhaseHandler.java:219-238)
 // for the steps the driver skips on its own: the first player's draw step
-// on turn 1 of a two-player game (CR 103.7a), and -- entering
+// on turn 1 of a two-player game (CR 103.8a), and -- entering
 // DeclareBlockers records whether any creature attacked -- with none,
 // DeclareBlockers and both damage steps. A skipped step is not begun at
 // all: no PhaseBegan and no phase triggers, Java's own `skipped` path
@@ -552,7 +552,7 @@ func (g *Game) untapCard(controller PlayerController, id CardID) {
 
 // drawStep draws one card for the active player, ported from
 // PhaseHandler.onPhaseBegin's DRAW case and PhaseHandler.isSkippingPhase's
-// DRAW rule (CR 103.7a): the first player skips the draw step of their own
+// DRAW rule (CR 103.8a): the first player skips the draw step of their own
 // first turn in a two-player game. Every player's own DrawnThisDrawStep
 // (player.go) resets here first, PhaseHandler.java:268-271's own loop over
 // every player -- a skipped draw step resets nothing, matching Java's own

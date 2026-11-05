@@ -3759,7 +3759,7 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, by *Ability) []Abi
 // castInstantOrSorcery, CopySpellAbility's copies, ChangeTargets'
 // retargeted spells; ADR-0028). An activated or triggered ability goes
 // through checkWardTriggersForAbility. Each of a newly-targeted
-// battlefield card's own Ward lines fires independently (CR 702.21g,
+// battlefield card's own Ward lines fires independently (CR 113.2c,
 // protectionEach's own "check every line" precedent, ADR-0027's implementing
 // pack) when spellController is an opponent of the warded card's own
 // controller -- matchesPlayerSpec's "Opponent" base, the identical check

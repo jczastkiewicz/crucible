@@ -101,3 +101,21 @@ func TestCoinCallQueueVerb(t *testing.T) {
 		t.Error("queue coincall edge did not error")
 	}
 }
+
+// A cast or land play the engine refuses fails the action, so a scenario
+// cannot pass with the spell never cast; expecterror states a meant refusal.
+func TestRefusedCastAndLandPlayAreErrors(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{"castspell human 1", "castspell human 1 face", "castspell human 1 fuse", "playland human 1", "playland human 1 face"} {
+		l := load(t, bearDB(t), "humanlife=20\nailife=20\nhumanlibrary=Test Bear|Id:1\n")
+		err := runActions(t, l, engine.NewScriptedController(), "startturn human\n"+line+"\n")
+		if err == nil || !strings.Contains(err.Error(), "refused") {
+			t.Errorf("%q: err = %v, want a refusal", line, err)
+		}
+		l = load(t, bearDB(t), "humanlife=20\nailife=20\nhumanlibrary=Test Bear|Id:1\n")
+		if err := runActions(t, l, engine.NewScriptedController(), "startturn human\nexpecterror refused "+line+"\n"); err != nil {
+			t.Errorf("expecterror refused %q: %v", line, err)
+		}
+	}
+}

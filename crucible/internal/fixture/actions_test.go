@@ -1508,8 +1508,8 @@ func TestRunActionsPlayLandMovesCardToBattlefield(t *testing.T) {
 	}
 }
 
-// A declined play -- here, a second land the same turn -- is not a fixture
-// error: the verb does not assert success, the same as tapformana.
+// A refused play -- here, a second land the same turn -- is a fixture error,
+// and the card stays in hand.
 func TestRunActionsPlayLandFailureLeavesCardInHand(t *testing.T) {
 	t.Parallel()
 
@@ -1518,8 +1518,8 @@ func TestRunActionsPlayLandFailureLeavesCardInHand(t *testing.T) {
 	c := engine.NewScriptedController()
 
 	err := runActions(t, l, c, "startturn human\nadvance 3\nplayland human 1\nplayland human 2\n")
-	if err != nil {
-		t.Fatalf("RunActions: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "refused") {
+		t.Fatalf("RunActions: err = %v, want the second play refused", err)
 	}
 
 	if l.Game.Card(l.CardByFixtureID[2]).Zone != engine.Hand {
@@ -1610,8 +1610,8 @@ func TestRunActionsCastSpellAuraAttachesToChosenTarget(t *testing.T) {
 	}
 }
 
-// A declined cast -- here, no mana at all -- is not a fixture error: the
-// verb does not assert success, the same as playland.
+// A refused cast -- here, no mana at all -- is a fixture error, as a refused
+// land play is, and the card stays in hand.
 func TestRunActionsCastSpellFailureLeavesCardInHand(t *testing.T) {
 	t.Parallel()
 
@@ -1620,8 +1620,8 @@ func TestRunActionsCastSpellFailureLeavesCardInHand(t *testing.T) {
 	c := engine.NewScriptedController()
 
 	err := runActions(t, l, c, "startturn human\nadvance 3\ncastspell human 1\n")
-	if err != nil {
-		t.Fatalf("RunActions: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "refused") {
+		t.Fatalf("RunActions: err = %v, want the cast refused", err)
 	}
 
 	if l.Game.Card(l.CardByFixtureID[1]).Zone != engine.Hand {

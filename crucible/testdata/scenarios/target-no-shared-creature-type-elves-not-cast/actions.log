@@ -4,4 +4,4 @@
 startturn human
 advance 3
 queue targets 1,2
-castspell human 7
+expecterror refused castspell human 7

@@ -393,11 +393,17 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("playland: want exactly one card id, got %q", args[1])
 		}
+		// A refused play is an error, so a scenario cannot pass with the land
+		// never played; a refusal the scenario means is `expecterror refused`.
+		var played bool
 		if len(args) > 2 && args[2] == "face" {
-			l.Game.PlayLandFace(pid, ids[0], c)
-			break
+			played = l.Game.PlayLandFace(pid, ids[0], c)
+		} else {
+			played = l.Game.PlayLand(pid, ids[0], c)
 		}
-		l.Game.PlayLand(pid, ids[0], c)
+		if !played {
+			return fmt.Errorf("playland: %s's land play was refused", args[0])
+		}
 
 	case "castspell":
 		if len(args) < 2 {
@@ -414,15 +420,19 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("castspell: want exactly one card id, got %q", args[1])
 		}
-		if len(args) > 2 && args[2] == "face" {
-			l.Game.CastFace(pid, ids[0], c)
-			break
+		// A refused cast is an error, as a refused land play is.
+		var cast bool
+		switch {
+		case len(args) > 2 && args[2] == "face":
+			cast = l.Game.CastFace(pid, ids[0], c)
+		case len(args) > 2 && args[2] == "fuse":
+			cast = l.Game.CastFused(pid, ids[0], c)
+		default:
+			cast = l.Game.CastSpell(pid, ids[0], c)
 		}
-		if len(args) > 2 && args[2] == "fuse" {
-			l.Game.CastFused(pid, ids[0], c)
-			break
+		if !cast {
+			return fmt.Errorf("castspell: %s's cast was refused", args[0])
 		}
-		l.Game.CastSpell(pid, ids[0], c)
 
 	case "resolvestack":
 		if err := l.Game.ResolveStack(engine.NewRegistry(), c); err != nil {

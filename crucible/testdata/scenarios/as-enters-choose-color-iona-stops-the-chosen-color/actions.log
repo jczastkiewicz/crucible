@@ -25,7 +25,7 @@ resolvestack
 tapformana ai 13 R
 tapformana ai 14 W
 # Lightning Bolt is red: refused, still in hand.
-castspell ai 11
+expecterror refused castspell ai 11
 # Raise the Alarm is white: cast, {1}{W} paid with both lands.
 queue paygeneric R
 castspell ai 12

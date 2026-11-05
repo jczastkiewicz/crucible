@@ -6,4 +6,4 @@
 startturn human
 advance 3
 playland human 1
-playland human 2
+expecterror refused playland human 2

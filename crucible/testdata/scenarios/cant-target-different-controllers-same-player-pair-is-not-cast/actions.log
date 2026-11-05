@@ -6,4 +6,4 @@
 startturn ai
 advance 3
 queue targets 1,4
-castspell ai 3
+expecterror refused castspell ai 3

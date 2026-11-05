@@ -15,4 +15,4 @@ castspell human 5
 resolvestack
 tapformana human 4 B
 queue targets 2
-castspell human 6
+expecterror refused castspell human 6

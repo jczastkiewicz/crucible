@@ -3,4 +3,4 @@
 startturn human
 advance 3
 queue confirmpaycost false
-castspell ai 10
+expecterror refused castspell ai 10

@@ -14,15 +14,15 @@ reads `actions.log`, what it is compared with, or how the 112-method `PlayerCont
 
 | Fact                                                                                                                                                                                                                                                                                                             | Where                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 850 scenarios. Their `actions.log` verbs: `startturn`, `advance`, `step`, `passpriority`, `resolvestack`, `castspell`, `playland`, `tapformana`, `paymanacost`, `declareattackers`, `declareblockers`, `firststrikedamage`, `combatdamage`, special actions, opening-hand verbs, `queue <kind>` (about 50 kinds) | `game-state-fixture.md`, "Scenarios: actions.log and the harness"                           |
+| 862 scenarios. Their `actions.log` verbs: `startturn`, `advance`, `step`, `passpriority`, `resolvestack`, `castspell`, `playland`, `tapformana`, `paymanacost`, `declareattackers`, `declareblockers`, `firststrikedamage`, `combatdamage`, special actions, opening-hand verbs, `queue <kind>` (about 50 kinds) | `game-state-fixture.md`, "Scenarios: actions.log and the harness"                           |
 | The Go verbs call engine steps directly: `combatdamage` is `Game.DealCombatDamage`, separate from `advance`                                                                                                                                                                                                      | `crucible/internal/fixture/actions.go`                                                      |
 | Java deals damage, declares combat and puts triggers on the stack inside its own phase loop; `PhaseHandler.mainLoopStep()` is the public single step, used by upstream's `AITest`                                                                                                                                | `PhaseHandler.java:1047`; `forge-gui-desktop/src/test/java/forge/ai/AITest.java:92`, `:204` |
 | Upstream ships a scripted-test kit: `PlayerControllerForTests` overrides all 112 methods, `GameWrapper` and `PlayerActions` feed it actions with preconditions                                                                                                                                                   | `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/`                           |
 | `GameState.applyToGame` loads the fixture format; its `Id:` handles go into a private `idToCard` map; Java cards get their own ids                                                                                                                                                                               | `GameState.java:76`, `:611`, `:1382-1384`                                                   |
 | `GameState.toString` writes effect cards into the command zone by name but skips `DetachedCardEffect`; nothing can load an effect card back                                                                                                                                                                      | `GameState.java:225-233`                                                                    |
 | `crucible/oracle-java/pom.xml` has no dependencies; `${revision}` in the installed upstream poms keeps Maven from resolving them outside the reactor, so `dump-boosters.sh` compiles one class against `dependency:build-classpath`                                                                              | `crucible/oracle-java/pom.xml`, `dump-boosters.sh`                                          |
-| 10 of 850 scenarios draw from the game's generator after setup (mulligans, opening hands, a shuffle trigger, a die roll, a subgame, Karn's restart, Camouflage); Java's `MyRandom` is unseeded unless `setRandom` replaces it                                                                                    | measured 2026-11-05 with a probe in `scenario_test.go`; `MyRandom.java:12`, `:46`           |
-| 17 scenarios use Crucible-only keys (`over=`, `lost=`, `won=`, `monarch=`, `initiative=`, `Protector:`); 7 use `expecterror`, `run`, `resumerestart` or `concede`; about one queues an id the game created                                                                                                       | grep over `testdata/scenarios`                                                              |
+| 12 of 862 scenarios draw from the game's generator after setup (mulligans, opening hands, a shuffle trigger, a die roll, two coin flips, a subgame, Karn's restart, Camouflage); Java's `MyRandom` is unseeded unless `setRandom` replaces it                                                                    | measured 2026-11-05 with a probe in `scenario_test.go`; `MyRandom.java:12`, `:46`           |
+| 17 scenarios use Crucible-only keys (`over=`, `lost=`, `won=`, `monarch=`, `initiative=`, `Protector:`); 18 use `expecterror` (a refused cast or play, an illegal declaration), 3 use `run`, `resumerestart` or `concede`; about one queues an id the game created                                               | grep over `testdata/scenarios`                                                              |
 
 ## Decision Drivers
 
@@ -76,8 +76,8 @@ asks is a finding. Reason: upstream already wrote and maintains the 112 override
 
 **Identity: fixture handles.** `queue` and verb ids are `setup.state`'s `Id:` values, resolved through `GameState`'s
 `idToCard` read by reflection. Reflection is allowed in Java test tooling only; a renamed field fails the runner loudly.
-An id the game created during the run (one scenario today) uses ADR-0059's structural identity. Reason: no third
-identity scheme.
+An id the game created during the run (one scenario today) waits for ADR-0059's structural identity (open plan R21a-c);
+until then that scenario is `not runnable`. Reason: no third identity scheme.
 
 **Comparison: option 2.** Both sides write `GameState` text: Java `GameState.toString`, Go `fixture.Dump`. The
 normaliser (`crucible/tools/l2diff`, Go, with its own tests) applies these rules:
@@ -86,7 +86,10 @@ normaliser (`crucible/tools/l2diff`, Go, with its own tests) applies these rules
   `RememberedCards`.
 - Java's run writes Crucible-only keys from Java's own model: `over=`, `lost=` and `won=` from `Game.isGameOver` and the
   outcome, `monarch=`, `initiative=`, `Protector:`. They are compared, not dropped.
-- Effect cards stay: both dumps write them by name.
+- Designation cards leave Java's command zone: "The Monarch", "The Initiative" and "The Ring", the cards
+  `Game.IsDesignationCard` names. Go's `Dump` omits them and writes `monarch=`, `initiative=` and `numringtemptedyou=`
+  instead (`game-state-fixture.md`), so the keys carry the fact on both sides. The rule has its own test line per card.
+- Other effect cards stay: both dumps write them by name.
 
 Nothing else is normalised without a row in `l2-verbs.md` and a test. Reason: a scenario whose post-state holds an
 effect card cannot be asserted with `expect.state`, but it can be compared engine to engine. A diff against a
@@ -120,8 +123,8 @@ harness's step granularity departs from Java's loop.
 - The checkpoint model cannot compare mid-scenario states, only the end.
 - The JVM job adds minutes to CI. It runs beside the Go jobs, not in the commit hook.
 
-**Neutral:** the 7 scenarios with Go-only verbs and the scenario that queues a created id are `not runnable` until their
-mapping lands. The count is in the report, not hidden.
+**Neutral:** the scenarios whose `expecterror`, `run`, `resumerestart` or `concede` lines have no mapping yet, and the
+scenario that queues a created id, are `not runnable` until their mapping lands. The count is in the report, not hidden.
 
 ## Related
 

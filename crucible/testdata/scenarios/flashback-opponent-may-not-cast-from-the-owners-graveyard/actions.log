@@ -7,4 +7,4 @@ tapformana human 2 R
 tapformana human 3 R
 tapformana human 4 R
 tapformana human 5 R
-castspell human 1
+expecterror refused castspell human 1

@@ -166,8 +166,8 @@ queue replacement <index>        ScriptedController.QueueReplacementEffect, the 
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
-playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID
-castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID
+playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID; a refused play is an error
+castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID; a refused cast is an error, `expecterror refused castspell ...` states a meant one
 resolvestack                  Game.ResolveStack(NewRegistry(), controller), no arguments
 passpriority                  Game.PassPriority(NewRegistry(), controller), one CR 117 round (ADR-0019), no arguments
 step [n]                      Game.Step(NewRegistry(), controller), n times (default 1), one driven step each (ADR-0026)

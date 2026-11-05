@@ -9,6 +9,6 @@ advance 5
 queue attackers 3
 declareattackers
 tapformana human 2 U
-castspell human 1
+expecterror refused castspell human 1
 # On to the declare blockers step, which empties the unspent mana.
 advance

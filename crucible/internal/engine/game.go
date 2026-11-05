@@ -209,6 +209,9 @@ type Game struct {
 	over bool
 	// variants is GameRules.appliedVariants (ADR-0055, commander.go).
 	variants Variant
+	// planarDiceSpecialActions is PhaseHandler.planarDiceSpecialActionThisTurn:
+	// the planar die special actions taken this turn, by anyone (ADR-0056).
+	planarDiceSpecialActions int
 
 	// restarted is Java's GameStage.RestartedByKarn (RestartGameEffect.java:105):
 	// a RestartGame effect has reset the game mid-resolution and the turn
@@ -698,8 +701,15 @@ var errRestartPending = errors.New("engine: game restarted (RestartGame); call R
 // commander.go).
 type Variant uint8
 
-// VariantCommander is GameType.Commander.
-const VariantCommander Variant = 1
+// The ported variants: GameType.Commander, Vanguard and Planechase. No rule
+// reads VariantVanguard (Java has none); Planechase's rules read
+// planechaseActive (ADR-0029), and the variant gates the plane handover at
+// each turn (ADR-0056).
+const (
+	VariantCommander Variant = 1 << iota
+	VariantVanguard
+	VariantPlanechase
+)
 
 // defaultStartingHandSize is CR 103.4's seven, RegisteredPlayer's default
 // (RegisteredPlayer.java:26): each seat's Player.StartingHandSize unless a
@@ -1809,48 +1819,50 @@ func (g *Game) Clone() *Game {
 		pendingSkips:   append([]pendingSkip(nil), g.pendingSkips...),
 		pendingRepeats: append([]pendingRepeat(nil), g.pendingRepeats...),
 
-		extraTurns:            append([]extraTurn(nil), g.extraTurns...),
-		maxDistinctSources:    g.maxDistinctSources,
-		noSchemesThisTurn:     g.noSchemesThisTurn,
-		combatDamagePrevented: g.combatDamagePrevented,
-		combatsThisTurn:       g.combatsThisTurn,
-		mainsThisTurn:         g.mainsThisTurn,
-		piledGuessedSA:        g.piledGuessedSA,
-		singleMaxDamage:       g.singleMaxDamage,
-		upkeepsThisTurn:       g.upkeepsThisTurn,
-		skipDamageSteps:       g.skipDamageSteps,
-		turnOrderReversed:     g.turnOrderReversed,
-		preventShields:        append([]preventShield(nil), g.preventShields...),
-		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),
-		mayPlay:               append([]mayPlayGrant(nil), g.mayPlay...),
-		mayPlayUses:           cloneMayPlayUses(g.mayPlayUses),
-		charmModes:            cloneCharmModes(g.charmModes),
-		castThisTurn:          append([]castRecord(nil), g.castThisTurn...),
-		castLastTurn:          append([]castRecord(nil), g.castLastTurn...),
-		castSinceOwnTurn:      cloneCastSince(g.castSinceOwnTurn),
-		startingPlayer:        g.startingPlayer,
-		leftGraveyardThisTurn: append([]Card(nil), g.leftGraveyardThisTurn...),
-		endOfTurnsThisTurn:    g.endOfTurnsThisTurn,
-		enteredThisTurn:       append([]zoneEntry(nil), g.enteredThisTurn...),
-		enteredLastTurn:       append([]zoneEntry(nil), g.enteredLastTurn...),
-		countersAddedThisTurn: append([]counterAddition(nil), g.countersAddedThisTurn...),
-		countersRemoved:       append([]counterRemoval(nil), g.countersRemoved...),
-		activatedThisTurn:     append([]activationRecord(nil), g.activatedThisTurn...),
-		playerDamageThisTurn:  append([]playerDamage(nil), g.playerDamageThisTurn...),
-		cardDamageThisTurn:    append([]cardDamage(nil), g.cardDamageThisTurn...),
-		sacrificedThisTurn:    append([]sacrificeRecord(nil), g.sacrificedThisTurn...),
-		playedLandsThisTurn:   append([]sacrificeRecord(nil), g.playedLandsThisTurn...),
-		snowAnyColor:          g.snowAnyColor,
-		dayTime:               g.dayTime,
-		previousPlayer:        g.previousPlayer,
-		previousPlayerSpells:  g.previousPlayerSpells,
-		lki:                   make(map[CardID]*Card, len(g.lki)),
-		monarch:               g.monarch,
-		counterKinds:          append([]CounterType(nil), g.counterKinds...),
-		monarchBeginTurn:      g.monarchBeginTurn,
-		initiative:            g.initiative,
-		activePlane:           g.activePlane,
-		planechaseActive:      g.planechaseActive,
+		extraTurns:               append([]extraTurn(nil), g.extraTurns...),
+		maxDistinctSources:       g.maxDistinctSources,
+		noSchemesThisTurn:        g.noSchemesThisTurn,
+		combatDamagePrevented:    g.combatDamagePrevented,
+		combatsThisTurn:          g.combatsThisTurn,
+		mainsThisTurn:            g.mainsThisTurn,
+		piledGuessedSA:           g.piledGuessedSA,
+		singleMaxDamage:          g.singleMaxDamage,
+		upkeepsThisTurn:          g.upkeepsThisTurn,
+		skipDamageSteps:          g.skipDamageSteps,
+		turnOrderReversed:        g.turnOrderReversed,
+		preventShields:           append([]preventShield(nil), g.preventShields...),
+		exileGrants:              append([]ExilePlayGrant(nil), g.exileGrants...),
+		mayPlay:                  append([]mayPlayGrant(nil), g.mayPlay...),
+		mayPlayUses:              cloneMayPlayUses(g.mayPlayUses),
+		charmModes:               cloneCharmModes(g.charmModes),
+		castThisTurn:             append([]castRecord(nil), g.castThisTurn...),
+		castLastTurn:             append([]castRecord(nil), g.castLastTurn...),
+		castSinceOwnTurn:         cloneCastSince(g.castSinceOwnTurn),
+		startingPlayer:           g.startingPlayer,
+		leftGraveyardThisTurn:    append([]Card(nil), g.leftGraveyardThisTurn...),
+		endOfTurnsThisTurn:       g.endOfTurnsThisTurn,
+		enteredThisTurn:          append([]zoneEntry(nil), g.enteredThisTurn...),
+		enteredLastTurn:          append([]zoneEntry(nil), g.enteredLastTurn...),
+		countersAddedThisTurn:    append([]counterAddition(nil), g.countersAddedThisTurn...),
+		countersRemoved:          append([]counterRemoval(nil), g.countersRemoved...),
+		activatedThisTurn:        append([]activationRecord(nil), g.activatedThisTurn...),
+		playerDamageThisTurn:     append([]playerDamage(nil), g.playerDamageThisTurn...),
+		cardDamageThisTurn:       append([]cardDamage(nil), g.cardDamageThisTurn...),
+		sacrificedThisTurn:       append([]sacrificeRecord(nil), g.sacrificedThisTurn...),
+		playedLandsThisTurn:      append([]sacrificeRecord(nil), g.playedLandsThisTurn...),
+		snowAnyColor:             g.snowAnyColor,
+		dayTime:                  g.dayTime,
+		previousPlayer:           g.previousPlayer,
+		previousPlayerSpells:     g.previousPlayerSpells,
+		lki:                      make(map[CardID]*Card, len(g.lki)),
+		monarch:                  g.monarch,
+		counterKinds:             append([]CounterType(nil), g.counterKinds...),
+		monarchBeginTurn:         g.monarchBeginTurn,
+		initiative:               g.initiative,
+		activePlane:              g.activePlane,
+		planechaseActive:         g.planechaseActive,
+		variants:                 g.variants,
+		planarDiceSpecialActions: g.planarDiceSpecialActions,
 	}
 	for i := range g.extraPhases {
 		out.extraPhases[i] = append([]extraPhase(nil), g.extraPhases[i]...)

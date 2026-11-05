@@ -14,7 +14,7 @@ package engine
 func DealOpeningHandsAfter(g *Game, controller PlayerController, loser PlayerID) PlayerID {
 	first := controller.ChooseStartingPlayer(g, loser, false)
 	for _, pid := range g.Players() {
-		g.Shuffle(Library, pid)
+		shuffleStartingZones(g, pid)
 		drawOpeningHand(g, pid)
 	}
 	return first
@@ -45,10 +45,20 @@ func DealOpeningHands(g *Game, controller PlayerController) PlayerID {
 	first := controller.ChooseStartingPlayer(g, decider, true)
 
 	for _, pid := range players {
-		g.Shuffle(Library, pid)
+		shuffleStartingZones(g, pid)
 		drawOpeningHand(g, pid)
 	}
 	return first
+}
+
+// shuffleStartingZones is Match.prepareAllZones's shuffles for pid
+// (Match.java:351-353): the planar deck initVariantsZones shuffles
+// (Player.java:3006-3012, ADR-0056), then the library.
+func shuffleStartingZones(g *Game, pid PlayerID) {
+	if z := g.zones[zoneKey{PlanarDeck, pid}]; z != nil && z.Len() > 0 {
+		g.Shuffle(PlanarDeck, pid)
+	}
+	g.Shuffle(Library, pid)
 }
 
 // drawOpeningHand moves the top StartingHandSize cards of pid's library to

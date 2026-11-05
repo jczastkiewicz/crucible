@@ -167,6 +167,9 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.endEffectsAtTurnStart(g.activePlayer)
 			g.endCopiesAtTurnStart(g.activePlayer)
 			g.monarchBeginTurn = g.monarch
+			g.handActivePlaneTo(g.activePlayer)
+			// PhaseHandler.java:526: the planar die's special action count.
+			g.planarDiceSpecialActions = 0
 			// PhaseHandler.java:522-524: the "begin turn" trigger of the
 			// cleanup step that handed the turn over.
 			g.checkTurnBeginTriggers(controller, g.activePlayer)

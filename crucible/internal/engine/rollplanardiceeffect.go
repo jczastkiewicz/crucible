@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
-	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
@@ -58,16 +57,15 @@ func planarDieFaceByName(name string) (planarDieFace, bool) {
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/RollPlanarDiceEffect.java's
 // resolve with forge-game/src/main/java/forge/game/PlanarDice.java's roll
-// inlined. Refused before the die is rolled, so nothing is consumed from
-// the game's random stream: SpecialAction$ (the planar die's own special
-// action, which bumps a per-turn counter this port does not keep), any live
-// Event$ RollPlanarDice or Event$ PlanarDiceResult replacement (not ported,
+// inlined. SpecialAction$ (the Planar Dice card's own action) counts the
+// roll for the next one's cost. Refused before the die is rolled, so nothing
+// is consumed from the game's random stream: any live Event$ RollPlanarDice or Event$ PlanarDiceResult replacement (not ported,
 // ADR-0029), and any live Mode$ RolledDie or RolledDieOnce trigger (not
 // ported, though PlanarDice.roll runs both).
 type rollPlanarDiceEffect struct{}
 
 func (rollPlanarDiceEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
-	if err := rejectParams(a, "RollPlanarDice", "SpecialAction"); err != nil {
+	if err := rejectParams(a, "RollPlanarDice"); err != nil {
 		return err
 	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
@@ -80,10 +78,15 @@ func (rollPlanarDiceEffect) Resolve(g *Game, a *Ability, c PlayerController) err
 	if err := g.planarDieRollResolvable(); err != nil {
 		return err
 	}
+	if _, ok := a.Params.Param("SpecialAction"); ok {
+		// RollPlanarDiceEffect.java:28-29: counted as it resolves, so the
+		// first roll of a turn costs nothing.
+		g.planarDiceSpecialActions++
+	}
 	roller := a.Controller
 	face := g.rollPlanarDie()
 	pl := g.Player(roller)
-	pl.planarDie = g.putDesignationCard(pl.planarDie, roller, planarDieDef)
+	pl.planarDie = g.putDesignationCard(pl.planarDie, roller, g.db.PlanarDiceEffect)
 	g.runPlanarDieTriggers(c, roller, face)
 	return g.TakePendingError()
 }
@@ -255,24 +258,4 @@ func (g *Game) planarDiceTriggerTest(h *Card, host CardID, t *compile.Ability, r
 		return false
 	}
 	return cond == face
-}
-
-// planarDieDef is the card Player.createPlanechaseEffects builds
-// (Player.java:3259-3287): "Planar Dice", with its one trigger. Java parses
-// it from strings at game start; this port builds the same tree directly,
-// the way monarchEffectDef does, so nothing is parsed at runtime (PORT-2):
-//
-//	Mode$ PlanarDice | Result$ Planeswalk | TriggerZones$ Command | ValidPlayer$ You | Secondary$ True
-//	  -> DB$ Planeswalk | Cause$ PlanarDie
-//
-// Java's card also carries the planar die's special action (ST$
-// RollPlanarDice | Cost$ X | SpecialAction$ True, CR 901.9's "roll the
-// planar die" any number of times for {X}); that action is not ported, so
-// the card here carries the trigger alone.
-func planarDieDef() *compile.Card {
-	walk := designationTrigger("PlanarDice", []vocab.Param{
-		{Key: "Result", Value: "Planeswalk"}, {Key: "TriggerZones", Value: "Command"},
-		{Key: "ValidPlayer", Value: "You"}, {Key: "Secondary", Value: "True"},
-	}, "Planeswalk", []vocab.Param{{Key: "Cause", Value: "PlanarDie"}})
-	return designationDef("Planar Dice", walk)
 }

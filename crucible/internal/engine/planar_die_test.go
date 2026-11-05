@@ -383,16 +383,6 @@ func TestRollPlanarDiceRefusesUnportedShapes(t *testing.T) {
 		})
 	}
 
-	t.Run("SpecialAction", func(t *testing.T) {
-		t.Parallel()
-
-		g, p, _ := planarDieGame(t, dieWalk)
-		planarDeck(g, p, plainPlane(t, "There"))
-		err := rollDie(t, g, p, engine.NewScriptedController(), "DB$ RollPlanarDice | SpecialAction$ True")
-		if err == nil || !strings.Contains(err.Error(), "SpecialAction$ not resolvable yet") {
-			t.Errorf("err = %v, want SpecialAction$ refused", err)
-		}
-	})
 }
 
 // TestChaoticAethersEffectRefusesTheRoll proves the PlanarDiceResult

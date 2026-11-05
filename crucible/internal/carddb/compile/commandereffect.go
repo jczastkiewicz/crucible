@@ -44,3 +44,43 @@ func (db *DB) CommanderEffect() *Card {
 	}
 	return db.commanderEffect
 }
+
+// Player.createPlanechaseEffects (Player.java:3306-3331, ADR-0056): the
+// "Planar Dice" effect card every Planechase player owns. Java parses the
+// trigger and sets the planeswalk as its overriding ability; here it is the
+// Execute$ SVar it would be. The special action's X is the game's rolls this
+// turn. Compiled once per DB (PORT-2).
+const planarDiceName = "Planar Dice"
+
+const (
+	planarDiceTrigger = "Mode$ PlanarDice | Result$ Planeswalk | TriggerZones$ Command | ValidPlayer$ You | Secondary$ True | Execute$ PlanarDiceWalk | TriggerDescription$ Whenever you roll the Planeswalker symbol on the planar die, planeswalk."
+	planarDiceWalk    = "DB$ Planeswalk | Cause$ PlanarDie"
+	planarDiceAction  = "ST$ RollPlanarDice | Cost$ X | SorcerySpeed$ True | Activator$ Player | SpecialAction$ True | ActivationZone$ Command | SpellDescription$ Roll the planar dice. X is equal to the number of times you have previously taken this action this turn. | CostDesc$ {X}: "
+)
+
+// compilePlanarDiceEffect builds the Planar Dice card's definition; its text
+// is fixed, so an error is a broken build.
+func compilePlanarDiceEffect() *Card {
+	raw := &carddb.Card{Filename: "planar_dice"}
+	f := &raw.Faces[0]
+	f.Present = true
+	f.Name = planarDiceName
+	f.Triggers = []string{planarDiceTrigger}
+	f.Abilities = []string{planarDiceAction}
+	f.SVars.Set("PlanarDiceWalk", planarDiceWalk)
+	f.SVars.Set("X", "Count$PlanarDiceSpecialActionThisTurn")
+	card, err := Compile(raw)
+	if err != nil {
+		panic(fmt.Sprintf("compile: Planar Dice: %v", err))
+	}
+	return card
+}
+
+// PlanarDiceEffect is the Planar Dice card's definition (ADR-0056). A DB
+// built by neither constructor compiles its own.
+func (db *DB) PlanarDiceEffect() *Card {
+	if db == nil || db.planarDiceEffect == nil {
+		return compilePlanarDiceEffect()
+	}
+	return db.planarDiceEffect
+}

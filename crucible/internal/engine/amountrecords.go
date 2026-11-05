@@ -38,6 +38,11 @@ func (g *Game) recordCountValue(sourceController PlayerID, source CardID, count 
 	case count.Head == "LeftGraveyardThisTurn":
 		n, ok = g.leftGraveyardCount(sourceController, source, count.Argument)
 		return n, ok, true
+	case count.Head == "PlanarDiceSpecialActionThisTurn":
+		// PhaseHandler.getPlanarDiceSpecialActionThisTurn (AbilityUtils.java:
+		// 2735-2736): the game's planar die special actions this turn, the
+		// Planar Dice card's X (ADR-0056).
+		return g.planarDiceSpecialActions, true, true
 	case count.Head == "TotalTurns":
 		// PhaseHandler.getTurn: the game's turn number.
 		return g.turn, true, true

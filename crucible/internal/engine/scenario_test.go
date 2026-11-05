@@ -293,8 +293,15 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 		if gcard.Tapped != wcard.Tapped {
 			t.Errorf("%s tapped = %v, want %v", label, gcard.Tapped, wcard.Tapped)
 		}
-		if gcard.SummonSick != wcard.SummonSick {
-			t.Errorf("%s summonsick = %v, want %v", label, gcard.SummonSick, wcard.SummonSick)
+		// |SummonSick is Card.isSick as GameState writes it, not the flag.
+		if gcard.IsSick() != wcard.IsSick() {
+			t.Errorf("%s summonsick = %v, want %v", label, gcard.IsSick(), wcard.IsSick())
+		}
+		if gcard.IsRenowned() != wcard.IsRenowned() {
+			t.Errorf("%s renowned = %v, want %v", label, gcard.IsRenowned(), wcard.IsRenowned())
+		}
+		if gcard.IsMonstrous() != wcard.IsMonstrous() {
+			t.Errorf("%s monstrous = %v, want %v", label, gcard.IsMonstrous(), wcard.IsMonstrous())
 		}
 		if gcard.Damage.Marked != wcard.Damage.Marked {
 			t.Errorf("%s damage = %d, want %d", label, gcard.Damage.Marked, wcard.Damage.Marked)

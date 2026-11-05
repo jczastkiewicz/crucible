@@ -33,6 +33,7 @@ func TestActivationLimitCapsActivationsPerTurn(t *testing.T) {
 		for g.ActivePhase() != engine.Cleanup {
 			g.AdvancePhase(engine.NewScriptedController())
 		}
+		g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 		if got := activateN(g, p, creature, 5); got != limit {
 			t.Errorf("limit %d: activations after cleanup = %d, want %d again", limit, got, limit)
 		}

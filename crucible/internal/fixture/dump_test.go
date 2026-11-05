@@ -15,7 +15,7 @@ import (
 func TestDumpRoundTripsThroughParse(t *testing.T) {
 	t.Parallel()
 
-	db := testDB(t, "Rancor", "Grizzly Bears", "Llanowar Elves", "Mountain")
+	db := typedDB(t, map[string]string{"Rancor": "", "Grizzly Bears": "Creature", "Llanowar Elves": "", "Mountain": ""})
 	original := "humanlife=17\nailife=9\nturn=5\nactiveplayer=ai\nactivephase=Main2\n" +
 		"humanbattlefield=Rancor|Id:1|AttachedTo:2|Tapped;Grizzly Bears|Id:2|Counters:P1P1=2|Damage:1|SummonSick\n" +
 		"humanhand=Mountain;Llanowar Elves\n" +

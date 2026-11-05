@@ -4,5 +4,5 @@ activephase=Main1
 humanlife=20
 humanlandsplayed=1
 humanhand=Island
-humanbattlefield=Plains|SummonSick
+humanbattlefield=Plains
 ailife=20

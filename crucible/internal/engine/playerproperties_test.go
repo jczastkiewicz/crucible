@@ -253,6 +253,7 @@ func TestCleanupRotatesAndClearsTheTurnsRecords(t *testing.T) {
 
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController()) // Cleanup
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	for _, tc := range []struct {
 		x    string
 		who  engine.PlayerID
@@ -307,6 +308,7 @@ func TestSacrificedThisTurnCountsTheTurnsSacrifices(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := measure(t, g, p, "PlayerCountPropertyYou$SacrificedThisTurn"); got != 0 {
 		t.Errorf("SacrificedThisTurn after cleanup = %d, want 0", got)
 	}
@@ -404,6 +406,7 @@ func TestTurnRecordProperties(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := measure(t, g, p, "PlayerCountPlayers$HasPropertyCardsInHandAtBeginningOfTurn"); got != 1 {
 		t.Errorf("CardsInHandAtBeginningOfTurn after cleanup = %d, want 1 (only p held cards)", got)
 	}
@@ -528,6 +531,7 @@ func TestLandsPlayedFiltersByTheZoneItWasPlayedFrom(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := measure(t, g, p, "PlayerCountPropertyYou$LandsPlayed Card.inRealZoneHand"); got != 0 {
 		t.Errorf("after cleanup = %d, want 0", got)
 	}

@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Swamp;Lake of the Dead|SummonSick
+humanbattlefield=Swamp;Lake of the Dead
 humangraveyard=Swamp
 ailife=20

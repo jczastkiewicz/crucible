@@ -334,7 +334,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
-	if shape.Tap && (c.Tapped || c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
+	if shape.Tap && (c.Tapped || c.IsSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
 		return false
 	}
 	hand := g.Zone(Hand, pid).Cards()

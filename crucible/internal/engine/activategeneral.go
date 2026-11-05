@@ -37,7 +37,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 	}
 	// {T} and {Q}: the host is tapped or untapped as part of the cost, and a
 	// summoning-sick creature pays neither (CR 302.6).
-	if (parsed.Tap || parsed.Untap) && c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity) {
+	if (parsed.Tap || parsed.Untap) && c.IsSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity) {
 		return false
 	}
 	if parsed.Tap && c.Tapped || parsed.Untap && !c.Tapped {

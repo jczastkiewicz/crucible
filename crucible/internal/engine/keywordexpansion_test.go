@@ -309,6 +309,11 @@ func TestFlashbackCastsFromTheGraveyardAndExiles(t *testing.T) {
 	if g.Card(bolt).Zone != engine.Exile {
 		t.Errorf("flashed-back Firebolt in %v, want Exile", g.Card(bolt).Zone)
 	}
+	// The replacement's ChangeZone exiles it with its own host, itself
+	// (SpellAbilityEffect.handleExiledWith).
+	if got := g.Card(bolt).ExiledWith(); got != bolt {
+		t.Errorf("Firebolt exiled with %v, want itself (%v)", got, bolt)
+	}
 	if got := g.Player(other).Life; got != 18 {
 		t.Errorf("target life = %d, want 18", got)
 	}

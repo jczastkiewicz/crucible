@@ -276,16 +276,16 @@ func TestLoadUnappliedAnnotationsAreRecorded(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t, "Grizzly Bears")
-	l := load(t, db, "humanbattlefield=Grizzly Bears|Renowned\n")
+	l := load(t, db, "humanbattlefield=Grizzly Bears|Solved\n")
 
 	found := false
 	for _, u := range l.Unapplied {
-		if strings.Contains(u, "Renowned") {
+		if strings.Contains(u, "Solved") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("Unapplied %v does not mention the dropped Renowned annotation", l.Unapplied)
+		t.Errorf("Unapplied %v does not mention the dropped Solved annotation", l.Unapplied)
 	}
 }
 

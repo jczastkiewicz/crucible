@@ -122,7 +122,7 @@ type Player struct {
 	// 305.2), read by PlayLand's own per-turn limit. LandsPlayedLastTurn is
 	// last turn's count, Java's own landsPlayedLastTurn -- no card in scope
 	// reads it yet (a replacement effect keyed on "if you've played a land
-	// this turn" would), but cleanupStep (turn.go) rolls it forward every
+	// this turn" would), but endCleanup (turn.go) rolls it forward every
 	// turn regardless, the same "reset land-bearing state whether or not a
 	// reader exists yet" position CR 500.4's own mana-pool emptying is in.
 	// Both reset for every player at cleanup, not just the active one (CR
@@ -139,7 +139,7 @@ type Player struct {
 	// (trigger.go) for Mode$ Drawn's own Number$ param -- "whenever you draw
 	// your Nth card each turn." Incremented per card in DrawCards (below),
 	// the identical per-turn-counter shape LandsPlayed already has, reset for
-	// every player at cleanup (cleanupStep, turn.go) the same way.
+	// every player at cleanup (endCleanup, turn.go) the same way.
 	CardsDrawnThisTurn int
 	// DescendedThisTurn is CR's own "descend" tracker (Java's own
 	// Player.descended, Player.java) -- whether a permanent card has been put
@@ -149,7 +149,7 @@ type Player struct {
 	// Java's own field is an int count (getDescended() < 1); this port only
 	// ever asks whether it happened at all, so a bool is enough. Set in
 	// Game.Move (game.go) whenever a permanent, non-token card is moved into
-	// Graveyard, reset for every player at cleanup (cleanupStep, turn.go) the
+	// Graveyard, reset for every player at cleanup (endCleanup, turn.go) the
 	// identical way LandsPlayed/CardsDrawnThisTurn already are.
 	DescendedThisTurn bool
 	// descended is that count itself (Player.descended, Player.java:119,
@@ -192,7 +192,7 @@ type Player struct {
 	// FirstTime$: "whenever you gain life for the first time each turn."
 	// Incremented once per gainLifeEffect resolution (gainlifeeffect.go),
 	// the only life-gain call site this port has, reset for every player at
-	// cleanup (cleanupStep, turn.go) the identical way LandsPlayed/
+	// cleanup (endCleanup, turn.go) the identical way LandsPlayed/
 	// CardsDrawnThisTurn already are.
 	LifeGainedTimesThisTurn int
 	// LifeLostThisTurn is the life this player has lost this turn

@@ -456,6 +456,7 @@ func TestLifeStartedThisTurnWithIsTheLifeAtTheLastCleanup(t *testing.T) {
 		g.Player(p).Life = 13
 		g.SetTurnState(1, p, engine.EndOfTurn)
 		g.AdvancePhase(engine.NewScriptedController())
+		g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 		g.SetTurnState(2, p, engine.Main1)
 		g.Player(p).Life = 9
 	}, "PlayerCountPropertyYou$LifeStartedThisTurnWith")

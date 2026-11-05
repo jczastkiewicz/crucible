@@ -3,3 +3,4 @@
 # differs list is not exactly these. Format: <scenario><TAB><row>.
 life-loss-eliminates-one-player-game-continues	forge-java-defects.md: GameState.java:697-701 (life set by Game.getPlayers index)
 world-rule-keeps-newest	quirks.md: a fixture's battlefield cards take timestamps in declaration order (GameState sets no worldTimestamp)
+mayplay-kess-exiles-the-spell-cast-from-the-graveyard	quirks.md: a ReplaceGraveyard$ Exile grant exiles with no ExiledWith (Java links an effect card that is itself exiled)

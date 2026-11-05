@@ -4,6 +4,6 @@ activephase=Main1
 humanlife=20
 humangraveyard=Grizzly Bears
 ailife=20
-aibattlefield=Mountain|Tapped;T:c_a_treasure_sac|SummonSick
+aibattlefield=Mountain|Tapped;T:c_a_treasure_sac
 aihand=Mountain
 aigraveyard=Cindercone Smite

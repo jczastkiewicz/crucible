@@ -122,7 +122,7 @@ func TestPlayLandFailsWhenCardIsNotALand(t *testing.T) {
 	}
 }
 
-// cleanupStep (turn.go) rolls LandsPlayed into LandsPlayedLastTurn and
+// endCleanup (turn.go) rolls LandsPlayed into LandsPlayedLastTurn and
 // resets it to zero for every player, not just the active one -- the same
 // "every player, not just the active one" scope emptyManaPools already has
 // for CR 500.4.
@@ -136,6 +136,12 @@ func TestCleanupResetsLandsPlayedForEveryPlayer(t *testing.T) {
 	g.SetTurnState(1, active, engine.EndOfTurn)
 
 	g.AdvancePhase(engine.NewScriptedController())
+	// Cleanup itself is still the turn: Game.onCleanupPhase resets the count
+	// as the step ends (PhaseHandler.java:508-511).
+	if got := g.Player(active).LandsPlayed; got != 1 {
+		t.Errorf("active player's LandsPlayed in cleanup = %d, want 1", got)
+	}
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 
 	if got := g.Player(active).LandsPlayed; got != 0 {
 		t.Errorf("active player's LandsPlayed after cleanup = %d, want 0", got)

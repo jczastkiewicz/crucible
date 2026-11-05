@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Akoum Warrior|Id:1|Tapped|SummonSick
+humanbattlefield=Akoum Warrior|Id:1|Tapped
 ailife=20

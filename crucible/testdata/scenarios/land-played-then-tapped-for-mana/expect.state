@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Plains|Tapped|SummonSick
+humanbattlefield=Plains|Tapped
 ailife=20

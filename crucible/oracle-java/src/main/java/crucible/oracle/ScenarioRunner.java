@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +43,9 @@ import forge.util.ThreadUtil;
  * compare with Go's fixture.Dump of the same run.
  *
  * Usage: ScenarioRunner <manifest> <out dir>. Each manifest line is a scenario
- * directory, the Go run's final turn and its phase, tab-separated (l2diff
- * emit); the runner steps Java's own loop (PhaseHandler.mainLoopStep) until it
+ * directory, the Go run's final turn and its phase, and the file with each
+ * actions.log line after the turn and phase Go ran it in, tab-separated
+ * (l2diff emit); the runner steps Java's own loop (PhaseHandler.mainLoopStep) until it
  * reaches that point (S8, l2-verbs.md), and writes <name>.state,
  * <name>.unmapped (the lines no l2-verbs.md row maps, or a setup card
  * GameState cannot load) or <name>.error. One JVM
@@ -55,7 +57,10 @@ public final class ScenarioRunner {
     // The actions.log verbs l2-verbs.md maps; a scenario using any other is
     // reported unmapped and not run (ADR-0060).
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
-            "declareattackers", "declareblockers", "firststrikedamage", "combatdamage");
+            "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
+            "tapformana", "castspell", "playland");
+    // The lines a seat makes at its priority, where Go ran them (S13).
+    private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
     // value, or the P<i> value of a player token (GameState.getPlayerString).
     // Never a counter type such as P1P1.
@@ -91,7 +96,7 @@ public final class ScenarioRunner {
             String[] f = entry.split("\t");
             Path dir = Path.of(f[0]);
             String name = dir.getFileName().toString();
-            String[] result = runOnGameThread(dir, Integer.parseInt(f[1]), f[2]);
+            String[] result = runOnGameThread(dir, Integer.parseInt(f[1]), f[2], Path.of(f[3]));
             Files.writeString(out.resolve(name + "." + result[0]), result[1]);
         }
         System.exit(0);
@@ -100,12 +105,12 @@ public final class ScenarioRunner {
     // GameAction.invoke runs state changes on Forge's game thread (ThreadUtil),
     // so each run goes there and the caller waits. The result is a kind -- state,
     // unmapped or error -- and its text.
-    private static String[] runOnGameThread(Path dir, int turn, String phase) throws InterruptedException {
+    private static String[] runOnGameThread(Path dir, int turn, String phase, Path timed) throws InterruptedException {
         String[][] result = new String[1][];
         CountDownLatch done = new CountDownLatch(1);
         ThreadUtil.invokeInGameThread(() -> {
             try {
-                result[0] = run(dir, turn, phase);
+                result[0] = run(dir, turn, phase, timed);
             } catch (Throwable t) {
                 StringWriter trace = new StringWriter();
                 t.printStackTrace(new PrintWriter(trace));
@@ -118,26 +123,45 @@ public final class ScenarioRunner {
         return result[0];
     }
 
-    private static String[] run(Path dir, int turn, String phaseName) throws Exception {
+    // timed is l2diff emit's actions file: each actions.log line after the
+    // turn and phase Go ran it in.
+    private static String[] run(Path dir, int turn, String phaseName, Path timed) throws Exception {
         // PhaseType's constants read the Localizer FModel loads.
         PhaseType phase = PhaseType.smartValueOf(phaseName);
 
         List<String> actions = new ArrayList<>();
-        for (String raw : Files.readAllLines(dir.resolve("actions.log"))) {
-            String line = raw.strip();
-            if (!line.isEmpty() && !line.startsWith("#")) {
-                actions.add(line);
+        List<String[]> when = new ArrayList<>();
+        for (String raw : Files.readAllLines(timed)) {
+            if (!raw.isBlank()) {
+                String[] t = raw.split("\t", 3);
+                when.add(t);
+                actions.add(t[2]);
             }
         }
 
         List<String> unmapped = new ArrayList<>();
         ScenarioAnswers answers = new ScenarioAnswers();
-        for (String line : actions) {
+        for (int i = 0; i < actions.size(); i++) {
+            String line = actions.get(i);
             String[] f = line.split("\\s+", 3);
-            if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
+            try {
+                if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
+                    unmapped.add(line);
+                } else if (f[0].equals("queue")) {
+                    answers.queue(f[1], f[2]);
+                } else if (f[0].equals("resolvestack") && Set.of("UNTAP", "CLEANUP").contains(when.get(i)[1])) {
+                    // S14: Go's harness resolves where Java gives no priority
+                    // (CR 502.4, 514.3); Java's triggers wait for the next step.
+                    unmapped.add(line);
+                } else if (f[0].equals("resolvestack")) {
+                    answers.resolveStack();
+                } else if (PLAYS.contains(f[0])) {
+                    String[] all = line.split("\\s+");
+                    answers.play(f[0], Arrays.copyOfRange(all, 1, all.length), Integer.parseInt(when.get(i)[0]),
+                            PhaseType.smartValueOf(when.get(i)[1]));
+                }
+            } catch (IllegalArgumentException e) {
                 unmapped.add(line);
-            } else if (f[0].equals("queue")) {
-                answers.queue(f[1], f[2]);
             }
         }
         if (!unmapped.isEmpty()) {
@@ -149,7 +173,7 @@ public final class ScenarioRunner {
         if (lost != null) {
             return new String[] {"unmapped", "setup card " + lost + " is not in GameState's card pool\n"};
         }
-        Target target = new Target(turn, phase);
+        Target target = new Target(turn, phase, answers);
         Game game = newGame(playerCount(setupLines), target, answers);
         target.game = game;
         if (setupLines.stream().noneMatch(l -> l.startsWith("activeplayer="))) {
@@ -183,7 +207,7 @@ public final class ScenarioRunner {
                 // Checkpoints: Java's own loop reaches the phase Go walks to,
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
-                        "combatdamage" -> {
+                        "combatdamage", "resolvestack", "tapformana", "castspell", "playland" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }
@@ -196,7 +220,8 @@ public final class ScenarioRunner {
         // -- Untap, Cleanup, a damage step with no damage (CR 502.4, 514.3,
         // PhaseHandler.java:321-344) -- it is reaching the step.
         PhaseHandler ph = game.getPhaseHandler();
-        target.drain = !actions.isEmpty() && actions.get(actions.size() - 1).split("\\s+")[0].equals("step");
+        target.drain = !actions.isEmpty()
+                && Set.of("step", "resolvestack").contains(actions.get(actions.size() - 1).split("\\s+")[0]);
         target.armed = true;
         int steps = 0;
         try {
@@ -414,20 +439,23 @@ public final class ScenarioRunner {
     private static final class Target {
         final int turn;
         final PhaseType phase;
+        final ScenarioAnswers answers;
         Game game;
         boolean armed;
         // Go's step plays the step's priority round out (engine.Game.Step):
         // after a final step the checkpoint waits for an empty stack.
         boolean drain;
 
-        Target(int turn, PhaseType phase) {
+        Target(int turn, PhaseType phase, ScenarioAnswers answers) {
             this.turn = turn;
             this.phase = phase;
+            this.answers = answers;
         }
 
         boolean reached() {
             PhaseHandler ph = game.getPhaseHandler();
-            return armed && ph.getTurn() == turn && ph.is(phase) && (!drain || game.getStack().isEmpty());
+            return armed && answers.playsDone() && ph.getTurn() == turn && ph.is(phase)
+                    && (!drain || game.getStack().isEmpty());
         }
     }
 

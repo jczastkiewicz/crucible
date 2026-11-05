@@ -417,7 +417,7 @@ func (g *Game) enlistAttacker(controller PlayerController, id CardID, attackers 
 	var eligible []CardID
 	for _, cid := range g.Zone(Battlefield, pid).Cards() {
 		c := g.Card(cid)
-		if c.Type().Has(cardtype.Creature) && !c.Tapped && !c.isSick() && !c.IsPhasedOut() && !containsCard(attackers, cid) {
+		if c.Type().Has(cardtype.Creature) && !c.Tapped && !c.IsSick() && !c.IsPhasedOut() && !containsCard(attackers, cid) {
 			eligible = append(eligible, cid)
 		}
 	}

@@ -7,7 +7,10 @@
 //
 // emit plays every testdata/scenarios fixture the way TestScenarios does and
 // writes DIR/go/<name>.state (fixture.Dump), DIR/manifest.tsv (the scenario
-// directory, Go's final turn and phase, for the Java runner) and
+// directory, Go's final turn and phase and the timed actions file below, for
+// the Java runner),
+// DIR/actions/<name>.log (each actions.log line with the turn and phase Go
+// ran it in, so the runner plays a cast where Go did) and
 // DIR/random.txt (the scenarios that drew from the game's generator after
 // setup). diff normalises each pair (normalize.go, l2-verbs.md) and sorts the
 // scenarios into same, differs, random and not runnable. With -baseline it is
@@ -78,6 +81,9 @@ func emit(scenarios, res, out, only string) error {
 	if err := clearDir(filepath.Join(out, "go"), "*.state"); err != nil {
 		return err
 	}
+	if err := clearDir(filepath.Join(out, "actions"), "*.log"); err != nil {
+		return err
+	}
 	entries, err := os.ReadDir(scenarios)
 	if err != nil {
 		return err
@@ -99,7 +105,14 @@ func emit(scenarios, res, out, only string) error {
 		if err := os.WriteFile(filepath.Join(out, "go", e.Name()+".state"), r.state, 0o644); err != nil {
 			return err
 		}
-		manifest = append(manifest, fmt.Sprintf("%s\t%d\t%s", dir, r.turn, JavaPhase(r.phase)))
+		if err := os.WriteFile(filepath.Join(out, "actions", e.Name()+".log"), []byte(joinLines(r.timed)), 0o644); err != nil {
+			return err
+		}
+		timed, err := filepath.Abs(filepath.Join(out, "actions", e.Name()+".log"))
+		if err != nil {
+			return err
+		}
+		manifest = append(manifest, fmt.Sprintf("%s\t%d\t%s\t%s", dir, r.turn, JavaPhase(r.phase), timed))
 		if r.random {
 			random = append(random, e.Name())
 		}
@@ -118,6 +131,9 @@ type goRun struct {
 	turn   int
 	phase  string
 	random bool
+	// timed is each actions.log line as "<turn>\t<Java phase>\t<line>", the
+	// point Go ran it at.
+	timed []string
 }
 
 // playGo is TestScenarios' runScenario without the expect.state compare: the
@@ -147,14 +163,25 @@ func playGo(dir string, db *compile.DB) (r goRun, err error) {
 	if err != nil && !os.IsNotExist(err) {
 		return r, err
 	}
-	if err := fixture.RunActions(bytes.NewReader(actions), l, engine.NewScriptedController()); err != nil {
-		return r, err
+	// One line at a time, the controller's queue carried across, so each
+	// line's turn and phase is known.
+	c := engine.NewScriptedController()
+	for _, line := range strings.Split(string(actions), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		r.timed = append(r.timed, fmt.Sprintf("%d\t%s\t%s", l.Game.Turn(), JavaPhase(l.Game.ActivePhase().String()), line))
+		if err := fixture.RunActions(strings.NewReader(line), l, c); err != nil {
+			return r, err
+		}
 	}
 	var buf bytes.Buffer
 	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
 		return r, err
 	}
-	return goRun{state: buf.Bytes(), turn: l.Game.Turn(), phase: l.Game.ActivePhase().String(), random: *rng != afterSetup}, nil
+	r.state, r.turn, r.phase, r.random = buf.Bytes(), l.Game.Turn(), l.Game.ActivePhase().String(), *rng != afterSetup
+	return r, nil
 }
 
 func diff(dir, baseline string) error {

@@ -1185,6 +1185,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if kind != Stack && kind != Battlefield {
 		c.wasCast, c.castManaSpent, c.castSnow, c.castPaidSources = false, 0, 0, nil
 	}
+	flashbackExiled := false
 	if from == Stack && c.flashbackCast {
 		// CR 702.34a, Flashback's replacement (CardFactoryUtil.java:2252:
 		// Event$ Moved | Origin$ Stack | ExcludeDestination$ Exile): a spell
@@ -1192,6 +1193,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.flashbackCast = false
 		if kind != Exile {
 			kind, owner = Exile, c.Owner
+			flashbackExiled = true
 		}
 	}
 	if from == Stack && c.graveyardToExile {
@@ -1379,6 +1381,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		To:     kind,
 	})
 	g.effectCardsSeeMove(id, from, kind)
+	if flashbackExiled {
+		// The replacement's ChangeZone exiles the card with its own host,
+		// the card itself (SpellAbilityEffect.handleExiledWith,
+		// SpellAbilityEffect.java:1084-1112).
+		g.markExiledWith(id, id)
+	}
 	if melded != NoCard {
 		g.unmeld(melded, kind, owner, false)
 	}

@@ -128,6 +128,7 @@ func TestAnAttractionVisitedTwiceInATurnCountsOnce(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	g.SetTurnState(2, p, engine.Main1)
 	resolveLine(t, g, p, c, count, "X", "PlayerCountPropertyYou$AttractionsVisitedThisTurn")
 	if got := g.Player(p).Life; got != 43 {

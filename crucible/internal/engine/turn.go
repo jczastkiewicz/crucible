@@ -114,6 +114,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 	} else {
 		next = nextPhaseOf(g.activePhase, g.phasesReversed(g.activePlayer))
 		if g.activePhase == Cleanup {
+			g.endCleanup()
 			g.turn++
 			g.previousPlayer = g.activePlayer
 			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
@@ -738,11 +739,11 @@ func (g *Game) endCombat() {
 }
 
 // cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
-// partial CR 514.2 ("all damage marked on permanents ... is removed") and
-// CR 305.2's own per-turn land-play reset. 514.1 only concerns the active
-// player -- discarding down is not scoped to everyone the way clearing
-// damage and the land-play reset are (below); an untapStep-shaped difference
-// these have from each other. If the active player's hand already fits, or
+// partial CR 514.2 ("all damage marked on permanents ... is removed"),
+// PhaseHandler.onPhaseBegin's CLEANUP case. The turn's own counts (lands
+// played, cards drawn, ...) reset as the step ends, endCleanup. 514.1 only
+// concerns the active player -- discarding down is not scoped to everyone
+// the way clearing damage is (below). If the active player's hand already fits, or
 // is empty, the controller is never asked, the same "nothing meaningful to
 // decide" reasoning every other combat/mulligan decision point in this port
 // uses for an empty or already-satisfied set.
@@ -774,6 +775,51 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		}
 	}
 
+	// CR 514.2 (PhaseHandler.java:400-405): phased-out permanents too
+	// (getCardsIncludePhasingIn) -- ADR-0021's cleanup opt-in.
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+			if !g.damageNotRemoved(id) {
+				g.Card(id).Damage.Clear()
+			}
+		}
+	}
+	// PhaseHandler.java:420: MagicStack.resetMaxDistinctSources.
+	g.maxDistinctSources = 0
+	g.noSchemesThisTurn = false
+	// PhaseHandler.java:415-418: the CLEANUP case of onPhaseBegin zeroes the
+	// upkeeps, combats and end steps begun, so cleanup itself reads none
+	// finished and the next turn starts from none.
+	g.upkeepsThisTurn = 0
+	g.combatsThisTurn = 0
+	g.mainsThisTurn = 0
+	g.endOfTurnsThisTurn = 0
+
+	g.combatDamagePrevented = false
+	g.preventShields = nil
+
+	kept := g.pumps[:0]
+	for _, p := range g.pumps {
+		if p.Permanent {
+			kept = append(kept, p)
+		}
+	}
+	g.pumps = kept
+	g.ignores = nil // IgnoreEffectCost$ ends with the turn (Java's getEndOfTurn().addUntil)
+	g.endAnimatesAtCleanup()
+	g.endTextAtCleanup()
+	g.endCopiesAtCleanup()
+	g.runEndOfTurnCommands(controller)
+	g.endSkipsAtCleanup()
+	g.endEffectsAtCleanup()
+	g.endMustBlocks(false)
+}
+
+// endCleanup is Game.onCleanupPhase (Game.java:1337-1352), which
+// PhaseHandler.onPhaseEnd runs as the last cleanup step ends, not repeated
+// (PhaseHandler.java:508-511): the turn's own counts stay readable through
+// cleanup, so a checkpoint there still sees this turn's lands played.
+func (g *Game) endCleanup() {
 	// Card.resetActivationsPerTurn for every card in the game
 	// (Game.java:1239-1241), not only the battlefield's.
 	for i := 1; i < len(g.cards); i++ {
@@ -782,14 +828,10 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		g.cards[i].trigResolved.resetTurn()
 		g.cards[i].damageDealtThisTurn = 0
 	}
-	// Phased-out permanents too: CR 514.2's damage removal and
-	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
-	// (PhaseHandler.java:400, Game.java:1236) -- ADR-0021's cleanup opt-in.
+	// Phased-out permanents too: Card.onCleanupPhase's resets walk
+	// getCardsIncludePhasingIn (Game.java:1347-1349).
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
-			if !g.damageNotRemoved(id) {
-				g.Card(id).Damage.Clear()
-			}
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false
 			g.Card(id).foughtThisTurn = false
@@ -835,41 +877,12 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	// Game.clearCountersThisTurn and Game.clearGlobalDamageHistory
 	// (Game.onCleanupPhase).
 	g.enteredLastTurn, g.enteredThisTurn = g.enteredThisTurn, nil
-	// PhaseHandler.java:420: MagicStack.resetMaxDistinctSources.
-	g.maxDistinctSources = 0
-	g.noSchemesThisTurn = false
 	g.leftGraveyardThisTurn = nil
-	// PhaseHandler.java:415-418: the CLEANUP case of onPhaseBegin zeroes the
-	// upkeeps, combats and end steps begun, so cleanup itself reads none
-	// finished and the next turn starts from none.
-	g.upkeepsThisTurn = 0
-	g.combatsThisTurn = 0
-	g.mainsThisTurn = 0
 	g.piledGuessedSA = 0
-	g.endOfTurnsThisTurn = 0
 	g.countersAddedThisTurn = nil
 	g.countersRemoved = nil
 	g.playerDamageThisTurn = nil
 	g.cardDamageThisTurn = nil
-
-	g.combatDamagePrevented = false
-	g.preventShields = nil
-
-	kept := g.pumps[:0]
-	for _, p := range g.pumps {
-		if p.Permanent {
-			kept = append(kept, p)
-		}
-	}
-	g.pumps = kept
-	g.ignores = nil // IgnoreEffectCost$ ends with the turn (Java's getEndOfTurn().addUntil)
-	g.endAnimatesAtCleanup()
-	g.endTextAtCleanup()
-	g.endCopiesAtCleanup()
-	g.runEndOfTurnCommands(controller)
-	g.endSkipsAtCleanup()
-	g.endEffectsAtCleanup()
-	g.endMustBlocks(false)
 }
 
 // skipPhase is one SkipPhase effect: Player skips the next phase or step in

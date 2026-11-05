@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Main1
 humanlife=21
 humanlandsplayed=1
-humanbattlefield=Forest;Sheltered Valley|SummonSick
+humanbattlefield=Forest;Sheltered Valley
 humangraveyard=Sheltered Valley
 ailife=20

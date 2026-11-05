@@ -119,8 +119,10 @@ func (c *Card) PrintedDef() *compile.Card {
 	if c.faceDef != nil {
 		return c.faceDef
 	}
-	if c.flipped && c.frontDef != nil {
-		// A flipped card is still the paper card it was printed as.
+	if c.frontDef != nil && (c.flipped || c.MeldedWith == NoCard && c.frontDef.SplitType == carddb.SplitTransform) {
+		// A flipped or transformed card is still the paper card it was
+		// printed as: GameState writes the front face's name, then
+		// |Transformed.
 		return c.frontDef
 	}
 	if c.faceUpDef != nil {

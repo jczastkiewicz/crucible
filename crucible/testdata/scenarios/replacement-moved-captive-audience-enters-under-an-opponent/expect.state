@@ -4,4 +4,4 @@ activephase=Main1
 humanlife=20
 humanbattlefield=Swamp|Tapped;Mountain|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped
 ailife=20
-aibattlefield=Captive Audience|SummonSick
+aibattlefield=Captive Audience

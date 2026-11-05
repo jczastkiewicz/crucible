@@ -365,7 +365,7 @@ type Card struct {
 	// AttacksThisTurn is CardDamageHistory.getCreatureAttacksThisTurn's own
 	// per-card counter -- incremented once per combat this card is declared
 	// an attacker in (DeclareCombatAttackers, attack.go), reset every cleanup
-	// (cleanupStep, turn.go) alongside Damage/LandsPlayed/CardsDrawnThisTurn.
+	// (endCleanup, turn.go) alongside LandsPlayed/CardsDrawnThisTurn.
 	// TriggerAttacks' own FirstAttack$ (trigger.go) is the one reader: "this
 	// is the first time this creature has attacked this turn," true exactly
 	// when this reads 1 at the moment its own trigger fires, immediately
@@ -389,7 +389,7 @@ type Card struct {
 	// by whom (Java's own targetedFromThisTurn is a Player set, but nothing
 	// this port resolves reads which players are in it, only whether it is
 	// empty). Set the moment this card is first targeted
-	// (checkBecomesTargetTriggers), reset every cleanup (cleanupStep,
+	// (checkBecomesTargetTriggers), reset every cleanup (endCleanup,
 	// turn.go) alongside AttacksThisTurn.
 	BecameTargetThisTurn bool
 	// foughtThisTurn is Card.foughtThisTurn: set for both fighters as a Fight
@@ -408,7 +408,7 @@ type Card struct {
 	// Block effect adding a blocker (blockeffect.go; BlockEffect.java:60-61)
 	// -- and nowhere else: SwitchBlock's re-added blocks are not recorded,
 	// as SwitchBlockEffect.java's own addBlocker calls do not record them.
-	// Cleared every cleanup (cleanupStep, turn.go; Card.onCleanupPhase,
+	// Cleared every cleanup (endCleanup, turn.go; Card.onCleanupPhase,
 	// Card.java:7152) and on leaving the battlefield (Game.Move), where
 	// Java's card becomes a new object. Read by SwitchBlock's
 	// `blockedByValidThisTurn Targeted` (switchblockeffect.go).
@@ -433,7 +433,7 @@ type Card struct {
 	// loyaltyLimitUsed its planeswalkerActivationLimitUsed: the second
 	// activation was made under a Mode$ NumLoyaltyAct Twice$ line
 	// (loyaltyActivationAllowed, staticability.go). All three reset every
-	// cleanup (cleanupStep, turn.go) and on a zone change.
+	// cleanup (endCleanup, turn.go) and on a zone change.
 	LoyaltyAbilityActivated bool
 	loyaltyActivations      int
 	loyaltyLimitUsed        bool
@@ -1048,13 +1048,27 @@ func (c *Card) Type() cardtype.Line {
 	return foldType(base, effects)
 }
 
-// isSick is Card.isSick (Card.java:3651-3653): summoning sickness
+// IsSick is Card.isSick (Card.java:3665-3671): summoning sickness
 // restricts only a creature (CR 302.6), and haste lifts it
 // (Card.hasSickness). A land or artifact that entered this turn can pay a
-// {T} cost.
-func (c *Card) isSick() bool {
+// {T} cost. GameState writes |SummonSick by it, not by the flag.
+func (c *Card) IsSick() bool {
 	return c.SummonSick && c.Type().Has(cardtype.Creature) && !c.HasKeyword("Haste")
 }
+
+// IsRenowned is Card.isRenowned, GameState's |Renowned.
+func (c *Card) IsRenowned() bool { return c.renowned }
+
+// SetRenowned is Card.setRenowned, for a fixture's |Renowned
+// (GameState.java:1321-1322).
+func (c *Card) SetRenowned(v bool) { c.renowned = v }
+
+// IsMonstrous is Card.isMonstrous, GameState's |Monstrous.
+func (c *Card) IsMonstrous() bool { return c.monstrous }
+
+// SetMonstrous is Card.setMonstrous, for a fixture's |Monstrous
+// (GameState.java:1329-1330).
+func (c *Card) SetMonstrous(v bool) { c.monstrous = v }
 
 // HasKeyword reports whether the card currently carries the named keyword:
 // its own printed face, exact match against keyword.Parse's own Name (the

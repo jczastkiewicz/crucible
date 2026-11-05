@@ -41,6 +41,7 @@ func TestLifeYouGainedThisTurnSumsGainsAndEndsAtCleanup(t *testing.T) {
 		t.Errorf("life gained this turn = %d, want 7", got)
 	}
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := meter(t, g, p, other, "Count$LifeYouGainedThisTurn"); got != 0 {
 		t.Errorf("life gained after cleanup = %d, want 0", got)
 	}
@@ -85,6 +86,7 @@ func TestThisTurnEnteredCountsZoneChangesAsLastKnown(t *testing.T) {
 
 	c := engine.NewScriptedController()
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := meter(t, g, p, other, "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"); got != 0 {
 		t.Errorf("entries after cleanup = %d, want 0", got)
 	}
@@ -202,6 +204,7 @@ func TestCountersAddedThisTurnSumsByTypePutterAndCard(t *testing.T) {
 		}
 	}
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := meter(t, g, p, other, "Count$CountersAddedThisTurn Any Player Creature"); got != 0 {
 		t.Errorf("counters after cleanup = %d, want 0", got)
 	}
@@ -252,6 +255,7 @@ func TestCountersReceivedThisTurnReadsTheCurrentObject(t *testing.T) {
 		}
 	}
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	sba(g)
 	if g.Card(mine).HasKeyword("Hexproof") {
 		t.Error("hexproof after cleanup cleared the turn's counters")

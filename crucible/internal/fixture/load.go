@@ -36,9 +36,9 @@ type Loaded struct {
 
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
-	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
+	// modeled yet (ChosenColor, ...), or a player-level field with
 	// no corresponding engine.Player field (PersistentMana, ...). Silently dropping these would make a fixture that names,
-	// say, a Monstrous creature pass while testing something other than what
+	// say, a Solved case pass while testing something other than what
 	// it says.
 	Unapplied []string
 
@@ -305,6 +305,10 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.Tapped = true
 		case strings.HasPrefix(info, "SummonSick"):
 			c.SummonSick = true
+		case strings.HasPrefix(info, "Renowned"):
+			c.SetRenowned(true)
+		case strings.HasPrefix(info, "Monstrous"):
+			c.SetMonstrous(true)
 		case strings.HasPrefix(info, "OnAdventure"):
 			// GameState.java:1366: an exiled Adventure card that may be cast
 			// as its creature.

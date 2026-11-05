@@ -169,6 +169,7 @@ func TestDescendedCountsPermanentCardsAndResetsAtCleanup(t *testing.T) {
 	twoAndExtras(g, p, engine.NoPlayer)
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	g.SetTurnState(2, p, engine.Main1)
 	before := g.Player(p).Life
 	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBMore",

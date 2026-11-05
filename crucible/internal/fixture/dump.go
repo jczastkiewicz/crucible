@@ -102,7 +102,8 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 }
 
 // dumpCard writes one card's `|`-separated entry. The zone gates Java's
-// GameState.toString applies stand as written: Tapped, SummonSick, Owner,
+// GameState.toString applies stand as written: Tapped, SummonSick, Renowned,
+// Monstrous, Owner,
 // PhasedOut, AttachedTo, Damage, RememberedCards and Imprinting are
 // Battlefield-only;
 // Counters is Battlefield or Exile; Id has no gate. Protector is
@@ -139,8 +140,16 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if c.Tapped {
 			b.WriteString("|Tapped")
 		}
-		if c.SummonSick {
+		// GameState writes Card.isSick, not the flag: a noncreature or a
+		// creature with haste that changed control writes none.
+		if c.IsSick() {
 			b.WriteString("|SummonSick")
+		}
+		if c.IsRenowned() {
+			b.WriteString("|Renowned")
+		}
+		if c.IsMonstrous() {
+			b.WriteString("|Monstrous")
 		}
 		if c.IsPhasedOut() {
 			// Java's own spelling, P<seat index> (GameState.java:309-311,

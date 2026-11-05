@@ -353,7 +353,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 // Card.AttacksThisTurn (card.go), CardDamageHistory.getCreatureAttacksThisTurn's
 // own per-card counter, incremented for each declared attacker right before
 // this function runs (DeclareCombatAttackers, attack.go) and reset every
-// cleanup (cleanupStep, turn.go) -- true exactly when the just-incremented
+// cleanup (endCleanup, turn.go) -- true exactly when the just-incremented
 // count is 1, "this is the first time this creature has attacked this
 // turn," ported directly from Java's own `> 1` skip rather than a `== 1`
 // require, since a trigger carrying neither param is unaffected either way.

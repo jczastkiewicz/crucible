@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=Main1
 humanlife=20
-humanbattlefield=Plains|Tapped;Erdwal Illuminator;Thraben Inspector|SummonSick;T:c_a_clue_draw|SummonSick;T:c_a_clue_draw|SummonSick
+humanbattlefield=Plains|Tapped;Erdwal Illuminator;Thraben Inspector|SummonSick;T:c_a_clue_draw;T:c_a_clue_draw
 humanlibrary=Plains
 ailife=20

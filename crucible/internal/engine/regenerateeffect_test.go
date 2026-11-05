@@ -100,6 +100,7 @@ func TestRegenerateEffectShieldEndsAtCleanup(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if n := g.Card(host).RegenShields; n != 0 {
 		t.Errorf("shields after cleanup = %d, want 0", n)
 	}

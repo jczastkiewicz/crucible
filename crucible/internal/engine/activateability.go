@@ -789,6 +789,21 @@ func (g *Game) finishActivation(controller PlayerController, pid PlayerID, card 
 		g.pushTriggeredAbilities(controller, held)
 		return true
 	}
+	if ability.Record == compile.Static {
+		// MagicStack.java:289-293: an ST$ line is an AbilityStatic, resolved
+		// at once by AbilityUtils.resolve, never put on the stack and
+		// without the AbilityCast and cost triggers below (Dakkon's
+		// PlayLandVariant, the planar die's special action, ADR-0056).
+		a := *activated
+		a.stackRoot = true
+		root := a
+		a.rootAbility = &root
+		if err := g.registry.Resolve(g, &a, controller); err != nil {
+			g.recordPendingError(err)
+		}
+		g.pushTriggeredAbilities(controller, held)
+		return true
+	}
 	g.pushTriggeredAbilities(controller, []Ability{*activated})
 	// One batch, as unfreezeStack runs every waiting trigger at once: the
 	// costs' triggers in firing order, then AbilityCast, then Cycled

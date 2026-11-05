@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Declare Blockers
 humanlife=20
 humanhand=Champion's Victory
-humanbattlefield=Island|Tapped;Grizzly Bears|Tapped
+humanbattlefield=Island|Tapped;Grizzly Bears|Tapped|Attacking
 ailife=20

@@ -407,6 +407,14 @@ same "say nothing when there's nothing to say" discipline `Owner:` already follo
 runs (CR 704.5v's ETB gap means a Battle placed directly on the battlefield starts at zero defense otherwise), and
 `expect.state` naming the result with `Protector:`.
 
+**`Attacking[:<id>]` is Java's own key** (`GameState.java:463-470` writes it, `:1429-1435` reads it): a card in the
+current combat's attackers, with `:<id>` naming the planeswalker or battle it attacks, bare when it attacks a player.
+`Dump` writes it for a battlefield attacker (Java removes a card from combat as it leaves the battlefield,
+`Combat.removeFromCombat`). `Load` reads it into `Loaded.Attacking` and builds no combat, so `TestScenarios` compares an
+`expect.state`'s attackers with the run's (`compareAttacking`: controller, name, what each attacks). `RunActions`
+refuses a `setup.state` that names one: Java's setup puts the card into combat, and a Go setup that did not would play
+a different board (L2, ADR-0060).
+
 `TestScenarios` loads the real corpus once per test binary run (`sync.Once`), not once per scenario — synthetic cards
 would defeat the point of a format meant to run against the Java oracle too, and 33,913 cards is too much to pay for per
 case. That first load costs real time (order a minute, cold); TEST-13 already prices L3 at "every commit," same as L1,
@@ -571,6 +579,7 @@ in `Loaded.Unapplied`. Scenarios: `sba-token-dies-and-ceases-to-exist`,
 | `PhaseType.smartValueOf` matches the script name or the enum constant name, case-insensitively, off one list | `phaseByName` tries `engine.PhaseByName` (script name, case-sensitive) first, then a second table of Java's enum constant names, because `engine.PhaseByName`'s contract is specifically the script vocabulary and `GameState.toString`'s own dump (bare `Enum#toString`) writes the other one |
 | `RemoveSummoningSickness` is state `GameState` remembers                                                     | It is a one-time load directive. By the time `Load` returns, every card it applied to already has `SummonSick` false, and `Dump` writes that per card; re-emitting the directive would assert something `Dump` cannot actually know                                                            |
 | `Id:` is arbitrary, chosen by whoever wrote the fixture                                                      | Always the card's own `CardID` (see above)                                                                                                                                                                                                                                                     |
+| A setup `Attacking` puts the card into combat (`cardAttackMap`)                                              | Read into `Loaded.Attacking` and compared in `expect.state`; a `setup.state` naming one is an error, since `Load` builds no combat                                                                                                                                                             |
 
 ## Pinned quirks (PORT-7)
 

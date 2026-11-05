@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Minotaur Abomination|Tapped
+humanbattlefield=Minotaur Abomination|Tapped|Attacking
 ailife=16

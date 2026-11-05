@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=Declare Blockers
 humanlife=20
-humanbattlefield=Kolaghan Aspirant|Tapped
+humanbattlefield=Kolaghan Aspirant|Tapped|Attacking
 ailife=20
 aibattlefield=Grizzly Bears|Damage:1

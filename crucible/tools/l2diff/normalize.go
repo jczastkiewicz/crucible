@@ -44,7 +44,9 @@ var zeroKeys = []string{"landsplayed", "landsplayedlastturn", "numringtemptedyou
 var playerTokens = []string{"Owner", "EnchantingPlayer", "Protector"}
 
 // refKeys are card tokens whose value is a comma list of card ids (rule N5).
-var refKeys = []string{"AttachedTo", "ExiledWith", "RememberedCards", "Imprinting", "ChosenCards"}
+// Attacking names one only when the attacked object is a card (a bare
+// Attacking attacks a player).
+var refKeys = []string{"AttachedTo", "ExiledWith", "RememberedCards", "Imprinting", "ChosenCards", "Attacking"}
 
 // designations are the cards Game.IsDesignationCard names: Java keeps them in
 // the command zone, Go writes a key instead (rule N6, ADR-0060).
@@ -102,8 +104,8 @@ func Normalize(text string, side Side) (string, error) {
 		}
 		for _, card := range splitCards(l.value) {
 			for _, tok := range strings.Split(card, "|")[1:] {
-				k, v, _ := strings.Cut(tok, ":")
-				if slices.Contains(refKeys, k) {
+				k, v, ok := strings.Cut(tok, ":")
+				if ok && slices.Contains(refKeys, k) {
 					for _, id := range strings.Split(v, ",") {
 						referenced[id] = true
 					}
@@ -165,7 +167,7 @@ func normalizeZone(key, value string, side Side, renumber map[string]string) str
 		}
 		var keep []string
 		for _, tok := range toks[1:] {
-			k, v, _ := strings.Cut(tok, ":")
+			k, v, hasValue := strings.Cut(tok, ":")
 			switch {
 			case k == "Set" || k == "Art":
 				continue
@@ -177,7 +179,7 @@ func normalizeZone(key, value string, side Side, renumber map[string]string) str
 					continue
 				}
 				tok = "Id:" + n
-			case slices.Contains(refKeys, k):
+			case hasValue && slices.Contains(refKeys, k):
 				ids := strings.Split(v, ",")
 				for i, id := range ids {
 					if n, ok := renumber[id]; ok {

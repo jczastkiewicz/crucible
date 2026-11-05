@@ -5,4 +5,4 @@ humanlife=20
 humangraveyard=Glyph of Delusion
 humanbattlefield=Island|Tapped;Wall of Stone
 ailife=20
-aibattlefield=Grizzly Bears|Tapped|Counters:GLYPH=2
+aibattlefield=Grizzly Bears|Tapped|Counters:GLYPH=2|Attacking

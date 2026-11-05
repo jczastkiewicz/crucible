@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Wilt-Leaf Cavaliers
+humanbattlefield=Wilt-Leaf Cavaliers|Attacking
 ailife=17

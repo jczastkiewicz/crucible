@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Dream Devourer|Tapped;Mountain|Tapped;Mountain|Tapped
+humanbattlefield=Dream Devourer|Tapped|Attacking;Mountain|Tapped;Mountain|Tapped
 humanexile=Demon Bolt
 ailife=18

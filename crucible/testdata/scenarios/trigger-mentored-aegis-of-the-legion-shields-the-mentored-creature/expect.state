@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=Declare Attackers
 humanlife=20
-humanbattlefield=Grizzly Bears|Id:1|Tapped;Grizzly Bears|Id:2|Tapped|Counters:P1P1=1,SHIELD=1;Aegis of the Legion|Id:3|AttachedTo:1
+humanbattlefield=Grizzly Bears|Id:1|Tapped|Attacking;Grizzly Bears|Id:2|Tapped|Counters:P1P1=1,SHIELD=1|Attacking;Aegis of the Legion|Id:3|AttachedTo:1
 ailife=20

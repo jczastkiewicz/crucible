@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Three verbs are mapped (`startturn`, `advance`, `step`), so most scenarios are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs and the `attackers`, `blocks`, `attacktarget` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
 
 ## What it does
 
@@ -26,13 +26,13 @@ How the runner turns a fixture into a Java game. Each is a place the Go harness 
 | --- | --- | --- |
 | S1 | Seats: `human` is player 0, `ai` player 1, `p<i>` player i; two seats unless the setup names a higher `p<i>` | `GameState.getPlayerState` and `fixture.playerSlot` index seats the same way |
 | S2 | A setup with no `activeplayer=` gets the player of the first `startturn` | `GameState.applyGameOnThread` indexes the active player's state and throws without one; `fixture.Load` needs none |
-| S3 | Every seat is a `ScenarioLobbyPlayer` whose controller is `ScenarioController`, upstream's `PlayerControllerForTests` with two overrides: it passes priority until the checkpoint (S8), and `playSpellAbilityNoStack` plays every ability, where upstream's plays only a list of named cards and throws for the rest (a planeswalker's or a Saga's state trigger) | An AI controller would act on its own priority; upstream's controller cannot stop at a checkpoint |
+| S3 | Every seat is a `ScenarioLobbyPlayer` whose controller is `ScenarioController`, upstream's `PlayerControllerForTests` with these overrides: it passes priority until the checkpoint (S8); it declares the queued attackers and blocks (`ScenarioAnswers`, one queue shared by every seat as Go's one `ScriptedController` is), nothing when none is queued; it assigns a lone blocker's combat damage as Go does (all of it, or with trample the lethal part and the rest to what is attacked); and `playSpellAbilityNoStack` plays every ability, where upstream's plays only a list of named cards and throws for the rest | An AI controller would act on its own priority; upstream's controller cannot stop at a checkpoint, takes its answers from its own action classes, and throws on any combat damage assignment |
 | S4 | `MyRandom.setRandom(new Random(1))` after `applyToGame` | The seed `TestScenarios` gives `javarand` |
 | S5 | The whole run executes on Forge's game thread, the caller waits | `GameAction.invoke` hands state changes to `ThreadUtil`'s game thread; from another thread `applyToGame` returns before the setup exists |
 | S6 | The JVM starts in `forge-gui-desktop/`, with `-Djava.awt.headless=true` | Forge finds `res/` relative to the working directory, as upstream's own tests run it; `GuiDesktop` needs no display |
 | S7 | The reactor's `target/classes` precede the `~/.m2` jars on the classpath (`mvn -pl forge-gui-desktop -am test-compile dependency:build-classpath`) | A SNAPSHOT jar can predate the checked-out source; the oracle would quietly be old Java |
-| S8 | The runner steps `PhaseHandler.mainLoopStep` until the checkpoint: the first priority Java gives at Go's final turn and phase, after its state-based actions and with the triggers they raised on the stack, where `ScenarioController` throws. When the last verb is `step`, the first such priority with the stack empty. In Untap and Cleanup, which give no priority, reaching the step | The checkpoint model of ADR-0060: only the end state is compared. Go's `advance` stops on entering a step, after its state-based actions; its `step` plays the step's priority round out (`engine.Game.Step`) |
-| S9 | The runner writes `over=`, `<player>lost=`, `<player>won=` (only once the game is over), `monarch=` and `initiative=` from Java's model, by registered seat | ADR-0060: Crucible-only keys are compared, not dropped. `Player.hasWon` is true for any player with an outcome and no loss, which only means a win at game end |
+| S8 | The runner steps `PhaseHandler.mainLoopStep` until the checkpoint: the first priority Java gives at Go's final turn and phase, after its state-based actions and with the triggers they raised on the stack, where `ScenarioController` throws. When the last verb is `step`, the first such priority with the stack empty. In a step that gives no priority (`PhaseHandler.givePriorityToPlayer` false: Untap, Cleanup, a damage step with no damage), reaching the step | The checkpoint model of ADR-0060: only the end state is compared. Go's `advance` stops on entering a step, after its state-based actions; its `step` plays the step's priority round out (`engine.Game.Step`); a step without priority runs no state-based check in either engine (CR 704.3) |
+| S9 | The runner writes `over=`, `<player>lost=`, `<player>won=` (only once the game is over), `monarch=` and `initiative=` from Java's model, by registered seat, and adds `Protector:P<seat>` to a battle it finds by name among its controller's battles | ADR-0060: Crucible-only keys are compared, not dropped. `Player.hasWon` is true for any player with an outcome and no loss, which only means a win at game end |
 | S10 | Seats in Java's text go back to the registered seat (`Game.getRegisteredPlayers`): `p<i>` key prefixes and the `Owner`, `EnchantingPlayer`, `Protector` tokens, never a counter type such as `P1P1`. `activeplayer` is written from `PhaseHandler.getPlayerTurn`, and a verb's player is looked up by registered seat | `GameState.initFromGame` numbers by `Game.getPlayers`, which drops a player who lost, so the survivors' `p<i>` shift and a lost active player is `p-1` |
 | S11 | A setup card's `Damage:` is marked after `applyToGame`, then the runner runs `checkStateEffects(true)` once more | `applyGameOnThread` marks damage and runs its load-time pass before `copyLastState`, so no Moved replacement sees the lethal damage (Rest in Peace's Bears reach the graveyard). `fixture.ApplyStateEffects` runs that pass with the replacements in effect; Java settles the same board that way at its first priority |
 | S12 | A setup card outside the common card pool (a Scheme, a Plane) makes the scenario not runnable | `GameState.processCardsForZone` looks cards up in `getCommonCards` only (`GameState.java:1305`) and drops the rest with a line on stderr, so Java would play a different board |
@@ -45,8 +45,8 @@ An `actions.log` line is mapped to a Java answer, a checkpoint, or nothing. A sc
 | --- | --- | --- | --- |
 | `startturn <player>` | 823 | `devModeSet(null, p, false, 0)`, then `PhaseHandler.setupFirstTurn(p, null)`: Java's first turn counts up from 0, as Go's `Game.StartTurn` always begins turn 1 at Untap | mapped |
 | `advance [n]` | 767 | A checkpoint: Java's own loop walks to Go's final step (S8) | mapped |
-| `queue <kind> ...` | 753 | — (`ScenarioController`'s per-kind answers) | unmapped |
-| `declareattackers`, `declareblockers`, `firststrikedamage`, `combatdamage` | 375, 359, 28, 353 | — (checkpoints Java reaches in its own loop) | unmapped |
+| `queue <kind> ...` | 753 | `attackers`, `blocks`, `attacktarget`: `ScenarioAnswers`, popped by `ScenarioController`'s declarations (S3) | mapped for those three kinds |
+| `declareattackers`, `declareblockers`, `firststrikedamage`, `combatdamage` | 375, 359, 28, 353 | Checkpoints Java reaches in its own loop, asking the controllers for the queued declarations | mapped |
 | `tapformana`, `paymanacost` | 343, 28 | — | unmapped |
 | `step [n]` | 12 | A checkpoint, the stack empty (S8) | mapped |
 | `resolvestack`, `passpriority` | 316, 103 | — | unmapped |
@@ -68,7 +68,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 | N2 | `activephase` is the `PhaseType` constant (`MAIN1`, `END_OF_TURN`) | Java writes the constant, Go the script spelling; `PhaseType.smartValueOf` reads both |
 | N3 | Java's `Set:` and `Art:` tokens are dropped | The printing; Go's fixture has none |
 | N4 | A key with an empty value, and `landsplayed`, `landsplayedlastturn`, `numringtemptedyou`, `speed` at 0, are dropped | Java writes every key, Go only the set ones |
-| N5 | `Id:` is kept only on a card an `AttachedTo`, `ExiledWith`, `RememberedCards`, `Imprinting` or `ChosenCards` token names, renumbered in dump order, and every reference rewritten | Java writes `Id:` only for a referenced card (`cardsReferencedByID`), with its own card ids; Go writes every card's `CardID` |
+| N5 | `Id:` is kept only on a card an `AttachedTo`, `ExiledWith`, `RememberedCards`, `Imprinting`, `ChosenCards` or `Attacking:` token names, renumbered in dump order, and every reference rewritten | Java writes `Id:` only for a referenced card (`cardsReferencedByID`), with its own card ids; Go writes every card's `CardID` |
 | N6 | The Monarch, The Initiative and The Ring leave Java's command zone | `Game.IsDesignationCard`; Go writes `monarch=`, `initiative=` and `numringtemptedyou=` instead (ADR-0060) |
 | N7 | A card's tokens after its name are sorted | Token order is the writer's; `GameState` parses them in any order |
 | N8 | Lines are sorted by key | Key order is the writer's |
@@ -77,7 +77,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 63 same, 2 differs, 0 random, 805 not runnable (804 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
+The current run: 370 same, 2 differs, 0 random, 498 not runnable (497 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
@@ -86,7 +86,6 @@ The current run: 63 same, 2 differs, 0 random, 805 not runnable (804 with an unm
 
 ## Not ported yet
 
-- `ScenarioController`'s per-kind queued answers (ADR-0060), Go's defaults and panics: every `queue` line is unmapped
-- Every verb but `startturn`, `advance` and `step`. By the first unmapped line per scenario: `queue` 461, `tapformana` 310, `resolvestack` 14, `playland` 12
+- `ScenarioController`'s answers for the other queue kinds (ADR-0060), Go's defaults and panics, and dividing combat damage among several blockers (`queue damage`)
+- The other verbs and queue kinds. By the first unmapped line per scenario: `tapformana` 320, `resolvestack` 36, `queue cardorder` 21, `queue targets` 18, `playland` 12
 - A created id (ADR-0059, open plan R21a-c)
-- `Protector:` from Java's model (a battle's protector; `GameState.toString` writes none)

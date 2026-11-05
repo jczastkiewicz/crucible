@@ -81,6 +81,43 @@ func runScenario(t *testing.T, db *compile.DB, dir string) {
 	}
 	want := loadScenarioFile(t, db, filepath.Join(dir, "expect.state"))
 	compareGames(t, setup.Game, want.Game)
+	compareAttacking(t, setup.Game, want)
+}
+
+// compareAttacking checks the combat's attackers against expect.state's
+// |Attacking cards (fixture.Loaded.Attacking) on the battlefield: by controller, name and what
+// each attacks -- a player, or a planeswalker or battle by name -- for the
+// CardID reason compareGames gives.
+func compareAttacking(t *testing.T, got *engine.Game, want *fixture.Loaded) {
+	t.Helper()
+
+	describe := func(g *engine.Game, attacker, target engine.CardID) string {
+		c := g.Card(attacker)
+		s := g.Player(c.Controller()).Name + " " + c.Def.Name + " attacks "
+		if target == engine.NoCard {
+			return s + "a player"
+		}
+		return s + g.Card(target).Def.Name
+	}
+	var gotList, wantList []string
+	for _, id := range got.Attackers() {
+		if got.Card(id).Zone != engine.Battlefield {
+			// Java removes a card from combat as it leaves the battlefield
+			// (Combat.removeFromCombat); fixture.Dump writes battlefield
+			// attackers only.
+			continue
+		}
+		target, _ := got.AttackTarget(id).AsCard()
+		gotList = append(gotList, describe(got, id, target))
+	}
+	for id, target := range want.Attacking {
+		wantList = append(wantList, describe(want.Game, id, target))
+	}
+	slices.Sort(gotList)
+	slices.Sort(wantList)
+	if !slices.Equal(gotList, wantList) {
+		t.Errorf("attackers = %q, want %q", gotList, wantList)
+	}
 }
 
 func loadScenarioFile(t *testing.T, db *compile.DB, path string) *fixture.Loaded {

@@ -5,6 +5,7 @@ package fixture
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -106,6 +107,11 @@ import (
 // `resolvestack` are the payment step plus the one stack shape this port
 // can push and resolve.
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
+	if len(l.Attacking) > 0 {
+		// GameState.java:1429-1435 puts a setup attacker into combat; Load
+		// does not, so the two engines would play different boards.
+		return errors.New("setup.state: |Attacking is read only in expect.state; Load builds no combat")
+	}
 	sc := bufio.NewScanner(r)
 	for line := 1; sc.Scan(); line++ {
 		text := strings.TrimSpace(sc.Text())

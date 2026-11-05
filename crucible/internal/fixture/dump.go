@@ -3,6 +3,7 @@
 package fixture
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -203,6 +204,15 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if s := dumpCounters(c.Counters); s != "" {
 			b.WriteString("|Counters:")
 			b.WriteString(s)
+		}
+	}
+	// GameState.java:463-470: an attacker in the combat now, with the
+	// planeswalker or battle it attacks.
+	if c.Zone == engine.Battlefield && slices.Contains(g.Attackers(), id) {
+		b.WriteString("|Attacking")
+		if target, ok := g.AttackTarget(id).AsCard(); ok {
+			b.WriteString(":")
+			b.WriteString(strconv.FormatUint(uint64(target), 10))
 		}
 	}
 	if c.OnAdventure() {

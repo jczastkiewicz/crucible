@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=COMBAT_DAMAGE
 humanlife=22
-humanbattlefield=Ulna Alley Shopkeep|Tapped;Knight of Meadowgrain|Tapped
+humanbattlefield=Ulna Alley Shopkeep|Tapped|Attacking;Knight of Meadowgrain|Tapped|Attacking
 ailife=14

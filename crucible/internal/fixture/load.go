@@ -42,6 +42,13 @@ type Loaded struct {
 	// it says.
 	Unapplied []string
 
+	// Attacking is each card written |Attacking (GameState.java:1429-1435),
+	// with the card it attacks, NoCard for a player. Load builds no combat
+	// from it: an expect.state's attackers are compared (TestScenarios), and
+	// RunActions refuses a setup.state that names one, since Java's setup
+	// puts the card into combat and Go's would not.
+	Attacking map[engine.CardID]engine.CardID
+
 	// settled is set once RunActions has applied ApplyStateEffects.
 	settled bool
 }
@@ -159,6 +166,19 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 	}
 	l.Unapplied = append(l.Unapplied, ld.unapplied...)
 	l.CardByFixtureID = ld.idToCard
+	if len(ld.attacking) > 0 {
+		l.Attacking = map[engine.CardID]engine.CardID{}
+		for _, a := range ld.attacking {
+			target := engine.NoCard
+			if a.hostID != 0 {
+				var ok bool
+				if target, ok = ld.idToCard[a.hostID]; !ok {
+					return nil, fmt.Errorf("attacking %d: no card has that id", a.hostID)
+				}
+			}
+			l.Attacking[a.card] = target
+		}
+	}
 	return l, nil
 }
 
@@ -195,7 +215,10 @@ type loader struct {
 	// exiledWith pairs a card with the fixture id of the host it was
 	// exiled with (ExiledWith:), resolved with the rest.
 	exiledWith []attachRef
-	unapplied  []string
+	// attacking pairs an attacker with the fixture id of the card it
+	// attacks, 0 for a player (Attacking[:id]).
+	attacking []attachRef
+	unapplied []string
 }
 
 type playerAttachRef struct {
@@ -378,6 +401,16 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: %w", name, err)
 			}
 			remembered = ids
+		case info == "Attacking" || strings.HasPrefix(info, "Attacking:"):
+			target := 0
+			if v, ok := strings.CutPrefix(info, "Attacking:"); ok {
+				n, err := strconv.Atoi(v)
+				if err != nil {
+					return fmt.Errorf("%s: %q: %w", name, info, err)
+				}
+				target = n
+			}
+			ld.attacking = append(ld.attacking, attachRef{id, target})
 		case strings.HasPrefix(info, "ExiledWith:"):
 			// GameState.java:1398/771-781: resolved once every card exists.
 			hostID, err := strconv.Atoi(strings.TrimPrefix(info, "ExiledWith:"))

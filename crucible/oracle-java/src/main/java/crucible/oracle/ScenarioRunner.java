@@ -29,6 +29,7 @@ import forge.game.phase.PhaseHandler;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
+import forge.game.zone.ZoneType;
 import forge.gui.GuiBase;
 import forge.localinstance.properties.ForgePreferences.FPref;
 import forge.model.FModel;
@@ -53,13 +54,15 @@ public final class ScenarioRunner {
     private static final int DEFERRED_ID = 900_000;
     // The actions.log verbs l2-verbs.md maps; a scenario using any other is
     // reported unmapped and not run (ADR-0060).
-    private static final Set<String> MAPPED = Set.of("startturn", "advance", "step");
+    private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
+            "declareattackers", "declareblockers", "firststrikedamage", "combatdamage");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
     // value, or the P<i> value of a player token (GameState.getPlayerString).
     // Never a counter type such as P1P1.
     // A setup zone line (GameState.ZONES) and its card list.
     private static final Pattern ZONE_LINE = Pattern.compile(
             "^(?:human|ai|p\\d+)(?:battlefield|hand|graveyard|library|exile|command|sideboard)=(.+)$");
+    private static final Pattern BATTLEFIELD_LINE = Pattern.compile("^p(\\d+)battlefield=(.*)$");
     private static final Pattern SEAT = Pattern.compile(
             "(^p|^activeplayer=p|(?:Owner|EnchantingPlayer|Protector):P)(-?\\d+)");
 
@@ -128,9 +131,13 @@ public final class ScenarioRunner {
         }
 
         List<String> unmapped = new ArrayList<>();
+        ScenarioAnswers answers = new ScenarioAnswers();
         for (String line : actions) {
-            if (!MAPPED.contains(line.split("\\s+")[0])) {
+            String[] f = line.split("\\s+", 3);
+            if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
                 unmapped.add(line);
+            } else if (f[0].equals("queue")) {
+                answers.queue(f[1], f[2]);
             }
         }
         if (!unmapped.isEmpty()) {
@@ -143,7 +150,7 @@ public final class ScenarioRunner {
             return new String[] {"unmapped", "setup card " + lost + " is not in GameState's card pool\n"};
         }
         Target target = new Target(turn, phase);
-        Game game = newGame(playerCount(setupLines), target);
+        Game game = newGame(playerCount(setupLines), target, answers);
         target.game = game;
         if (setupLines.stream().noneMatch(l -> l.startsWith("activeplayer="))) {
             // GameState.applyGameOnThread indexes the active player's state
@@ -156,6 +163,7 @@ public final class ScenarioRunner {
         GameState setup = new GameState();
         setup.parse(setupLines);
         setup.applyToGame(game);
+        answers.bind(game, idToCard(setup));
         if (markDamage(setup, damage)) {
             game.getAction().checkStateEffects(true);
         }
@@ -172,8 +180,10 @@ public final class ScenarioRunner {
                     game.getPhaseHandler().devModeSet(null, p, false, 0);
                     game.getPhaseHandler().setupFirstTurn(p, null);
                 }
-                // Checkpoints: Java's own loop reaches the phase Go walks to.
-                case "advance", "step" -> {
+                // Checkpoints: Java's own loop reaches the phase Go walks to,
+                // asking the controllers for the queued answers on the way.
+                case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
+                        "combatdamage" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }
@@ -182,15 +192,16 @@ public final class ScenarioRunner {
         // S8: the checkpoint is the first priority Java gives at Go's final
         // turn and phase, after its state-based actions and with the triggers
         // they raised on the stack -- where Go's advance stops; after a final
-        // step, the first one with the stack empty. Untap and Cleanup give
-        // none (CR 502.4, 514.3), so there it is reaching them.
+        // step, the first one with the stack empty. In a step that gives none
+        // -- Untap, Cleanup, a damage step with no damage (CR 502.4, 514.3,
+        // PhaseHandler.java:321-344) -- it is reaching the step.
         PhaseHandler ph = game.getPhaseHandler();
         target.drain = !actions.isEmpty() && actions.get(actions.size() - 1).split("\\s+")[0].equals("step");
         target.armed = true;
         int steps = 0;
         try {
             while (!game.isGameOver()) {
-                if (target.reached() && (ph.is(PhaseType.UNTAP) || ph.is(PhaseType.CLEANUP))) {
+                if (target.reached() && !givesPriority(ph)) {
                     break;
                 }
                 if (ph.getTurn() > turn) {
@@ -207,7 +218,7 @@ public final class ScenarioRunner {
 
         GameState post = new GameState();
         post.initFromGame(game);
-        return new String[] {"state", registeredIndexes(game, post.toString()) + crucibleKeys(game)};
+        return new String[] {"state", withProtectors(game, registeredIndexes(game, post.toString())) + crucibleKeys(game)};
     }
 
     // GameState.processCardsForZone looks a card up in the common cards only
@@ -253,6 +264,34 @@ public final class ScenarioRunner {
             }
             m.appendTail(fixed);
             sb.append(fixed).append('\n');
+        }
+        return sb.substring(0, sb.length() - 1);
+    }
+
+    // A battle's Protector:P<seat>, Crucible-only like crucibleKeys' (Go's
+    // Card.ProtectingPlayer; GameState.toString writes none). The card is
+    // found by name among its controller's battles, so a name two of them
+    // share is left without one and shows as a diff.
+    private static String withProtectors(Game game, String text) {
+        List<Player> all = game.getRegisteredPlayers();
+        StringBuilder sb = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            Matcher m = BATTLEFIELD_LINE.matcher(line);
+            if (m.matches() && !m.group(2).isEmpty()) {
+                Player controller = all.get(Integer.parseInt(m.group(1)));
+                List<String> cards = new ArrayList<>();
+                for (String card : m.group(2).split(";")) {
+                    String name = card.split("\\|")[0];
+                    List<Card> battles = controller.getCardsIn(ZoneType.Battlefield).stream()
+                            .filter(c -> c.isBattle() && c.getName().equals(name)).toList();
+                    if (battles.size() == 1 && battles.get(0).getProtectingPlayer() != null) {
+                        card += "|Protector:P" + all.indexOf(battles.get(0).getProtectingPlayer());
+                    }
+                    cards.add(card);
+                }
+                line = "p" + m.group(1) + "battlefield=" + String.join(";", cards);
+            }
+            sb.append(line).append('\n');
         }
         return sb.substring(0, sb.length() - 1);
     }
@@ -331,18 +370,31 @@ public final class ScenarioRunner {
 
     // Reads GameState's private idToCard (ADR-0060 allows reflection in the
     // runner; a renamed field fails here, loudly).
-    @SuppressWarnings("unchecked")
     private static boolean markDamage(GameState setup, Map<Integer, Integer> damage) throws ReflectiveOperationException {
         if (damage.isEmpty()) {
             return false;
         }
-        Field f = GameState.class.getDeclaredField("idToCard");
-        f.setAccessible(true);
-        Map<Integer, Card> idToCard = (Map<Integer, Card>) f.get(setup);
+        Map<Integer, Card> idToCard = idToCard(setup);
         for (Map.Entry<Integer, Integer> e : damage.entrySet()) {
             idToCard.get(e.getKey()).setDamage(e.getValue());
         }
         return true;
+    }
+
+    // PhaseHandler.givePriorityToPlayer, private: whether the step just
+    // begun gives priority (onPhaseBegin clears it for one that does not).
+    private static boolean givesPriority(PhaseHandler ph) throws ReflectiveOperationException {
+        Field f = PhaseHandler.class.getDeclaredField("givePriorityToPlayer");
+        f.setAccessible(true);
+        return f.getBoolean(ph);
+    }
+
+    // GameState's setup Id: handle to card map, private (ADR-0060).
+    @SuppressWarnings("unchecked")
+    private static Map<Integer, Card> idToCard(GameState setup) throws ReflectiveOperationException {
+        Field f = GameState.class.getDeclaredField("idToCard");
+        f.setAccessible(true);
+        return (Map<Integer, Card>) f.get(setup);
     }
 
     // Two seats, or more when the setup names a p<i> slot past them
@@ -379,12 +431,12 @@ public final class ScenarioRunner {
         }
     }
 
-    private static Game newGame(int seats, Target target) {
+    private static Game newGame(int seats, Target target, ScenarioAnswers answers) {
         List<RegisteredPlayer> players = new ArrayList<>();
         for (int i = 0; i < seats; i++) {
             String name = i == 0 ? "human" : i == 1 ? "ai" : "p" + i;
             RegisteredPlayer rp = new RegisteredPlayer(new Deck(name));
-            rp.setPlayer(new ScenarioLobbyPlayer(name, target::reached));
+            rp.setPlayer(new ScenarioLobbyPlayer(name, target::reached, answers));
             players.add(rp);
         }
         Match match = new Match(new GameRules(GameType.Constructed), players, "L2");

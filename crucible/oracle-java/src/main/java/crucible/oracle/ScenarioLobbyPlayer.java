@@ -11,17 +11,19 @@ import forge.game.player.PlayerController;
 /** Seats a player under a {@link ScenarioController} (LobbyPlayerForTests' shape). */
 final class ScenarioLobbyPlayer extends LobbyPlayer implements IGameEntitiesFactory {
     private final BooleanSupplier atCheckpoint;
+    private final ScenarioAnswers answers;
     private ScenarioController controller;
 
-    ScenarioLobbyPlayer(String name, BooleanSupplier atCheckpoint) {
+    ScenarioLobbyPlayer(String name, BooleanSupplier atCheckpoint, ScenarioAnswers answers) {
         super(name);
         this.atCheckpoint = atCheckpoint;
+        this.answers = answers;
     }
 
     @Override
     public Player createIngamePlayer(Game game, int id) {
         Player p = new Player(getName(), game, id);
-        controller = new ScenarioController(game, p, this, atCheckpoint);
+        controller = new ScenarioController(game, p, this, atCheckpoint, answers);
         p.setFirstController(controller);
         return p;
     }

@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Moriok Reaver|Tapped
+humanbattlefield=Moriok Reaver|Tapped|Attacking
 ailife=17

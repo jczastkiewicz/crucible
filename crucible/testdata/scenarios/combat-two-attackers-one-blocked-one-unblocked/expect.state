@@ -3,6 +3,6 @@ activeplayer=human
 activephase=EndCombat
 humanlife=20
 humangraveyard=Grizzly Bears
-humanbattlefield=Silvercoat Lion|Tapped
+humanbattlefield=Silvercoat Lion|Tapped|Attacking
 ailife=18
 aibattlefield=Hill Giant|Damage:2

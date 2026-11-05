@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Combat Damage
 humanlife=20
 humanhand=Silvercoat Lion
-humanbattlefield=Grizzly Bears|Tapped;Plains|Tapped;Plains|Tapped;Plains|Tapped;Plains|Tapped;Plains|Tapped;Leonardo, Leader in Blue|Tapped|SummonSick
+humanbattlefield=Grizzly Bears|Tapped|Attacking;Plains|Tapped;Plains|Tapped;Plains|Tapped;Plains|Tapped;Plains|Tapped;Leonardo, Leader in Blue|Tapped|SummonSick|Attacking
 ailife=12

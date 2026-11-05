@@ -1,8 +1,8 @@
 # ADR-0060 — L2 Scenario Runner on the Java Engine
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
-- **Deciders:** Crucible session (open plan R19), awaiting `jc@archlab.pl`
+- **Deciders:** Crucible session (open plan R19), accepted by `jc@archlab.pl`
 
 ## Context
 

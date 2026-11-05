@@ -244,7 +244,7 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 
 	default:
 		assigned := 0
-		// Blockers that share banding divide it (CR 702.22k, Combat.java:839-840:
+		// Blockers that share banding divide it (CR 702.22j, Combat.java:839-840:
 		// the first blocker's controller).
 		decider := atk.Controller()
 		if g.validBand(liveBlockers, true) {
@@ -282,7 +282,7 @@ func (g *Game) dealBlockerDamage(controller PlayerController, blocker CardID, po
 		g.dealPermanentDamage(controller, blocker, attackers[0], power, deathtouch, true, table)
 		return
 	}
-	// Attackers that share banding divide it (CR 702.22j, Combat.java:780-781).
+	// Attackers that share banding divide it (CR 702.22k, Combat.java:780-781).
 	decider := g.Card(blocker).Controller()
 	if g.validBand(attackers, true) {
 		decider = g.Card(attackers[0]).Controller()

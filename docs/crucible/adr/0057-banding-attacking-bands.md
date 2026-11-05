@@ -10,7 +10,8 @@ Banding (CR 702.22) changes three parts of combat:
 
 1. Who attacks together. Any number of banding creatures plus at most one creature without banding form a band. "Bands
    with other <type>" bands only with creatures of that type.
-2. Who is blocked. A creature blocking one member of a band blocks the whole band (CR 702.22h).
+2. Who is blocked. A creature blocking one member of a band blocks the whole band (CR 702.22h). An effect that blocks
+   one member blocks the whole band too (CR 702.22i).
 3. Who divides damage. The player whose side has banding divides the other side's combat damage (CR 702.22j-k).
 
 The corpus has 24 `K:Banding` cards and one `K:Bands with other` (Old Fogey). Four statics grant Banding (Banding
@@ -74,7 +75,9 @@ out stay singletons. The scripted, smoke and default controllers return nil.
 
 **Blocking.** Blockers are validated against the attacker the player named, including the per-blocker attacker count
 (`canBlockMoreCreatures`). Only then is each block expanded to one `Block` per member of that attacker's band (CR
-702.22h, `Combat.java:402-404`). The expansion therefore never trips a blocker's one-attacker limit.
+702.22h, `Combat.java:402-404`). The expansion therefore never trips a blocker's one-attacker limit. An effect that
+blocks one member (`BecomesBlocked`) blocks every member (CR 702.22i, `Combat.java:398-399`); Java runs
+`AttackerBlocked` for the target only, reproduced, a `quirks.md` and a `forge-java-defects.md` row.
 
 **Damage.** There is one question, `AssignCombatDamage`, and only the decider changes:
 

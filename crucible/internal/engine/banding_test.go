@@ -20,7 +20,7 @@ func (d *damageDeciderRecorder) AssignCombatDamage(g *engine.Game, decider engin
 
 // A band of Benalish Hero and Grizzly Bears (CR 702.22): a creature blocking
 // the Bears blocks the Hero too (CR 702.22h), and the attacking player, whose
-// band has banding, divides the blocker's damage between them (CR 702.22j,
+// band has banding, divides the blocker's damage between them (CR 702.22k,
 // Combat.java:780-781).
 func TestBandIsBlockedTogetherAndItsSideDividesTheBlockersDamage(t *testing.T) {
 	t.Parallel()
@@ -53,6 +53,35 @@ func TestBandIsBlockedTogetherAndItsSideDividesTheBlockersDamage(t *testing.T) {
 	}
 	if got := g.Player(b).Life; got != 20 {
 		t.Errorf("defender life %d: a blocked band deals no damage to the player", got)
+	}
+}
+
+// An effect that blocks one member of a band blocks the whole band (CR
+// 702.22i, Combat.java:398-399): neither member deals damage to the player.
+func TestBecomesBlockedBlocksTheWholeBand(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, a, engine.Main1)
+	hero := g.NewCard(corpusCard(t, "Benalish Hero"), a, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{hero, bears})
+	ac.QueueBands([][]engine.CardID{{hero, bears}})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	declareBlockers(t, g, bc)
+	g.SetTurnState(1, a, engine.DeclareBlockers)
+	if _, err := resolveNow(t, g, b, engine.NewScriptedController(),
+		[]engine.EntityID{engine.CardEntity(bears)},
+		"DB$ BecomesBlocked | ValidTgts$ Creature.attacking"); err != nil {
+		t.Fatal(err)
+	}
+	g.DealCombatDamage(engine.NewScriptedController())
+	if got := g.Player(b).Life; got != 20 {
+		t.Errorf("defender life %d, want 20: the Hero is blocked with its band", got)
 	}
 }
 
@@ -94,7 +123,7 @@ func TestInvalidBandIsAnIllegalDeclaration(t *testing.T) {
 }
 
 // Blockers sharing banding divide the blocked attacker's damage: the
-// defending player assigns it (CR 702.22k, Combat.java:836-841).
+// defending player assigns it (CR 702.22j, Combat.java:836-841).
 func TestBandingBlockersDivideTheAttackersDamage(t *testing.T) {
 	t.Parallel()
 

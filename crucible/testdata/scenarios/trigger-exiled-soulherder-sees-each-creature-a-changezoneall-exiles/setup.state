@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Ghostway|Id:1
+humanbattlefield=Plains|Id:2;Plains|Id:3;Plains|Id:4;Grizzly Bears|Id:5;Llanowar Elves|Id:6
+aibattlefield=Soulherder|Id:7

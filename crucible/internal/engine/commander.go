@@ -61,6 +61,21 @@ func (g *Game) SeatCommander(owner PlayerID, def *compile.Card) CardID {
 	return id
 }
 
+// SeatAvatar is Player.initVariantsZones's Vanguard step (Player.java:
+// 2978-2985) with RegisteredPlayer.setVanguardAvatars's deltas
+// (RegisteredPlayer.java:207-213): the avatar goes to owner's Command zone,
+// and its HandLifeModifier adds to owner's starting hand size, starting life
+// and life (ADR-0056). Several avatars add up, as in Java.
+func (g *Game) SeatAvatar(owner PlayerID, def *compile.Card) CardID {
+	id := g.NewCard(def, owner, Command)
+	p := g.Player(owner)
+	p.avatars = append(p.avatars, def)
+	p.StartingHandSize += def.HandDelta
+	p.StartingLife += def.LifeDelta
+	p.Life += def.LifeDelta
+	return id
+}
+
 // realCommander is Card.getRealCommander (Card.java:7466-7476): the card
 // itself when it is a commander, else its meld partner when that is one,
 // else the first merged component that is one; NoCard when none is.

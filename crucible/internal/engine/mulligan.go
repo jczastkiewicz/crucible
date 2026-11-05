@@ -2,12 +2,6 @@
 
 package engine
 
-// startingHandSize is CR 103.4's seven. Nothing that could change it --
-// Font of Mythos, Vancouver's own scry step, a starting-hand-size static
-// ability -- is built yet, so it is a constant rather than a Player field
-// invented ahead of a caller that would set it.
-const startingHandSize = 7
-
 // DealOpeningHandsAfter is DealOpeningHands for a game that follows another in
 // a match: the loser of the last game decides who goes first
 // (determineFirstTurnPlayer's non-first-game branch, GameAction.java:2421-2426,
@@ -28,7 +22,7 @@ func DealOpeningHandsAfter(g *Game, controller PlayerController, loser PlayerID)
 
 // DealOpeningHands is CR 103.1-103.4's procedure up to the point
 // PerformMulligans, below, can run: decide who plays first and deal each
-// seated player an opening hand of startingHandSize, shuffled library first.
+// seated player an opening hand of its StartingHandSize, shuffled library first.
 // Ported from GameAction.startGame with the Match-level parts trimmed --
 // this port has no Match, so there is no previous game's loser to name and
 // every game reaches CR 103.2's coin flip the same way
@@ -57,13 +51,13 @@ func DealOpeningHands(g *Game, controller PlayerController) PlayerID {
 	return first
 }
 
-// drawOpeningHand moves the top startingHandSize cards of pid's library to
+// drawOpeningHand moves the top StartingHandSize cards of pid's library to
 // their hand, fewer if the library runs out first: GameAction.startGame's
 // p1.drawCards(p1.getStartingHandSize()) (GameAction.java:2341) without a
 // shuffle, which each caller does or not as its own Java does.
 func drawOpeningHand(g *Game, pid PlayerID) {
 	lib := g.Zone(Library, pid)
-	for i := 0; i < startingHandSize && lib.Len() > 0; i++ {
+	for i := 0; i < g.Player(pid).StartingHandSize && lib.Len() > 0; i++ {
 		g.Move(lib.Cards()[0], Hand, pid)
 	}
 }
@@ -97,7 +91,7 @@ func PerformMulligans(g *Game, controller PlayerController, firstPlayer PlayerID
 				continue
 			}
 			tuck := londonTuckCount(timesMulliganed[pid], freeFirst)
-			keep := tuck > startingHandSize || controller.MulliganKeepHand(g, pid, firstPlayer, tuck)
+			keep := tuck > g.Player(pid).StartingHandSize || controller.MulliganKeepHand(g, pid, firstPlayer, tuck)
 			if g.Over() {
 				return
 			}
@@ -125,7 +119,10 @@ func mulligan(g *Game, controller PlayerController, pid PlayerID, freeFirst bool
 	(*timesMulliganed)[pid]++
 
 	lib := g.Zone(Library, pid)
-	for i := 0; i < startingHandSize && lib.Len() > 0; i++ {
+	// LondonMulligan reads getMaxHandSize (LondonMulligan.java:15-25), which
+	// setup makes the starting hand size (Game.java:379-380); a static that
+	// changes it before the mulligans is not read here.
+	for i := 0; i < g.Player(pid).StartingHandSize && lib.Len() > 0; i++ {
 		g.Move(lib.Cards()[0], Hand, pid)
 	}
 
@@ -134,7 +131,7 @@ func mulligan(g *Game, controller PlayerController, pid PlayerID, freeFirst bool
 		return
 	}
 	hand := append([]CardID(nil), g.Zone(Hand, pid).Cards()...)
-	// canMulligan's cutoff (tuck <= startingHandSize) is checked against the
+	// canMulligan's cutoff (tuck <= StartingHandSize) is checked against the
 	// PREVIOUS mulligan count, one step behind what this one actually costs
 	// -- Java's own LondonMulligan.canMulligan reads the same field
 	// tuckCardsDuringMulligan does, before this mulligan's increment. That

@@ -674,12 +674,13 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	return true
 }
 
-// MaxHandSize is CR 103.4's default maximum hand size, the base
-// HandSizeLimit (player.go) folds Layer 8's own SetMaxHandSize$/
+// MaxHandSize is CR 103.4's default maximum hand size. Each player's base,
+// the one HandSizeLimit (player.go) folds Layer 8's own SetMaxHandSize$/
 // RaiseMaxHandSize$ continuous effects on top of (Spellbook's/Thought
-// Vessel's own static abilities among the corpus's 43 real
-// SetMaxHandSize$ lines).
-const MaxHandSize = 7
+// Vessel's own static abilities among the corpus's 43 real SetMaxHandSize$
+// lines), is their StartingHandSize, this unless a Vanguard avatar changed
+// it.
+const MaxHandSize = defaultStartingHandSize
 
 // endCombat is CR 511.3: as the end of combat step ends, every creature and
 // planeswalker/battle is removed from combat (advanceStep). Java's
@@ -742,7 +743,7 @@ func (g *Game) endCombat() {
 // check for the first time in this same phase.
 func (g *Game) cleanupStep(controller PlayerController) {
 	hand := g.Zone(Hand, g.activePlayer).Cards()
-	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(MaxHandSize); hasLimit && len(hand) > limit {
+	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(g.Player(g.activePlayer).StartingHandSize); hasLimit && len(hand) > limit {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
 		for _, id := range discard {
 			// CR 514.1's discard is no effect's (Player.discard with effect

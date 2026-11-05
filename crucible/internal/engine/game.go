@@ -701,11 +701,17 @@ type Variant uint8
 // VariantCommander is GameType.Commander.
 const VariantCommander Variant = 1
 
+// defaultStartingHandSize is CR 103.4's seven, RegisteredPlayer's default
+// (RegisteredPlayer.java:26): each seat's Player.StartingHandSize unless a
+// Vanguard avatar changes it (SeatAvatar, ADR-0056).
+const defaultStartingHandSize = 7
+
 // defaultStartingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's
 // own default (RegisteredPlayer.java:25), what Game's constructor hands
 // every seat when no StartingLife was forced (Game.java:347-351). Of the
 // variants that raise it (RegisteredPlayer.java:137-171) Commander is
-// ported (SetupVariant, ADR-0055); Archenemy and Vanguard are not. Subgame's
+// ported (SetupVariant, ADR-0055) and Vanguard's avatars add theirs
+// (SeatAvatar, ADR-0056); Archenemy is not. Subgame's
 // seats start at it unless StartingLife$ says otherwise (subgameeffect.go).
 const defaultStartingLife = 20
 
@@ -729,7 +735,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
-		g.players = append(g.players, Player{ID: id, Name: name, Life: defaultStartingLife, StartingLife: defaultStartingLife, CrankCounter: 3})
+		g.players = append(g.players, Player{ID: id, Name: name, Life: defaultStartingLife, StartingLife: defaultStartingLife, StartingHandSize: defaultStartingHandSize, CrankCounter: 3})
 		for _, z := range []ZoneType{Hand, Library, Graveyard, Battlefield, Exile, Command, Sideboard} {
 			g.zones[zoneKey{z, id}] = &Zone{Type: z, Owner: id, cards: collect.NewOrderedSet[CardID](0)}
 		}
@@ -1868,6 +1874,7 @@ func (g *Game) Clone() *Game {
 		out.players[i].commanders = append([]CardID(nil), g.players[i].commanders...)
 		out.players[i].commanderCasts = append([]commanderCastCount(nil), g.players[i].commanderCasts...)
 		out.players[i].commanderDamage = append([]commanderCastCount(nil), g.players[i].commanderDamage...)
+		out.players[i].avatars = append([]*compile.Card(nil), g.players[i].avatars...)
 		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
 		out.players[i].attackedThisTurn = append([]CardID(nil), g.players[i].attackedThisTurn...)
 		out.players[i].attackedPlayersThisTurn = append([]PlayerID(nil), g.players[i].attackedPlayersThisTurn...)

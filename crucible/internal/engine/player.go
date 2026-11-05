@@ -5,6 +5,7 @@ package engine
 import (
 	"sort"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
@@ -27,6 +28,14 @@ type Player struct {
 	// player started the game at, 40 under the Commander variant
 	// (SetupVariant), a Subgame's StartingLife$, else twenty.
 	StartingLife int
+	// StartingHandSize is Player.startingHandSize and the base of
+	// maxHandSize (Game.java:379-380): the opening hand, the mulligan draw
+	// and the hand size cleanup discards to before Layer 8's effects
+	// (HandSizeLimit). Seven, unless a Vanguard avatar changes it.
+	StartingHandSize int
+	// avatars is RegisteredPlayer.vanguardAvatars: the avatars SeatAvatar
+	// seated, which a Subgame copies into its own Command zone.
+	avatars []*compile.Card
 	// Turn is how many turns this player has taken, which several card scripts
 	// count.
 	Turn int

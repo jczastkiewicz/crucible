@@ -79,9 +79,8 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 // library (GameAction.java:815-824, SubgameEffect.java:205-212), which needs
 // identity across two games' arenas this port does not track.
 //
-// Commanders cross over (initVariantsZonesSubgame, returnSubgameCommanders);
-// Vanguard avatars have nothing to port, since this port deals none, and the
-// Subgame-zone return (:205-212) always finds nothing (above). Merged holds a
+// Commanders and Vanguard avatars cross over (initVariantsZonesSubgame,
+// returnSubgameCommanders), and the Subgame-zone return (:205-212) always finds nothing (above). Merged holds a
 // mutated permanent's components (mutate.go).
 // The GameEventSubgameStart/End, DayTimeChanged and Zone view events are UI
 // refreshes with no rules content.
@@ -236,6 +235,8 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 			seatLife = g.Player(pid).StartingLife
 		}
 		sub.Player(sp).Life, sub.Player(sp).StartingLife = seatLife, seatLife
+		// The seat's RegisteredPlayer starting hand (Game.java:379-380).
+		sub.Player(sp).StartingHandSize = g.Player(pid).StartingHandSize
 		copyCardsInto(g, sub, g.Zone(Library, pid).CardsIncludingPhasedOut(), sp, Library)
 
 		// CR 720.4: getCardsInOwnedBy(outsideZones, p) (Game.java:645-651),
@@ -274,6 +275,12 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 			if z := existingZone(g, kind, pid); z != nil {
 				copyCardsInto(g, sub, z.Cards(), sp, kind)
 			}
+		}
+		// initVariantsZonesSubgame's Vanguard step (SubgameEffect.java:63-68):
+		// a fresh copy of each registered avatar, whose deltas are already in
+		// the seat's starting life and hand.
+		for _, def := range g.Player(pid).avatars {
+			sub.NewCard(def, sp, Command)
 		}
 		// initVariantsZonesSubgame (SubgameEffect.java:70-79): each commander
 		// in the main-game player's Command zone gets a fresh copy in the

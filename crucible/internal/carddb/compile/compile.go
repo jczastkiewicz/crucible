@@ -265,6 +265,11 @@ type Card struct {
 	// every variant's key.
 	FlavorNames       []string
 	SupportedVariants []string
+	// HandDelta and LifeDelta are a Vanguard avatar's HandLifeModifier:+H/+L
+	// (CardRules.setVanguardProperties, CardRules.java:480-486): what the
+	// avatar adds to its owner's starting hand size and starting life
+	// (ADR-0056). Zero for every other card.
+	HandDelta, LifeDelta int
 }
 
 // Compile resolves every ability line of every face.
@@ -276,6 +281,13 @@ type Card struct {
 func Compile(card *carddb.Card) (*Card, error) {
 	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name, SplitType: card.SplitType,
 		SupportedVariants: card.SupportedVariants}
+	if card.HandLifeModifier != "" {
+		hand, life, err := parseHandLifeModifier(card.HandLifeModifier)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", card.Filename, err)
+		}
+		out.HandDelta, out.LifeDelta = hand, life
+	}
 	for _, i := range card.PresentFaces() {
 		for _, key := range card.SupportedVariants {
 			if v := card.Faces[i].Variants[key]; v != nil && v.FlavorName != "" && v.FlavorName != card.Faces[i].Name {
@@ -1312,4 +1324,22 @@ func splitTrim(value, sep string) []string {
 		}
 	}
 	return out
+}
+
+// parseHandLifeModifier reads HandLifeModifier's "+H/+L" (each side a signed
+// integer, CardRules.java:480-486). Java's Integer.parseInt takes a leading
+// "+"; a malformed value is a script error here rather than Java's
+// NumberFormatException at load (PORT-8).
+func parseHandLifeModifier(v string) (hand, life int, err error) {
+	h, l, ok := strings.Cut(v, "/")
+	if !ok {
+		return 0, 0, fmt.Errorf("HandLifeModifier %q: want +H/+L", v)
+	}
+	if hand, err = strconv.Atoi(strings.TrimSpace(h)); err != nil {
+		return 0, 0, fmt.Errorf("HandLifeModifier %q: %w", v, err)
+	}
+	if life, err = strconv.Atoi(strings.TrimSpace(l)); err != nil {
+		return 0, 0, fmt.Errorf("HandLifeModifier %q: %w", v, err)
+	}
+	return hand, life, nil
 }

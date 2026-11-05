@@ -273,6 +273,17 @@ func (g *Game) Flip(id CardID) bool {
 // face, with no replacement run.
 func (g *Game) Transform(id CardID) bool { return g.transform(id) }
 
+// TurnFaceDown is Card.turnFaceDown(true) for a caller outside an effect:
+// GameState's `|FaceDown` entry (GameState.java:1338-1339) loads a permanent
+// face down, and an exiled card face down with no characteristics.
+func (g *Game) TurnFaceDown(id CardID) bool {
+	if g.Card(id).Zone == Exile {
+		g.turnFaceDownInExile(id)
+		return true
+	}
+	return g.turnFaceDown(id, true)
+}
+
 // transform is Card.changeCardState("Transform"): a transforming
 // double-faced permanent that is face up and whose other face is a
 // permanent turns to that face, under a new timestamp.

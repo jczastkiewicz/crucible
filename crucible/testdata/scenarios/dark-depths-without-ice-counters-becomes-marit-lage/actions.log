@@ -1,0 +1,6 @@
+# Mode$ Always is a state trigger (CR 603.8): Dark Depths with no ice counter
+# triggers once; its Mandatory Sac<1/CARDNAME> cost sacrifices it and the
+# ability creates Marit Lage.
+startturn human
+advance 3
+resolvestack

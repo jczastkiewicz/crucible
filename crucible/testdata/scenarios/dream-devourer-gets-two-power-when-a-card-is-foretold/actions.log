@@ -1,0 +1,19 @@
+# Mode$ Foretell: foretelling Demon Bolt (CR 702.143a) gives the 0/3 Dream
+# Devourer +2/+0 until end of turn, seen as the 2 combat damage it deals.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+queue paygeneric R
+queue paygeneric R
+foretell human 1
+resolvestack
+advance 2
+queue attackers 4
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

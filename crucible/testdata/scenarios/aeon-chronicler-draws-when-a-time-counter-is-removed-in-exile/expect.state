@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Upkeep
+humanlife=20
+humanhand=Island
+humanexile=Aeon Chronicler|Counters:TIME=1
+ailife=20

@@ -38,6 +38,9 @@ crucible/scripts/gates.sh fast|full
 # What to port next: unregistered APIs by corpus line count, deferred ones marked (port-effect step 0)
 crucible/scripts/unported-apis.sh 30
 
+# P4 trigger-mode measure (R17): modes with no card in any scenario setup.state; -missing lists them
+crucible/scripts/trigger-mode-coverage.sh -missing
+
 # How many cards the engine plays, and why the rest are refused (smoke-probe.md); ~2 min for the whole corpus
 cd crucible && go run ./cmd/crucible card-smoke -all -workers 8     # or -decks <dir> / -cards "A,B"
 

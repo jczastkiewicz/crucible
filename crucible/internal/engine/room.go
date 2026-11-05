@@ -123,6 +123,11 @@ func (c *Card) PrintedDef() *compile.Card {
 		// A flipped card is still the paper card it was printed as.
 		return c.frontDef
 	}
+	if c.faceUpDef != nil {
+		// A face-down card is written under its own name (GameState.java
+		// writes the paper card, then |FaceDown).
+		return c.faceUpDef
+	}
 	return c.UncopiedDef()
 }
 

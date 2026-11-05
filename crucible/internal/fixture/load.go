@@ -299,6 +299,12 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			if !ld.game.Transform(id) {
 				return fmt.Errorf("%s: Transformed: not a transforming double-faced permanent", name)
 			}
+		case info == "FaceDown":
+			// GameState.java:1338-1339; the :Manifested and :Cloaked
+			// suffixes stay unapplied.
+			if (kind != engine.Battlefield && kind != engine.Exile) || !ld.game.TurnFaceDown(id) {
+				return fmt.Errorf("%s: FaceDown: cannot turn face down here", name)
+			}
 		case strings.HasPrefix(info, "PhasedOut"):
 			if err := ld.phasedOut(id, kind, info); err != nil {
 				return fmt.Errorf("%s: %w", name, err)

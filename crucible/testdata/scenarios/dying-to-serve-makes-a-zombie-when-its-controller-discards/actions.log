@@ -1,0 +1,14 @@
+# Mode$ DiscardedAll: Mind Rot makes human discard two cards at once, which
+# triggers Dying to Serve once: a tapped 2/2 Zombie.
+startturn human
+advance 3
+tapformana human 5 B
+tapformana human 6 B
+tapformana human 7 B
+queue paygeneric B
+queue paygeneric B
+queue targets human
+castspell human 1
+queue discardchoice 2,3
+queue cardorder 2,3
+resolvestack

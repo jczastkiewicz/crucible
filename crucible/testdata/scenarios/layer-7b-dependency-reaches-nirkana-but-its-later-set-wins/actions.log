@@ -1,0 +1,19 @@
+# CR 613.8a: Andrios ("tapped creatures you control with base power and
+# toughness 4/3 have base power and toughness 16/9") depends on Nirkana's
+# level 1-2 static (base 4/3): applied first, Nirkana's makes Andrios apply
+# to Nirkana too (GameAction.findStaticAbilityToApply, the Affected$ leg,
+# GameAction.java:1353-1356). CR 613.8 then has Andrios's 16/9 apply last;
+# Java keeps Layer 7b values in a table ordered by timestamp (Card.newPT,
+# Card.java:288, getCurrentPower takes the last), so Nirkana's later 4/3
+# wins and it stays 4/3. Reproduced (quirks.md, forge-java-defects.md):
+# Andrios deals 16, Nirkana 4.
+startturn human
+advance 5
+queue attackers 1,2
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

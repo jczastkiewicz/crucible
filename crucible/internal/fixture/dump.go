@@ -147,6 +147,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString("|PhasedOut:P")
 			b.WriteString(strconv.Itoa(seatIndex(g, c.PhasedOutFor())))
 		}
+		if c.IsFaceDown() {
+			// GameState.java:342-343.
+			b.WriteString("|FaceDown")
+		}
 		if c.InFlippedState() {
 			b.WriteString("|Flipped")
 		} else if c.InTransformedState() {
@@ -189,6 +193,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 	if host := c.ExiledWith(); c.Zone == engine.Exile && host != engine.NoCard {
 		b.WriteString("|ExiledWith:")
 		b.WriteString(strconv.FormatUint(uint64(host), 10))
+	}
+	if c.Zone == engine.Exile && c.IsFaceDown() {
+		// GameState.java:440-441.
+		b.WriteString("|FaceDown")
 	}
 	if c.Zone == engine.Battlefield || c.Zone == engine.Exile {
 		if s := dumpCounters(c.Counters); s != "" {

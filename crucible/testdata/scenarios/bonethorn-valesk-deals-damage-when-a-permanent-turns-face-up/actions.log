@@ -1,0 +1,9 @@
+# Mode$ TurnFaceUp (CR 702.37e): turning the face-down Zombie Cutthroat face
+# up for its morph cost (pay 5 life, a special action) triggers Bonethorn
+# Valesk, which deals 1 damage to ai. The trigger's target is chosen as it
+# goes on the stack, inside the special action.
+startturn human
+advance 3
+queue targets ai
+turnfaceup human 2
+resolvestack

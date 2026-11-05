@@ -1280,7 +1280,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		}
 	}
 	// melded is the other card of a melded permanent leaving the battlefield
-	// (CR 712.4c), split off after this move's own event, below.
+	// (CR 712.21), split off after this move's own event, below.
 	melded := NoCard
 	switch {
 	case from == Battlefield && kind != Battlefield:
@@ -1511,11 +1511,12 @@ func (c *Card) leaveMeld() CardID {
 	c.Melded = false
 	melded := c.MeldedWith
 	c.MeldedWith = NoCard
+	c.meldedCMC = 0
 	return melded
 }
 
 // unmeld is GameAction.changeZone's "Spin off Melded card"
-// (GameAction.java:629-642, CR 712.4c): a melded permanent just left the
+// (GameAction.java:629-642, CR 712.21): a melded permanent just left the
 // battlefield for kind, so the other card it represented follows it to the
 // same zone, after it -- appended after it, or with top put on the library's
 // top over it, where Java's changeZone(null, zoneTo, unmeld, position, ...)

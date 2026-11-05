@@ -19,7 +19,7 @@ import (
 // with Tapped$ and attacking with Attacking$ True, representing both cards.
 // The other card goes to no zone's card list (PlayerZoneBattlefield.
 // addToMelded); leaving the battlefield splits them apart again (Game.unmeld,
-// CR 712.4c).
+// CR 712.21).
 //
 // Ported from forge-game/src/main/java/forge/game/ability/effects/
 // MeldEffect.java's resolve. Name$ is the meld face's name for the ability's
@@ -110,6 +110,7 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	back.Faces[0] = front.Faces[carddb.FaceAlternate]
 	p.frontDef, p.Def = front, back
 	p.MeldedWith = secondary
+	p.meldedCMC = s.CMC()
 
 	// PlayerZoneBattlefield.addToMelded: the other card leaves exile for the
 	// activator's battlefield, but joins none of its cards.

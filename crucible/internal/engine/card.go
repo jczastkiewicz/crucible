@@ -610,8 +610,12 @@ type Card struct {
 	// permanent (CR 712.4a, meldeffect.go): the other card it represents,
 	// NoCard for anything not melded. Def is then the meld face and frontDef
 	// this card's own front face, turnFrontFaceUp's revert. Leaving the
-	// battlefield splits the pair back apart (Game.unmeld, CR 712.4c).
+	// battlefield splits the pair back apart (Game.unmeld, CR 712.21).
 	MeldedWith CardID
+	// meldedCMC is the other card's mana value while MeldedWith is set: a
+	// melded permanent's mana value is the sum of its front faces' (CR
+	// 712.8g, Card.java:7409-7415), and the meld face itself has no cost.
+	meldedCMC int
 	// Melded marks the other card of a melded pair: PlayerZoneBattlefield.
 	// addToMelded (PlayerZoneBattlefield.java:45-49) points its Zone at the
 	// battlefield but adds it to no zone's card list, so no enumeration of
@@ -1382,6 +1386,9 @@ func (c *Card) starUnresolved(toughness bool) bool {
 func (c *Card) CMC() int {
 	if c.Def == nil {
 		return 0
+	}
+	if c.MeldedWith != NoCard && c.frontDef != nil {
+		return c.frontDef.Faces[0].ManaCost.CMC() + c.meldedCMC
 	}
 	return c.manaCost().CMC()
 }

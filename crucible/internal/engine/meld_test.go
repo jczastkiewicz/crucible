@@ -13,7 +13,7 @@ import (
 // These tests cover MeldEffect.java (CR 712, ADR-0032) through the real
 // corpus meld pairs: two cards exiled and returned as one permanent, the
 // other card held in no zone's card list, and the pair splitting back apart
-// when the permanent leaves the battlefield (CR 712.4c).
+// when the permanent leaves the battlefield (CR 712.21).
 
 const (
 	gisela  = "Gisela, the Broken Blade"
@@ -118,6 +118,9 @@ func TestMeldGiselaAndBrunaAtEndStep(t *testing.T) {
 	if th, _ := gc.Toughness(); th != 10 {
 		t.Errorf("Brisela toughness = %d, want 10", th)
 	}
+	if mv := gc.CMC(); mv != 11 {
+		t.Errorf("Brisela mana value = %d, want 11: Gisela's 4 plus Bruna's 7 (CR 712.8g)", mv)
+	}
 	if !bc.Melded || bc.Zone != engine.Battlefield {
 		t.Errorf("Bruna melded %v zone %v, want melded on the battlefield", bc.Melded, bc.Zone)
 	}
@@ -133,7 +136,7 @@ func TestMeldGiselaAndBrunaAtEndStep(t *testing.T) {
 	}
 }
 
-// TestMeldedPermanentSplitsIntoGraveyardOnDestroy is CR 712.4c: destroyed,
+// TestMeldedPermanentSplitsIntoGraveyardOnDestroy is CR 712.21: destroyed,
 // the melded permanent puts both cards into their owner's graveyard, the
 // melded card first; each is its own front face again, and its last-known
 // information is still Brisela's for its dies triggers.
@@ -152,6 +155,9 @@ func TestMeldedPermanentSplitsIntoGraveyardOnDestroy(t *testing.T) {
 	gc, bc := g.Card(gis), g.Card(bru)
 	if gc.Def.Name != gisela || gc.MeldedWith != engine.NoCard || bc.Melded {
 		t.Errorf("after the split: Gisela face %q melded with %v, Bruna melded %v", gc.Def.Name, gc.MeldedWith, bc.Melded)
+	}
+	if got := [2]int{gc.CMC(), bc.CMC()}; got != [2]int{4, 7} {
+		t.Errorf("Gisela and Bruna mana values %v, want [4 7] once split", got)
 	}
 	if lki := g.LKI(gis); lki == nil || lki.Def.Name != brisela || lki.MeldedWith != bru {
 		t.Errorf("Gisela's last-known information %+v, want Brisela melded with Bruna", lki)

@@ -119,7 +119,7 @@ type Resolver interface {   // what the stack actually needs
 }
 ```
 
-Exception: `control.PlayerController` is genuinely wide (~110 methods, mirrors the Java contract). Keep it in one place,
+Exception: `control.PlayerController` is genuinely wide (~112 methods, mirrors the Java contract). Keep it in one place,
 document why in the port-log.
 
 ---

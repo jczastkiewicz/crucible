@@ -101,7 +101,7 @@ LandPlayed are gone).
   pays generic mana with the colour floating most, so a cost of twelve generic needs twelve of one.
 - Command-zone cards are counted as `placed`, which proves nothing about their one-shot abilities. A sticker sheet is
   refused by the probe itself (open plan R15), not by the engine, and that line goes when stickers are ported.
-- The replay-parity harness (ADR-0010 L3): `RecordingPlayerController` over the 110 `PlayerController` methods in
+- The replay-parity harness (ADR-0010 L3): `RecordingPlayerController` over the 112 `PlayerController` methods in
   `oracle-java` and a `ReplayController` here. Separate work; open plan, Exit gates, P5.
 
 Tests: `internal/smoke/probe_test.go`.

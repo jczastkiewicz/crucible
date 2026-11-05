@@ -14,30 +14,31 @@ this file only points at them (DOC-11).
 | Item                     | Where                                                                          | State                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Smoke counts             | [smoke-probe.md](porting/port-log/smoke-probe.md)                              | Every judged corpus card plays, 0 refused; re-run with `landporter reconcile` |
-| Open work                | [00-master-implementation-plan-open.md](00-master-implementation-plan-open.md) | B rows left: `B1`, `B6`; then R rows                                          |
+| Open work                | [00-master-implementation-plan-open.md](00-master-implementation-plan-open.md) | No B rows left; R rows, easiest first                                         |
 | Engine gaps              | [game-state.md](porting/port-log/game-state.md) "Not ported yet"               | The M6 backlog: silent misses, not refusals                                   |
 | Java oddities reproduced | [quirks.md](porting/port-log/quirks.md)                                        | One row per quirk or deviation                                                |
 | Java defects             | [forge-java-defects.md](porting/forge-java-defects.md)                         | `Not filed` rows wait for R3                                                  |
 
 ## Waiting on the owner
 
-| Row                                                  | Blocked by                                                                    | Reason Claude stops                            |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- |
-| `B1` Charm `Defined$ You`                            | Publishing branch `upstream-pr/charm-defined-you`                             | Publishing upstream is the owner's (R3)        |
-| `B6` Dakkon `PlayLandVariant`                        | A Vanguard variant model: avatar in the Command zone, life and hand modifiers | A new game-variant model needs an ADR (ADRP-4) |
-| `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR                                                       | Latent, and Takklemaggot depends on it         |
+| Row                                                  | Blocked by                     | Reason Claude stops                    |
+| ---------------------------------------------------- | ------------------------------ | -------------------------------------- |
+| ADR-0057 Banding                                     | Acceptance of the Proposed ADR | ADRP-4: an ADR merges before its code  |
+| ADR-0058 AI port structure                           | Acceptance of the Proposed ADR | ADRP-4; M7 starts on it                |
+| ADR-0059 Replay log                                  | Acceptance of the Proposed ADR | ADRP-4; R21a-R21c start on it          |
+| `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR        | Latent, and Takklemaggot depends on it |
 
 Next, in order:
 
 1. Keywords with no `keyword.Expand` template and no engine reader are lines with no trait behind them, as Morph,
    Vanishing and Myriad were. No coverage command exists (ADR-0038 names one). A text search for heads quoted nowhere
-   outside `keyword/defined.go`, by card count: Choose a Background 32, Doctor's companion 27, Banding 24, Assist 16
-   (Java's AI never assists, `PlayerControllerAi.java:395-410`). Banding is a combat model: attacking bands
-   (`AttackingBand.java`, `Combat.java:267-292`), blocking one member blocks the band (`Combat.java:402-404`), and the
-   banding side assigns the other's combat damage (`Combat.java:764-781`, `:836-841`); Java's AI only joins banding
-   creatures onto an attacker's band (`AiAttackController.java:504-579`). Spree needs no reader: `charmModeCost` adds
-   the chosen modes' `ModeCost$`. Some are read under another spelling (Reach, 449, is); verify each against the engine
-   before porting.
+   outside `keyword/defined.go`, by card count: Choose a Background 32, Doctor's companion 27, Banding 24 (waits on
+   ADR-0057), Assist 16 (Java's AI never assists, `PlayerControllerAi.java:395-410`). Banding is a combat model:
+   attacking bands (`AttackingBand.java`, `Combat.java:267-292`), blocking one member blocks the band
+   (`Combat.java:402-404`), and the banding side assigns the other's combat damage (`Combat.java:764-781`, `:836-841`);
+   Java's AI only joins banding creatures onto an attacker's band (`AiAttackController.java:504-579`). Spree needs no
+   reader: `charmModeCost` adds the chosen modes' `ModeCost$`. Some are read under another spelling (Reach, 449, is);
+   verify each against the engine before porting.
 2. Blitz with a third field (`ValidAfterStack`, `SpellAbility.java:2648`): Riveteers Provocateur needs only this. Henzie
    and The Caldaia grant Blitz with `AffectedZone$ Stack`, which Java offers from the hand through a stack copy of the
    card (`GameActionUtil.java:250-279`). Not a Java defect: `StaticAbilityContinuous.java:756` substitutes

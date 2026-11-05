@@ -405,8 +405,7 @@ var playerPropertyNames = [...]string{
 // playerPropertyMeasure is the measure of the first playerPropertyNames entry
 // value contains, found false when none does. ok is false for a property this
 // port keeps no state for: StartingLibrarySize,
-// LifeGainedByTeamThisTurn, LifeStartedThisTurnWith,
-// SVarAmount.
+// LifeGainedByTeamThisTurn, SVarAmount.
 func playerPropertyMeasure(g *Game, pid PlayerID, value string, sq []string) (n int, ok, found bool) {
 	name := ""
 	for _, candidate := range playerPropertyNames {
@@ -448,6 +447,12 @@ func playerPropertyMeasure(g *Game, pid PlayerID, value string, sq []string) (n 
 		return p.LifeGainedThisTurn, true, true
 	case "Speed":
 		return p.Speed, true, true
+	case "LifeStartedThisTurnWith":
+		// AbilityUtils.java:3602-3603.
+		if !p.lifeStarted {
+			return 20, true, true
+		}
+		return p.lifeStartedThisTurnWith, true, true
 	case "Counters":
 		if len(sq) < 2 {
 			return 0, false, true

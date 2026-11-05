@@ -355,6 +355,11 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		g.upkeepsThisTurn++
 		// PhaseHandler.java:259-260: executeUntil(playerTurn), executeAt().
 		g.runPhaseCommands(controller, untilUpkeepBegin, g.activePlayer)
+		// :263-265: a player who controls a Contraption advances their
+		// CRANK! counter and cranks that sprocket's Contraptions.
+		if g.controlsContraption(g.activePlayer) {
+			g.advanceCrankCounter(controller, g.activePlayer, NoCard)
+		}
 	case EndOfTurn:
 		// PhaseHandler.java:362: nEndOfTurnsThisTurn++.
 		g.endOfTurnsThisTurn++
@@ -774,6 +779,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 			}
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false
+			g.Card(id).foughtThisTurn = false
 			g.Card(id).blockedByThisTurn = nil
 			g.Card(id).blockedThisTurn = nil
 			g.Card(id).attackedThisTurn = nil
@@ -912,6 +918,7 @@ func (g *Game) endUpkeep() {
 			c := g.Card(id)
 			c.notAttacked |= 1 << g.activePlayer
 			c.notBlocked |= 1 << g.activePlayer
+			c.notBeenBlocked |= 1 << g.activePlayer
 			if c.Controller() == g.activePlayer && c.enteredTurn < g.turn {
 				c.cameUnderControl = false
 			}

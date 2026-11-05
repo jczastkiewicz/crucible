@@ -208,3 +208,42 @@ func TestBandsWithOtherNeedsEveryMemberToMatch(t *testing.T) {
 	c2.QueueBands([][]engine.CardID{{fogey2, dino}})
 	declareAttackers(t, g2, c2)
 }
+
+// Wiitigo's blockedOrBeenBlockedSinceYourLastUpkeep (CardProperty.java:
+// 1092-1096): one that became blocked after its controller's upkeep ended
+// gains a +1/+1 counter at the next upkeep, one that did not loses one
+// (PhaseHandler.java:481 sets the flag, :789-792 clears it).
+func TestWiitigoGrowsOnlyAfterBeingBlocked(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	blocked := g.NewCard(corpusCard(t, "Wiitigo"), a, engine.Battlefield)
+	idle := g.NewCard(corpusCard(t, "Wiitigo"), a, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), b, engine.Battlefield)
+	for _, id := range []engine.CardID{blocked, idle} {
+		g.Card(id).Counters.Add(engine.CounterType("P1P1"), 6)
+	}
+	// The upkeep ends into a draw step: a library keeps the game going.
+	g.NewCard(corpusCard(t, "Grizzly Bears"), a, engine.Library)
+	g.SetTurnState(2, a, engine.Upkeep)
+	g.AdvancePhase(engine.NewScriptedController())
+
+	g.SetTurnState(2, a, engine.Main1)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{blocked})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: bears, Attacker: blocked}})
+	declareBlockers(t, g, bc)
+
+	g.SetTurnState(4, a, engine.Untap)
+	c := engine.NewScriptedController()
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	p1p1 := engine.CounterType("P1P1")
+	if got := [2]int{g.Card(blocked).Counters.Count(p1p1), g.Card(idle).Counters.Count(p1p1)}; got != [2]int{7, 5} {
+		t.Errorf("+1/+1 counters (blocked, idle) = %v, want [7 5]", got)
+	}
+}

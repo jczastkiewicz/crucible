@@ -164,6 +164,11 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 		}
 		blockersByAttacker[blk.Attacker] = append(blockersByAttacker[blk.Attacker], blk.Blocker)
 	}
+	for _, attacker := range attackers {
+		if g.combat.isBlocked(attacker) {
+			g.Card(attacker).notBeenBlocked = 0
+		}
+	}
 	for _, attacker := range blockedAttackers {
 		g.checkAttackerBlockedTriggers(controller, attacker, blockersByAttacker[attacker])
 	}

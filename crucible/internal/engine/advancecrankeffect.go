@@ -78,6 +78,17 @@ func (g *Game) advanceCrankCounter(controller PlayerController, pid PlayerID, so
 	}
 }
 
+// controlsContraption is Java's getCardsIn(Battlefield).anyMatch(
+// Card::isContraption) for pid (PhaseHandler.java:263).
+func (g *Game) controlsContraption(pid PlayerID) bool {
+	for _, id := range g.Zone(Battlefield, pid).Cards() {
+		if g.Card(id).Type().HasSubtype("Contraption") {
+			return true
+		}
+	}
+	return false
+}
+
 // isCrankContraptionTrigger reports whether t is CR's own Mode$
 // CrankContraption shape (TriggerCrankContraption.java). Every real corpus
 // T:Mode$ CrankContraption line names only ValidCard$ Card.Self, so no

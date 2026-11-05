@@ -67,6 +67,37 @@ func TestAdvanceCrankEffectAdvancesCounterAndCranksChosenContraption(t *testing.
 	}
 }
 
+// A player who controls a Contraption advances their CRANK! counter as
+// their upkeep begins and cranks the Contraptions on that sprocket
+// (PhaseHandler.java:263-265); a player with none keeps theirs.
+func TestUpkeepAdvancesTheCrankCounterOfAContraptionController(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	widget := g.NewCard(contraptionDef(t, "Test Contraption 1",
+		"Mode$ CrankContraption | ValidCard$ Card.Self | Execute$ TrigCrank",
+		"TrigCrank", "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1"), p, engine.Battlefield)
+	g.Card(widget).Sprocket = 1
+	before := g.Player(other).CrankCounter
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{widget})
+	g.SetTurnState(2, p, engine.Untap)
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).CrankCounter; got != 1 {
+		t.Errorf("CrankCounter = %d, want 1", got)
+	}
+	if got := g.Card(widget).Counters.Count(engine.CounterType("P1P1")); got != 1 {
+		t.Errorf("widget P1P1 counters = %d, want 1 (cranked at upkeep)", got)
+	}
+	if got := g.Player(other).CrankCounter; got != before {
+		t.Errorf("opponent's CrankCounter = %d, want %d (not their upkeep)", got, before)
+	}
+}
+
 // TestAdvanceCrankEffectNoContraptionsIsANoOp proves the counter still
 // advances with nothing on the battlefield to crank, and no
 // ChooseCardsForEffect call happens at all (a queued choice with nothing

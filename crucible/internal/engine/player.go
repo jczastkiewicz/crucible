@@ -208,6 +208,13 @@ type Player struct {
 	// :2493). Read by the LifeLostLastTurn player measure and
 	// Count$YouDrewLastTurn.
 	lifeLostLastTurn, drawnLastTurn int
+	// lifeStartedThisTurnWith is Player.lifeStartedThisTurnWith: the life
+	// total as the turn began, recorded at every cleanup (Player.java:2525).
+	// Until the first cleanup it reads 20, Java's field initializer
+	// (Player.java:85, taken before a variant sets startingLife); lifeStarted
+	// records whether a cleanup has run.
+	lifeStartedThisTurnWith int
+	lifeStarted             bool
 	// exploredThisTurn is Player.getNumExploredThisTurn: the explores this
 	// player's permanents made this turn, counted even when the explorer left
 	// the battlefield (ExploreEffect.java:103).

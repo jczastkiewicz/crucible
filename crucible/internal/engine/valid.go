@@ -565,6 +565,14 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// the source controller's last upkeep.
 		bit := uint32(1) << sourceController
 		return c.notAttacked&bit == 0 || c.notBlocked&bit == 0
+	case name == "blockedOrBeenBlockedSinceYourLastUpkeep":
+		// CardProperty.java:1092-1096: blocked or became blocked since the
+		// end of the source controller's last upkeep.
+		bit := uint32(1) << sourceController
+		return c.notBeenBlocked&bit == 0 || c.notBlocked&bit == 0
+	case strings.HasPrefix(name, "FoughtThisTurn"):
+		// CardProperty.java:1071-1074.
+		return c.foughtThisTurn
 	case strings.HasPrefix(name, "cameUnderControlSinceLastUpkeep"):
 		// CardProperty.java:1082.
 		return c.cameUnderControl

@@ -431,6 +431,7 @@ func TestPlayerCountAppliesItsOperatorPerPlayer(t *testing.T) {
 		{"PlayerCountPropertyYou$LifeLostThisTurn", 0},
 		{"PlayerCountPropertyYou$LifeGainedThisTurn", 0},
 		{"PlayerCountPropertyYou$Speed", 0},
+		{"PlayerCountPropertyYou$LifeStartedThisTurnWith", 20},
 		{"PlayerCountPropertyYou$NonCombatDamageDealtThisTurn", 0},
 		{"PlayerCountPropertyYou$RingTemptedYou", 0},
 		{"PlayerCountPropertyYou$AttractionsVisitedThisTurn", 0},
@@ -443,6 +444,23 @@ func TestPlayerCountAppliesItsOperatorPerPlayer(t *testing.T) {
 				t.Errorf("gained %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+// LifeStartedThisTurnWith is the life total the last cleanup recorded
+// (Player.java:2525), not the current one.
+func TestLifeStartedThisTurnWithIsTheLifeAtTheLastCleanup(t *testing.T) {
+	t.Parallel()
+
+	got := gainedFrom(t, func(g *engine.Game, p, _ engine.PlayerID) {
+		g.Player(p).Life = 13
+		g.SetTurnState(1, p, engine.EndOfTurn)
+		g.AdvancePhase(engine.NewScriptedController())
+		g.SetTurnState(2, p, engine.Main1)
+		g.Player(p).Life = 9
+	}, "PlayerCountPropertyYou$LifeStartedThisTurnWith")
+	if got != 13 {
+		t.Errorf("gained %d, want 13", got)
 	}
 }
 

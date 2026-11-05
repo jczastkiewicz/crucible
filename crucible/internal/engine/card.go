@@ -202,8 +202,11 @@ type Card struct {
 	// over PlayerID: the end of a player's upkeep sets that player's bit on
 	// every permanent, and the card attacking (blocking) clears the whole set
 	// (PhaseHandler.java:477-481, CombatUtil.java:387, PhaseHandler.java:783).
-	notAttacked, notBlocked uint32
-	enteredTurn             int
+	// notBeenBlocked is NotBeenBlockedSinceLastUpkeepOf, cleared when the
+	// card is a blocked attacker as blockers are declared
+	// (PhaseHandler.java:789-792).
+	notAttacked, notBlocked, notBeenBlocked uint32
+	enteredTurn                             int
 	// embalmed is Card.isEmbalmed: the token an Embalm ability made
 	// (copypermanenteffect.go), which Clone's Embalm$ reads.
 	embalmed bool
@@ -389,6 +392,10 @@ type Card struct {
 	// (checkBecomesTargetTriggers), reset every cleanup (cleanupStep,
 	// turn.go) alongside AttacksThisTurn.
 	BecameTargetThisTurn bool
+	// foughtThisTurn is Card.foughtThisTurn: set for both fighters as a Fight
+	// resolves (FightEffect.java:169-171), reset every cleanup
+	// (Card.java:7309).
+	foughtThisTurn bool
 
 	// blockedByThisTurn is Card.getBlockedByThisTurn (Card.java:112,
 	// 1658-1666): every creature that blocked this card this turn, in the

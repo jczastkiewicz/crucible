@@ -774,6 +774,22 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueSector(i)
 
+	case "assistant":
+		// The player an Assist spell's caster asks to pay (ChooseAssistant).
+		pid, err := resolveActionPlayer(l, args[1:], 1)
+		if err != nil {
+			return err
+		}
+		c.QueueAssistant(pid)
+
+	case "assistamount":
+		// The generic mana the assistant pays (AssistAmount).
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("queue assistamount %q: %w", value, err)
+		}
+		c.QueueAssistAmount(n)
+
 	case "paygeneric":
 		s, err := mana.ParseShard(value)
 		if err != nil {

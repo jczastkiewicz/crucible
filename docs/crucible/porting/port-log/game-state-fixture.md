@@ -188,6 +188,8 @@ plot <player> <id>            Game.Plot(player, id, controller), id from Loaded.
 turnfaceup <player> <id> [<way>]  Game.TurnFaceUp(player, id, way, controller), way 0 by default
 queue roomdoor <door>                 ScriptedController.QueueRoomDoor, UnlockDoor's LeftSplit/RightSplit pick
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
+queue assistant <p>           ScriptedController.QueueAssistant, the player an Assist spell's caster asks to pay (ChooseAssistant, CR 702.132a); none queued asks no one
+queue assistamount <n>        ScriptedController.QueueAssistAmount, the generic mana that assistant pays from their pool (AssistAmount)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
 queue hybridmanacolor <color> ScriptedController.QueueHybridManaColor, a bare color letter

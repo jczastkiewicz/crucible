@@ -10,10 +10,34 @@ package engine
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
+
+// assistPayment is CostAdjustment.adjustCostByAssist (CostAdjustment.java:
+// 307-328, CR 702.132a): the caster may choose another player, who pays up to
+// generic of the spell's generic mana from their own pool before the caster
+// pays the rest. It answers the amount paid. As in Java the assistant pays at
+// once, so a cast that then fails keeps their payment.
+func (g *Game) assistPayment(controller PlayerController, pid PlayerID, source CardID, generic int) int {
+	var others []PlayerID
+	for _, p := range g.Players() {
+		if p != pid {
+			others = append(others, p)
+		}
+	}
+	helper := controller.ChooseAssistant(g, pid, source, others, generic)
+	if helper == NoPlayer || !slices.Contains(others, helper) {
+		return 0
+	}
+	n := controller.AssistAmount(g, helper, source, generic)
+	if n <= 0 || n > generic || !g.PayManaCost(helper, mana.MustParse(strconv.Itoa(n)), controller) {
+		return 0
+	}
+	return n
+}
 
 // costAssist is what paying a reduced cost will tap and exile.
 type costAssist struct {
@@ -40,6 +64,10 @@ func (g *Game) assistCost(controller PlayerController, pid PlayerID, c *Card, to
 		return total, assist
 	}
 	generic, shards := total.Generic(), append([]mana.Shard(nil), total.Shards()...)
+
+	if c.HasKeyword("Assist") && generic > 0 {
+		generic -= g.assistPayment(controller, pid, c.ID, generic)
+	}
 
 	if c.HasKeyword("Delve") && generic > 0 {
 		grave := g.Zone(Graveyard, pid).Cards()

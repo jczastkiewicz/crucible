@@ -7,6 +7,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/fixture"
 )
 
@@ -56,5 +57,29 @@ func TestFaceDownInHandIsAnError(t *testing.T) {
 	}
 	if _, err := fixture.Load(st, bearDB(t), nil); err == nil {
 		t.Error("FaceDown in the hand loaded")
+	}
+}
+
+// queue assistant names the player an Assist spell's caster asks, queue
+// assistamount what they pay; a non-number amount is an error.
+func TestAssistQueueVerbs(t *testing.T) {
+	t.Parallel()
+
+	l := load(t, bearDB(t), "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+	if err := runActions(t, l, c, "queue assistant ai\nqueue assistamount 2\n"); err != nil {
+		t.Fatalf("runActions: %v", err)
+	}
+	human, ai := l.Game.Players()[0], l.Game.Players()[1]
+	if got := c.ChooseAssistant(l.Game, human, engine.NoCard, []engine.PlayerID{ai}, 2); got != ai {
+		t.Errorf("assistant %v, want ai", got)
+	}
+	if got := c.AssistAmount(l.Game, ai, engine.NoCard, 2); got != 2 {
+		t.Errorf("assist amount %d, want 2", got)
+	}
+	for _, line := range []string{"queue assistamount two", "queue assistant nobody"} {
+		if err := runActions(t, l, engine.NewScriptedController(), line+"\n"); err == nil {
+			t.Errorf("%q did not error", line)
+		}
 	}
 }

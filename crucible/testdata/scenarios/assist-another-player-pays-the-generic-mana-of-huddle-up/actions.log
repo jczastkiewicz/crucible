@@ -1,0 +1,15 @@
+# CR 702.132a, Assist (CostAdjustment.adjustCostByAssist): the caster of
+# Huddle Up ({2}{U}) chooses ai, who pays the {2} from their own pool; the
+# caster pays {U} with the Island. Both targeted players draw a card.
+startturn human
+advance 3
+tapformana ai 3 R
+tapformana ai 4 R
+tapformana human 2 U
+queue targets human,ai
+queue assistant ai
+queue assistamount 2
+queue paygeneric R
+queue paygeneric R
+castspell human 1
+resolvestack

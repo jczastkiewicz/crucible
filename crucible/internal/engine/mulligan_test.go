@@ -537,6 +537,14 @@ func (c *scriptedMulliganController) ChooseRollToSwap(_ *engine.Game, _ engine.P
 	panic("scriptedMulliganController: ChooseRollToSwap was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChooseAssistant(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.PlayerID, _ int) engine.PlayerID {
+	return engine.NoPlayer
+}
+
+func (c *scriptedMulliganController) AssistAmount(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ int) int {
+	panic("scriptedMulliganController: AssistAmount was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChooseRollSwapValue(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _, _, _ int) int {
 	panic("scriptedMulliganController: ChooseRollSwapValue was not expected to be called")
 }

@@ -413,6 +413,14 @@ func (*Controller) ChoosePlayerForEffect(_ *engine.Game, _ engine.PlayerID, _ en
 	return options[0]
 }
 
+// ChooseAssistant asks no one, as Java's AI does (PlayerControllerAi.java:395-410).
+func (*Controller) ChooseAssistant(*engine.Game, engine.PlayerID, engine.CardID, []engine.PlayerID, int) engine.PlayerID {
+	return engine.NoPlayer
+}
+
+// AssistAmount pays nothing; ChooseAssistant never names a player to ask.
+func (*Controller) AssistAmount(*engine.Game, engine.PlayerID, engine.CardID, int) int { return 0 }
+
 // ChooseColors picks the first colours offered, at least one when the choice allows it.
 func (*Controller) ChooseColors(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, options mana.Colors, lo, hi int) mana.Colors {
 	var out mana.Colors

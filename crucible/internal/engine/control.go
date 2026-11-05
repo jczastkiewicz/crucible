@@ -362,6 +362,16 @@ type PlayerController interface {
 	// same as an unavailable hybrid colour choice already does.
 	ChoosePayGeneric(g *Game, decider PlayerID) mana.Shard
 
+	// ChooseAssistant is Java's choosePlayerToAssistPayment: the caster of
+	// a spell with Assist (CR 702.132a) may choose another player, out of
+	// options, to pay up to most of its generic mana. NoPlayer chooses no one,
+	// which is what Java's AI always answers (PlayerControllerAi.java:395-410).
+	ChooseAssistant(g *Game, caster PlayerID, source CardID, options []PlayerID, most int) PlayerID
+
+	// AssistAmount is Java's helpPayForAssistSpell: how much of the spell's
+	// generic mana, 0 to most, the chosen assistant pays from their own pool.
+	AssistAmount(g *Game, assistant PlayerID, source CardID, most int) int
+
 	// ChoosePayX decides the value of X for a cost carrying one or more X
 	// symbols (CR 601.2b/107.3f: chosen once per cast, then every X symbol in
 	// the cost stands for that same value -- a cost with two X symbols owes
@@ -688,6 +698,8 @@ type ScriptedController struct {
 	returnChoices      [][]CardID
 	cardChoices        [][]CardID
 	playerChoices      []PlayerID
+	assistants         []PlayerID
+	assistAmounts      []int
 	colorChoices       []mana.Colors
 	numberChoices      []int
 	tapOrUntap         []bool
@@ -1307,6 +1319,27 @@ func (c *ScriptedController) QueueColorChoice(colors mana.Colors) {
 // ChooseColors returns the next answer QueueColorChoice queued.
 func (c *ScriptedController) ChooseColors(_ *Game, _ PlayerID, _ CardID, _ mana.Colors, _, _ int) mana.Colors {
 	return popQueue(&c.colorChoices, "color choice")
+}
+
+// QueueAssistant appends the answer to the next ChooseAssistant call.
+func (c *ScriptedController) QueueAssistant(p PlayerID) { c.assistants = append(c.assistants, p) }
+
+// ChooseAssistant returns the next answer QueueAssistant queued, and no one
+// when none is queued: every cast of an Assist spell asks, and a script that
+// does not mean to be assisted need not say so.
+func (c *ScriptedController) ChooseAssistant(_ *Game, _ PlayerID, _ CardID, _ []PlayerID, _ int) PlayerID {
+	if len(c.assistants) == 0 {
+		return NoPlayer
+	}
+	return popQueue(&c.assistants, "assistant")
+}
+
+// QueueAssistAmount appends the answer to the next AssistAmount call.
+func (c *ScriptedController) QueueAssistAmount(n int) { c.assistAmounts = append(c.assistAmounts, n) }
+
+// AssistAmount returns the next answer QueueAssistAmount queued.
+func (c *ScriptedController) AssistAmount(_ *Game, _ PlayerID, _ CardID, _ int) int {
+	return popQueue(&c.assistAmounts, "assist amount")
 }
 
 // QueueNumberChoice appends the answer to the next ChooseNumber call.

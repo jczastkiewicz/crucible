@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+humanhand=Huddle Up|Id:1
+humanbattlefield=Island|Id:2
+humanlibrary=Island|Id:5
+aibattlefield=Mountain|Id:3;Mountain|Id:4
+ailibrary=Mountain|Id:6

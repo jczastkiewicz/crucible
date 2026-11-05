@@ -217,7 +217,10 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 	if z := g.Card(left).Zone; z != Graveyard {
 		switch z {
 		case Exile:
+			// The replacement's ReplaceWith$ ChangeZone exiles through
+			// GameAction.exile, which runs Mode$ Exiled too.
 			g.checkExiledTriggers(controller, left)
+			g.checkModeExiledTriggers(controller, left, Battlefield, nil)
 		case Library, Hand:
 			g.checkLeftToTriggers(controller, left, z)
 		}
@@ -1662,8 +1665,8 @@ func (g *Game) checkSacrificedTriggers(controller PlayerController, card CardID,
 // special-cased here.
 //
 // Not resolved: ValidCause$ (0 real lines) -- a SpellAbility, not a Card,
-// Matches cannot evaluate one; WhileKeyword$ (1) -- whileKeywordCheck, a
-// further mechanic this port does not have; ActivationLimit$ (7) and
+// Matches cannot evaluate one; WhileKeyword$ (1, Foul Emissary's
+// Spell.withEmerge) -- whileKeywordMatches reads only Ability.<keyword>; ActivationLimit$ (7) and
 // ResolvedLimit$ (1) -- the identical per-turn-cap gap LifeGained's own
 // ActivationLimit$ already documents, this port tracking no such counter. A
 // trigger carrying any of these four is skipped entirely, not fired

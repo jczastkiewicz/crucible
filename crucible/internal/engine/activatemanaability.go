@@ -471,7 +471,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			sacrificeCardsFor(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card}, false)
 		}
 		if shape.SelfExile {
-			exileCards(g, controller, []CardID{card})
+			exileCards(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card})
 		}
 		g.payCostCards(controller, pid, chosen, &Ability{Source: card, Controller: pid, Params: ability})
 		if shape.SelfExert {

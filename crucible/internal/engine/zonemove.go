@@ -58,6 +58,7 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 	// for the hand or library is read from any origin (the Commander Effect,
 	// ADR-0053).
 	var redirected *movedPost
+	requested := dest
 	if origin == Battlefield && dest != Battlefield && dest != Graveyard || dest == Hand || dest == Library {
 		dest, redirected = g.movedDestination(controller, id, dest)
 	}
@@ -134,6 +135,14 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 	case Library, Command:
 		// Command: a commander the Commander Effect sent there (ADR-0053).
 		g.checkLeftToTriggers(controller, id, dest)
+	}
+	if requested == Exile || dest == Exile {
+		// GameAction.moveTo(ZoneType.Exile) is GameAction.exile, which runs
+		// Mode$ Exiled after the move whatever a Moved replacement made of it
+		// (GameAction.java:934-957). A move a Moved replacement sends into
+		// exile runs its ReplaceWith$ ChangeZone, which exiles through the
+		// same call.
+		g.checkModeExiledTriggers(controller, id, Battlefield, nil)
 	}
 	return melded
 }

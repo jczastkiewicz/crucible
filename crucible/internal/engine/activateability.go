@@ -502,7 +502,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		if g.Card(card).Zone == Battlefield {
 			activated.paid.exiled = append(activated.paid.exiled, card)
 		}
-		exileCards(g, controller, []CardID{card})
+		exileCards(g, controller, &activated, []CardID{card})
 	}
 	if shape.SelfReturn {
 		activated.paid.returned = append(activated.paid.returned, card)

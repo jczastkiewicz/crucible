@@ -1,0 +1,10 @@
+# Captain Marvel's Mode$ Exiled with ValidCard$ Creature.Other: the Wurm
+# exiled from the battlefield gains its controller 6 from Swords and
+# Captain Marvel's controller life equal to its power, read as it last was.
+startturn human
+advance 3
+tapformana human 2 W
+queue targets 4
+castspell human 1
+resolvestack
+resolvestack

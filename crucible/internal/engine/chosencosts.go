@@ -113,7 +113,7 @@ func (g *Game) payCostCards(controller PlayerController, pid PlayerID, chosen ch
 		a.paid.sacrificed = append(a.paid.sacrificed, sac...)
 	}
 	if exile := in(Battlefield, chosen.exile); len(exile) > 0 {
-		exileCards(g, controller, exile)
+		exileCards(g, controller, a, exile)
 		a.paid.exiled = append(a.paid.exiled, exile...)
 	}
 	for _, id := range in(Graveyard, chosen.exileGrave) {

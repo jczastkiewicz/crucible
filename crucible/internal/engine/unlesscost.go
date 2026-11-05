@@ -1171,7 +1171,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.exileGraveN > 0 {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.exileGraveOptions(pid, a.Source, uc), uc.exileGraveN, uc.exileGraveN)
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1207,7 +1207,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		} else {
 			options = g.anyGraveCandidates(pid, a.Source, uc.exileMiscSpec)
 		}
-		exiled := g.exileCostCards(controller, a.Source, g.chosenUnlessCards(controller, pid, a.Source, options, n, n))
+		exiled := g.exileCostCards(controller, a, a.Source, g.chosenUnlessCards(controller, pid, a.Source, options, n, n))
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1234,7 +1234,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 			// cards that reach it stand in.
 			picks = g.totalCMCFallback(options, uc)
 		}
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1265,7 +1265,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.exileGraveAll {
-		exiled := g.exileCostCards(controller, a.Source, slices.Clone(g.Zone(Graveyard, pid).Cards()))
+		exiled := g.exileCostCards(controller, a, a.Source, slices.Clone(g.Zone(Graveyard, pid).Cards()))
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1287,7 +1287,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.exileFieldN > 0 {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.costCandidates(pid, a.Source, false, Battlefield, uc.exileFieldSpec), uc.exileFieldN, uc.exileFieldN)
-		exileCards(g, controller, picks)
+		exileCards(g, controller, a, picks)
 		for _, id := range picks {
 			g.markExiledWith(id, a.Source)
 		}
@@ -1296,20 +1296,20 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.exileSelfGrave {
-		exiled := g.exileCostCards(controller, a.Source, []CardID{a.Source})
+		exiled := g.exileCostCards(controller, a, a.Source, []CardID{a.Source})
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
 	if uc.exileSelf {
-		exileCards(g, controller, []CardID{a.Source})
+		exileCards(g, controller, a, []CardID{a.Source})
 		if rec != nil {
 			rec.exiled = append(rec.exiled, a.Source)
 		}
 	}
 	for _, m := range uc.moreExile {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.costCandidates(pid, a.Source, false, Battlefield, m.spec), m.n, m.n)
-		exileCards(g, controller, picks)
+		exileCards(g, controller, a, picks)
 		for _, id := range picks {
 			g.markExiledWith(id, a.Source)
 		}
@@ -1449,7 +1449,7 @@ func (g *Game) collectEvidence(controller PlayerController, pid PlayerID, source
 	if !isSubset(picks, grave) || hasDuplicate(picks) || graveyardManaValue(g, picks) < n {
 		picks = grave
 	}
-	picks = g.exileCostCards(controller, source, append([]CardID(nil), picks...))
+	picks = g.exileCostCards(controller, nil, source, append([]CardID(nil), picks...))
 	g.checkCollectEvidenceTriggers(controller, pid)
 	return picks
 }

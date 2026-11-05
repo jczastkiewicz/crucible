@@ -81,7 +81,7 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 
 	// GameAction.exile on both, the host first: each exile fires its own
 	// leave-the-battlefield triggers, the pair its ChangesZoneAll triggers.
-	exileCards(g, controller, []CardID{primary, secondary})
+	exileCards(g, controller, nil, []CardID{primary, secondary})
 	// GameAction.java:424-429: a permanent leaving the battlefield leaves
 	// combat. Game.Move does not (combat.go's removeFromCombat), and an
 	// attacking card melded away must not deal combat damage as though it

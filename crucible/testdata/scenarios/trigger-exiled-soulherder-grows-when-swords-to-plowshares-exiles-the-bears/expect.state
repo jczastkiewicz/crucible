@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humangraveyard=Swords to Plowshares
+humanbattlefield=Plains|Tapped;Soulherder|Counters:P1P1=1
+ailife=22
+aiexile=Grizzly Bears

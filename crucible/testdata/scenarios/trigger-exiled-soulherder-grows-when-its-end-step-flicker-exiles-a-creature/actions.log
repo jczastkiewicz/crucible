@@ -1,0 +1,10 @@
+# Soulherder's end-step trigger exiles the Bears through ChangeZone
+# (GameAction.exile) and returns them: its own Mode$ Exiled sees a creature
+# exiled from the battlefield and puts a +1/+1 counter on it. The Bears come
+# back as a new object, summoning sick.
+startturn human
+queue optionaltrigger true
+queue targets 2
+advance 11
+resolvestack
+resolvestack

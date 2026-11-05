@@ -1,0 +1,6 @@
+# Rest in Peace's Moved replacement runs its ReplaceWith$ ChangeZone, which
+# exiles the dying Bears through GameAction.exile: Mode$ Exiled fires with
+# Origin Battlefield, and Soulherder gets a +1/+1 counter (CR 614.6: the
+# creature is exiled from the battlefield instead of dying).
+startturn human
+resolvestack

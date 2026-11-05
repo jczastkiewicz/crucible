@@ -1,0 +1,11 @@
+# Mode$ Exiled (TriggerExiled.java): ChangeZone exiles the Bears through
+# GameAction.exile (GameAction.java:934-957), Origin Battlefield, so
+# Soulherder's "whenever a creature is exiled from the battlefield" puts a
+# +1/+1 counter on it. Swords gives the Bears' controller 2 life.
+startturn human
+advance 3
+tapformana human 2 W
+queue targets 4
+castspell human 1
+resolvestack
+resolvestack

@@ -425,21 +425,21 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 	}
 	if uc.exileHandAll {
 		hand := handWithout(g.Zone(Hand, pid).Cards(), a.Source)
-		exiled := g.exileCostCards(controller, a.Source, hand)
+		exiled := g.exileCostCards(controller, a, a.Source, hand)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
 	if uc.exileEitherN > 0 {
 		picks := g.exileEitherPicks(controller, pid, a.Source, uc.exileEitherN, uc.exileEitherSpec)
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
 	for _, m := range uc.moreExileEither {
 		picks := g.exileEitherPicks(controller, pid, a.Source, m.n, m.spec)
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -519,7 +519,7 @@ func (g *Game) payChoiceParts(controller PlayerController, a *Ability, pid Playe
 		// marked exiled with the spell once it is on the stack
 		// (putSpellOnStack), which the permanent it becomes keeps
 		// (relinkExiledWith).
-		rec.exiled = append(rec.exiled, g.exileCostCards(controller, a.Source, revealed)...)
+		rec.exiled = append(rec.exiled, g.exileCostCards(controller, a, a.Source, revealed)...)
 	}
 	return true
 }
@@ -527,7 +527,7 @@ func (g *Game) payChoiceParts(controller PlayerController, a *Ability, pid Playe
 // exileCostCards exiles ids for a cost of source, from whatever zone each is
 // in, and marks each as exiled with source (CostExile.doPayment, :290-296). It
 // returns the cards it exiled.
-func (g *Game) exileCostCards(controller PlayerController, source CardID, ids []CardID) []CardID {
+func (g *Game) exileCostCards(controller PlayerController, paying *Ability, source CardID, ids []CardID) []CardID {
 	var out []CardID
 	for _, id := range ids {
 		// Every cost part picks from the graveyard, the hand or the
@@ -538,7 +538,7 @@ func (g *Game) exileCostCards(controller PlayerController, source CardID, ids []
 		case Hand:
 			exileFromHand(g, id)
 		default:
-			exileCards(g, controller, []CardID{id})
+			exileCards(g, controller, paying, []CardID{id})
 		}
 		if g.Card(id).Zone == Exile {
 			g.markExiledWith(id, source)
@@ -567,7 +567,7 @@ func (g *Game) payForage(controller PlayerController, a *Ability, pid PlayerID) 
 		sacrificeCardsFor(g, controller, a, food, false)
 	} else {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, append([]CardID(nil), grave...), forageExileN, forageExileN)
-		g.exileCostCards(controller, a.Source, picks)
+		g.exileCostCards(controller, a, a.Source, picks)
 	}
 	g.pushTriggeredAbilities(controller, g.playerEventMatches("Forage", forageTriggerParams, pid))
 }

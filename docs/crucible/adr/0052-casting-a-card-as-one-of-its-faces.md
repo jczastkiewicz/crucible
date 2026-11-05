@@ -15,8 +15,8 @@ Java builds one `SpellAbility` per face (`Card.getAllPossibleAbilities`, `Card.j
 `CardStateName`, and `chooseSpellAbilityToPlay` picks among them (`PlayerController.java:303`);
 `setSplitStateToPlayAbility` (`Card.java:7484-7504`) switches the card to that state while the spell is on the stack.
 Adventure exiles a resolved spell and tracks it with the exiling source (`CardFactoryUtil.java:4075-4101`,
-`Card.isOnAdventure`); Omen shuffles on any departure from the stack (`:4102-4116`); a Modal back face stays the
-permanent's state.
+`Card.isOnAdventure`); Omen shuffles as the spell resolves (`:4106-4120`, `Fizzle$ False`; CR 720.3d), a countered one
+goes to the graveyard; a Modal back face stays the permanent's state.
 
 ## Decision Drivers
 

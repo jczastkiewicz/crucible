@@ -207,9 +207,13 @@ func (g *Game) faceZoneCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 
 // resolvedFaceSpell is where a face spell goes as it leaves the stack, in
 // moveResolvedSpellToGraveyard (a resolved Adventure spell, not a countered
-// one, CounterEffect.java:263 carries no Fizzle key) and moveToGraveyard (an
-// Omen spell on any departure, CardFactoryUtil.java:4102-4116): Adventure
-// exiles the card on an adventure, Omen shuffles it into its owner's library.
+// one, CounterEffect.java:263 carries no Fizzle key) and moveToGraveyard
+// (never resolved): Adventure exiles the card on an adventure, Omen shuffles
+// it into its owner's library. Both only as the spell resolves: the Omen
+// replacement's Fizzle$ False (CardFactoryUtil.java:4106-4120) needs the
+// Fizzle key only MagicStack.finishResolving sets, and CR 720.3d shuffles
+// it "as an Omen spell resolves"; countered or fizzled, it goes to the
+// graveyard.
 // Reports whether it took the card.
 func (g *Game) resolvedFaceSpell(controller PlayerController, id CardID, resolved bool) bool {
 	c := g.Card(id)
@@ -222,7 +226,7 @@ func (g *Game) resolvedFaceSpell(controller PlayerController, id CardID, resolve
 		g.Move(id, Exile, c.Owner)
 		g.Card(id).onAdventure = true
 		return true
-	case split == carddb.SplitOmen:
+	case split == carddb.SplitOmen && resolved:
 		owner := c.Owner
 		g.MoveToLibraryTop(id, owner)
 		g.shuffleLibrary(controller, owner, nil)

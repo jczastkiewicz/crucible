@@ -48,9 +48,11 @@ public final class ScenarioRunner {
     // The actions.log verbs l2-verbs.md maps; a scenario using any other is
     // reported unmapped and not run (ADR-0060).
     private static final Set<String> MAPPED = Set.of("startturn");
-    // A player seat in GameState text: a p<i> key prefix or activeplayer
-    // value, or a P<i> card token value (GameState.getPlayerString).
-    private static final Pattern SEAT = Pattern.compile("(^p|=p|:P)(-?\\d+)");
+    // A player seat in GameState text: a p<i> key prefix, the activeplayer
+    // value, or the P<i> value of a player token (GameState.getPlayerString).
+    // Never a counter type such as P1P1.
+    private static final Pattern SEAT = Pattern.compile(
+            "(^p|^activeplayer=p|(?:Owner|EnchantingPlayer|Protector):P)(-?\\d+)");
 
     private ScenarioRunner() {
     }

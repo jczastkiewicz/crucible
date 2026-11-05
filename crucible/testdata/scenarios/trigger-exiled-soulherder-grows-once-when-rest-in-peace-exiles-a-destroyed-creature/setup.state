@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Doom Blade|Id:1
+humanbattlefield=Swamp|Id:2;Swamp|Id:3;Rest in Peace|Id:4;Soulherder|Id:5
+aibattlefield=Grizzly Bears|Id:6

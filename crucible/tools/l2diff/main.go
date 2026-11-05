@@ -71,7 +71,7 @@ func emit(scenarios, res, out, only string) error {
 		return err
 	}
 	db = db.WithTokens(tokens)
-	if err := os.MkdirAll(filepath.Join(out, "go"), 0o755); err != nil {
+	if err := clearDir(filepath.Join(out, "go"), "*.state"); err != nil {
 		return err
 	}
 	entries, err := os.ReadDir(scenarios)
@@ -166,7 +166,7 @@ func diff(dir string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "diffs"), 0o755); err != nil {
+	if err := clearDir(filepath.Join(dir, "diffs"), "*.diff"); err != nil {
 		return err
 	}
 	lists := map[string][]string{}
@@ -254,6 +254,24 @@ func lineDiff(goText, javaText string) string {
 		}
 	}
 	return b.String()
+}
+
+// clearDir makes dir and removes the files an earlier run left there that
+// match pattern, so a scenario deleted or reclassified since does not linger.
+func clearDir(dir, pattern string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	stale, err := filepath.Glob(filepath.Join(dir, pattern))
+	if err != nil {
+		return err
+	}
+	for _, f := range stale {
+		if err := os.Remove(f); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func joinLines(lines []string) string {

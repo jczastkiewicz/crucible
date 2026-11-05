@@ -13,6 +13,9 @@ root="$(git rev-parse --show-toplevel)"
 manifest="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 mkdir -p "$2"
 out="$(cd "$2" && pwd)"
+# A scenario's result from an earlier run would shadow this one's (l2diff
+# reads .unmapped and .error before .state).
+find "$out" -maxdepth 1 \( -name '*.state' -o -name '*.unmapped' -o -name '*.error' \) -delete
 cd "$root"
 work="${L2_WORK:-$root/crucible/oracle-java/target/l2}"
 mkdir -p "$work/classes"

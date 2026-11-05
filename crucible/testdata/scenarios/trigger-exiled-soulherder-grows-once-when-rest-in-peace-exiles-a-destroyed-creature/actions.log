@@ -1,0 +1,13 @@
+# Doom Blade destroys the Bears; Rest in Peace's Moved replacement exiles
+# them instead, through its ReplaceWith$ ChangeZone (GameAction.exile).
+# Mode$ Exiled fires once: Soulherder gets exactly one +1/+1 counter. Doom
+# Blade itself is exiled too, from the stack, which Soulherder's Origin$
+# Battlefield does not see.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+queue paygeneric B
+queue targets 6
+castspell human 1
+resolvestack

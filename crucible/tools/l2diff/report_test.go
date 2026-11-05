@@ -32,6 +32,7 @@ func TestDiffSortsScenariosIntoTheReportLists(t *testing.T) {
 	write("java/unmapped.unmapped", "castspell human 1\nresolvestack\n")
 	write("java/error.error", "java.lang.IllegalStateException: boom\n\tat x\n")
 	write("random.txt", "random\n")
+	write("diffs/gone.diff", "from an earlier run\n")
 
 	if err := diff(dir); err != nil {
 		t.Fatal(err)
@@ -51,6 +52,9 @@ func TestDiffSortsScenariosIntoTheReportLists(t *testing.T) {
 		if !strings.Contains(string(report), want) {
 			t.Errorf("report lacks %q:\n%s", want, report)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "diffs", "gone.diff")); !os.IsNotExist(err) {
+		t.Errorf("an earlier run's diff survived: %v", err)
 	}
 	d, err := os.ReadFile(filepath.Join(dir, "diffs", "differs.diff"))
 	if err != nil {

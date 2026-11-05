@@ -244,7 +244,13 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 
 	default:
 		assigned := 0
-		for _, a := range controller.AssignCombatDamage(g, atk.Controller(), attacker, liveBlockers) {
+		// Blockers that share banding divide it (CR 702.22k, Combat.java:839-840:
+		// the first blocker's controller).
+		decider := atk.Controller()
+		if g.validBand(liveBlockers, true) {
+			decider = g.Card(liveBlockers[0]).Controller()
+		}
+		for _, a := range controller.AssignCombatDamage(g, decider, attacker, liveBlockers) {
 			g.dealPermanentDamage(controller, attacker, a.Blocker, a.Amount, deathtouch, true, table)
 			assigned += a.Amount
 		}
@@ -276,7 +282,12 @@ func (g *Game) dealBlockerDamage(controller PlayerController, blocker CardID, po
 		g.dealPermanentDamage(controller, blocker, attackers[0], power, deathtouch, true, table)
 		return
 	}
-	for _, a := range controller.AssignCombatDamage(g, g.Card(blocker).Controller(), blocker, attackers) {
+	// Attackers that share banding divide it (CR 702.22j, Combat.java:780-781).
+	decider := g.Card(blocker).Controller()
+	if g.validBand(attackers, true) {
+		decider = g.Card(attackers[0]).Controller()
+	}
+	for _, a := range controller.AssignCombatDamage(g, decider, blocker, attackers) {
 		g.dealPermanentDamage(controller, blocker, a.Blocker, a.Amount, deathtouch, true, table)
 	}
 }

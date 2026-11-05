@@ -119,6 +119,16 @@ type PlayerController interface {
 	// empty return is legal, the player declining every offer.
 	ExertAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 
+	// DeclareBands decides which of the declared attackers attack in bands
+	// (CR 702.22c, banding.go, ADR-0057). Asked only when one of attackers has
+	// Banding or Bands with other, after the attack is checked and before
+	// anything taps. Each returned band names attackers that attack the same
+	// target; one of two or more must be valid (at most one member without
+	// banding, or all matching a member's Bands with other), or
+	// Game.DeclareCombatAttackers returns an *IllegalDeclarationError. An
+	// attacker in no band attacks alone; nil forms no band.
+	DeclareBands(g *Game, decider PlayerID, attackers []CardID) [][]CardID
+
 	// PayManaCost is PlayerController.payManaCost's mana-ability half (CR
 	// 605.3a, ADR-0054), asked once for every mana payment: the mana
 	// abilities payer activates, in order, before the pool pays toPay for
@@ -650,6 +660,7 @@ type ScriptedController struct {
 	legendaryKeep      []CardID
 	attackers          [][]CardID
 	exertAttackers     [][]CardID
+	bands              [][][]CardID
 	attackTargets      []EntityID
 	blocks             [][]Block
 	damage             [][]DamageAssignment
@@ -764,6 +775,11 @@ func (c *ScriptedController) QueueAttackers(cards []CardID) {
 // consumes the queue slot.
 func (c *ScriptedController) QueueExertAttackers(cards []CardID) {
 	c.exertAttackers = append(c.exertAttackers, cards)
+}
+
+// QueueBands appends the answer to the next DeclareBands call.
+func (c *ScriptedController) QueueBands(bands [][]CardID) {
+	c.bands = append(c.bands, bands)
 }
 
 // QueueAttackTarget appends the answer to the next ChooseAttackTarget call.
@@ -925,6 +941,18 @@ func (c *ScriptedController) ExertAttackers(_ *Game, _ PlayerID, _ []CardID) []C
 	}
 	v := c.exertAttackers[0]
 	c.exertAttackers = c.exertAttackers[1:]
+	return v
+}
+
+// DeclareBands returns the next answer QueueBands queued, or no band when
+// nothing is queued: banding is rare enough that a script attacking with a
+// banding creature need not answer.
+func (c *ScriptedController) DeclareBands(_ *Game, _ PlayerID, _ []CardID) [][]CardID {
+	if len(c.bands) == 0 {
+		return nil
+	}
+	v := c.bands[0]
+	c.bands = c.bands[1:]
 	return v
 }
 

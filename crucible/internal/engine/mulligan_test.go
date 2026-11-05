@@ -83,6 +83,10 @@ func (c *scriptedMulliganController) PayManaCost(_ *engine.Game, _ engine.Player
 	return nil
 }
 
+func (c *scriptedMulliganController) DeclareBands(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) [][]engine.CardID {
+	panic("scriptedMulliganController: DeclareBands was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ExertAttackers(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) []engine.CardID {
 	panic("scriptedMulliganController: ExertAttackers was not expected to be called")
 }

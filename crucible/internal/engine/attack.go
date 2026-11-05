@@ -88,6 +88,12 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	if err := g.checkAttackCosts(attackers, targets); err != nil {
 		return nil, err
 	}
+	// Bands are declared with the attack (InputAttack.java:186-249), before
+	// anything taps or pays, so an illegal band changes nothing.
+	bands, err := g.declareBands(controller, attackers, targets)
+	if err != nil {
+		return nil, err
+	}
 
 	prev := g.combat
 	g.combat.Attackers = attackers
@@ -95,6 +101,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 		g.Card(id).notAttacked = 0
 	}
 	g.combat.AttackTargets = targets
+	g.combat.bands = bands
 	// One batch for every mode the declaration runs (Taps, Exerted, Attacks,
 	// AttackersDeclared...): Java collects them all before any reaches the
 	// stack (beginTriggerBatch).
@@ -119,6 +126,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	if err != nil {
 		return nil, err
 	}
+	g.combat.keepBands(attackers)
 	var tapped []CardID
 	for _, id := range attackers {
 		if containsCard(provisional, id) {

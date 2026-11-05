@@ -159,6 +159,11 @@ func (*Controller) PayManaCost(*engine.Game, engine.PlayerID, mana.Cost, engine.
 	return nil
 }
 
+// DeclareBands forms no band.
+func (*Controller) DeclareBands(*engine.Game, engine.PlayerID, []engine.CardID) [][]engine.CardID {
+	return nil
+}
+
 // ExertAttackers exerts nothing.
 func (*Controller) ExertAttackers(*engine.Game, engine.PlayerID, []engine.CardID) []engine.CardID {
 	return nil

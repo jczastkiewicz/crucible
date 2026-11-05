@@ -135,6 +135,9 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 			return nil, err
 		}
 	}
+	// Validated as declared; only then does a block on a band member become
+	// a block on every member (CR 702.22h, ADR-0057).
+	blocks = g.combat.expandBandBlocks(blocks)
 	g.combat.Blocks = blocks
 	// declareBlockersTurnBasedAction sets every band's blocked flag
 	// (AttackingBand.setBlocked): from here an attacker is blocked or

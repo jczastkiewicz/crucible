@@ -60,12 +60,14 @@ Option 2.
 emptied band is dropped. Java leaves an empty band in its map (`Combat.java:280`, `:640`). Nothing reads it except
 `getAttackingBands`, so it is not reproduced. A PORT-8 report waits on a test that shows it.
 
-**Declaration.** `PlayerController.DeclareBands(g, decider, attackers) [][]CardID` is asked once after
-`DeclareCombatAttackers` and `ExertAttackers`, only when an attacker can band. Each returned band is checked with
+**Declaration.** `PlayerController.DeclareBands(g, decider, attackers) [][]CardID` is asked once, only when an attacker
+can band. It comes after the attack is checked and before anything taps, exerts or pays, so an illegal band changes
+nothing (ADR-0024). An attacker a cost then removes leaves its band. Each returned band is checked with
 `isValidBand(band, false)`:
 
 - at most one member without banding;
-- for Bands with other, every member matches the filter.
+- for Bands with other, every member matches the filter;
+- every member attacks the same target, as Java keys bands by defender (`Combat.java:267-292`).
 
 An invalid band, or an attacker in two bands, is an `*IllegalDeclarationError` (ADR-0024). Attackers the answer leaves
 out stay singletons. The scripted, smoke and default controllers return nil.

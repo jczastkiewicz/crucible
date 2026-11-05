@@ -40,6 +40,10 @@ type Combat struct {
 	// that is not blocked: before blockers are declared no attacker is
 	// "unblocked".
 	blockDecided []CardID
+	// bands are the attacking bands of two or more declared this combat
+	// (banding.go, ADR-0057), in declaration order; every other attacker is
+	// a band of one.
+	bands [][]CardID
 }
 
 // isUnblocked is Combat.isUnblocked: an attacker whose blocked status was
@@ -155,6 +159,7 @@ func (g *Game) removeFromCombat(id CardID) {
 		}
 	}
 	g.combat.Attackers = attackers
+	g.combat.keepBands(attackers)
 	if g.combat.AttackTargets != nil {
 		delete(g.combat.AttackTargets, id)
 	}

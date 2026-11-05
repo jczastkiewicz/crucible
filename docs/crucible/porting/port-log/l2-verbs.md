@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Three verbs are mapped (`startturn`, `advance`, `step`), so most scenarios are not runnable yet; no CI job and no `l2-baseline.txt` yet (phase 2)
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 870 scenarios. Three verbs are mapped (`startturn`, `advance`, `step`), so most scenarios are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` list is exactly `crucible/testdata/l2-baseline.txt`
 
 ## What it does
 
@@ -13,6 +13,7 @@ cd crucible
 go run ./tools/l2diff emit -out /tmp/l2                 # go/<name>.state, manifest.tsv, random.txt, go-failed.txt
 oracle-java/l2-run.sh /tmp/l2/manifest.tsv /tmp/l2/java # java/<name>.state|.unmapped|.error; L2_NO_BUILD=1 reuses the build
 go run ./tools/l2diff diff -dir /tmp/l2                 # report.txt, diffs/<name>.diff
+go run ./tools/l2diff diff -dir /tmp/l2 -baseline testdata/l2-baseline.txt  # the CI gate
 ```
 
 Each run first deletes the previous run's per-scenario files in its output directory, so a reclassified or deleted scenario leaves nothing behind. `emit` plays every scenario the way `TestScenarios` does (seed 1) and records Go's final turn and phase, the point Java must stop at, and whether the run drew from the game's generator after setup (`random.txt`). One JVM runs the whole manifest: the card database takes about 10 s to load and a scenario a few milliseconds. `diff` sorts each scenario into `same`, `differs`, `random` (a difference in a scenario that drew randomness, outside the gate) or `not runnable` (an unmapped line, a setup card `GameState` cannot load, a Java exception, or no Java output).
@@ -76,17 +77,16 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 63 same, 2 differs, 0 random, 805 not runnable (804 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). Each `differs` scenario needs a Go fix, a `quirks.md` row or a `forge-java-defects.md` row before phase 2's baseline (ADR-0060).
+The current run: 63 same, 2 differs, 0 random, 805 not runnable (804 with an unmapped line, 1 with a setup card outside `GameState`'s pool, no Java error). A `differs` scenario gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
-| F1 | `life-loss-eliminates-one-player-game-continues` | Java gives `ai` life 0 | Java tooling candidate, unverified (PORT-8: a Java test first): `applyGameOnThread` sets a life below zero by `Game.getPlayers` index after the load-time pass (`GameState.java:697-701`); the human, at 0 life (set before the pass, `:1183`), has already lost, so index 0 is `ai` |
-| F2 | `world-rule-keeps-newest` | Java puts both world enchantments in the graveyard | Java tooling candidate, unverified: `setupPlayerState` puts battlefield cards in play with `moveToPlay` outside a `CardZoneTable`, which alone sets `worldTimestamp` (`CardZoneTable.java:109`); both stay at -1, a tie, and CR 704.5k puts both in the graveyard |
+| F1 | `life-loss-eliminates-one-player-game-continues` | Java gives `ai` life 0 | Java defect, `forge-java-defects.md` row, baselined: `applyGameOnThread` sets a life below zero by `Game.getPlayers` index after the load-time pass (`GameState.java:697-701`); the human, at 0 life (set before the pass, `:1183`), has already lost, so index 0 is `ai` |
+| F2 | `world-rule-keeps-newest` | Java puts both world enchantments in the graveyard | Fixture convention, `quirks.md` row, baselined: a fixture's battlefield cards take timestamps in declaration order; `setupPlayerState` puts battlefield cards in play with `moveToPlay` outside a `CardZoneTable`, which alone sets `worldTimestamp` (`CardZoneTable.java:109`); both stay at -1, a tie, and CR 704.5k puts both in the graveyard |
 
 ## Not ported yet
 
 - `ScenarioController`'s per-kind queued answers (ADR-0060), Go's defaults and panics: every `queue` line is unmapped
 - Every verb but `startturn`, `advance` and `step`. By the first unmapped line per scenario: `queue` 461, `tapformana` 310, `resolvestack` 14, `playland` 12
 - A created id (ADR-0059, open plan R21a-c)
-- Phase 2: the `crucible-oracle` CI job and `crucible/testdata/l2-baseline.txt`
 - `Protector:` from Java's model (a battle's protector; `GameState.toString` writes none)

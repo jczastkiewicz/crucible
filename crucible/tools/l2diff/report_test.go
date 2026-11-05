@@ -34,7 +34,7 @@ func TestDiffSortsScenariosIntoTheReportLists(t *testing.T) {
 	write("random.txt", "random\n")
 	write("diffs/gone.diff", "from an earlier run\n")
 
-	if err := diff(dir); err != nil {
+	if err := diff(dir, ""); err != nil {
 		t.Fatal(err)
 	}
 	report, err := os.ReadFile(filepath.Join(dir, "report.txt"))
@@ -62,5 +62,55 @@ func TestDiffSortsScenariosIntoTheReportLists(t *testing.T) {
 	}
 	if string(d) != "- go   humanlife=20\n+ java humanlife=19\n" {
 		t.Errorf("differs.diff = %q", d)
+	}
+}
+
+// With a baseline, diff fails unless the differs list is exactly the
+// baseline's scenarios, each line citing the row that explains it.
+func TestDiffBaselineGatesTheDiffersList(t *testing.T) {
+	t.Parallel()
+	setup := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		for path, text := range map[string]string{
+			"go/a.state":   "humanlife=20\n",
+			"go/b.state":   "humanlife=20\n",
+			"java/a.state": "p0life=19\n",
+			"java/b.state": "p0life=20\n",
+			"random.txt":   "",
+		} {
+			full := filepath.Join(dir, path)
+			if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(full, []byte(text), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return dir
+	}
+	for _, tc := range []struct {
+		name, baseline, wantErr string
+	}{
+		{"exact", "# accepted\na\tquirks.md: row\n", ""},
+		{"missing", "", "a: differs, not in the baseline"},
+		{"stale", "a\tquirks.md: row\nb\tquirks.md: row\n", "b: in the baseline, no longer differs"},
+		{"uncited", "a\n", "a cites no quirks.md"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := setup(t)
+			path := filepath.Join(dir, "baseline.txt")
+			if err := os.WriteFile(path, []byte(tc.baseline), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			err := diff(dir, path)
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Errorf("diff = %v, want nil", err)
+			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+				t.Errorf("diff = %v, want an error containing %q", err, tc.wantErr)
+			}
+		})
 	}
 }

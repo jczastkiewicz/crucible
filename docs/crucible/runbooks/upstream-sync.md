@@ -176,11 +176,13 @@ changed; reverting it only delays learning.
 
 ## When the L2 runner breaks
 
-`crucible/oracle-java/l2-run.sh` compiles against upstream test classes (`LobbyPlayerForTests`,
-`PlayerControllerForTests`) and drives `GameState` and `PhaseHandler` directly (ADR-0060). A sync that renames or moves
-any of them fails the runner's `javac` step or turns every scenario into an `error` in `l2diff diff`'s report. Fix
-`ScenarioRunner.java` against the new upstream code, rerun the three commands in
-[l2-verbs.md](../porting/port-log/l2-verbs.md), and compare the `same` count with the one before the sync.
+`crucible/oracle-java/l2-run.sh` compiles against an upstream test class (`PlayerControllerForTests`, which
+`ScenarioController` extends) and drives `GameState` and `PhaseHandler` directly (ADR-0060). A sync that renames or
+moves any of them fails the runner's `javac` step or turns every scenario into an `error` in `l2diff diff`'s report, and
+the `crucible-oracle` CI job fails. Fix the runner against the new upstream code, rerun the commands in
+[l2-verbs.md](../porting/port-log/l2-verbs.md), and compare the `same` count with the one before the sync. A sync that
+changes a game rule can also move a scenario into `differs` or out of it: the job fails until
+`crucible/testdata/l2-baseline.txt` lists exactly the `differs` scenarios, each citing its row.
 
 ---
 

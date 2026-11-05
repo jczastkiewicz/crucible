@@ -24,7 +24,7 @@ as the change.
 | 2026-09-06 | add  | `.prettierrc`, `.prettierignore`    | Prettier resolves config from the repo root only. `.prettierignore` is what keeps every upstream file unformatted (DOC-14)                                                                                         | `ff8c555fdf0` |
 | 2026-09-06 | add  | `.markdownlint-cli2.jsonc`          | Same root-only resolution, and the VSCode extension reads the same file so editor and CI agree (DOC-15)                                                                                                            | `ff8c555fdf0` |
 | 2026-09-06 | add  | `CLAUDE.md`                         | Claude Code reads it from the repo root only                                                                                                                                                                       | `ff8c555fdf0` |
-| 2026-09-06 | add  | `.github/workflows/crucible-go.yml` | GitHub Actions only reads workflows from `.github/workflows/`. Crucible's own Go CI: build, race tests, and every gate. Added in M1 and logged here late — REV-1 requires the row in the same commit as the change | `b976078523d` |
+| 2026-09-06 | add  | `.github/workflows/crucible-go.yml` | GitHub Actions only reads workflows from `.github/workflows/`. Crucible's own CI: Go build, race tests, every gate, the L2 runner (ADR-0060). Added in M1, logged late; REV-1 wants the row in the same commit     | `b976078523d` |
 | 2026-09-06 | add  | `.github/dependabot.yml`            | Dependabot reads config from `.github/` only. Scoped to `github-actions`; a `maven` entry at the root would auto-generate PRs editing upstream `pom.xml` files                                                     | `pending`     |
 
 ### Edits

@@ -1,0 +1,5 @@
+# ADR-0060 phase 2: the scenarios whose Go and Java post-states may differ,
+# each with the row that explains it. `l2diff diff -baseline` fails when the
+# differs list is not exactly these. Format: <scenario><TAB><row>.
+life-loss-eliminates-one-player-game-continues	forge-java-defects.md: GameState.java:697-701 (life set by Game.getPlayers index)
+world-rule-keeps-newest	quirks.md: a fixture's battlefield cards take timestamps in declaration order (GameState sets no worldTimestamp)

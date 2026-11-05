@@ -238,3 +238,45 @@ jobs:
 
       - name: parity test
         run: go test -race -count=1 -run TestJavaParity -v ./pkg/javarand/
+
+  # ADR-0060 phase 2: every testdata/scenarios fixture the Java runner can
+  # play runs on both engines, and the job fails unless the scenarios whose
+  # post-states differ are exactly testdata/l2-baseline.txt's, each citing
+  # the quirks.md or forge-java-defects.md row that explains it.
+  crucible-oracle:
+    name: L2 scenario runner (Go vs Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: crucible/go.mod
+          cache-dependency-path: crucible/go.sum
+
+      - name: Go post-states
+        run: go run ./tools/l2diff emit -out "$RUNNER_TEMP/l2"
+
+      # Builds the Forge reactor's classes and test classes, then plays the
+      # manifest in one headless JVM (l2-run.sh, l2-verbs.md S6-S7).
+      - name: Java post-states
+        run: oracle-java/l2-run.sh "$RUNNER_TEMP/l2/manifest.tsv" "$RUNNER_TEMP/l2/java"
+
+      - name: compare against the baseline
+        run: go run ./tools/l2diff diff -dir "$RUNNER_TEMP/l2" -baseline testdata/l2-baseline.txt
+
+      - name: upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l2-report
+          path: |
+            ${{ runner.temp }}/l2/report.txt
+            ${{ runner.temp }}/l2/diffs/
+          if-no-files-found: ignore

@@ -3,13 +3,16 @@
 //	go run ./tools/l2diff emit -out DIR     # Go post-states, manifest.tsv, random.txt
 //	crucible/oracle-java/l2-run.sh DIR/manifest.tsv DIR/java
 //	go run ./tools/l2diff diff -dir DIR     # report.txt and one .diff per differs
+//	go run ./tools/l2diff diff -dir DIR -baseline testdata/l2-baseline.txt
 //
 // emit plays every testdata/scenarios fixture the way TestScenarios does and
 // writes DIR/go/<name>.state (fixture.Dump), DIR/manifest.tsv (the scenario
 // directory, Go's final turn and phase, for the Java runner) and
 // DIR/random.txt (the scenarios that drew from the game's generator after
 // setup). diff normalises each pair (normalize.go, l2-verbs.md) and sorts the
-// scenarios into same, differs, random and not runnable.
+// scenarios into same, differs, random and not runnable. With -baseline it is
+// ADR-0060's phase 2 gate: it fails when the differs list is not exactly the
+// baseline's scenarios.
 package main
 
 import (
@@ -46,8 +49,9 @@ func main() {
 	case "diff":
 		fs := flag.NewFlagSet("diff", flag.ExitOnError)
 		dir := fs.String("dir", "", "emit's output directory, with the Java run in java/")
+		baseline := fs.String("baseline", "", "fail unless differs is exactly this file's scenarios")
 		_ = fs.Parse(os.Args[2:])
-		err = diff(*dir)
+		err = diff(*dir, *baseline)
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -153,7 +157,7 @@ func playGo(dir string, db *compile.DB) (r goRun, err error) {
 	return goRun{state: buf.Bytes(), turn: l.Game.Turn(), phase: l.Game.ActivePhase().String(), random: *rng != afterSetup}, nil
 }
 
-func diff(dir string) error {
+func diff(dir, baseline string) error {
 	if dir == "" {
 		return errors.New("diff: -dir is required")
 	}
@@ -191,6 +195,47 @@ func diff(dir string) error {
 	}
 	for _, k := range order {
 		fmt.Printf("%s: %d\n", k, len(lists[k]))
+	}
+	if baseline == "" {
+		return nil
+	}
+	return checkBaseline(lists["differs"], baseline)
+}
+
+// checkBaseline is the gate: every differs scenario is in the baseline and
+// every baseline scenario still differs, so the file is the exact list of
+// accepted differences. A line is "<scenario><TAB><the quirks.md or
+// forge-java-defects.md row that explains it>"; # starts a comment.
+func checkBaseline(differs []string, path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var accepted []string
+	for i, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		name, cite, _ := strings.Cut(line, "\t")
+		if strings.TrimSpace(cite) == "" {
+			return fmt.Errorf("%s:%d: %s cites no quirks.md or forge-java-defects.md row", path, i+1, name)
+		}
+		accepted = append(accepted, name)
+	}
+	var problems []string
+	for _, name := range differs {
+		if !slices.Contains(accepted, name) {
+			problems = append(problems, name+": differs, not in the baseline (diffs/"+name+".diff)")
+		}
+	}
+	for _, name := range accepted {
+		if !slices.Contains(differs, name) {
+			problems = append(problems, name+": in the baseline, no longer differs")
+		}
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("baseline %s:\n%s", path, strings.Join(problems, "\n"))
 	}
 	return nil
 }

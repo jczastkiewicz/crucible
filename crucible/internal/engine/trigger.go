@@ -3772,9 +3772,8 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, by *Ability) []Abi
 // Def.Faces[].Triggers the way checkBecomesTargetTriggers' own scan is: no
 // script text names Ward's Execute$, so there is nothing to scan. A Ward
 // line whose cost parseUnlessCost cannot read (after wardCostResolvable
-// evaluates its X) is skipped before the stack, the identical pre-check
-// resolveUnlessCost (effect.go) makes, so a shape that would error there is
-// never pushed here at all.
+// evaluates its X) records a pending error instead of reaching the stack
+// (GO-7): dropping the trigger would let the spell resolve uncountered.
 //
 // Controller is the warded card's own controller (CR 603.3a: a triggered
 // ability's controller is its source's controller), not spellController --
@@ -3849,6 +3848,9 @@ func (g *Game) wardTriggers(targets []EntityID, sourceController PlayerID, sourc
 				triggered: triggeredObjects{source: CardEntity(source), sourceController: sourceController},
 			}
 			if !g.wardCostResolvable(&w, k.Details) {
+				// CR 702.21a counters the spell when its controller cannot
+				// pay; skipping the trigger would let it resolve instead.
+				g.recordPendingError(fmt.Errorf("engine: %q: Ward cost %q not resolvable yet", c.Def.Name, k.Details))
 				continue
 			}
 			matches = append(matches, w)

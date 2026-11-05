@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
@@ -324,5 +325,26 @@ func TestWardSeveralCostsPickOne(t *testing.T) {
 				t.Errorf("life %d hand %d, want %d and %d", g.Player(opp).Life, len(g.Zone(engine.Hand, opp).Cards()), tc.life, tc.hand)
 			}
 		})
+	}
+}
+
+// TestWardCostNotResolvableFailsTheGame proves a Ward cost this port cannot
+// read is an error, not a skipped trigger: skipping it would let the spell
+// resolve when CR 702.21a counters it (GO-7).
+func TestWardCostNotResolvableFailsTheGame(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGame(t)
+	target := g.NewCard(wardedCreatureDef(t, "Ward:Untap<1/Creature>"), p, engine.Battlefield)
+	spell := g.NewCard(instantDefWithAbility(t, "Test Bolt", "0", "SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3"), opp, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+	g.CastSpell(opp, spell, c)
+	err := g.ResolveStack(engine.NewRegistry(), c)
+	if err == nil {
+		err = g.TakePendingError()
+	}
+	if err == nil || !strings.Contains(err.Error(), "Ward cost") {
+		t.Fatalf("err = %v, want the unresolvable Ward cost", err)
 	}
 }

@@ -1018,8 +1018,24 @@ func (g *Game) traitHosts(pid PlayerID) []CardID {
 }
 
 // isCommandTraitHost reports whether c, sitting in the Command zone, has
-// traits traitHosts must walk: an effect card or a scheme.
+// traits traitHosts must walk: an effect card, a scheme, a Vanguard avatar, a
+// plane or a phenomenon (ADR-0056). Each line's own zone param decides
+// whether it functions there (staticHostZoneOK, hostInActiveZones, the
+// trigger zone checks); a commander there is not a host.
 func (c *Card) isCommandTraitHost() bool {
+	if c.isCommandEffectLike() {
+		return true
+	}
+	if c.Def == nil {
+		return false
+	}
+	t := c.Type()
+	return t.Has(cardtype.Vanguard) || t.Has(cardtype.Plane) || t.Has(cardtype.Phenomenon)
+}
+
+// isCommandEffectLike reports whether c is an effect card or a scheme: a
+// Command-zone host whose statics function there with no EffectZone$.
+func (c *Card) isCommandEffectLike() bool {
 	return c.IsEffect || (c.Def != nil && c.Type().Has(cardtype.Scheme))
 }
 

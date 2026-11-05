@@ -18,7 +18,7 @@
 // ActivationZone$ Graveyard or Hand activates from that zone rather than the
 // battlefield -- CR 602.2's own generalization past a permanent already on
 // the battlefield, ported past its own two dominant real destinations (230
-// real lines name Graveyard, 97 name Hand; Command's 57 stays unbuilt): the
+// real lines name Graveyard, 97 name Hand; Command is an effect card's, avatar's or plane's): the
 // source's own owner, not controller (CR 109.5, a card outside the
 // battlefield has no controller), may activate it while it sits in that
 // zone rather than Battlefield, and only that zone's own self-reference
@@ -85,7 +85,7 @@ import (
 // XMin token, each its own further payment primitive this port does not
 // have, PORT-8/GO-7's "skip the whole line" applied to the cost itself
 // rather than to the ability's own other params, an ActivationZone$ this
-// port does not build (Command/Exile/Stack -- Graveyard and Hand are the
+// port does not build (Exile/Stack -- Graveyard, Hand and Command are the
 // only non-Battlefield zones supported), a Graveyard-zone ability naming
 // any primitive but ExileFromGrave, a Hand-zone ability naming any
 // primitive but Discard's or ExileFromHand's own self-reference shape, or a
@@ -280,9 +280,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		}
 		fromHand = true
 	case "Command":
-		// An effect card's own ability (an emblem's): its controller activates
-		// it from the Command zone.
-		if !c.IsEffect || c.Zone != Command || c.Controller() != pid {
+		// An effect card's own ability (an emblem's, the Planar Dice special
+		// action), or a Vanguard avatar's or plane's (ADR-0056,
+		// SpellAbilityRestriction.java:99-100): activated from the Command
+		// zone by whoever Activator$ admits, its controller by default.
+		if c.Zone != Command || !g.activatorValid(pid, c, ability) {
 			return false
 		}
 	default:

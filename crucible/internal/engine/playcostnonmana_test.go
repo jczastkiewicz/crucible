@@ -59,3 +59,22 @@ func TestPlayCostPaidInLifeOrCards(t *testing.T) {
 		}
 	})
 }
+
+// ZoneRegardless$ keeps a card that changed zones since it was remembered
+// (PlayEffect.java:181-187, Maelstrom Archangel Avatar); here the card is
+// played as for any Play.
+func TestPlayZoneRegardlessPlaysTheCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	spell := g.NewCard(gainInstant(t, "Gain", "2 W", "5"), p, engine.Exile)
+	c := engine.NewScriptedController()
+	c.QueueConfirmEffect(true)
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | Defined$ Remembered | ZoneRegardless$ True | Optional$ True | WithoutManaCost$ True | ValidSA$ Spell")
+	if err := resolvePlay(t, g, host, c, spell); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 25 {
+		t.Errorf("life = %d, want 25", got)
+	}
+}

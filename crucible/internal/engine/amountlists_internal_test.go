@@ -30,6 +30,7 @@ func TestAbilityListIDsReadTheResolvingAbilitysRecords(t *testing.T) {
 	a.triggered.target = CardEntity(c2)
 	a.triggered.exploited, a.triggered.devoured = c1, c2
 	a.triggered.attackers, a.triggered.attackersRecorded = []CardID{c1}, true
+	a.triggered.sources, a.triggered.sourcesSet = []CardID{c2, c1}, true
 
 	for _, tc := range []struct {
 		head string
@@ -45,6 +46,7 @@ func TestAbilityListIDsReadTheResolvingAbilitysRecords(t *testing.T) {
 		{"TriggeredExploited", []CardID{c1}},
 		{"TriggeredDevoured", []CardID{c2}},
 		{"TriggerObjectsAttackers", []CardID{c1}},
+		{"TriggerObjectsSources", []CardID{c2, c1}},
 	} {
 		got, ok := g.abilityListIDs(src, tc.head)
 		if !ok || !slices.Equal(got, tc.want) {
@@ -53,7 +55,7 @@ func TestAbilityListIDsReadTheResolvingAbilitysRecords(t *testing.T) {
 	}
 
 	*a = Ability{Source: src, Controller: p}
-	for _, head := range []string{"TriggeredExploited", "TriggeredDevoured", "TriggerObjectsAttackers", "TriggeredSource", "CardTriggeredTarget", "Sacrificed", "ParentTargeted", "Bogus"} {
+	for _, head := range []string{"TriggeredExploited", "TriggeredDevoured", "TriggerObjectsAttackers", "TriggerObjectsSources", "TriggeredSource", "CardTriggeredTarget", "Sacrificed", "ParentTargeted", "Bogus"} {
 		if got, ok := g.abilityListIDs(src, head); ok {
 			t.Errorf("abilityListIDs(%q) with nothing recorded = (%v, true), want unresolved", head, got)
 		}

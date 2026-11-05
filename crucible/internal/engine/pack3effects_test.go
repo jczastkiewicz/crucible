@@ -976,6 +976,15 @@ func TestNameCardValidCardsByManaCost(t *testing.T) {
 	if got := g.Card(host).Memory.NamedCards(); len(got) != 1 || got[0] != "Grizzly Bears" {
 		t.Errorf("named = %v, want Grizzly Bears", got)
 	}
+	// Maelstrom Archangel Avatar's shape: RepeatEach UseImprinted$ imprints
+	// each card in turn, and the name matches the imprinted card's cost.
+	g.NewCard(bear, p, engine.Battlefield)
+	host = resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ RepeatEach | UseImprinted$ True | RepeatCards$ Creature.YouCtrl+cmcEQ2 | RepeatSubAbility$ DBName",
+		"DBName", "DB$ NameCard | Defined$ You | AtRandom$ True | ValidCards$ Card.ManaCost=Imprinted")
+	if got := g.Card(host).Memory.NamedCards(); len(got) != 1 || got[0] != "Grizzly Bears" {
+		t.Errorf("named by imprinted cost = %v, want Grizzly Bears", got)
+	}
 	for _, spec := range []string{"Creature.ManaCost=Equipped", "Card.ManaCost=Imprinted"} {
 		def := etbChainDef(t, "Test Name Cost", "DB$ NameCard | Defined$ You | ValidCards$ "+spec+" | AtRandom$ True")
 		if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {

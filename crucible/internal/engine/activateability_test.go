@@ -1743,13 +1743,13 @@ func TestActivateAbilityDeclinesUnsupportedActivationZone(t *testing.T) {
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 
-	def := creatureDefWithAbility(t, "Test Command Zone",
-		"AB$ GainLife | Cost$ 1 | ActivationZone$ Command | Defined$ You | LifeAmount$ 1")
-	creature := g.NewCard(def, p, engine.Command)
+	def := creatureDefWithAbility(t, "Test Library Zone",
+		"AB$ GainLife | Cost$ 1 | ActivationZone$ Library | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Library)
 
 	c := engine.NewScriptedController()
 	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for ActivationZone$ Command, want false")
+		t.Error("ActivateAbility returned true for ActivationZone$ Library, want false")
 	}
 }
 

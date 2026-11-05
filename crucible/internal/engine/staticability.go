@@ -1488,11 +1488,15 @@ func paramsResolvable(s *compile.Ability, known map[string]bool) bool {
 // staticHostZoneOK is StaticAbility.zonesCheck (StaticAbility.java:337): the
 // host's own zone must be one the line is active in. EffectZone$ names them
 // ("All", or a comma list); without it the default is in play. The Command
-// zone is accepted by default too, since the effect-like hosts traitHosts walks
-// there carry their statics without an EffectZone$ of their own. This is what
-// keeps a card's own statics (a host the callers add for EffectZone$ All lines)
-// from applying while it sits in hand.
+// zone is accepted by default for an effect card or a scheme, which carry
+// their statics without an EffectZone$ of their own; a Vanguard avatar, plane
+// or phenomenon there needs EffectZone$ Command, as in Java (ADR-0056). This
+// is what keeps a card's own statics (a host the callers add for EffectZone$
+// All lines) from applying while it sits in hand.
 func staticHostZoneOK(host *Card, s *compile.Ability) bool {
+	if _, ok := s.Param("EffectZone"); !ok && host.Zone == Command && !host.isCommandEffectLike() {
+		return false
+	}
 	return staticZoneOK(host.Zone, s)
 }
 

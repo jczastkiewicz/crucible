@@ -125,9 +125,8 @@ func layerZoneList(v string) ([]ZoneType, bool) {
 
 // offZoneHostZones are the zones whose cards continuousStaticsAllZones walks
 // beyond traitHosts: the five a card's own static can function from. Command
-// is traitHosts' (effect cards, schemes); a plane, phenomenon or Vanguard
-// avatar there is not a host (68 real EffectZone$ Command lines, all of them
-// planar or Vanguard play); Sideboard and the rest hold no live card.
+// is traitHosts' (effect cards, schemes, Vanguard avatars, planes and
+// phenomena, ADR-0056); Sideboard and the rest hold no live card.
 var offZoneHostZones = [...]ZoneType{Hand, Library, Graveyard, Exile, Stack}
 
 // appendOffZoneStatics adds to out the Mode$ Continuous lines of every card

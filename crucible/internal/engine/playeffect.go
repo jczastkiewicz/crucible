@@ -47,10 +47,14 @@ type playEffect struct{}
 // a card built from outside the game past AnySupportedCard$ Names: with
 // RandomCopied$ (RandomNum$, ChoiceNum$, the sorcery and instant lists); an alternate state (CastTransformed$); alternative or modified costs past a plain mana
 // PlayCost$ (playCost: ManaCost, SuspendCost and the non-mana ones;
-// PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ShowCards$ (a second, display-only list), ZoneRegardless$
-// (equalsWithGameTimestamp, which this port cannot tell apart);
+// PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ShowCards$ (a second, display-only list);
 // Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // "never met" rather than evaluating.
+//
+// ZoneRegardless$ is not in this list either: it keeps a card that changed
+// zones since it was chosen (PlayEffect.java:181-187), and a CardID here
+// carries no zone stamp, so every Play keeps such a card already
+// (quirks.md: the no-param case is the deviation).
 //
 // TgtZone$ is not in this list: with ValidTgts$ present, resolveTargets
 // (targeting.go) already read it before Play's own Resolve ever runs, so
@@ -61,7 +65,7 @@ type playEffect struct{}
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
 	"RandomNum", "ChoiceNum", "CastTransformed", "PlayReduceCost",
-	"PlayRaiseCost", "ShowCards", "ZoneRegardless"}
+	"PlayRaiseCost", "ShowCards"}
 
 // playUnportedProperties are card-property prefixes in the corpus's Play
 // valid strings that Matches (valid.go) has no case for and would read as

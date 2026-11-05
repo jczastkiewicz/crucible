@@ -170,14 +170,25 @@ func nameableCards(g *Game, a *Ability, source *Card, spec string) ([]string, er
 	return out, nil
 }
 
-// nameableSpec is ChooseCardNameEffect.java:106-109: "=Equipped" becomes the
-// short mana cost string of the creature the host equips, so
-// Creature.ManaCost=Equipped reads Creature.ManaCost1 {G} and faceValid compares
-// it. A host that equips nothing, or any other ManaCost= operand, is an error
-// (Java dereferences a null equipping card).
+// nameableSpec is ChooseCardNameEffect.java:106-114: "=Equipped" becomes the
+// short mana cost string of the creature the host equips, "=Imprinted" that
+// of its first imprinted card, so Creature.ManaCost=Equipped reads
+// Creature.ManaCost1 {G} and faceValid compares it. A host that equips or
+// imprints nothing, or any other ManaCost= operand, is an error (Java
+// dereferences a null card).
 func nameableSpec(g *Game, source *Card, spec string) (string, error) {
 	if !strings.Contains(spec, "ManaCost=") {
 		return spec, nil
+	}
+	if strings.Contains(spec, "=Imprinted") {
+		// ChooseCardNameEffect.java:111-113: the first imprinted card's short
+		// cost; Java's getFirst throws on none (Maelstrom Archangel Avatar
+		// imprints before it names).
+		imprinted := source.Memory.Imprinted()
+		if len(imprinted) == 0 {
+			return "", fmt.Errorf("engine: NameCard: ValidCards$ %q: the host imprints nothing", spec)
+		}
+		return strings.Replace(spec, "=Imprinted", g.Card(imprinted[0]).manaCost().ShortString(), 1), nil
 	}
 	if !strings.Contains(spec, "=Equipped") {
 		return "", fmt.Errorf("engine: NameCard: ValidCards$ %q not resolvable yet", spec)

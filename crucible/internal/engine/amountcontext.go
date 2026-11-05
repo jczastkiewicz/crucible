@@ -30,7 +30,7 @@ import (
 var contextHeads = map[string]bool{
 	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredCardLKI": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
 	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "ExiledCards": true, "Discarded": true, "Tapped": true, "TappedCards": true,
-	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggeredExploited": true,
+	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggerObjectsSources": true, "TriggeredExploited": true,
 	"TriggeredDevoured": true, "CardTriggeredTarget": true, "AllTargeted": true,
 }
 
@@ -177,8 +177,8 @@ func (g *Game) contextCards(source CardID, head string) ([]*Card, bool) {
 	// list holds the battlefield Card object, which the move to the graveyard
 	// replaced with a copy (GameAction.java:207).
 	lki := head == "Sacrificed" || head == "Exiled" || head == "ExiledCards" || head == "TriggeredCard" || head == "TriggerRemembered" ||
-		head == "TriggerObjectsAttackers" || head == "TriggeredExploited" || head == "TriggeredDevoured" ||
-		head == "CardTriggeredTarget" || head == "TriggeredCardLKI"
+		head == "TriggerObjectsAttackers" || head == "TriggerObjectsSources" || head == "TriggeredExploited" ||
+		head == "TriggeredDevoured" || head == "CardTriggeredTarget" || head == "TriggeredCardLKI"
 	cards := g.cardsOf(ids, lki)
 	if head == "TriggeredCardLKI" {
 		// AbilityKey.CardLKI is the card as it was before the move
@@ -248,6 +248,14 @@ func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 			return nil, false
 		}
 		ids = a.triggered.attackers
+	case "TriggerObjectsSources":
+		// AbilityUtils.java:697-701: AbilityKey.Sources, a Mode$
+		// DamageDoneOnce trigger's sources (Circus of the Sun); unrecorded is
+		// unresolved, as for TriggerObjectsAttackers.
+		if !a.triggered.sourcesSet {
+			return nil, false
+		}
+		ids = a.triggered.sources
 	case "TriggeredSource":
 		// AbilityKey.Source as a card; a player source is no card, and an
 		// unrecorded source is not Java's empty list (GO-7).

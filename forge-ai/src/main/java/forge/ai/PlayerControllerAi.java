@@ -249,12 +249,10 @@ public class PlayerControllerAi extends PlayerController {
                         if (!cMain.getRules().getType().sharesCardTypeWith(cSide.getRules().getType())) {
                             continue; // Only equivalent types allowed
                         }
-                    } else {
-                        if ((cMain.getRules().getType().isCreature() && !cSide.getRules().getType().isCreature())
-                                || (cSide.getRules().getType().isCreature()) && !cMain.getRules().getType().isCreature()) {
-                            if (!(sbPlaneswalkerException && (cMain.getRules().getType().isPlaneswalker() || cSide.getRules().getType().isPlaneswalker()))) {
-                                continue; // Creature exception: only trade a creature for another creature unless planeswalkers are allowed as a replacement
-                            }
+                    } else if ((cMain.getRules().getType().isCreature() && !cSide.getRules().getType().isCreature())
+                            || (cSide.getRules().getType().isCreature()) && !cMain.getRules().getType().isCreature()) {
+                        if (!(sbPlaneswalkerException && (cMain.getRules().getType().isPlaneswalker() || cSide.getRules().getType().isPlaneswalker()))) {
+                            continue; // Creature exception: only trade a creature for another creature unless planeswalkers are allowed as a replacement
                         }
                     }
 
@@ -1372,7 +1370,7 @@ public class PlayerControllerAi extends PlayerController {
             }
         }
         final PhaseHandler ph = getGame().getPhaseHandler();
-        if (ph.getPlayerTurn() == sa.getActivatingPlayer() && ph.getPhase() == PhaseType.MAIN1 && sa.getTargetCard() != null) {
+        if (ph.is(PhaseType.MAIN1, sa.getActivatingPlayer()) && sa.getTargetCard() != null) {
             AiAttackController aiAtk = new AiAttackController(sa.getActivatingPlayer(), sa.getTargetCard());
             String s = aiAtk.toProtectAttacker(sa);
             if (s != null) {
@@ -1464,7 +1462,7 @@ public class PlayerControllerAi extends PlayerController {
                         }
                     }
 
-                    if (sa.isMayChooseNewTargets()) {
+                    if (sa.isMayChooseNewTargets() && !sa.getAllTargetChoices().isEmpty()) {
                         chooseNewTargetsForCopy(sa);
                         // FIXME: the new implementation (below) requires implementing setupNewTargets in the AI controller, among other possible changes, otherwise breaks AI
                         // sa.setupNewTargets(player);

@@ -2026,7 +2026,7 @@ public class AiController {
             return onlySpells && top != null && top.getActivatingPlayer() != null && top.getActivatingPlayer().isOpponentOf(player)
                     ? FlatMonteCarloPicker.Mode.RESPOND : null;
         }
-        if (ph.getPlayerTurn() == player) {
+        if (ph.isPlayerTurn(player)) {
             return null;
         }
         if (ph.is(PhaseType.END_OF_TURN) && game.getPlayers().size() == 2) {
@@ -2145,7 +2145,7 @@ public class AiController {
         final PhaseHandler ph = game.getPhaseHandler();
         // Only sorcery-timing decisions on the AI's own turn: that is where the lines to compare are, and the
         // rollout ends at the second main phase. Everything reactive stays with the heuristics (and is cheap).
-        return ph.getPlayerTurn() == player && game.getStack().isEmpty()
+        return ph.isPlayerTurn(player) && game.getStack().isEmpty()
                 && (ph.is(PhaseType.MAIN1) || ph.is(PhaseType.MAIN2));
     }
 
@@ -3287,7 +3287,18 @@ public class AiController {
 
         result.addAll(mandatoryDiscard);
 
+        // damage and life loss for opponents resolves first, so they might lose before other triggers hurt us
+        result.addAll(filterList(result, this::onlyHurtsOpponents));
+
         return result;
+    }
+
+    private boolean onlyHurtsOpponents(SpellAbility sa) {
+        if ((sa.getApi() != ApiType.DealDamage && sa.getApi() != ApiType.LoseLife) || !sa.hasParam("Defined")) {
+            return false;
+        }
+        List<Player> hurt = AbilityUtils.getDefinedPlayers(sa.getHostCard(), sa.getParam("Defined"), sa);
+        return !hurt.isEmpty() && hurt.stream().allMatch(p -> p.isOpponentOf(player));
     }
 
     // TODO move to more common place

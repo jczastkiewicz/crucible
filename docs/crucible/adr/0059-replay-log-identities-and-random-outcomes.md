@@ -1,8 +1,8 @@
 # ADR-0059 — Replay Log: Structural Identities, Random Outcomes per Site, JSON Lines
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
-- **Deciders:** Crucible session (R21 preparation)
+- **Deciders:** Crucible session (R21 preparation), accepted by `jc@archlab.pl`
 
 ## Context
 

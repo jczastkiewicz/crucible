@@ -67,9 +67,9 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0054](0054-mana-abilities-during-a-mana-payment.md)                 | Mana abilities inside a mana payment, one decision                              | Accepted                  |
 | [0055](0055-commander-variant-damage-and-command-zone-return.md)     | The Commander variant: damage, its loss, 903.9a                                 | Accepted                  |
 | [0056](0056-vanguard-and-planechase-setup-and-command-zone-hosts.md) | Vanguard and Planechase setup; Command-zone hosts                               | Accepted                  |
-| [0057](0057-banding-attacking-bands.md)                              | Banding: attacking bands, a band decision after the attack                      | Proposed                  |
-| [0058](0058-ai-port-structure.md)                                    | The AI port: per-game controller, generated registry, typed profiles, no clocks | Proposed                  |
-| [0059](0059-replay-log-identities-and-random-outcomes.md)            | Replay log: structural identities, random outcomes per site                     | Proposed                  |
+| [0057](0057-banding-attacking-bands.md)                              | Banding: attacking bands, a band decision after the attack                      | Accepted                  |
+| [0058](0058-ai-port-structure.md)                                    | The AI port: per-game controller, generated registry, typed profiles, no clocks | Accepted                  |
+| [0059](0059-replay-log-identities-and-random-outcomes.md)            | Replay log: structural identities, random outcomes per site                     | Accepted                  |
 
 ## Numbering
 

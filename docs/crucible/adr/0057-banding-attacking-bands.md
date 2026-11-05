@@ -1,8 +1,8 @@
 # ADR-0057 — Banding: Attacking Bands on `Combat`, a Band Decision After the Attack
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
-- **Deciders:** Crucible session (B-row pack, Banding oracle)
+- **Deciders:** Crucible session (B-row pack, Banding oracle), accepted by `jc@archlab.pl`
 
 ## Context
 

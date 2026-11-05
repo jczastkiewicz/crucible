@@ -1,8 +1,8 @@
 # ADR-0058 — The AI Port: Per-Game Controller, Generated Per-API Registry, Typed Profiles, No Clocks
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
-- **Deciders:** Crucible session (M7 preparation)
+- **Deciders:** Crucible session (M7 preparation), accepted by `jc@archlab.pl`
 
 ## Context
 

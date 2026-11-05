@@ -21,12 +21,9 @@ this file only points at them (DOC-11).
 
 ## Waiting on the owner
 
-| Row                                                  | Blocked by                     | Reason Claude stops                    |
-| ---------------------------------------------------- | ------------------------------ | -------------------------------------- |
-| ADR-0057 Banding                                     | Acceptance of the Proposed ADR | ADRP-4: an ADR merges before its code  |
-| ADR-0058 AI port structure                           | Acceptance of the Proposed ADR | ADRP-4; M7 starts on it                |
-| ADR-0059 Replay log                                  | Acceptance of the Proposed ADR | ADRP-4; R21a-R21c start on it          |
-| `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR        | Latent, and Takklemaggot depends on it |
+| Row                                                  | Blocked by              | Reason Claude stops                    |
+| ---------------------------------------------------- | ----------------------- | -------------------------------------- |
+| `GameAction.java:170-172` Animate outliving CR 400.7 | An issue text, not a PR | Latent, and Takklemaggot depends on it |
 
 Next, in order:
 

@@ -58,7 +58,7 @@ public final class ScenarioRunner {
     // reported unmapped and not run (ADR-0060).
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
-            "tapformana", "castspell", "playland");
+            "tapformana", "castspell", "playland", "passpriority");
     // The lines a seat makes at its priority, where Go ran them (S13).
     private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
@@ -123,6 +123,26 @@ public final class ScenarioRunner {
         return result[0];
     }
 
+    // The turn and phase of the priority round that takes the action queued
+    // at line i: the next passpriority's, or the step a step line enters,
+    // then that line's index. Null when no round takes it.
+    private static String[] roundAfter(List<String> actions, List<String[]> when, int i) {
+        for (int j = i + 1; j < actions.size(); j++) {
+            String verb = actions.get(j).split("\\s+")[0];
+            if (verb.equals("passpriority")) {
+                return new String[] {when.get(j)[0], when.get(j)[1], String.valueOf(j)};
+            }
+            if (verb.equals("step")) {
+                // The step it enters, the one after where it ran.
+                PhaseType from = PhaseType.smartValueOf(when.get(j)[1]);
+                int t = Integer.parseInt(when.get(j)[0]);
+                return from == PhaseType.CLEANUP ? new String[] {String.valueOf(t + 1), PhaseType.UNTAP.name(), String.valueOf(j)}
+                        : new String[] {String.valueOf(t), PhaseType.values()[from.ordinal() + 1].name(), String.valueOf(j)};
+            }
+        }
+        return null;
+    }
+
     // timed is l2diff emit's actions file: each actions.log line after the
     // turn and phase Go ran it in.
     private static String[] run(Path dir, int turn, String phaseName, Path timed) throws Exception {
@@ -145,7 +165,18 @@ public final class ScenarioRunner {
             String line = actions.get(i);
             String[] f = line.split("\\s+", 3);
             try {
-                if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
+                if (f[0].equals("queue") && f.length == 3 && f[1].equals("action")) {
+                    // S15: Go takes it at the next priority round, a
+                    // passpriority's or the one a step plays in the step it
+                    // enters.
+                    String[] at = roundAfter(actions, when, i);
+                    if (at == null) {
+                        unmapped.add(line);
+                    } else {
+                        answers.action(i, f[2].split("\\s+"), Integer.parseInt(at[2]), Integer.parseInt(at[0]),
+                                PhaseType.smartValueOf(at[1]));
+                    }
+                } else if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
                     unmapped.add(line);
                 } else if (f[0].equals("queue")) {
                     answers.queue(f[1], f[2]);
@@ -153,11 +184,11 @@ public final class ScenarioRunner {
                     // S14: Go's harness resolves where Java gives no priority
                     // (CR 502.4, 514.3); Java's triggers wait for the next step.
                     unmapped.add(line);
-                } else if (f[0].equals("resolvestack")) {
+                } else if (f[0].equals("resolvestack") || f[0].equals("passpriority")) {
                     answers.resolveStack();
                 } else if (PLAYS.contains(f[0])) {
                     String[] all = line.split("\\s+");
-                    answers.play(f[0], Arrays.copyOfRange(all, 1, all.length), Integer.parseInt(when.get(i)[0]),
+                    answers.play(i, f[0], Arrays.copyOfRange(all, 1, all.length), Integer.parseInt(when.get(i)[0]),
                             PhaseType.smartValueOf(when.get(i)[1]));
                 }
             } catch (IllegalArgumentException e) {
@@ -207,7 +238,7 @@ public final class ScenarioRunner {
                 // Checkpoints: Java's own loop reaches the phase Go walks to,
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
-                        "combatdamage", "resolvestack", "tapformana", "castspell", "playland" -> {
+                        "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }
@@ -221,12 +252,12 @@ public final class ScenarioRunner {
         // PhaseHandler.java:321-344) -- it is reaching the step.
         PhaseHandler ph = game.getPhaseHandler();
         target.drain = !actions.isEmpty()
-                && Set.of("step", "resolvestack").contains(actions.get(actions.size() - 1).split("\\s+")[0]);
+                && Set.of("step", "resolvestack", "passpriority").contains(actions.get(actions.size() - 1).split("\\s+")[0]);
         target.armed = true;
         int steps = 0;
         try {
             while (!game.isGameOver()) {
-                if (target.reached() && !givesPriority(ph)) {
+                if (target.reachedStep() && !givesPriority(ph)) {
                     break;
                 }
                 if (ph.getTurn() > turn) {
@@ -452,7 +483,14 @@ public final class ScenarioRunner {
             this.answers = answers;
         }
 
+        // At a priority: every queued action taken too.
         boolean reached() {
+            return reachedStep() && answers.actionsDone();
+        }
+
+        // In a step without priority (S15): Go's queue keeps what no round
+        // took.
+        boolean reachedStep() {
             PhaseHandler ph = game.getPhaseHandler();
             return armed && answers.playsDone() && ph.getTurn() == turn && ph.is(phase)
                     && (!drain || game.getStack().isEmpty());

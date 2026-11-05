@@ -4,8 +4,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 import forge.LobbyPlayer;
+import forge.card.ICardFace;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.GameObject;
@@ -22,6 +24,7 @@ import forge.game.player.PlaySpellAbility;
 import forge.game.spellability.AbilityManaPart;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
+import forge.game.spellability.SpellPermanent;
 import forge.game.spellability.TargetRestrictions;
 import forge.game.trigger.WrappedAbility;
 import forge.game.zone.ZoneType;
@@ -69,9 +72,26 @@ final class ScenarioController extends PlayerControllerForTests {
             throw new Checkpoint();
         }
         for (ScenarioAnswers.Play play; (play = answers.nextPlayFor(player)) != null;) {
+            if (play.verb().equals("pass")) {
+                return null;
+            }
             Card card = answers.card(play.id());
             if (play.verb().equals("tapformana")) {
-                tapForMana(card, play.color());
+                tapForMana(card, play.arg());
+                continue;
+            }
+            if (play.verb().equals("activate") || play.verb().equals("manaability")) {
+                SpellAbility sa = printedAbility(card, Integer.parseInt(play.arg()));
+                if (sa.isManaAbility() != play.verb().equals("manaability")) {
+                    throw new IllegalStateException(play.verb() + " " + play.arg() + " of " + card + " is " + sa);
+                }
+                sa.setActivatingPlayer(player);
+                if (!sa.isManaAbility()) {
+                    return List.of(sa);
+                }
+                if (!PlaySpellAbility.playSpellAbilityNoStack(this, player, sa, true)) {
+                    throw new IllegalStateException(card + " did not activate " + sa);
+                }
                 continue;
             }
             boolean land = play.verb().equals("playland");
@@ -93,9 +113,27 @@ final class ScenarioController extends PlayerControllerForTests {
         return true;
     }
 
+    // Go's abilityAt: the index'th of the card's A: lines, then the
+    // abilities its keywords and the statics granting it add, in that order.
+    // Java keeps the same order after the basic spell or land ability
+    // (CardState.getSpellAbilities, updateSpellAbilities).
+    private static SpellAbility printedAbility(Card card, int index) {
+        int i = 0;
+        for (SpellAbility sa : card.getCurrentState().getSpellAbilities()) {
+            if (sa instanceof SpellPermanent || sa.isLandAbility() || sa == card.getCurrentState().getAuraSpell()) {
+                continue;
+            }
+            if (i++ == index) {
+                return sa;
+            }
+        }
+        throw new IllegalStateException("ability " + index + " of " + card + " among " + card.getCurrentState().getSpellAbilities());
+    }
+
     // Go's TapLandForMana: the land's mana ability for one color, resolved
-    // without the stack (a mana ability, CR 605.3).
-    private void tapForMana(Card card, String color) {
+    // without the stack (a mana ability, CR 605.3), by its controller.
+    private static void tapForMana(Card card, String color) {
+        Player player = card.getController();
         for (SpellAbility ma : card.getManaAbilities()) {
             AbilityManaPart part = ma.getManaPart();
             if (!part.canProduce(color, ma)) {
@@ -105,7 +143,7 @@ final class ScenarioController extends PlayerControllerForTests {
                 part.setExpressChoice(color);
             }
             ma.setActivatingPlayer(player);
-            if (!PlaySpellAbility.playSpellAbilityNoStack(this, player, ma, true)) {
+            if (!PlaySpellAbility.playSpellAbilityNoStack(player.getController(), player, ma, true)) {
                 throw new IllegalStateException(card + " did not tap for " + color);
             }
             return;
@@ -132,10 +170,14 @@ final class ScenarioController extends PlayerControllerForTests {
         }
         for (GameEntity e : answers.nextTargets()) {
             // A card id on the stack names the spell (Go's TargetStack).
-            if (e instanceof Card c && c.isInZone(ZoneType.Stack)) {
-                currentAbility.getTargets().add(c.getGame().getStack().getSpellMatchingHost(c));
-            } else {
-                currentAbility.getTargets().add(e);
+            GameObject o = e instanceof Card c && c.isInZone(ZoneType.Stack)
+                    ? c.getGame().getStack().getSpellMatchingHost(c) : e;
+            // Java offers only what can still be chosen next to the targets
+            // already picked (a MaxTotalTargetCMC$ sum); Go drops the rest
+            // the same way (targeting.go trimTargetSet). A target illegal on
+            // its own is kept, as Go keeps it: the spell fizzles.
+            if (currentAbility.canTarget(o) || !alone(currentAbility, o)) {
+                currentAbility.getTargets().add(o);
             }
         }
         if (currentAbility.isDividedAsYouChoose()) {
@@ -154,14 +196,32 @@ final class ScenarioController extends PlayerControllerForTests {
         return true;
     }
 
-    // Mana is paid from the pool the queued tapformana lines filled; a cost
-    // the pool cannot pay is an error, never an automatic tap.
+    // Whether sa could target o with nothing else chosen.
+    private static boolean alone(SpellAbility sa, GameObject o) {
+        List<GameObject> chosen = List.copyOf(sa.getTargets());
+        sa.getTargets().clear();
+        boolean ok = sa.canTarget(o);
+        sa.getTargets().addAll(chosen);
+        return ok;
+    }
+
+    // Mana is paid the way a human pays (PlayerControllerHuman.payManaCost):
+    // PlaySpellAbility.payManaCost announces X and applies the cost
+    // adjustments (a power-up's reduction, CostAdjustment.java:225), then
+    // asks applyManaToCost.
     @Override
     public boolean payManaCost(ManaCost toPay, CostPartMana costPartMana, SpellAbility sa, String prompt,
             ManaConversionMatrix matrix, boolean effect) {
-        ManaCostBeingPaid cost = new ManaCostBeingPaid(toPay);
-        if (!player.getManaPool().payManaCostFromPool(cost, sa, false, sa.getPayingMana())) {
-            throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + sa);
+        return PlaySpellAbility.payManaCost(this, toPay, costPartMana, sa, player, prompt, matrix, effect);
+    }
+
+    // The cost is paid from the pool the queued tapformana lines filled; a
+    // cost the pool cannot pay is an error, never an automatic tap.
+    @Override
+    public boolean applyManaToCost(ManaCostBeingPaid toPay, SpellAbility ability, String prompt,
+            ManaConversionMatrix matrix, boolean effect) {
+        if (!player.getManaPool().payManaCostFromPool(toPay, ability, false, ability.getPayingMana())) {
+            throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + ability);
         }
         return true;
     }
@@ -255,6 +315,18 @@ final class ScenarioController extends PlayerControllerForTests {
     @Override
     public SpellAbility getAbilityToPlay(Card hostCard, List<SpellAbility> abilities, ITriggerEvent triggerEvent) {
         return abilities.isEmpty() ? null : abilities.get(0);
+    }
+
+    // An "as it enters, choose a card name" replacement GameState's setup
+    // runs names nothing, as Go's fixture.Load runs none: the setup's
+    // NamedCard: is added after (GameState.java:1073-1076). In play a name
+    // is a queued answer, not mapped yet.
+    @Override
+    public String chooseCardName(SpellAbility sa, Predicate<ICardFace> cpp, String valid, String message) {
+        if (!answers.bound()) {
+            return "";
+        }
+        throw new IllegalStateException("naming a card for " + sa + " needs queue cardname");
     }
 
     // A trigger that never uses the stack takes its targets the same way.

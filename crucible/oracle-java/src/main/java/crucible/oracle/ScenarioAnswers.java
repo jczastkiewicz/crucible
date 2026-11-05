@@ -2,6 +2,7 @@ package crucible.oracle;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -25,10 +26,14 @@ final class ScenarioAnswers {
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
-     * ran it in; afterResolve when a resolvestack line came before it since
-     * the previous play, so it waits for the stack to empty.
+     * ran it in, or a queued action (pass, cast, activate, manaability) with
+     * the turn and phase of the priority round that takes it. arg is the
+     * color or the ability index. afterResolve when a resolvestack or
+     * passpriority line came before a play since the previous one, so it
+     * waits for the stack to empty. line is the actions.log line.
      */
-    record Play(String verb, String player, int turn, PhaseType phase, int id, String color, boolean afterResolve) {
+    record Play(int line, String verb, String player, int turn, PhaseType phase, int id, String arg,
+            boolean afterResolve) {
     }
 
     private final Deque<List<Integer>> attackers = new ArrayDeque<>();
@@ -36,7 +41,11 @@ final class ScenarioAnswers {
     private final Deque<String> attackTargets = new ArrayDeque<>();
     private final Deque<List<String>> targets = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
+    // Go's ScriptedController keeps one action queue per player (TakeAction).
+    private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
     private boolean resolved;
+    private int lastRound = -1;
+    private boolean resolvedForAction;
     private Game game;
     private Map<Integer, Card> idToCard;
 
@@ -70,34 +79,103 @@ final class ScenarioAnswers {
     }
 
     /** Queues a play line; args are the line's words after the verb. */
-    void play(String verb, String[] args, int turn, PhaseType phase) {
+    void play(int line, String verb, String[] args, int turn, PhaseType phase) {
         if (verb.equals("castspell") || verb.equals("playland") ? args.length != 2 : args.length != 3) {
             throw new IllegalArgumentException(verb + " " + String.join(" ", args));
         }
-        plays.add(new Play(verb, args[0], turn, phase, Integer.parseInt(args[1]), args.length > 2 ? args[2] : null,
-                resolved));
+        plays.add(new Play(line, verb, args[0], turn, phase, Integer.parseInt(args[1]),
+                args.length > 2 ? args[2] : null, resolved));
         resolved = false;
+    }
+
+    /**
+     * Queues a `queue action <player> <kind> ...` line (fixture
+     * resolveAction), taken at that player's priority in the given turn and
+     * phase; round is the line of the passpriority or step that takes it. A door, unlockdoor, foretell, plot, suspend and turnfaceup are
+     * not mapped.
+     */
+    void action(int line, String[] args, int round, int turn, PhaseType phase) {
+        if (args.length < 2) {
+            throw new IllegalArgumentException(String.join(" ", args));
+        }
+        String kind = args[1];
+        int want = switch (kind) {
+            case "pass" -> 2;
+            case "cast", "playland" -> 3;
+            case "activate", "manaability", "tapformana" -> 4;
+            default -> -1;
+        };
+        if (args.length != want) {
+            throw new IllegalArgumentException(String.join(" ", args));
+        }
+        String verb = switch (kind) {
+            case "cast" -> "castspell";
+            default -> kind;
+        };
+        int id = want > 2 ? Integer.parseInt(args[2]) : 0;
+        // An action of a later round than the one before waits for the
+        // stack the earlier round left to empty.
+        // So does one after a resolvestack or passpriority line.
+        boolean later = lastRound >= 0 && round != lastRound || resolvedForAction;
+        lastRound = round;
+        resolvedForAction = false;
+        actions.computeIfAbsent(args[0].toLowerCase(), k -> new ArrayDeque<>())
+                .add(new Play(line, verb, args[0], turn, phase, id, want > 3 ? args[3] : null, later));
     }
 
     /** A resolvestack line: the next play waits for an empty stack. */
     void resolveStack() {
         resolved = true;
+        resolvedForAction = true;
     }
 
-    /** The next play when it is p's, now; else null (p passes). */
+    /**
+     * The next play when it is p's, now, else p's next queued action when it
+     * is due now; else null (p passes).
+     */
     Play nextPlayFor(Player p) {
         Play next = plays.peek();
-        if (next == null || !next.player().equalsIgnoreCase(p.getName())
-                || game.getPhaseHandler().getTurn() != next.turn() || !game.getPhaseHandler().is(next.phase())
-                || next.afterResolve() && !game.getStack().isEmpty()) {
-            return null;
+        // A tapformana is made at whoever's priority comes first: Go's
+        // harness taps outside the priority loop.
+        if (next != null && (next.player().equalsIgnoreCase(p.getName()) || next.verb().equals("tapformana"))
+                && now(next)
+                && (!next.afterResolve() || game.getStack().isEmpty())) {
+            return plays.poll();
         }
-        return plays.poll();
+        // An action waits for the first priority at or after its round: Go
+        // keeps it queued through a step that gives none.
+        Deque<Play> own = actions.get(p.getName().toLowerCase());
+        // Nor before a play an earlier line made.
+        if (own != null && own.peek() != null && due(own.peek())
+                && (!own.peek().afterResolve() || game.getStack().isEmpty())
+                && (next == null || next.line() > own.peek().line())) {
+            return own.poll();
+        }
+        return null;
+    }
+
+    private boolean due(Play play) {
+        int turn = game.getPhaseHandler().getTurn();
+        return turn > play.turn()
+                || turn == play.turn() && game.getPhaseHandler().getPhase().ordinal() >= play.phase().ordinal();
+    }
+
+    private boolean now(Play play) {
+        return game.getPhaseHandler().getTurn() == play.turn() && game.getPhaseHandler().is(play.phase());
     }
 
     /** True once every play line was made: the checkpoint waits for it. */
     boolean playsDone() {
         return plays.isEmpty();
+    }
+
+    /**
+     * True once every queued action was taken: a checkpoint at a priority
+     * waits for it, one in a step without priority does not, as Go's queue
+     * keeps what no round took.
+     */
+    boolean actionsDone() {
+        return actions.values().stream().allMatch(Deque::isEmpty);
     }
 
     /** The next targets answer as entities. */
@@ -111,6 +189,11 @@ final class ScenarioAnswers {
             out.add(entity(v.strip()));
         }
         return out;
+    }
+
+    /** True once bind ran: the setup is applied. */
+    boolean bound() {
+        return game != null;
     }
 
     /** Binds the answers to the game GameState set up, once applyToGame ran. */

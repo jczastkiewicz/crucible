@@ -28,9 +28,11 @@ final class ScenarioLobbyPlayer extends LobbyPlayer implements IGameEntitiesFact
         return p;
     }
 
+    // The controlled player's decisions are still the slave's queued lines
+    // (Go names them by the player who makes them).
     @Override
     public PlayerController createMindSlaveController(Player master, Player slave) {
-        return controller;
+        return new ScenarioController(slave.getGame(), slave, this, atCheckpoint, answers);
     }
 
     @Override

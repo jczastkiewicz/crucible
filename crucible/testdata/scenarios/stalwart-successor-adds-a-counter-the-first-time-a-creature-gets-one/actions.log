@@ -1,0 +1,9 @@
+# Battlegrowth puts a +1/+1 counter on the Bears, the first counters it gets
+# this turn, so Stalwart Successor's Mode$ CounterTypeAddedAll (FirstTime$)
+# trigger puts another one on it.
+startturn human
+advance 3
+tapformana human 3 G
+queue targets 2
+castspell human 4
+resolvestack

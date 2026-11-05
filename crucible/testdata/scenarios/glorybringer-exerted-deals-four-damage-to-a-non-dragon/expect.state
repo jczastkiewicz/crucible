@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Declare Attackers
+humanlife=20
+humanbattlefield=Glorybringer|Id:1|Tapped
+ailife=20
+aigraveyard=Hill Giant|Id:2

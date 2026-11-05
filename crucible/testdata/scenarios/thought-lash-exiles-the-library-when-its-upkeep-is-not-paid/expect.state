@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Upkeep
+humanlife=20
+humangraveyard=Thought Lash|Id:1
+humanexile=Island|Id:2|ExiledWith:1;Island|Id:3|ExiledWith:1;Island|Id:4|ExiledWith:1
+ailife=20

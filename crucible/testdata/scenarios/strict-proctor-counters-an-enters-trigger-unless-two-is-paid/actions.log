@@ -1,0 +1,11 @@
+# Elvish Visionary entering triggers its draw, and Strict Proctor's Mode$
+# AbilityTriggered (ValidMode$ ChangesZone) counters that trigger unless its
+# controller pays {2}. Human declines: no card is drawn.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 4
+queue confirmpaycost false
+resolvestack

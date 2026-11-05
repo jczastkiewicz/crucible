@@ -82,8 +82,8 @@ until then that scenario is `not runnable`. Reason: no third identity scheme.
 **Comparison: option 2.** Both sides write `GameState` text: Java `GameState.toString`, Go `fixture.Dump`. The
 normaliser (`crucible/tools/l2diff`, Go, with its own tests) applies these rules:
 
-- It renumbers `Id:` in dump order and rewrites every reference through the renumbering: `AttachedTo`, `ExiledWith`,
-  `RememberedCards`.
+- It keeps `Id:` only on a card a reference names, renumbers those in dump order and rewrites every reference through
+  the renumbering: `AttachedTo`, `ExiledWith`, `RememberedCards`. Java writes `Id:` only for a referenced card.
 - Java's run writes Crucible-only keys from Java's own model: `over=`, `lost=` and `won=` from `Game.isGameOver` and the
   outcome, `monarch=`, `initiative=`, `Protector:`. They are compared, not dropped.
 - Designation cards leave Java's command zone: "The Monarch", "The Initiative" and "The Ring", the cards

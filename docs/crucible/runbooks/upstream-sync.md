@@ -174,6 +174,16 @@ changed; reverting it only delays learning.
 
 ---
 
+## When the L2 runner breaks
+
+`crucible/oracle-java/l2-run.sh` compiles against upstream test classes (`LobbyPlayerForTests`,
+`PlayerControllerForTests`) and drives `GameState` and `PhaseHandler` directly (ADR-0060). A sync that renames or moves
+any of them fails the runner's `javac` step or turns every scenario into an `error` in `l2diff diff`'s report. Fix
+`ScenarioRunner.java` against the new upstream code, rerun the three commands in
+[l2-verbs.md](../porting/port-log/l2-verbs.md), and compare the `same` count with the one before the sync.
+
+---
+
 ## Checking locally before pushing
 
 Optional — CI runs all of it on the pull request — but it turns a red check into a fixed one before anybody sees it.

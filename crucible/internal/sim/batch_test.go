@@ -282,6 +282,40 @@ func TestDeckCommandersAreReadCheckedAndSeatedUnderTheVariant(t *testing.T) {
 	}
 }
 
+// The Avatar and Planes sections are read, checked and seated under their
+// variants (ADR-0056): a Vanguard and Planechase game of blank decks, its
+// first plane turned face up, still ends by decking.
+func TestDeckAvatarsAndPlanesAreSeatedUnderTheirVariants(t *testing.T) {
+	t.Parallel()
+	d := deck.Parse("t.dck", []byte("[Main]\n1 Island\n[Avatar]\n1 Guide\n[Planes]\n2 Realm\n"))
+	got := sim.DeckFromList("T", d)
+	if !slices.Equal(got.Avatars, []string{"Guide"}) || !slices.Equal(got.Planes, []string{"Realm", "Realm"}) {
+		t.Errorf("avatars %v, planes %v; want [Guide], [Realm Realm]", got.Avatars, got.Planes)
+	}
+
+	s := spec(t)
+	s.DB = blankDB(t, "Blank", "Guide", "Realm")
+	s.Variant = engine.VariantVanguard | engine.VariantPlanechase
+	for i := range s.Decks {
+		s.Decks[i].Avatars = []string{"Guide"}
+		s.Decks[i].Planes = []string{"Realm", "Realm"}
+	}
+	res, err := sim.RunBatch(context.Background(), s, 2, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range res {
+		if r.Outcome != sim.Won {
+			t.Errorf("game %d: %v %q, want a win by decking", r.Index, r.Outcome, r.Detail)
+		}
+	}
+
+	s.Decks[1].Planes = []string{"No Such Plane"}
+	if _, err := sim.RunBatch(context.Background(), s, 1, 1); err == nil || !strings.Contains(err.Error(), "No Such Plane") {
+		t.Errorf("unknown plane: err = %v, want it named", err)
+	}
+}
+
 func TestGauntletAlternatesSeatsAndTurnOrder(t *testing.T) {
 	t.Parallel()
 	gt := sim.Gauntlet{

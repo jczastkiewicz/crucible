@@ -45,7 +45,8 @@ cd crucible && go run ./cmd/crucible card-smoke -all -workers 8     # or -decks 
 # The controller is the smoke default-answer one until M7, so results measure the pipeline, not the decks.
 cd crucible && go run ./cmd/crucible run -target a.dck -vs b.dck,decks/ -games 100 -seed 1 -turns 60 -workers 8 -out runs/x
 cd crucible && go run ./cmd/crucible report -run runs/x
-# -variant commander: Commander rules (ADR-0055: 40 life, commander damage, 903.9a) and each deck's [Commander] section seated.
+# -variant commander,vanguard,planechase (any subset): Commander rules (ADR-0055) and each deck's [Commander], [Avatar] and
+# [Planes] section seated under its variant (ADR-0056); the probe controller never rolls the planar die.
 # -top 80 shows the long tail (default 25). Many refusals are probe-controller artifacts (internal/smoke/controller.go:
 # repeated Charm modes, forced blocks), not engine gaps: check those first, they flip many cards at once.
 

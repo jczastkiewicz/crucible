@@ -43,7 +43,7 @@ func runCmd(args []string) error {
 	timeout := fs.Duration("timeout", 2*time.Minute, "wall-clock limit per game before it is reported hung")
 	out := fs.String("out", "", "run directory to create (must not exist)")
 	top := fs.Int("top", 10, "cards printed per deck")
-	variantName := fs.String("variant", "", "game variant: \"commander\" seats each deck's Commander section (ADR-0055); empty for constructed")
+	variantName := fs.String("variant", "", "game variants, comma-separated: commander, vanguard, planechase; each seats its deck section (ADR-0055, ADR-0056); empty for constructed")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 	for _, sec := range []struct {
 		section deck.Section
 		into    *[]string
-	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}, {deck.Commander, &out.Commanders}} {
+	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}, {deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes}} {
 		for _, e := range d.Cards(sec.section) {
 			name, ok := byLower[strings.ToLower(e.Name)]
 			if !ok {
@@ -235,12 +235,18 @@ func deckInfos(gt sim.Gauntlet) []store.DeckInfo {
 		sorted := append([]string(nil), d.Cards...)
 		sort.Strings(sorted)
 		text := strings.Join(sorted, "\n")
-		if len(d.Commanders) > 0 {
-			// Two lists that differ only in their commander are different
-			// decks (ADR-0055); a list with none keeps its old digest.
-			cmds := append([]string(nil), d.Commanders...)
-			sort.Strings(cmds)
-			text += "\n[Commander]\n" + strings.Join(cmds, "\n")
+		for _, sec := range []struct {
+			header string
+			names  []string
+		}{{"Commander", d.Commanders}, {"Avatar", d.Avatars}, {"Planes", d.Planes}} {
+			if len(sec.names) == 0 {
+				continue
+			}
+			// Two lists that differ only in a variant section are different
+			// decks (ADR-0055, ADR-0056); a list with none keeps its digest.
+			names := append([]string(nil), sec.names...)
+			sort.Strings(names)
+			text += "\n[" + sec.header + "]\n" + strings.Join(names, "\n")
 		}
 		sum := sha256.Sum256([]byte(text))
 		infos[i] = store.DeckInfo{Name: d.Name, Hash: hex.EncodeToString(sum[:8])}
@@ -322,14 +328,25 @@ func printSummary(w io.Writer, s telemetry.Summary, top int) {
 	}
 }
 
-// parseVariant reads -variant: empty for a constructed game, "commander"
-// for the Commander variant (ADR-0055), anything else an error.
-func parseVariant(name string) (engine.Variant, error) {
-	switch name {
-	case "":
+// parseVariant reads -variant: empty for a constructed game, else a comma
+// list of "commander", "vanguard" and "planechase" (ADR-0055, ADR-0056);
+// anything else is an error.
+func parseVariant(list string) (engine.Variant, error) {
+	var v engine.Variant
+	if list == "" {
 		return 0, nil
-	case "commander":
-		return engine.VariantCommander, nil
 	}
-	return 0, fmt.Errorf("run: -variant %q: want \"commander\" or nothing", name)
+	for _, name := range strings.Split(list, ",") {
+		switch strings.TrimSpace(name) {
+		case "commander":
+			v |= engine.VariantCommander
+		case "vanguard":
+			v |= engine.VariantVanguard
+		case "planechase":
+			v |= engine.VariantPlanechase
+		default:
+			return 0, fmt.Errorf("run: -variant %q: want a comma list of commander, vanguard, planechase", list)
+		}
+	}
+	return v, nil
 }

@@ -52,25 +52,33 @@ var outcomeNames = [...]string{"won", "draw", "turn cap", "errored", "panicked",
 func (o Outcome) String() string { return outcomeNames[o] }
 
 // Deck is one side's main deck, one entry per card (copies repeated), its
-// sticker sheets (the Stickers section, CR 123.2a) and its commanders (the
-// Commander section), seated at the start of each game. Commanders are
-// seated only under the Commander variant (Plan.Variant): Java builds the
-// game from the main deck and reads the section only for a commander
-// variant (Match.java:344, RegisteredPlayer.java:135-157).
+// sticker sheets (the Stickers section, CR 123.2a), its commanders (the
+// Commander section), its Vanguard avatars (Avatar) and its planar deck
+// (Planes), seated at the start of each game. A variant section is seated
+// only under its variant (Plan.Variant): Java builds the game from the main
+// deck and reads each section only for its variant (Match.java:344,
+// RegisteredPlayer.java:135-181, ADR-0055, ADR-0056).
 type Deck struct {
 	Name       string
 	Cards      []string
 	Stickers   []string
 	Commanders []string
+	Avatars    []string
+	Planes     []string
 }
 
 // DeckFromList flattens a parsed decklist's main, Stickers and Commander
 // sections.
 func DeckFromList(name string, d *deck.Deck) Deck {
 	out := Deck{Name: name}
-	for _, e := range d.Cards(deck.Commander) {
-		for i := 0; i < e.Count; i++ {
-			out.Commanders = append(out.Commanders, e.Name)
+	for _, sec := range []struct {
+		section deck.Section
+		into    *[]string
+	}{{deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes}} {
+		for _, e := range d.Cards(sec.section) {
+			for i := 0; i < e.Count; i++ {
+				*sec.into = append(*sec.into, e.Name)
+			}
 		}
 	}
 	for _, e := range d.Cards(deck.Main) {
@@ -226,7 +234,7 @@ func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
 				continue
 			}
 			checked[d.Name] = true
-			for _, name := range slices.Concat(d.Cards, d.Stickers, d.Commanders) {
+			for _, name := range slices.Concat(d.Cards, d.Stickers, d.Commanders, d.Avatars, d.Planes) {
 				if _, ok := plan.DB.Card(name); !ok {
 					return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
 				}
@@ -420,8 +428,24 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 			def, _ := plan.DB.Card(name)
 			g.NewCard(def, pid, engine.Library)
 		}
-		// Player.initVariantsZones (Player.java:3016-3025): the commanders,
-		// after the library and before the sticker sheets.
+		// Player.initVariantsZones, in its order: the Vanguard avatars
+		// (Player.java:2978-2985), the planar deck (:3006-3012, shuffled by
+		// DealOpeningHands), the commanders (:3016-3025), then the sticker
+		// sheets.
+		if g.HasVariant(engine.VariantVanguard) {
+			for _, name := range d.Avatars {
+				def, _ := plan.DB.Card(name)
+				g.SeatAvatar(pid, def)
+			}
+		}
+		if g.HasVariant(engine.VariantPlanechase) {
+			planes := make([]*compile.Card, 0, len(d.Planes))
+			for _, name := range d.Planes {
+				def, _ := plan.DB.Card(name)
+				planes = append(planes, def)
+			}
+			g.SeatPlanarDeck(pid, planes)
+		}
 		if g.HasVariant(engine.VariantCommander) {
 			for _, name := range d.Commanders {
 				def, _ := plan.DB.Card(name)
@@ -450,8 +474,12 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 	}
 	first := engine.DealOpeningHands(g, ctl)
 	engine.PerformMulligans(g, ctl, first)
-	g.StartTurn(first, ctl)
-	err := g.Run(engine.NewRegistry(), ctl, plan.MaxTurns)
+	// GameAction.java:2377-2381: the first plane and the planar dice.
+	err := g.InitPlanechase(first)
+	if err == nil {
+		g.StartTurn(first, ctl)
+		err = g.Run(engine.NewRegistry(), ctl, plan.MaxTurns)
+	}
 	res.Turns = g.Turn()
 	switch {
 	case err != nil:

@@ -42,6 +42,10 @@ func TestLoadSimDeckResolvesNamesAndNamesTheMissing(t *testing.T) {
 	if d, err := loadSimDeck(db, led); err != nil || len(d.Commanders) != 1 || d.Commanders[0] != "Krenko, Mob Boss" {
 		t.Errorf("commanders %+v (err %v), want Krenko, Mob Boss", d.Commanders, err)
 	}
+	variants := writeDeckFile(t, dir, "variants", "[Main]\n1 Mountain\n[Avatar]\n1 urza\n[Planes]\n1 krosa\n")
+	if d, err := loadSimDeck(db, variants); err != nil || len(d.Avatars) != 1 || d.Avatars[0] != "Urza" || len(d.Planes) != 1 || d.Planes[0] != "Krosa" {
+		t.Errorf("avatars %v, planes %v (err %v), want Urza and Krosa", d.Avatars, d.Planes, err)
+	}
 	bad := writeDeckFile(t, dir, "bad", "[Main]\n1 Not A Real Card\n1 Also Fake\n")
 	if _, err := loadSimDeck(db, bad); err == nil || !strings.Contains(err.Error(), "Not A Real Card") || !strings.Contains(err.Error(), "Also Fake") {
 		t.Errorf("missing cards: err = %v, want both named", err)
@@ -177,6 +181,9 @@ func TestParseVariantReadsCommanderOrNothing(t *testing.T) {
 	if v, err := parseVariant("commander"); err != nil || v != engine.VariantCommander {
 		t.Errorf(`parseVariant("commander") = %v, %v; want VariantCommander`, v, err)
 	}
+	if v, err := parseVariant("vanguard, planechase,commander"); err != nil || v != engine.VariantVanguard|engine.VariantPlanechase|engine.VariantCommander {
+		t.Errorf(`parseVariant(all three) = %v, %v; want all three`, v, err)
+	}
 	if _, err := parseVariant("brawl"); err == nil {
 		t.Error(`parseVariant("brawl"): want an error`)
 	}
@@ -190,9 +197,15 @@ func TestDeckHashTellsCommandersApart(t *testing.T) {
 		Opponents: []sim.Opponent{
 			{Deck: sim.Deck{Name: "b", Cards: main, Commanders: []string{"Krenko, Mob Boss"}}},
 			{Deck: sim.Deck{Name: "c", Cards: main, Commanders: []string{"Zada, Hedron Grinder"}}},
+			{Deck: sim.Deck{Name: "d", Cards: main, Avatars: []string{"Urza"}}},
+			{Deck: sim.Deck{Name: "e", Cards: main, Planes: []string{"Krosa"}}},
 		},
 	})
-	if infos[0].Hash == infos[1].Hash || infos[1].Hash == infos[2].Hash {
-		t.Errorf("hashes %v: want three distinct digests", infos)
+	seen := map[string]bool{}
+	for _, info := range infos {
+		if seen[info.Hash] {
+			t.Errorf("hashes %v: want five distinct digests", infos)
+		}
+		seen[info.Hash] = true
 	}
 }

@@ -21,10 +21,10 @@ import (
 )
 
 // charmUnresolvedParams are CharmEffect params this port does not model:
-// Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
-// dead script param, forge-java-defects.md and card-script-defects.md; refused until
-// the scripts drop it, PORT-8). ActivationLimit$/GameActivationLimit$ are enforced at
-// activation (activationLimitsMet, activateability.go).
+// Defined$, which CharmEffect never reads; upstream dropped its 40 dead
+// `Defined$ You` lines (#12312), so a script that brings one back is refused
+// rather than silently ignored (PORT-8). ActivationLimit$/GameActivationLimit$
+// are enforced at activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
 	"Defined",
 }

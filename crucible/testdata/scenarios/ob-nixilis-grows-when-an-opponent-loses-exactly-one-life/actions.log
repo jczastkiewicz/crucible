@@ -1,0 +1,10 @@
+# Ob Nixilis's Mode$ LifeLostAll (ValidAmountEach$ EQ1): Spark Jolt deals 1
+# damage to the opponent, so it gets a +1/+1 counter. Human's library is
+# empty, so the Dig exiles nothing and the play-it Effect is not created
+# (EffectEffect.java:93-95: no remembered object with ForgetOnMoved$).
+startturn human
+advance 3
+tapformana human 2 R
+queue targets ai
+castspell human 3
+resolvestack

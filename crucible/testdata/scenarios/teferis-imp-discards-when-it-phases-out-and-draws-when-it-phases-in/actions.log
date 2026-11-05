@@ -1,0 +1,9 @@
+# CR 702.26: Teferi's Imp phases out in human's untap step, and its Mode$
+# PhaseOut trigger discards a card (the Island). In human's next untap step it
+# phases in and its Mode$ PhaseIn trigger draws one (a Swamp).
+queue discardchoice 2
+startturn human
+resolvestack
+startturn ai
+startturn human
+resolvestack

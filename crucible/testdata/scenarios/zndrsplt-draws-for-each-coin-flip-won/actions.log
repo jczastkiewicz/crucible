@@ -1,0 +1,8 @@
+# Zndrsplt flips at the beginning of human's combat until human loses a flip
+# (FlipUntilYouLose$). With the scenario seed the first heads call wins and
+# the second loses: its Mode$ FlippedCoin (ValidResult$ Win) draws one card.
+startturn human
+queue coincall heads
+queue coincall heads
+advance 4
+resolvestack

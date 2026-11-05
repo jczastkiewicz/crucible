@@ -1,0 +1,14 @@
+# Tide of War's Mode$ BlockersDeclared: the Hill Giant blocks, human flips a
+# coin and calls heads. The scenario seed wins the flip, so each blocking
+# creature is sacrificed (Defined$ TriggeredBlockers). Chira's Mode$
+# FlippedCoinOnce (ValidPlayer$ You) gives it a +1/+1 counter and a tapped
+# Treasure.
+startturn human
+advance 5
+queue attackers 3
+declareattackers
+advance
+queue blocks 4=3
+declareblockers
+queue coincall heads
+resolvestack

@@ -839,6 +839,17 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueuePayColorlessHybrid(v)
 
+	case "coincall":
+		// CallCoinFlip: the flipping player's call (FlipCoinEffect.java).
+		switch value {
+		case "heads":
+			c.QueueCoinCall(true)
+		case "tails":
+			c.QueueCoinCall(false)
+		default:
+			return fmt.Errorf("queue coincall %q: want heads or tails", value)
+		}
+
 	case "payphyrexian":
 		v, err := strconv.ParseBool(value)
 		if err != nil {

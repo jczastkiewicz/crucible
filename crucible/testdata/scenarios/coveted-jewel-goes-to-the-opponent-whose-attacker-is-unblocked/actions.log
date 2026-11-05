@@ -1,0 +1,11 @@
+# Coveted Jewel's Mode$ AttackerUnblockedOnce (ValidAttackingPlayer$
+# Player.Opponent, ValidDefenders$ You): ai's Bears attack human and are not
+# blocked, so ai draws three cards and gains control of the Jewel, untapped.
+startturn ai
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks none
+declareblockers
+resolvestack

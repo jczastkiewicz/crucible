@@ -83,3 +83,21 @@ func TestAssistQueueVerbs(t *testing.T) {
 		}
 	}
 }
+
+// queue coincall answers the next coin call, heads or tails.
+func TestCoinCallQueueVerb(t *testing.T) {
+	t.Parallel()
+
+	l := load(t, bearDB(t), "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+	if err := runActions(t, l, c, "queue coincall tails\nqueue coincall heads\n"); err != nil {
+		t.Fatalf("runActions: %v", err)
+	}
+	human := l.Game.Players()[0]
+	if c.CallCoinFlip(l.Game, human, engine.NoCard) || !c.CallCoinFlip(l.Game, human, engine.NoCard) {
+		t.Error("coin calls, want tails then heads")
+	}
+	if err := runActions(t, l, engine.NewScriptedController(), "queue coincall edge\n"); err == nil {
+		t.Error("queue coincall edge did not error")
+	}
+}

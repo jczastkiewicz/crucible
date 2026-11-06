@@ -1,0 +1,13 @@
+# Nihil Spellbomb's dies trigger names OptionalDecider$ TriggeredCardController
+# (TriggerHandler.java:515-517): human, its controller, confirms, pays {B}
+# and draws. The trigger used to be skipped whenever the decider was not
+# You. L2: same as Java.
+startturn human
+advance 3
+queue action human activate 1 0
+queue targets ai
+queue cardorder 72,73
+queue optionaltrigger true
+tapformana human 100 B
+passpriority
+resolvestack

@@ -1,0 +1,16 @@
+# R20c gauntlet probe (High Noon): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue action human activate 1 0
+queue targets ai
+tapformana human 100 R
+tapformana human 101 R
+tapformana human 102 R
+tapformana human 103 R
+tapformana human 104 R
+passpriority

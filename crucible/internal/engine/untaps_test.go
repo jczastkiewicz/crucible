@@ -169,13 +169,11 @@ func TestStartTurnSkipsUntapsTriggerNamingOptionalDeciderWhenDeclined(t *testing
 	}
 }
 
-// TestStartTurnSkipsUntapsTriggerNamingUnresolvedOptionalDecider proves the
-// PORT-8 skip for an OptionalDecider$ value other than "You": the trigger
-// never even reaches the confirm step, since this port has no resolver for
-// who TriggeredCardController names as the decider (triggerIsOptional's own
-// doc comment) -- the identical "skip the whole line, don't guess" contract
-// every other unresolved trigger restriction in this file already has.
-func TestStartTurnSkipsUntapsTriggerNamingUnresolvedOptionalDecider(t *testing.T) {
+// TestStartTurnAsksTriggeredCardControllerForUntapsTrigger proves an
+// OptionalDecider$ other than You is resolved as a defined player
+// (TriggerHandler.java:515-517): the untapped creature's controller is asked,
+// and declining runs nothing.
+func TestStartTurnAsksTriggeredCardControllerForUntapsTrigger(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -184,6 +182,7 @@ func TestStartTurnSkipsUntapsTriggerNamingUnresolvedOptionalDecider(t *testing.T
 	c := g.NewCard(untapsCreatureDef(t, "Test Inspired", "Card.Self", "OptionalDecider$ TriggeredCardController"), a, engine.Battlefield)
 	g.Card(c).Tapped = true
 	sc := engine.NewScriptedController()
+	sc.QueueConfirmOptionalTrigger(false)
 
 	g.StartTurn(a, sc)
 	if err := g.ResolveStack(engine.NewRegistry(), sc); err != nil {
@@ -191,6 +190,6 @@ func TestStartTurnSkipsUntapsTriggerNamingUnresolvedOptionalDecider(t *testing.T
 	}
 
 	if got := g.Player(a).Life; got != 20 {
-		t.Errorf("a life = %d, want unchanged 20 -- an unresolved OptionalDecider$ value must skip the whole line, never asking", got)
+		t.Errorf("a life = %d, want unchanged 20 -- the TriggeredCardController decider declined", got)
 	}
 }

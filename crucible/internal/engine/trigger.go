@@ -3056,6 +3056,9 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 		return nil, 0, false, false
 	}
 	optional, ok := triggerIsOptional(t)
+	if !ok && otherOptionalDecider(t) {
+		optional, ok = true, true
+	}
 	if !ok {
 		return nil, 0, false, false
 	}
@@ -3122,23 +3125,14 @@ func triggerResolvedLimitMet(host *Card, t, execute *compile.Ability) bool {
 // runs, right before the ability's own body would (Ability.Optional's own
 // doc comment, ability.go, and Registry.Resolve, effect.go, carry that half).
 //
-// OptionalDecider$ You -- the ability's own Controller, already in scope at
-// every one of this function's own callers -- is 1,506 of the corpus's own
-// 1,584 real OptionalDecider$ lines corpus-wide (95%), and the ONLY decider
-// this function resolves: ok is false for every other real value
-// (TriggeredCardController, 43; True, 11; TriggeredSourceController, 5;
-// TriggeredPlayer/Opponent, 4 each; EnchantedController, 3;
-// TriggeredAttackingPlayer/TriggeredActivator/TargetedController, 2 each;
-// eleven more distinct values corpus-wide, 1 real line apiece) -- each names
-// a decider this port has no resolver for (a further AbilityUtils
-// .getDefinedPlayers-shaped question, distinct from the "You" case this
-// function answers directly off host.Controller() with none), so the whole
-// trigger line is skipped rather than confirmed against the wrong player or
-// run unconditionally as if it were mandatory (GO-7) -- the identical "skip
-// the line, don't guess" contract every other unresolved trigger param in
-// this file already has, chosen over Java's own "push regardless, ask
-// nobody" fallback because this port's own ConfirmOptionalTrigger has
-// nobody correct to ask yet.
+// OptionalDecider$ You -- the ability's own Controller -- is 1,506 of the
+// corpus's 1,584 real OptionalDecider$ lines (95%) and the one decider this
+// function answers: ok is false for every other value. triggerEffectAPI
+// accepts those through otherOptionalDecider (TriggeredCardController, 43;
+// TriggeredSourceController, 5; TriggeredPlayer/Opponent, 4 each, and the
+// rest), and optionalTriggerDecider resolves the player at resolution as a
+// defined player (TriggerHandler.java:515-517). True (11 lines) names no
+// player, so its line is skipped (GO-7).
 //
 // 83 more real lines name OptionalDecider$ on a sub-ability's own SVar body
 // rather than a T: line (a chained SubAbility$'s own independent "may," CR
@@ -3155,6 +3149,37 @@ func triggerIsOptional(t *compile.Ability) (optional, ok bool) {
 		return false, false
 	}
 	return true, true
+}
+
+// otherOptionalDecider reports whether t names an OptionalDecider$ other than
+// You that optionalTriggerDecider resolves at resolution: any Defined$ player
+// form but True (11 lines, which AbilityUtils.getDefinedPlayers answers with
+// no player, so TriggerHandler.java:517's get(0) has no decider to read).
+func otherOptionalDecider(t *compile.Ability) bool {
+	decider, ok := t.Param("OptionalDecider")
+	return ok && !strings.EqualFold(decider, "You") && !strings.EqualFold(decider, "True")
+}
+
+// optionalTriggerDecider is the player who confirms an optional trigger:
+// TriggerHandler.java:515-517 reads OptionalDecider$ as a defined player
+// (Nihil Spellbomb's TriggeredCardController), the ability's controller
+// otherwise.
+func (g *Game) optionalTriggerDecider(a *Ability) (PlayerID, error) {
+	if a.trigger == nil {
+		return a.Controller, nil
+	}
+	spec, ok := a.trigger.Param("OptionalDecider")
+	if !ok || strings.EqualFold(spec, "You") {
+		return a.Controller, nil
+	}
+	players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+	if err != nil {
+		return NoPlayer, fmt.Errorf("engine: OptionalDecider$ %q: %w", spec, err)
+	}
+	if len(players) == 0 {
+		return NoPlayer, fmt.Errorf("engine: OptionalDecider$ %q names no player", spec)
+	}
+	return players[0], nil
 }
 
 // checkAttackersDeclaredTrigger is CR 508.1's own "whenever a player

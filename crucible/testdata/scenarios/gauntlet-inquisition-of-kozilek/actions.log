@@ -1,0 +1,9 @@
+# R20c gauntlet probe (Inquisition of Kozilek): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue targets ai
+queue cardchoice 61
+tapformana human 100 B
+castspell human 1
+resolvestack

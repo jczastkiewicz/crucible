@@ -98,12 +98,12 @@ func TestDeclinedOptionalTriggerSkipsWholeAbilityChain(t *testing.T) {
 	}
 }
 
-// TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking proves the PORT-8
-// fail-closed half: a decider this port cannot resolve (anything other than
-// "You") skips the whole trigger line before ever reaching
-// ConfirmOptionalTrigger -- if it asked, the scripted controller's own empty
-// queue would panic, so a clean run with nothing drawn or lost proves the
-// question was never posed at all, not merely answered no.
+// TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking proves the
+// fail-closed half: OptionalDecider$ True, which getDefinedPlayers answers
+// with no player (TriggerHandler.java:517 has no decider to read), skips the
+// whole trigger line before ever reaching ConfirmOptionalTrigger -- if it
+// asked, the scripted controller's own empty queue would panic, so a clean
+// run with nothing drawn or lost proves the question was never posed at all.
 func TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking(t *testing.T) {
 	t.Parallel()
 
@@ -112,7 +112,7 @@ func TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
-	g.NewCard(optionalDeciderTriggerDef(t, "Test Optional Chain", "TriggeredCardController"), p, engine.Battlefield)
+	g.NewCard(optionalDeciderTriggerDef(t, "Test Optional Chain", "True"), p, engine.Battlefield)
 	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 
 	ac := engine.NewScriptedController()

@@ -116,8 +116,14 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if g != nil && !g.interveningIfHolds(a) {
 		return nil
 	}
-	if a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
-		return nil
+	if a.Optional {
+		decider, err := g.optionalTriggerDecider(a)
+		if err != nil {
+			return err
+		}
+		if !controller.ConfirmOptionalTrigger(g, decider, a.Source) {
+			return nil
+		}
 	}
 	if a.targetsErr != nil {
 		// The targets (or their division, or who chooses them) could not be

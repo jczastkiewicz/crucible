@@ -1,0 +1,9 @@
+# R20c gauntlet probe (Haywire Mite): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue action human activate 1 0
+queue targets 53
+tapformana human 100 G
+passpriority
+resolvestack

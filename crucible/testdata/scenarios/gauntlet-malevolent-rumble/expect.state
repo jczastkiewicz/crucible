@@ -1,0 +1,13 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Forest|Id:1|Tapped;Forest|Id:2|Tapped;T:c_0_1_eldrazi_spawn_sac|Id:26|SummonSick
+humanhand=Grizzly Bears|Id:7
+humangraveyard=Lightning Bolt|Id:4;Grizzly Bears|Id:5;Island|Id:6;Island|Id:8;Lightning Bolt|Id:9;Malevolent Rumble|Id:3
+humanlibrary=Island|Id:10
+ailife=20
+aibattlefield=Grizzly Bears|Id:11;Ornithopter|Id:12;Swamp|Id:13;Pacifism|Id:14|AttachedTo:11
+aihand=Island|Id:15;Lightning Bolt|Id:16;Grizzly Bears|Id:17
+aigraveyard=Shock|Id:18;Hill Giant|Id:19
+ailibrary=Island|Id:20;Island|Id:21;Island|Id:22;Island|Id:23;Island|Id:24;Island|Id:25

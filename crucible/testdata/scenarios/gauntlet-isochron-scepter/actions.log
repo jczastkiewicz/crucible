@@ -1,0 +1,13 @@
+# R20c gauntlet probe (Isochron Scepter): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric U
+queue paygeneric U
+queue optionaltrigger true
+queue cardchoice 2
+tapformana human 100 U
+tapformana human 101 U
+castspell human 1
+resolvestack
+resolvestack

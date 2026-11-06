@@ -1,0 +1,9 @@
+# CR 601.2h: Gitaxian Probe's {U/P} is paid with 2 life (payphyrexian false),
+# and Font of Agonies's Mode$ PayLife (ValidPlayer$ You) puts that many blood
+# counters on it (TriggerCount$LifeAmount).
+startturn human
+advance 3
+queue payphyrexian false
+queue targets ai
+castspell human 2
+resolvestack

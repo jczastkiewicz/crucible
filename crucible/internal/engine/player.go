@@ -5,6 +5,7 @@ package engine
 import (
 	"sort"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
@@ -23,6 +24,18 @@ type Player struct {
 	// Life is the current total. It goes negative before the state-based
 	// action that ends the game runs, so it is signed.
 	Life int
+	// StartingLife is Player.startingLife (Player.java:84): the total the
+	// player started the game at, 40 under the Commander variant
+	// (SetupVariant), a Subgame's StartingLife$, else twenty.
+	StartingLife int
+	// StartingHandSize is Player.startingHandSize and the base of
+	// maxHandSize (Game.java:379-380): the opening hand, the mulligan draw
+	// and the hand size cleanup discards to before Layer 8's effects
+	// (HandSizeLimit). Seven, unless a Vanguard avatar changes it.
+	StartingHandSize int
+	// avatars is RegisteredPlayer.vanguardAvatars: the avatars SeatAvatar
+	// seated, which a Subgame copies into its own Command zone.
+	avatars []*compile.Card
 	// Turn is how many turns this player has taken, which several card scripts
 	// count.
 	Turn int
@@ -72,6 +85,16 @@ type Player struct {
 	surveilThisTurn int
 	// commanders is Player.getCommanders in designation order (ADR-0051).
 	commanders []CardID
+	// commanderEffect is the Commander Effect card addCommander made in this
+	// player's Command zone (Player.commanderEffect, ADR-0053), NoCard before.
+	commanderEffect CardID
+	// commanderCasts is Player.commanderCast (Player.java:190): per commander,
+	// how many times this player cast it from the Command zone.
+	commanderCasts []commanderCastCount
+	// commanderDamage is Player.commanderDamage (Player.java:191): per real
+	// commander, the combat damage it dealt this player (noteCommanderDamage),
+	// in the order each first dealt some. Read by key, never for order.
+	commanderDamage []commanderCastCount
 	// expendThisTurn is Player.expentThisTurn (Player.java:3995-4000): the mana
 	// this player spent on spells this turn, what Mode$ ManaExpend counts.
 	expendThisTurn int
@@ -96,27 +119,24 @@ type Player struct {
 	// turn.go), not something a card ability triggers.
 	ManaPool Pool
 	// LandsPlayed is how many lands this player has played this turn (CR
-	// 305.2), read by PlayLand's own per-turn limit. LandsPlayedLastTurn is
-	// last turn's count, Java's own landsPlayedLastTurn -- no card in scope
-	// reads it yet (a replacement effect keyed on "if you've played a land
-	// this turn" would), but cleanupStep (turn.go) rolls it forward every
-	// turn regardless, the same "reset land-bearing state whether or not a
-	// reader exists yet" position CR 500.4's own mana-pool emptying is in.
-	// Both reset for every player at cleanup, not just the active one (CR
-	// 305.2's own scope: any player who played a land this turn, and every
-	// game player's Game.onCleanupPhase in Java runs the same reset over
-	// every registered player).
+	// 305.2), read by PlayLand's own per-turn limit. It resets for every
+	// player at cleanup (Player.onCleanupPhase, Player.java:2546): a player
+	// may play a land on another player's turn.
 	LandsPlayed int
 	// RollsThisTurn is the dice this player has rolled this turn
 	// (Player.getNumRollsThisTurn), read by a RolledDie trigger's Number$.
-	RollsThisTurn       int
-	LandsPlayedLastTurn int
+	RollsThisTurn int
+	// LandsPlayedMyLastTurn is the lands played during this player's own
+	// most recent turn, Java's landsPlayedMyLastTurn: only the player whose
+	// turn ends takes this turn's count (Player.java:2539-2545). No rules
+	// code reads it; Forge's AI does.
+	LandsPlayedMyLastTurn int
 	// CardsDrawnThisTurn is how many cards this player has drawn this turn
 	// (Java's own numDrawnThisTurn, Player.java), read by checkDrawnTriggers
 	// (trigger.go) for Mode$ Drawn's own Number$ param -- "whenever you draw
 	// your Nth card each turn." Incremented per card in DrawCards (below),
 	// the identical per-turn-counter shape LandsPlayed already has, reset for
-	// every player at cleanup (cleanupStep, turn.go) the same way.
+	// every player at cleanup (endCleanup, turn.go) the same way.
 	CardsDrawnThisTurn int
 	// DescendedThisTurn is CR's own "descend" tracker (Java's own
 	// Player.descended, Player.java) -- whether a permanent card has been put
@@ -126,7 +146,7 @@ type Player struct {
 	// Java's own field is an int count (getDescended() < 1); this port only
 	// ever asks whether it happened at all, so a bool is enough. Set in
 	// Game.Move (game.go) whenever a permanent, non-token card is moved into
-	// Graveyard, reset for every player at cleanup (cleanupStep, turn.go) the
+	// Graveyard, reset for every player at cleanup (endCleanup, turn.go) the
 	// identical way LandsPlayed/CardsDrawnThisTurn already are.
 	DescendedThisTurn bool
 	// descended is that count itself (Player.descended, Player.java:119,
@@ -140,6 +160,9 @@ type Player struct {
 	// Count$CommittedCrimeThisTurn and the committedCrimeThisTurn player
 	// property, reset at cleanup (Player.onCleanupPhase, :2501).
 	committedCrimes int
+	// elementalBends is Player.elementalBendThisTurn, one bit per
+	// elementalBendKinds entry, reset at cleanup (Player.java:2538).
+	elementalBends uint8
 	// DrawnThisDrawStep is how many cards this player has drawn while the
 	// game's current phase is Draw (Java's own numDrawnThisDrawStep,
 	// Player.java) -- distinct from CardsDrawnThisTurn's whole-turn count:
@@ -154,6 +177,10 @@ type Player struct {
 	// NotFirstCardInDrawStep$'s own "except the first one they draw in each
 	// of their draw steps" exemption.
 	DrawnThisDrawStep int
+	// extraDrawnThisTurn is Player.numExtraDrawnThisTurn: every card drawn
+	// this turn but the first of a draw step (Player.java:1252-1258), read
+	// by FirstExtraCardDrawnThisTurn$ before the draw counts it.
+	extraDrawnThisTurn int
 	// LifeGainedTimesThisTurn is how many separate times this player has
 	// gained life this turn (Java's own lifeGainedTimesThisTurn, Player.java)
 	// -- a count of EVENTS, not amount (LifeGainedThisTurn's own shape, not
@@ -162,7 +189,7 @@ type Player struct {
 	// FirstTime$: "whenever you gain life for the first time each turn."
 	// Incremented once per gainLifeEffect resolution (gainlifeeffect.go),
 	// the only life-gain call site this port has, reset for every player at
-	// cleanup (cleanupStep, turn.go) the identical way LandsPlayed/
+	// cleanup (endCleanup, turn.go) the identical way LandsPlayed/
 	// CardsDrawnThisTurn already are.
 	LifeGainedTimesThisTurn int
 	// LifeLostThisTurn is the life this player has lost this turn
@@ -178,6 +205,18 @@ type Player struct {
 	// :2493). Read by the LifeLostLastTurn player measure and
 	// Count$YouDrewLastTurn.
 	lifeLostLastTurn, drawnLastTurn int
+	// lifeStartedThisTurnWith is Player.lifeStartedThisTurnWith: the life
+	// total as the turn began, recorded at every cleanup (Player.java:2525).
+	// Until the first cleanup it reads 20, Java's field initializer
+	// (Player.java:85, taken before a variant sets startingLife); lifeStarted
+	// records whether a cleanup has run.
+	lifeStartedThisTurnWith int
+	lifeStarted             bool
+	// attractionsVisitedThisTurn is Player.attractionsVisitedThisTurn: the
+	// Attractions visited for the first time this turn (Player.java:4039-4040),
+	// zeroed at every cleanup (Player.java:2531). Read by the
+	// AttractionsVisitedThisTurn player measure.
+	attractionsVisitedThisTurn int
 	// exploredThisTurn is Player.getNumExploredThisTurn: the explores this
 	// player's permanents made this turn, counted even when the explorer left
 	// the battlefield (ExploreEffect.java:103).
@@ -323,12 +362,10 @@ type Player struct {
 	// also answers NoCard for a bearer another player controls.
 	ringBearer CardID
 	// planarDie is this player's "Planar Dice" effect card
-	// (Player.createPlanechaseEffects), NoCard until they first roll the
-	// planar die. Java creates one per player at the start of a Planechase
-	// game; this port has no match setup, so the roller's is made at their
-	// first roll, before its trigger could first fire -- and only the
-	// roller's, whose ValidPlayer$ You is the only one a roll can match
-	// (rollplanardiceeffect.go).
+	// (Player.createPlanechaseEffects, compile.DB.PlanarDiceEffect): made for
+	// every player by InitPlanechase (ADR-0056), or, in a game set up without
+	// it (a fixture), at the player's first roll, before its trigger could
+	// first fire (rollplanardiceeffect.go).
 	planarDie CardID
 	// lossHandled records that Game.onPlayerLost has run for this player:
 	// Java runs it once, as the loss is awarded (GameAction.
@@ -454,4 +491,11 @@ func (p *Player) Attachments() []CardID {
 		return nil
 	}
 	return p.attachments.All()
+}
+
+// commanderCastCount is one entry of Player.commanderCast (Player.java:190):
+// how many times the player cast commander from the Command zone.
+type commanderCastCount struct {
+	commander CardID
+	n         int
 }

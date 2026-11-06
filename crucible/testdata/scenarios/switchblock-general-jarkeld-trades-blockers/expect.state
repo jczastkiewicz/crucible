@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=EndCombat
 humanlife=20
-humanbattlefield=Grizzly Bears|Tapped|Damage:1;Craw Wurm|Tapped|Damage:3;General Jarkeld|Tapped
+humanbattlefield=Grizzly Bears|Tapped|Damage:1|Attacking;Craw Wurm|Tapped|Damage:3|Attacking;General Jarkeld|Tapped
 ailife=20
 aigraveyard=Hill Giant;Mons's Goblin Raiders

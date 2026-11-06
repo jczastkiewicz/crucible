@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Mass of Ghouls|Tapped
+humanbattlefield=Mass of Ghouls|Tapped|Attacking
 ailife=15

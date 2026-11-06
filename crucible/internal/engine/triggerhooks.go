@@ -1,7 +1,7 @@
 // Trigger modes whose effect or cost this port already resolves, fired from
 // that effect: Clashed, Proliferate, PayLife, Foretell, SearchedLibrary,
 // ManifestDread, GiveGift, Vote, BecomesTargetOnce, TapAll, AbilityTriggered,
-// AbilityResolves, ManaAdded, Championed, Enlisted and Unattached. Each is a player event with a few params tested against it,
+// AbilityResolves, ManaAdded, Championed, Enlisted, Unattached and FacesDilemma. Each is a player event with a few params tested against it,
 // fired through scanTriggers (triggerscan.go).
 
 package engine
@@ -27,6 +27,7 @@ var (
 	voteParams              = effectEventParams("list")
 	becomesTargetOnceParams = effectEventParams("validtarget", "validsource", "validcause")
 	tapAllParams            = effectEventParams("validcards")
+	facesDilemmaParams      = effectEventParams("validplayer", "random")
 	abilityTriggeredParams  = effectEventParams("validmode", "validdestination", "validspellability", "validsource", "validcause", "triggeredownability")
 	abilityResolvesParams   = effectEventParams("validspellability", "validsource")
 	manaAddedParams         = effectEventParams("validsource", "validsa", "player", "produced", "static")
@@ -58,6 +59,23 @@ func (g *Game) checkClashedTriggers(controller PlayerController, pid PlayerID, w
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+// checkFacesDilemmaTriggers is Mode$ FacesDilemma (TriggerFacesDilemma.java:
+// 15-25, 2 real lines), run as a player faces a dilemma choosing modes
+// (CharmEffect.faceDilemma, :208-215): ValidPlayer$ against the chooser;
+// Random$ (Chira) only when the modes were chosen at random.
+func (g *Game) checkFacesDilemmaTriggers(controller PlayerController, pid PlayerID, random bool) {
+	matches := g.scanTriggers([]string{"FacesDilemma"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, facesDilemmaParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("Random"); ok && !random {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
 // checkProliferateTriggers is Mode$ Proliferate (TriggerProliferate.java:14-22,
 // 7 real lines), run once per proliferate, chosen set empty or not
 // (CountersProliferateEffect.java:74). The player is the activator, not a
@@ -67,8 +85,9 @@ func (g *Game) checkProliferateTriggers(controller PlayerController, pid PlayerI
 }
 
 // checkPayLifeTriggers is Mode$ PayLife (TriggerPayLife.java, 1 real line),
-// run by Player.payLife (Player.java:600), whose one caller is CostPayLife:
-// life paid as a cost, never life lost to an effect. amount is the life the
+// run by Player.payLife (Player.java:600), whose callers are CostPayLife and
+// the Phyrexian mana payment: life paid as a cost, never life lost to an
+// effect. amount is the life the
 // cost named, TriggeredLifeAmount.
 func (g *Game) checkPayLifeTriggers(controller PlayerController, pid PlayerID, amount int) {
 	matches := g.scanTriggers([]string{"PayLife"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
@@ -187,27 +206,26 @@ func (g *Game) opponentVoters(ctrl PlayerID, votes [][]PlayerID, other bool) []P
 // not modelled, so its line is not fired (GO-7). The cause card is
 // TriggeredSource, the ability's controller TriggeredSourceSAController and
 // the targets TriggeredTargets.
-func (g *Game) becomesTargetOnceMatches(targets []EntityID, isSpellSource bool, sourceController PlayerID, cause CardID) []Ability {
+func (g *Game) becomesTargetOnceMatches(targets []EntityID, by *Ability) []Ability {
+	cause := by.Source
 	if len(targets) == 0 {
 		return nil
 	}
-	return g.scanTriggers([]string{"BecomesTargetOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+	return g.scanTriggers([]string{"BecomesTargetOnce"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
 		if !paramsResolvable(t, becomesTargetOnceParams) {
 			return triggeredObjects{}, false
 		}
 		if spec, ok := t.Param("ValidTarget"); ok && !attackedTargetMatches(g, h, targets, spec) {
 			return triggeredObjects{}, false
 		}
-		if spec, ok := t.Param("ValidSource"); ok && !becomesTargetSourceMatches(isSpellSource, sourceController, h.Controller(), spec) {
+		if spec, ok := t.Param("ValidSource"); ok && !g.becomesTargetSourceMatches(by, h, face.Amounts, spec) {
 			return triggeredObjects{}, false
 		}
 		if _, ok := t.Param("ValidCause"); ok && (cause == NoCard || !g.triggerCardMatches(h, t, "ValidCause", g.Card(cause))) {
 			return triggeredObjects{}, false
 		}
-		o := triggeredObjects{sourceSAController: sourceController, damagedTargets: append([]EntityID(nil), targets...), damagedTargetsRecorded: true}
-		if cause != NoCard {
-			o.source, o.sourceController = CardEntity(cause), g.Card(cause).Controller()
-		}
+		o := g.becomesTargetSourceObjects(by)
+		o.damagedTargets, o.damagedTargetsRecorded = append([]EntityID(nil), targets...), true
 		return o, true
 	})
 }

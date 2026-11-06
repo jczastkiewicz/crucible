@@ -78,7 +78,8 @@ func (g *Game) SetMonarch(p PlayerID) {
 // card ("The Monarch", "The Initiative", "The Ring", "Planar Dice"): state the
 // designation itself implies, which a fixture writes as monarch=/initiative=/
 // numringtemptedyou= rather than as a Command-zone card no database holds.
-// "Planar Dice" is written as nothing: Java makes one for every player of a
+// "Planar Dice" and the "Commander Effect" (written as the IsCommander option
+// that makes it, ADR-0053) are written as nothing. Java makes Planar Dice for every player of a
 // Planechase game (Player.createPlanechaseEffects), so no fixture line carries it.
 func (g *Game) IsDesignationCard(id CardID) bool {
 	if id == NoCard {
@@ -88,7 +89,7 @@ func (g *Game) IsDesignationCard(id CardID) bool {
 		return true
 	}
 	for _, pid := range g.Players() {
-		if pl := g.Player(pid); pl.monarchEffect == id || pl.initiativeEffect == id || pl.planarDie == id {
+		if pl := g.Player(pid); pl.monarchEffect == id || pl.initiativeEffect == id || pl.planarDie == id || pl.commanderEffect == id {
 			return true
 		}
 	}
@@ -212,7 +213,7 @@ func noPlayerStatic(g *Game, p PlayerID, mode string) (bool, error) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
 						continue

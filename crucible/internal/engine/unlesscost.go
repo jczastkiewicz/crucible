@@ -120,6 +120,10 @@ type unlessCost struct {
 	// (Cost.java:487-492).
 	exileEitherN    int
 	exileEitherSpec string
+	// moreExileEither are the further ExileCtrlOrGrave parts of a cost with
+	// several (Throne of the Grim Captain's Craft: a Dinosaur, a Merfolk, a
+	// Pirate and a Vampire), each paid in turn like moreExile.
+	moreExileEither []specCount
 	// addCounterN/addCounterType are AddCounter<N/Type>: put N counters of a
 	// kind on the source itself (CostPutCounter's CARDNAME shape, Fabricate).
 	addCounterN    int
@@ -129,6 +133,10 @@ type unlessCost struct {
 	// itself. Blight<N> is AddCounter<N/M1M1/Creature.YouCtrl>
 	// (CostBlight extends CostPutCounter).
 	addCounterSpec string
+	// activation is set while the cost pays for an activated ability being
+	// activated (payActivatedUnlessCost): its AddCounter part is a cost, not
+	// an effect, for an EffectOnly$ AddCounter replacement.
+	activation bool
 	// exileGraveN/exileGraveSpec are ExileFromGrave<N/Type>: N cards of the
 	// type exiled from the payer's graveyard (CostExile).
 	exileGraveN    int
@@ -437,6 +445,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.movedToGraveN, uc.movedToGraveSpec = n, p.Field(1)
 		case p.Name == "ExileCtrlOrGrave" && uc.exileEitherN == 0 && chosenCardSpecResolvable(p.Field(1)):
 			uc.exileEitherN, uc.exileEitherSpec = n, p.Field(1)
+		case p.Name == "ExileCtrlOrGrave" && uc.exileEitherN != 0 && n > 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.moreExileEither = append(uc.moreExileEither, specCount{n, p.Field(1)})
 		case p.Name == "RevealOrChoose" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec, uc.revealBattlefield = n, p.Field(1), true
 		case p.Name == "ChooseCard" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
@@ -834,7 +844,7 @@ func drawSpecResolvable(spec string) bool {
 		}
 		if hasProp {
 			switch prop {
-			case "targetedBy", "You", "Opponent", "Other", "Active", "NonActive":
+			case "targetedBy", "You", "Opponent", "Other", "Active", "!Active":
 			default:
 				if _, bound := boundDrawProp(prop); !bound {
 					return false
@@ -964,7 +974,7 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.removeAnyN > 0 && g.removableCounters(pid, source, uc) < uc.removeAnyN {
 		return false
 	}
-	if uc.evidenceN > 0 && graveyardManaValue(g, g.Zone(Graveyard, pid).Cards()) < uc.evidenceN {
+	if uc.evidenceN > 0 && graveyardManaValue(g, evidenceCandidates(g, pid, source)) < uc.evidenceN {
 		return false
 	}
 	if uc.youCounterN > 0 && (g.Player(pid).Lost || g.cantPutCounter(PlayerEntity(pid), uc.youCounterType)) {
@@ -1090,9 +1100,14 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	hand := handWithout(g.Zone(Hand, pid).Cards(), a.Source)
 	candidates := g.unlessSacCandidates(pid, a.Source, uc)
 	returnable := g.unlessReturnCandidates(pid, a.Source, uc)
-	if uc.lifeN > 0 {
+	// Player.payLife (Player.java:578-591): Event$ PayLife may replace it.
+	if uc.lifeN > 0 && !g.lifePaymentReplaced(controller, pid, uc.lifeN) {
 		g.Player(pid).Life -= uc.lifeN
+		if rec != nil {
+			rec.life += uc.lifeN
+		}
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(uc.lifeN)})
+		g.noteLifeLost(controller, pid, uc.lifeN)
 		g.checkPayLifeTriggers(controller, pid, uc.lifeN)
 	}
 	if uc.energyN > 0 {
@@ -1101,7 +1116,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.discardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, uc.discardN)
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, costDiscardCause(a))
 		if rec != nil {
 			for _, id := range chosen {
 				if g.Card(id).Zone != Hand {
@@ -1116,7 +1131,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		for _, i := range g.randomSample(len(hand), uc.discardRandomN) {
 			chosen = append(chosen, hand[i])
 		}
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, costDiscardCause(a))
 		if rec != nil {
 			for _, id := range chosen {
 				if g.Card(id).Zone != Hand {
@@ -1128,7 +1143,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	if uc.discardHand {
 		// Discard<N/Hand> (CostDiscard's "Hand" type): the payer discards the
 		// whole hand, no choice, and an empty hand pays it too.
-		discardCards(g, controller, slices.Clone(g.Zone(Hand, pid).Cards()), pid)
+		discardCards(g, controller, slices.Clone(g.Zone(Hand, pid).Cards()), pid, costDiscardCause(a))
 	}
 	if uc.sacN > 0 || uc.sacAll {
 		picks := candidates
@@ -1159,7 +1174,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.exileGraveN > 0 {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.exileGraveOptions(pid, a.Source, uc), uc.exileGraveN, uc.exileGraveN)
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1195,7 +1210,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		} else {
 			options = g.anyGraveCandidates(pid, a.Source, uc.exileMiscSpec)
 		}
-		exiled := g.exileCostCards(controller, a.Source, g.chosenUnlessCards(controller, pid, a.Source, options, n, n))
+		exiled := g.exileCostCards(controller, a, a.Source, g.chosenUnlessCards(controller, pid, a.Source, options, n, n))
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1222,7 +1237,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 			// cards that reach it stand in.
 			picks = g.totalCMCFallback(options, uc)
 		}
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1253,7 +1268,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.exileGraveAll {
-		exiled := g.exileCostCards(controller, a.Source, slices.Clone(g.Zone(Graveyard, pid).Cards()))
+		exiled := g.exileCostCards(controller, a, a.Source, slices.Clone(g.Zone(Graveyard, pid).Cards()))
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -1275,7 +1290,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.exileFieldN > 0 {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.costCandidates(pid, a.Source, false, Battlefield, uc.exileFieldSpec), uc.exileFieldN, uc.exileFieldN)
-		exileCards(g, controller, picks)
+		exileCards(g, controller, a, picks)
 		for _, id := range picks {
 			g.markExiledWith(id, a.Source)
 		}
@@ -1284,20 +1299,20 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.exileSelfGrave {
-		exiled := g.exileCostCards(controller, a.Source, []CardID{a.Source})
+		exiled := g.exileCostCards(controller, a, a.Source, []CardID{a.Source})
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
 	if uc.exileSelf {
-		exileCards(g, controller, []CardID{a.Source})
+		exileCards(g, controller, a, []CardID{a.Source})
 		if rec != nil {
 			rec.exiled = append(rec.exiled, a.Source)
 		}
 	}
 	for _, m := range uc.moreExile {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, g.costCandidates(pid, a.Source, false, Battlefield, m.spec), m.n, m.n)
-		exileCards(g, controller, picks)
+		exileCards(g, controller, a, picks)
 		for _, id := range picks {
 			g.markExiledWith(id, a.Source)
 		}
@@ -1343,17 +1358,14 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.tapN > 0 {
-		chosen := controller.ChoosePermanentsToTap(g, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN)
+		chosen := chooseTapType(g, controller, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN, uc.tapSpec)
 		tapChosenPermanents(g, controller, chosen)
 		if rec != nil {
 			rec.tapped = append(rec.tapped, chosen...)
 		}
 	}
 	if uc.youCounterN > 0 {
-		if n := g.countersReplaced(controller, pid, PlayerEntity(pid), uc.youCounterType, uc.youCounterN); n > 0 {
-			g.Player(pid).Counters.Add(uc.youCounterType, n)
-			emitCounterChanged(g, a.Source, PlayerEntity(pid), uc.youCounterType, n)
-		}
+		g.putPlayerCounters(controller, pid, a.Source, pid, uc.youCounterType, uc.youCounterN)
 	}
 	g.payExtraParts(controller, a, pid, uc, rec)
 	if uc.addCounterN > 0 {
@@ -1361,7 +1373,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		if uc.addCounterSpec != "" {
 			target = g.chosenUnlessCards(controller, pid, a.Source, g.unlessCounterTargets(pid, a.Source, uc), 1, 1)[0]
 		}
-		if n := g.countersReplaced(controller, pid, CardEntity(target), uc.addCounterType, uc.addCounterN); n > 0 {
+		if n := g.countersReplacedBy(controller, pid, CardEntity(target), uc.addCounterType, uc.addCounterN, !uc.activation); n > 0 {
 			// The payer places (CostPutCounter.java:182).
 			g.addCardCounters(controller, pid, a.Source, target, uc.addCounterType, n)
 		}
@@ -1435,14 +1447,22 @@ func escapeTypesPart(text string) (rest, spec string, n int, ok bool) {
 // by the whole graveyard, which unlessCardsPayable said is enough. It returns
 // the cards exiled, the cost's "Collected" paid list.
 func (g *Game) collectEvidence(controller PlayerController, pid PlayerID, source CardID, n int) []CardID {
-	grave := g.Zone(Graveyard, pid).Cards()
+	grave := evidenceCandidates(g, pid, source)
 	picks := controller.ChooseCardsForEffect(g, pid, source, grave, 1, len(grave))
 	if !isSubset(picks, grave) || hasDuplicate(picks) || graveyardManaValue(g, picks) < n {
 		picks = grave
 	}
-	picks = g.exileCostCards(controller, source, append([]CardID(nil), picks...))
+	picks = g.exileCostCards(controller, nil, source, append([]CardID(nil), picks...))
 	g.checkCollectEvidenceTriggers(controller, pid)
 	return picks
+}
+
+// evidenceCandidates is pid's graveyard less source: a spell cast from a
+// graveyard (Detective's Phoenix bestowed through its own grant) is on the
+// stack when Java pays its cost (PlaySpellAbility.java:624), so it is never its
+// own evidence; this port pays before the move.
+func evidenceCandidates(g *Game, pid PlayerID, source CardID) []CardID {
+	return handWithout(g.Zone(Graveyard, pid).Cards(), source)
 }
 
 // handWithout is hand less source: a spell being cast cannot be discarded to pay
@@ -1536,6 +1556,10 @@ func addManaColorOf(field string) mana.Colors {
 	return 0
 }
 
+// payZeroEchoKeyword is the player keyword Thick-Skinned Goblin grants; only
+// the Echo$ branch reads it (SacrificeEffect.java:40).
+const payZeroEchoKeyword = "You may pay 0 rather than pay the echo cost for permanents you control."
+
 // upkeepCostPaid is the Echo$ and CumulativeUpkeep$ branches of
 // SacrificeEffect.resolve: pay the cost or lose the permanent. proceed is true
 // when the sacrifice goes ahead -- the cost was not paid and the permanent is
@@ -1547,6 +1571,12 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	cumulative, isCumulative := a.Params.Param("CumulativeUpkeep")
 	if !isEcho && !isCumulative {
 		return true, nil
+	}
+	if isEcho && g.Player(a.Controller).HasKeyword(payZeroEchoKeyword) && controller.ConfirmEffect(g, a.Controller, a.Source) {
+		// SacrificeEffect.java:40-42 (Thick-Skinned Goblin): pay {0} instead,
+		// asked before the echo cost; paid, so PayEcho fires with Paid true.
+		g.checkUpkeepPaidTriggers(controller, source.ID, false, true, "")
+		return false, nil
 	}
 	text, n := echo, 1
 	if isCumulative {
@@ -1616,7 +1646,7 @@ func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string, cont
 	if len(cards) == 0 {
 		return "", errUnlessNoCost
 	}
-	mc := g.Card(cards[0]).Def.Faces[0].ManaCost
+	mc := g.Card(cards[0]).printedManaCost()
 	if mc.IsNoCost() || mc.CountX() > 0 {
 		return "", fmt.Errorf("engine: UnlessCost$ %q: the card's mana cost is not a plain cost", text)
 	}
@@ -1904,7 +1934,14 @@ func (g *Game) paySameGraveLibrary(controller PlayerController, pid PlayerID, so
 		}
 	}
 	options := g.sameGraveCandidates(pid, source, owner, uc.sameSpec)
-	for _, id := range g.chosenUnlessCards(controller, pid, source, options, uc.sameN, uc.sameN) {
+	chosen := g.chosenUnlessCards(controller, pid, source, options, uc.sameN, uc.sameN)
+	// PlaySpellAbility.java:301-302: the owner orders them (CR 401.4).
+	ordered, err := g.orderCardsByTheirOwners(controller, chosen, Library)
+	if err != nil {
+		g.recordPendingError(fmt.Errorf("engine: PutCardToLibFromSameGrave: %w", err))
+		ordered = chosen
+	}
+	for _, id := range ordered {
 		g.moveByEffect(controller, id, Library, uc.samePos, NoPlayer, false)
 	}
 }

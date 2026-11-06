@@ -36,11 +36,18 @@ type Loaded struct {
 
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
-	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
-	// no corresponding engine.Player field (PersistentMana, Speed, ...). Silently dropping these would make a fixture that names,
-	// say, a Monstrous creature pass while testing something other than what
+	// modeled yet, or a player-level field with
+	// no corresponding engine.Player field (PersistentMana, ...). Silently dropping these would make a fixture that names,
+	// say, a Solved case pass while testing something other than what
 	// it says.
 	Unapplied []string
+
+	// Attacking is each card written |Attacking (GameState.java:1429-1435),
+	// with the card it attacks, NoCard for a player. Load builds no combat
+	// from it: an expect.state's attackers are compared (TestScenarios), and
+	// RunActions refuses a setup.state that names one, since Java's setup
+	// puts the card into combat and Go's would not.
+	Attacking map[engine.CardID]engine.CardID
 
 	// settled is set once RunActions has applied ApplyStateEffects.
 	settled bool
@@ -107,7 +114,7 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: persistent mana -- engine.Pool has no persistence tracking yet (CR 500.4's own emptying applies to every kind of floating mana this port has)", slotName(slot)))
 		}
 		g.Player(pid).LandsPlayed = ps.LandsPlayed
-		g.Player(pid).LandsPlayedLastTurn = ps.LandsPlayedLastTurn
+		g.Player(pid).Speed = ps.Speed
 		for _, z := range []struct {
 			text string
 			kind engine.ZoneType
@@ -158,6 +165,19 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 	}
 	l.Unapplied = append(l.Unapplied, ld.unapplied...)
 	l.CardByFixtureID = ld.idToCard
+	if len(ld.attacking) > 0 {
+		l.Attacking = map[engine.CardID]engine.CardID{}
+		for _, a := range ld.attacking {
+			target := engine.NoCard
+			if a.hostID != 0 {
+				var ok bool
+				if target, ok = ld.idToCard[a.hostID]; !ok {
+					return nil, fmt.Errorf("attacking %d: no card has that id", a.hostID)
+				}
+			}
+			l.Attacking[a.card] = target
+		}
+	}
 	return l, nil
 }
 
@@ -191,10 +211,14 @@ type loader struct {
 	enchantsPlayer []playerAttachRef
 	remembers      []refList
 	imprints       []refList
+	chosen         []refList
 	// exiledWith pairs a card with the fixture id of the host it was
 	// exiled with (ExiledWith:), resolved with the rest.
 	exiledWith []attachRef
-	unapplied  []string
+	// attacking pairs an attacker with the fixture id of the card it
+	// attacks, 0 for a player (Attacking[:id]).
+	attacking []attachRef
+	unapplied []string
 }
 
 type playerAttachRef struct {
@@ -265,7 +289,7 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 	c := ld.game.Card(id)
 	c.IsToken = isToken
 
-	var remembered, imprinted []int
+	var remembered, imprinted, chosen []int
 	for _, info := range fields[1:] {
 		switch {
 		// Set: and Art: pick a printing. Crucible plays cards, not printings
@@ -281,6 +305,20 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.Tapped = true
 		case strings.HasPrefix(info, "SummonSick"):
 			c.SummonSick = true
+		case strings.HasPrefix(info, "Renowned"):
+			c.SetRenowned(true)
+		case strings.HasPrefix(info, "Monstrous"):
+			c.SetMonstrous(true)
+		case strings.HasPrefix(info, "OnAdventure"):
+			// GameState.java:1366: an exiled Adventure card that may be cast
+			// as its creature.
+			if kind != engine.Exile {
+				return fmt.Errorf("%s: OnAdventure: not in exile", name)
+			}
+			c.SetOnAdventure(true)
+		case strings.HasPrefix(info, "IsCommander"):
+			// GameState.java:1377: the section's player, the card's owner.
+			ld.game.AddCommander(owner, id)
 		case strings.HasPrefix(info, "Flipped"):
 			ld.game.Flip(id)
 		case strings.HasPrefix(info, "Transformed"):
@@ -288,6 +326,12 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			// shown on its back.
 			if !ld.game.Transform(id) {
 				return fmt.Errorf("%s: Transformed: not a transforming double-faced permanent", name)
+			}
+		case info == "FaceDown":
+			// GameState.java:1338-1339; the :Manifested and :Cloaked
+			// suffixes stay unapplied.
+			if (kind != engine.Battlefield && kind != engine.Exile) || !ld.game.TurnFaceDown(id) {
+				return fmt.Errorf("%s: FaceDown: cannot turn face down here", name)
 			}
 		case strings.HasPrefix(info, "PhasedOut"):
 			if err := ld.phasedOut(id, kind, info); err != nil {
@@ -361,6 +405,16 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: %w", name, err)
 			}
 			remembered = ids
+		case info == "Attacking" || strings.HasPrefix(info, "Attacking:"):
+			target := 0
+			if v, ok := strings.CutPrefix(info, "Attacking:"); ok {
+				n, err := strconv.Atoi(v)
+				if err != nil {
+					return fmt.Errorf("%s: %q: %w", name, info, err)
+				}
+				target = n
+			}
+			ld.attacking = append(ld.attacking, attachRef{id, target})
 		case strings.HasPrefix(info, "ExiledWith:"):
 			// GameState.java:1398/771-781: resolved once every card exists.
 			hostID, err := strconv.Atoi(strings.TrimPrefix(info, "ExiledWith:"))
@@ -368,6 +422,17 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: %q: %w", name, info, err)
 			}
 			ld.exiledWith = append(ld.exiledWith, attachRef{id, hostID})
+		case strings.HasPrefix(info, "ChosenColor:"):
+			// GameState.java:1399-1400: a comma list of color names.
+			var colors mana.Colors
+			for _, n := range strings.Split(strings.TrimPrefix(info, "ChosenColor:"), ",") {
+				col, ok := chosenColorByName[strings.ToLower(strings.TrimSpace(n))]
+				if !ok {
+					return fmt.Errorf("%s: %q: not a color", name, info)
+				}
+				colors |= col
+			}
+			c.Memory.SetChosenColors(colors)
 		case strings.HasPrefix(info, "ChosenType:"):
 			// ChosenType2: is its own key, so this never reaches the second
 			// slot.
@@ -378,6 +443,14 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			for _, n := range strings.Split(strings.TrimPrefix(info, "NamedCard:"), ",") {
 				c.Memory.AddNamedCard(n)
 			}
+		case strings.HasPrefix(info, "ChosenCards:"):
+			// GameState.java:1408-1414, set after every card is placed
+			// (:1081-1083).
+			ids, err := parseIDList(strings.TrimPrefix(info, "ChosenCards:"))
+			if err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+			chosen = ids
 		case strings.HasPrefix(info, "Imprinting:"):
 			ids, err := parseIDList(strings.TrimPrefix(info, "Imprinting:"))
 			if err != nil {
@@ -390,6 +463,9 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 	}
 	if remembered != nil {
 		ld.remembers = append(ld.remembers, refList{id, remembered})
+	}
+	if chosen != nil {
+		ld.chosen = append(ld.chosen, refList{id, chosen})
 	}
 	if imprinted != nil {
 		ld.imprints = append(ld.imprints, refList{id, imprinted})
@@ -471,6 +547,15 @@ func (ld *loader) resolveRefs() error {
 			ld.game.Card(r.card).Memory.Imprint(target)
 		}
 	}
+	for _, r := range ld.chosen {
+		for _, refID := range r.ids {
+			target, ok := ld.idToCard[refID]
+			if !ok {
+				return fmt.Errorf("chosencards %d: no card has that id", refID)
+			}
+			ld.game.Card(r.card).Memory.Choose(target)
+		}
+	}
 	for _, e := range ld.exiledWith {
 		host, ok := ld.idToCard[e.hostID]
 		if !ok {
@@ -545,15 +630,17 @@ func parseIDList(value string) ([]int, error) {
 // steal, a static pump or an already-lethal permanent in the fixture is
 // settled before the first step instead of at the first pass after it.
 //
-// Java sets a zero or negative life after that pass "for puzzles that rely on
+// Java sets a negative life after that pass "for puzzles that rely on
 // pre-setting negative life" (GameState.java:695-702); the same here, the
-// pass seeing such a player at 1 life. Load itself stays inert so that
+// pass seeing such a player at 1 life. A zero life is set before it
+// (setupPlayerState's life >= 0, GameState.java:1183), so the pass sees it
+// and the player loses at load. Load itself stays inert so that
 // expect.state, which is read back through Load, is never altered by it.
 func (l *Loaded) ApplyStateEffects(controller engine.PlayerController) {
 	g := l.Game
 	saved := map[engine.PlayerID]int{}
 	for _, pid := range g.Players() {
-		if p := g.Player(pid); p.Life <= 0 {
+		if p := g.Player(pid); p.Life < 0 {
 			saved[pid] = p.Life
 			p.Life = 1
 		}
@@ -562,4 +649,16 @@ func (l *Loaded) ApplyStateEffects(controller engine.PlayerController) {
 	for pid, life := range saved {
 		g.Player(pid).Life = life
 	}
+}
+
+// chosenColorNames are the names GameState writes for a chosen color
+// (MagicColor.Constant), in WUBRG order.
+var chosenColorNames = [...]struct {
+	color mana.Colors
+	name  string
+}{{mana.White, "white"}, {mana.Blue, "blue"}, {mana.Black, "black"}, {mana.Red, "red"}, {mana.Green, "green"}}
+
+// chosenColorByName reads ChosenColor:'s names back.
+var chosenColorByName = map[string]mana.Colors{
+	"white": mana.White, "blue": mana.Blue, "black": mana.Black, "red": mana.Red, "green": mana.Green,
 }

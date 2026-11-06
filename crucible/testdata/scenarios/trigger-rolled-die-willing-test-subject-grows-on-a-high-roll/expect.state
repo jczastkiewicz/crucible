@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Willing Test Subject|Id:1|Counters:P1P1=1;Forest|Id:2|Tapped;Forest|Id:3|Tapped;Forest|Id:4|Tapped;Forest|Id:5|Tapped;Forest|Id:6|Tapped;Forest|Id:7|Tapped
+ailife=20

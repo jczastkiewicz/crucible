@@ -64,3 +64,47 @@ func TestTriggersOfDifferentModesShareOneAPNAPPass(t *testing.T) {
 		}
 	})
 }
+
+// CR 603.3b: a player with several triggers that fire together orders them
+// (PlayerController.orderSimultaneousSa); with no answer the first found goes
+// on the stack first and so resolves last.
+func TestPlayerOrdersTheirSimultaneousTriggers(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		order []int
+		want  int // index of the watcher expected on top of the stack
+	}{
+		{"default", nil, 1},
+		{"first resolves first", []int{0, 1}, 0},
+		{"second resolves first", []int{1, 0}, 1},
+		{"not a permutation is ignored", []int{0, 0}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, _, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, other, engine.DeclareAttackers)
+			attacker := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+			var watchers [2]engine.CardID
+			for i := range watchers {
+				watchers[i] = g.NewCard(watcherDef(t, "Attacks Watcher", "Mode$ Attacks | ValidCard$ Creature | TriggerZones$ Battlefield",
+					"DB$ GainLife | Defined$ You | LifeAmount$ 1"), other, engine.Battlefield)
+			}
+			ac := engine.NewScriptedController()
+			ac.QueueAttackers([]engine.CardID{attacker})
+			if tc.order != nil {
+				ac.QueueTriggerOrder(tc.order)
+			}
+			declareAttackers(t, g, ac)
+
+			if got := g.StackLen(); got != 2 {
+				t.Fatalf("stack = %d, want both watchers' triggers", got)
+			}
+			if top, _ := g.StackTop(); top.Source != watchers[tc.want] {
+				t.Errorf("top of the stack is %v, want watcher %d (%v)", top.Source, tc.want, watchers[tc.want])
+			}
+		})
+	}
+}

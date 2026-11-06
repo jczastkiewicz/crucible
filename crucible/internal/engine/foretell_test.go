@@ -81,3 +81,29 @@ func TestForetellIsRefusedWithoutItsRequirements(t *testing.T) {
 		t.Error("foretold on another player's turn")
 	}
 }
+
+// A Mode$ ForetellAnyTurn static (Cosmos Charger, StaticAbilityForetell)
+// lets its controller foretell on another player's turn; without it the
+// special action is their own turn's only (CardFactoryUtil.java:2973).
+func TestForetellAnyTurnStaticAllowsForetellingOnAnOpponentsTurn(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(2, other, engine.Main1)
+	bolt := g.NewCard(corpusCard(t, "Demon Bolt"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Red, 2)
+	if g.Foretell(p, bolt, c) {
+		t.Fatal("foretold on an opponent's turn with no ForetellAnyTurn static")
+	}
+
+	g.NewCard(corpusCard(t, "Cosmos Charger"), p, engine.Battlefield)
+	c.QueuePayGeneric(mana.ShardR)
+	c.QueuePayGeneric(mana.ShardR)
+	if !g.Foretell(p, bolt, c) {
+		t.Fatal("could not foretell on an opponent's turn under Cosmos Charger")
+	}
+	if got := g.Card(bolt).Zone; got != engine.Exile {
+		t.Errorf("Demon Bolt is in %v, want Exile", got)
+	}
+}

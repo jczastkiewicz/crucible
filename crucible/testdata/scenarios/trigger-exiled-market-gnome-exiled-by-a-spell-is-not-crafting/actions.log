@@ -1,0 +1,10 @@
+# Market Gnome's Mode$ Exiled names WhileKeyword$ Ability.Craft
+# (Trigger.whileKeywordCheck): exiled by a spell, no cost is being paid for a
+# Craft ability, so it neither gains life nor draws. Swords gives its
+# controller life equal to its power, 0.
+startturn human
+advance 3
+tapformana human 3 W
+queue targets 4
+castspell human 1
+resolvestack

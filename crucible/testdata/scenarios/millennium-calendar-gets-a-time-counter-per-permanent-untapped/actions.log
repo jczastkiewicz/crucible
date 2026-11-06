@@ -1,0 +1,6 @@
+# The Millennium Calendar's Mode$ UntapAll (ValidPlayer$ You, Phase$ Untap):
+# human's untap step untaps three of human's permanents, so the trigger puts
+# three time counters on it (TriggerCount$Amount). The opponent's tapped Hill
+# Giant does not untap on human's turn and is not counted.
+startturn human
+resolvestack

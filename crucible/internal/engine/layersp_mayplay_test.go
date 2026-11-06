@@ -148,7 +148,8 @@ func TestMayPlayValidAfterStackAndValidSA(t *testing.T) {
 		{"cmc within the filter", "ValidAfterStack$ Spell.cmcLE2", "1 G", true},
 		{"cmc past the filter", "ValidAfterStack$ Spell.cmcLE2", "2 G", false},
 		{"a plain ValidSA$ Spell is every cast", "ValidSA$ Spell", "G", true},
-		{"an alternative cast the port cannot make", "ValidSA$ Spell.Blitz", "G", false},
+		{"a blitz-only grant to a card with no Blitz", "ValidSA$ Spell.Blitz", "G", false},
+		{"a ValidSA$ this port does not read", "ValidSA$ Spell.Flashback", "G", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

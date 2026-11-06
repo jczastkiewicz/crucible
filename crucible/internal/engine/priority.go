@@ -10,6 +10,7 @@ package engine
 import (
 	"fmt"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -80,6 +81,14 @@ const (
 	// ActionPlot plots Card via Plot: a special action (CR 116.2k), after
 	// which the player keeps priority.
 	ActionPlot
+	// ActionTurnFaceUp turns the face-down permanent Card face up via
+	// TurnFaceUp, its AbilityIndex'th way (faceUpWays): a special action
+	// (CR 116.2b), after which the player keeps priority.
+	ActionTurnFaceUp
+	// ActionSuspend exiles Card from the hand with its time counters via
+	// Suspend: a special action (CR 116.2f), after which the player keeps
+	// priority.
+	ActionSuspend
 )
 
 // canActSorcerySpeed is CR 307.1's own timing restriction (Player.java's
@@ -99,12 +108,10 @@ func (g *Game) canActSorcerySpeed(pid PlayerID) bool {
 // (PhaseHandler.java:240-451). Untap never does (CR 502.4). Cleanup only
 // does when a state-based action found something to do or the stack is
 // non-empty (CR 514.3a) -- checked here, not cached, since it can only be
-// known by actually running the check. The no-attackers/no-damage
-// combat-step cases (PhaseHandler.java:305-344) need a real per-step body
-// this port's own Combat does not have yet (turn.go's header) and are
-// deferred, not silently wrong: nothing calls PassPriority from those steps
-// until the turn structure wires it in. Every other phase grants it
-// unconditionally.
+// known by actually running the check. Every other phase grants it,
+// combat steps included: the driven turn skips a damage step that assigns
+// nothing itself (beginPhase, PhaseHandler.java:321-344), so PassPriority
+// only reaches one when a fixture walks there with advance.
 func (g *Game) givesPriority(phase PhaseType, controller PlayerController) bool {
 	switch phase {
 	case Untap:
@@ -191,12 +198,23 @@ func (g *Game) priorityRound(reg *Registry, controller PlayerController) error {
 		if len(g.stack) == 0 {
 			return nil
 		}
+		endTurn := g.stack[len(g.stack)-1].API == APIEndTurn
+		g.turnEndedByEffect = false
 		if err := g.resolveTop(reg, controller); err != nil {
 			return err
 		}
 		// A RestartGame resolution ends the round (ADR-0034): nobody in
 		// the old game is asked for anything more.
 		if g.restarted {
+			return nil
+		}
+		// An EndTurn spell or ability that ended the turn hands nobody
+		// priority (MagicStack.java:757-759 skips onStackResolved): the
+		// Cleanup it began grants it only under CR 514.3a, a window Step
+		// plays (Game.endTurnCleanup). One declined (Optional$) or whose
+		// condition failed leaves Java's givePriorityToPlayer as it was, so
+		// the round goes on; an EndTurn sub-ability is not the root's API.
+		if endTurn && g.turnEndedByEffect {
 			return nil
 		}
 		holder = g.activePlayer
@@ -251,12 +269,26 @@ func (g *Game) applyAction(pid PlayerID, a Action, controller PlayerController) 
 		if !g.Plot(pid, a.Card, controller) {
 			return &actionError{pid: pid, kind: "plot", card: a.Card}
 		}
+	case ActionTurnFaceUp:
+		if !g.TurnFaceUp(pid, a.Card, a.AbilityIndex, controller) {
+			return &actionError{pid: pid, kind: "turn face up", card: a.Card}
+		}
+	case ActionSuspend:
+		if !g.Suspend(pid, a.Card, controller) {
+			return &actionError{pid: pid, kind: "suspend", card: a.Card}
+		}
 	case ActionActivate:
 		if !g.ActivateAbility(pid, a.Card, a.AbilityIndex, controller) {
 			return &actionError{pid: pid, kind: "activate", card: a.Card, index: a.AbilityIndex}
 		}
 	case ActionPlayLand:
-		if !g.PlayLand(pid, a.Card, controller) {
+		played := false
+		if a.Door == DoorLeft {
+			played = g.PlayLand(pid, a.Card, controller)
+		} else {
+			played = a.Door == carddb.FaceAlternate && g.PlayLandFace(pid, a.Card, controller)
+		}
+		if !played {
 			return &actionError{pid: pid, kind: "play land", card: a.Card}
 		}
 	case ActionTapForMana:

@@ -1,0 +1,12 @@
+# R20c gauntlet probe (Endurance): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric G
+queue targets ai
+tapformana human 100 G
+tapformana human 101 G
+tapformana human 102 G
+castspell human 1
+resolvestack
+resolvestack

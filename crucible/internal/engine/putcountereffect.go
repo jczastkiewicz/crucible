@@ -33,30 +33,12 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
-// putCounterUnresolvedParams names CountersPutEffect's own params past
-// CounterType$/CounterNum$/Defined$ this port does not evaluate. Every one
-// fails the whole line loudly. TargetMin$/TargetMax$ are not among them:
-// resolveTargets (targeting.go) already asks for that many targets, and
-// each one chosen gets CounterNum$ counters. ETB$
-// (154) -- CR 614's own counters-added-simultaneously replacement table
-// (GameEntityCounterTable), the identical batching risk ChangesZoneAll's
-// own gap already documents (Not ported yet); ChoiceOptional$ (2) -- Java
-// passes it as isOptional with the minimum unchanged, which this port's
-// ChooseCardsForEffect has no flag for; DividedRandomly$/SplitAmount$
-// -- each its own distribution mechanic (DividedAsYouChoose$ over the
-// line's own targets resolves: divideAmongTargets, dividedtargets.go);
-// Monstrosity$/Adapt$/Support$/PowerUp$/Exhaust$ -- each its own
-// further keyword-ability mechanic buildSpellAbility itself rewrites into
-// this shape from a simpler keyword line; EachFromSource$/PutOnEachOther$/
-// PutOnDefined$/ChooseDifferent$/EachExistingCounter$/UniqueType$/
-// CounterTypePerDefined$/CounterNumPerDefined$/OnlyNewKind$/
-// RandomType$ -- each its own further per-target
-// mechanic; CounterTypes$ (17, plural) -- a different multi-type shape,
-// not this one; ForColor$/SharedKeywords$/SharedKeywordsDefined$/
-// SharedKeywordsZone$/SharedRestrictions$/TriggeredCounterMap$/
-// CounterMapValues$/SpecifyCounter$/RememberCards$/RemovePhase$/
-// Optional$/UpTo$/UpToMin$ -- each its own further mechanic. Placer$ resolves
-// (putCounterPlacer).
+// putCounterUnresolvedParams names CountersPutEffect's own params this port
+// does not evaluate; each fails the whole line loudly. ETB$ (154) is CR 614's
+// counters-added-simultaneously replacement table (GameEntityCounterTable),
+// the batching ChangesZoneAll's own gap documents (Not ported yet);
+// TriggeredCounterMap$/CounterMapValues$ put a trigger's whole counter map.
+// Every other CountersPutEffect param resolves.
 //
 // Condition$ values conditionValueRead does not name -- SpellAbilityCondition's
 // own shapes subAbilityConditionMet does not cover.
@@ -410,8 +392,7 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 			if rememberPut {
 				source.Memory.Remember(PlayerEntity(pid))
 			}
-			g.Player(pid).Counters.Add(k.kind, n)
-			emitCounterChanged(g, a.Source, PlayerEntity(pid), k.kind, n)
+			g.addPlayerCounters(controller, placer, a.Source, pid, k.kind, n)
 		}
 	}
 	for i, pk := range placed {
@@ -832,7 +813,7 @@ func (g *Game) anyWithAdapt(card CardID) bool {
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if strings.EqualFold(s.Name, "CanAdapt") && !hasParamOn(s, "ValidSA") &&
 						g.staticConditionsMet(h, s) && staticValidMatches(g, h, s, "ValidCard", card) {

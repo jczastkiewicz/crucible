@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Silvercoat Lion|Tapped;Plains|Tapped;Plains|Tapped
+humanbattlefield=Silvercoat Lion|Tapped|Attacking;Plains|Tapped;Plains|Tapped
 ailife=18
 aibattlefield=Propaganda

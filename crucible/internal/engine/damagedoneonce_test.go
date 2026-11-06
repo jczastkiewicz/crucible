@@ -54,17 +54,17 @@ func TestDamageDoneOnceFiresOnceForDoubleBlockedAttacker(t *testing.T) {
 	blocker2 := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	g.NewCard(damageDoneOnceWatcherDef(t, "Test Watcher", "CombatDamage$ True | ValidTarget$ Creature.YouCtrl"), a, engine.Battlefield)
 
-	ac := engine.NewScriptedController()
+	ac := keepingOrder()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
 	declareBlockers(t, g, bc)
 
-	dc := engine.NewScriptedController()
+	dc := keepingOrder()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
 		{Blocker: blocker1, Amount: 2},
 		{Blocker: blocker2, Amount: 3},
@@ -136,17 +136,17 @@ func TestDamageDoneOnceValidSourceFiltersTheSummedAmount(t *testing.T) {
 	goblinBlocker := g.NewCard(goblinDef, b, engine.Battlefield)
 	g.NewCard(damageDoneOnceWatcherDef(t, "Test Watcher", "CombatDamage$ True | ValidTarget$ Creature.YouCtrl | ValidSource$ Elf | DamageAmount$ EQ1"), a, engine.Battlefield)
 
-	ac := engine.NewScriptedController()
+	ac := keepingOrder()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: elfBlocker, Attacker: attacker},
 		{Blocker: goblinBlocker, Attacker: attacker},
 	})
 	declareBlockers(t, g, bc)
 
-	dc := engine.NewScriptedController()
+	dc := keepingOrder()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
 		{Blocker: elfBlocker, Amount: 2},
 		{Blocker: goblinBlocker, Amount: 3},

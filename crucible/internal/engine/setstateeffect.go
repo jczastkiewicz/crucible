@@ -39,8 +39,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "SetState", "RevealFirst", "ValidNewFace", "NewState",
-		"ETB"); err != nil {
+	if err := rejectParams(a, "SetState", "NewState"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -48,12 +47,14 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return nil
 	}
 	mode, _ := a.Params.Param("Mode")
-	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" && mode != "Specialize" {
+	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" && mode != "TurnFaceDown" && mode != "Specialize" && mode != "Unspecialize" {
 		return fmt.Errorf("engine: SetState: Mode$ %q not resolvable yet", mode)
 	}
-	if mode == "Transform" && battlefieldStaticMode(g, "CantTransform") {
-		return fmt.Errorf("engine: SetState: CantTransform statics not resolvable yet")
-	}
+	// ETB$ is an "enters transformed" replacement's (Daybound at night): the
+	// card turns over before it moves, so it is not on the battlefield yet
+	// (SetStateEffect.java:92-93), and no Transformed trigger fires
+	// (Card.java:714-717).
+	_, etb := a.Params.Param("ETB")
 	var cards []CardID
 	if spec, ok := a.Params.Param("Choices"); ok {
 		parsed := valid.Parse(spec)
@@ -104,11 +105,27 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	for _, id := range cards {
 		c := g.Card(id)
-		if mode == "Transform" && c.Zone != Battlefield {
+		if mode == "Transform" && c.Zone != Battlefield && !etb {
+			continue
+		}
+		// Card.canTransform's in-play check (Card.java:960-971): a CantTransform
+		// static stops it (SetStateEffect.java:148).
+		if mode == "Transform" && c.Zone == Battlefield && g.cantTransform(c, a) {
 			continue
 		}
 		if mode == "Transform" && id == a.Source && a.hasHostTransforms && c.Transforms != a.hostTransforms {
 			continue
+		}
+		// SetStateEffect.java:97-103: RevealFirst$ reveals the card face up
+		// (no state here) and ValidNewFace$ is matched on that face; a card
+		// that fails it is skipped (Hauntwoods Shrieker: "if it's a creature
+		// card, you may turn it face up").
+		if spec, ok := a.Params.Param("ValidNewFace"); ok && hasParam(a, "RevealFirst") {
+			lki := *c
+			lki.turnFaceUp()
+			if !Matches(g, &lki, valid.Parse(spec), a.Controller, a.Source) {
+				continue
+			}
 		}
 		if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			return nil
@@ -125,8 +142,10 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				return err
 			}
 			source.Memory.SetChosenColors(0)
+		case mode == "Unspecialize":
+			changed = g.unspecialize(id)
 		case mode == "TurnFaceDown":
-			if changed = g.turnFaceDown(id); changed {
+			if changed = g.turnFaceDown(id, false); changed {
 				if err := g.setFaceDownState(a, source, c); err != nil {
 					return err
 				}
@@ -137,6 +156,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			// (Card.java:891).
 			g.timestamp++
 			c.Timestamp = g.timestamp
+			c.turnedFaceUpTurn = g.turn
 			changed = true
 		}
 		if changed {
@@ -145,7 +165,9 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			switch mode {
 			case "Transform":
 				g.faceChangeReplaced(controller, "Transform", id)
-				g.checkTransformedTriggers(controller, id)
+				if !etb {
+					g.checkTransformedTriggers(controller, id)
+				}
 			case "TurnFaceUp":
 				g.faceChangeReplaced(controller, "TurnFaceUp", id)
 				g.checkTurnedFaceUpTriggers(controller, id, a)
@@ -187,15 +209,17 @@ func (g *Game) turnFaceDownCheck(id CardID) error {
 // facedown commands run -- the UntilFacedown copy effects it hosts end
 // (endCopiesOnFaceDown), here before the face changes so the face-down state
 // covers the card's own values. A face-down or double-faced permanent does
-// not turn (Java's !isDoubleFaced and oldState checks). Reports whether it
-// turned.
-func (g *Game) turnFaceDown(id CardID) bool {
+// not turn (Java's !isDoubleFaced and oldState checks) unless override, Java's
+// turnFaceDown(true) (ChangeZone, Dig and MakeCard FaceDown$), which skips the
+// double-faced check; a transformed permanent still does not turn, since none
+// of those effects moves one. Reports whether it turned.
+func (g *Game) turnFaceDown(id CardID, override bool) bool {
 	c := g.Card(id)
 	if c.IsFaceDown() || c.frontDef != nil {
 		return false
 	}
 	// Card.isDoubleFaced reads the card's own rules, not a copied state.
-	if own := c.UncopiedDef(); own != nil {
+	if own := c.UncopiedDef(); own != nil && !override {
 		switch own.SplitType {
 		case carddb.SplitTransform, carddb.SplitMeld, carddb.SplitModal:
 			return false
@@ -249,6 +273,17 @@ func (g *Game) Flip(id CardID) bool {
 // face, with no replacement run.
 func (g *Game) Transform(id CardID) bool { return g.transform(id) }
 
+// TurnFaceDown is Card.turnFaceDown(true) for a caller outside an effect:
+// GameState's `|FaceDown` entry (GameState.java:1338-1339) loads a permanent
+// face down, and an exiled card face down with no characteristics.
+func (g *Game) TurnFaceDown(id CardID) bool {
+	if g.Card(id).Zone == Exile {
+		g.turnFaceDownInExile(id)
+		return true
+	}
+	return g.turnFaceDown(id, true)
+}
+
 // transform is Card.changeCardState("Transform"): a transforming
 // double-faced permanent that is face up and whose other face is a
 // permanent turns to that face, under a new timestamp.
@@ -273,9 +308,7 @@ func (g *Game) transform(id CardID) bool {
 		return false
 	}
 	if c.frontDef == nil {
-		back := &compile.Card{Filename: front.Filename, Name: front.Faces[1].Name, SplitType: front.SplitType}
-		back.Faces[0] = front.Faces[1]
-		c.frontDef, c.Def = front, back
+		c.frontDef, c.Def = front, transformBack(front)
 	} else {
 		if !front.Faces[0].Type.IsPermanent() {
 			return false
@@ -329,6 +362,21 @@ var specializeFaces = [...]struct {
 	{mana.White, carddb.FaceSpecializeWhite}, {mana.Blue, carddb.FaceSpecializeBlue},
 	{mana.Black, carddb.FaceSpecializeBlack}, {mana.Red, carddb.FaceSpecializeRed},
 	{mana.Green, carddb.FaceSpecializeGreen},
+}
+
+// unspecialize is Card.changeCardState("Unspecialize") (Card.java:778-779,
+// in any zone, SetStateEffect.java:91-92): a specialized card goes back to
+// its own definition under a new timestamp; any other card does nothing.
+// Lukamina, Moon Druid's faces unspecialize as they die.
+func (g *Game) unspecialize(id CardID) bool {
+	c := g.Card(id)
+	if c.specializedFrom == nil {
+		return false
+	}
+	c.Def, c.specializedFrom = c.specializedFrom, nil
+	g.timestamp++
+	c.Timestamp = g.timestamp
+	return true
 }
 
 // specialize is Card.changeCardState("Specialize") (Card.java:771-781, ADR-0050)

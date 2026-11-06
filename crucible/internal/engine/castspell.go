@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -94,8 +95,19 @@ func castableAsInstantOrSorcery(c *Card) bool {
 // Java's own checkTriggerEffects call sits.
 //
 // A Room card casts as its left half (DoorLeft); CastRoomDoor picks either.
+// Any other Split card casts as its left half too (castAsLeftHalf), CastFace
+// as its right one.
 func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController) bool {
-	return g.castFromHand(pid, card, DoorLeft, controller)
+	if !g.Card(card).castAsLeftHalf() {
+		return g.castFromHand(pid, card, DoorLeft, controller)
+	}
+	if g.castFromHand(pid, card, DoorLeft, controller) {
+		return true
+	}
+	if c := g.Card(card); c.Zone != Stack {
+		c.undoCastAsFace()
+	}
+	return false
 }
 
 // CastRoomDoor is CastSpell for a Room card cast as its half d (CR 709.3,
@@ -112,23 +124,40 @@ func (g *Game) CastRoomDoor(pid PlayerID, card CardID, d Door, controller Player
 		return false
 	}
 	if !isRoomDef(g.Card(card).Def) {
-		return false
+		// Any other multi-face card: the second face (ADR-0052).
+		return d == carddb.FaceAlternate && g.CastFace(pid, card, controller)
 	}
 	return g.castFromHand(pid, card, d, controller)
 }
 
 // castFromHand is CastSpell's hand and timing gates.
 func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller PlayerController) bool {
+	if g.splitSecondOnStack() {
+		// Split second (Spell.java:96): no spell is cast while one is on the
+		// stack; an effect casting during its resolution is not asked.
+		return false
+	}
 	c := g.Card(card)
 	fromHand := c.Controller() == pid && c.Zone == Hand
 	options := g.castOptions(pid, card, fromHand)
+	if c.manaCost().IsNoCost() {
+		// CR 118.6, Spell.java:82: a spell whose mana cost is "no cost" is cast
+		// only for an alternative cost or without paying its mana cost
+		// (Ancestral Vision from the hand, a converted face, are not).
+		options = slices.DeleteFunc(options, func(o castOption) bool { return !o.withoutMana && !o.hasAlt })
+	}
 	var opts castOpts
 	var way castOption
 	if len(options) == 0 {
 		// Flashback (CR 702.34a), foretell and Beam me up: the owner may cast
 		// the card from their graveyard or exile for a keyword's cost.
-		cost, ok := g.flashbackCost(pid, c)
+		cost, reduce, ok := g.flashbackCost(pid, c)
+		opts.altReduce = reduce
 		opts.fromKeyword = ok // Flashback and Beam me up exile the spell as it leaves the stack
+		if !ok {
+			cost, ok = g.faceZoneCost(pid, c)
+			opts.fromKeyword = ok && c.faceDef != nil && c.faceDef.SplitType != carddb.SplitTransform // Aftermath exiles it too; a disturbed permanent keeps its back face's own replacement
+		}
 		if !ok {
 			cost, ok = g.foretellCost(pid, c)
 			opts.foretold = ok
@@ -145,6 +174,26 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			cost, opts.extra, ok = g.escapeCost(pid, c)
 			opts.hasExtra, opts.escape = ok, ok
 		}
+		discardCast := false
+		if !ok {
+			// Retrace and Jump-start: the card's own mana cost plus a discard,
+			// from the graveyard; a jump-started spell is exiled as it leaves
+			// the stack (graveyardDiscardCast).
+			var jumpstart bool
+			if opts.extra, jumpstart, ok = g.graveyardDiscardCast(pid, c); ok {
+				opts.hasExtra, opts.fromKeyword, discardCast = true, jumpstart, true
+			}
+		}
+		if !ok {
+			// A spell's own EffectZone$ Graveyard AlternativeCost line (Squee,
+			// Worldheart Phoenix; altcost.go): its cast from the graveyard.
+			var o castOption
+			if o, ok = g.graveyardAltCost(pid, c); ok {
+				cost = o.alt
+				opts.altStatic, opts.altOwn = true, true
+				opts.extra, opts.hasExtra = o.altExtra, o.hasAltExtra
+			}
+		}
 		if !ok {
 			cost, opts.extra, ok = g.beamMeUpCost(pid, c)
 			if !ok {
@@ -153,7 +202,9 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			opts.hasExtra = true
 			opts.fromKeyword = true
 		}
-		opts.altCost, opts.hasAltCost = cost, true
+		if !discardCast {
+			opts.altCost, opts.hasAltCost = cost, true
+		}
 	} else {
 		// Only the options playable under their own timing are offered. A
 		// MayFlashCost keyword or a CastWithFlash line needing the targets or X
@@ -174,18 +225,24 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		}
 		opts.withoutManaCost, opts.anyType, opts.anyColor = way.withoutMana, way.anyType, way.anyColor
 		opts.snowAnyColor = way.snowAnyColor
+		opts.mayPlayGrantor = way.grantor
 		opts.sneak = way.sneak
 		opts.mutate = way.mutate
 		opts.emerge = way.emerge
 		opts.altKeyword = way.altKeyword
+		opts.faceDown, opts.faceDownWard = way.faceDown, way.faceDownWard
 		if way.altStatic {
 			// The static's cost past its mana is paid as Escape's other parts
 			// are (altcost.go).
-			opts.altStatic = true
+			opts.altStatic, opts.altOwn = true, way.altOwn
 			opts.extra, opts.hasExtra = way.altExtra, way.hasAltExtra
+		} else if way.hasAltExtra {
+			// A MayPlayAltManaCost$ grant's part past its mana (Bolas's
+			// Citadel's life), paid the same way.
+			opts.extra, opts.hasExtra = way.altExtra, true
 		}
 		if way.hasAlt {
-			opts.altCost, opts.hasAltCost = way.alt, true
+			opts.altCost, opts.hasAltCost, opts.altWaterbend = way.alt, true, way.altWaterbend
 		}
 		if way.raise != "" {
 			// MayPlay's RaiseCost$ was checked payable-in-shape when the grant was
@@ -344,22 +401,34 @@ func (g *Game) flashDecided(pid PlayerID, card CardID, opts castOpts, spell Abil
 // beamMeUpCost is Beam me up's graveyard cast (GameActionUtil.java:176-180):
 // c's keyword cost plus returning a creature you control that can be beamed
 // up. ok is false when pid does not own c in the graveyard, the keyword is
-// absent or its cost is not plain mana, or no such creature exists.
+// absent or its cost is not plain mana, or no such creature exists. A bare
+// keyword costs the card's mana cost.
 func (g *Game) beamMeUpCost(pid PlayerID, c *Card) (mana.Cost, unlessCost, bool) {
 	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
 		return mana.Cost{}, unlessCost{}, false
 	}
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
-		if k.Name != "Beam me up" || k.Details == "" {
+		if k.Name != "Beam me up" {
 			continue
 		}
-		if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
-			return mana.Cost{}, unlessCost{}, false
-		}
-		mc, err := mana.Parse(k.Details)
-		if err != nil || mc.CountX() > 0 {
-			return mana.Cost{}, unlessCost{}, false
+		var mc mana.Cost
+		if k.Details == "" {
+			// A bare Beam me up (Scotty's AddKeyword$) is cast for the card's
+			// own mana cost (GameActionUtil.getGraveyardSpellByKeyword,
+			// :324-326).
+			if c.manaCost().IsNoCost() {
+				return mana.Cost{}, unlessCost{}, false
+			}
+			mc = c.manaCost()
+		} else {
+			if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
+				return mana.Cost{}, unlessCost{}, false
+			}
+			var err error
+			if mc, err = mana.Parse(k.Details); err != nil || mc.CountX() > 0 {
+				return mana.Cost{}, unlessCost{}, false
+			}
 		}
 		extra, ok := parseUnlessCost("Return<1/Creature.YouCtrl+canBeBeamedUp/creature you control>")
 		if !ok || !g.unlessPayable(pid, c.ID, extra) {
@@ -407,43 +476,87 @@ func (g *Game) escapeCost(pid PlayerID, c *Card) (mana.Cost, unlessCost, bool) {
 	return mana.Cost{}, unlessCost{}, false
 }
 
-// flashbackCost is the mana cost of c's Flashback keyword when pid may cast it
-// from the graveyard: pid owns it and it is there. A Flashback whose cost is
-// not a plain mana cost (Sac<..>, PayLife<..>, a non-mana part) is not offered
-// (GO-7).
-func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, bool) {
+// graveyardDiscardCast is the Retrace and Jump-start cast of c from pid's
+// graveyard (PlayerZone.java:60): the spell is cast for its mana cost with
+// the keyword's OptionalCost as an additional cost, Discard<1/Land> for
+// Retrace and Discard<1/Card> for Jump-start (GameActionUtil.java:504-513),
+// and the cast is only legal from there with that cost paid (addOptionalCosts
+// sets the zone, :556-558). jumpstart says the spell is exiled as it leaves
+// the stack (CardFactoryUtil.java:2323-2340). ok is false when c is not pid's
+// card in their graveyard, has neither keyword, or the discard cannot be paid.
+func (g *Game) graveyardDiscardCast(pid PlayerID, c *Card) (uc unlessCost, jumpstart, ok bool) {
 	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
-		return mana.Cost{}, false
+		return unlessCost{}, false, false
+	}
+	for _, name := range [...]string{"Retrace", "Jump-start"} {
+		if !c.HasKeyword(name) {
+			continue
+		}
+		text := "Discard<1/Land>"
+		if name == "Jump-start" {
+			text = "Discard<1/Card>"
+		}
+		uc, ok := parseUnlessCost(text)
+		if ok && g.unlessPayable(pid, c.ID, uc) {
+			return uc, name == "Jump-start", true
+		}
+	}
+	return unlessCost{}, false, false
+}
+
+// flashbackCost is the mana cost of c's Flashback keyword when pid may cast it
+// from the graveyard: pid owns it and it is there, with the SVar name of the
+// keyword's ReduceCost$ extra, "" when it has none. "Flashback:<cost>[:<extra>
+// [:<description>]]" (CardFactoryUtil.java's Flashback branch appends <extra>
+// to the flashback spell, so CostAdjustment.java:214-223 reads its ReduceCost$
+// as the spell's own: the Visions cycle's commander mana value). A Flashback
+// whose cost is not a plain mana cost (Sac<..>, PayLife<..>, a non-mana part),
+// or whose extra is not a ReduceCost$, is not offered (GO-7).
+func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, bool) {
+	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
+		return mana.Cost{}, "", false
 	}
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Flashback" {
 			continue
 		}
-		text := k.Details
-		if text == "" {
+		if k.Details == "" {
 			// A bare Flashback (granted by AddKeyword$) is cast for the card's
 			// own mana cost (GameActionUtil.getGraveyardSpellByKeyword).
 			if c.manaCost().IsNoCost() {
-				return mana.Cost{}, false
+				return mana.Cost{}, "", false
 			}
-			return c.manaCost(), true
+			return c.manaCost(), "", true
+		}
+		args := k.Args()
+		text := args[0]
+		reduce := ""
+		if len(args) > 1 && args[1] != "" {
+			name, ok := strings.CutPrefix(args[1], "ReduceCost$ ")
+			if !ok || strings.ContainsAny(name, " |") {
+				return mana.Cost{}, "", false
+			}
+			reduce = name
 		}
 		if parsed := cost.Parse(text); !parsed.IsPureMana() {
-			return mana.Cost{}, false
+			return mana.Cost{}, "", false
 		}
 		mc, err := mana.Parse(text)
 		if err != nil || mc.CountX() > 0 {
-			return mana.Cost{}, false
+			return mana.Cost{}, "", false
 		}
-		return mc, true
+		return mc, reduce, true
 	}
-	return mana.Cost{}, false
+	return mana.Cost{}, "", false
 }
 
 // castOpts is how an effect's "cast it" differs from casting it normally
 // (PlayEffect.java's tgtSA adjustments before playSaFromPlayEffect).
 type castOpts struct {
+	// mayPlayGrantor is the host of the MayPlay$ static the card is cast
+	// through, NoCard for any other way (SpellAbility.getMayPlay).
+	mayPlayGrantor CardID
 	// control is Play's ControlledByPlayer$: the spell carries the grant (applyControl).
 	control controlRef
 	// withoutManaCost is WithoutManaCost$ (SpellAbility.copyWithNoManaCost):
@@ -456,6 +569,14 @@ type castOpts struct {
 	// flashback cost, CR 702.34a).
 	altCost    mana.Cost
 	hasAltCost bool
+	// altReduce is the SVar name of the alternative cost's own ReduceCost$
+	// (a Flashback keyword's extra), "" for none: generic mana off the cost
+	// before any ReduceCost static (CostAdjustment.java:214-223).
+	altReduce string
+	// altWaterbend is the alternative cost's Waterbend<N>: N of its generic
+	// the caster may pay by tapping artifacts and creatures (Hama, the
+	// Bloodbender's grant; castOption.altWaterbend).
+	altWaterbend int
 	// kickers are the kicker costs chosen (kicker1, kicker2 bits), paid on top
 	// of the cost (CR 601.2b, 702.33a).
 	kickers uint8
@@ -510,10 +631,11 @@ type castOpts struct {
 	// payCastCost has the caster sacrifice a permanent of this valid type,
 	// its mana value off the generic part, recorded in castOptional.emerged.
 	emerge string
-	// altStatic is a cast for the card's own Mode$ AlternativeCost static
-	// (altcost.go): altCost is its mana, extra the rest, and the cast records
-	// OptionalCost.AltCost (optAltCost).
+	// altStatic is a cast for a Mode$ AlternativeCost static (altcost.go):
+	// altCost is its mana, extra the rest. altOwn says the static is the
+	// spell's own, and then the cast records OptionalCost.AltCost (optAltCost).
 	altStatic bool
+	altOwn    bool
 	// madness is a cast by Madness's trigger for the madness cost
 	// (PlayEffect.java:420-422, AlternativeCost.Madness): altCost is that cost,
 	// and the cast records it (castOptional.madness, Count$Madness).
@@ -525,7 +647,9 @@ type castOpts struct {
 	// CardFactoryUtil.abilityCastFaceDown builds): the spell is the face-down
 	// 2/2 of CR 708.2a.
 	faceDown bool
-	// altKeyword is "Surge" or "Freerunning" for a cast for that keyword's
+	// faceDownWard gives the face-down spell ward {2} (Disguise, morph.go).
+	faceDownWard bool
+	// altKeyword is "Surge", "Freerunning", "Dash", "Blitz" or "Warp" for a cast for that keyword's
 	// cost (altkeywords.go): altCost is that cost.
 	altKeyword string
 }
@@ -543,7 +667,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 		// choice and cost below sees the face-down 2/2; a cast that does not
 		// happen turns it face up again.
 		opts.faceDown = false
-		g.turnFaceDownForCast(card)
+		g.turnFaceDownForCast(card, opts.faceDownWard)
 		if !g.castSpell(controller, pid, card, opts) {
 			if now := g.Card(card); now.Zone != Stack {
 				now.turnFaceUp()
@@ -551,6 +675,20 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 			return false
 		}
 		return true
+	}
+	if opts.altKeyword == "Bestow" {
+		// PlaySpellAbility.java:104 (Card.java:7489-7490): the bestow spell is
+		// an Aura spell from the start of its cast, for CantBeCast and
+		// castAura's targets and cost alike; a cast that fails is the
+		// creature card again (GameActionUtil.java:1002).
+		if !g.animateBestow(card) {
+			return false
+		}
+		defer func() {
+			if g.Card(card).Zone != Stack {
+				g.unanimateBestow(card)
+			}
+		}()
 	}
 	if g.cantBeCast(pid, card) || (opts.sneak && !g.sneakPayable(pid, card)) {
 		return false
@@ -578,11 +716,13 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	}
 	opts.optional = optional
 	kinds := optional.kinds
-	if opts.altStatic {
+	if opts.altOwn {
 		kinds |= optAltCost
 	}
 	kinds |= altKeywordKind(opts.altKeyword)
-	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
+	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness,
+		altKeyword: opts.altKeyword}
+
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	chosen, ok := g.chooseKeywordAmounts(controller, pid, g.Card(card))
@@ -614,11 +754,13 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 
 // castSpellChosen is castSpell once the kicker choice is made.
 func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
-	g.castPending = card
+	g.castPending, g.castGrantor = card, opts.mayPlayGrantor
 	g.holdingCastExits = true
 	defer func() {
 		g.castPending, g.preX, g.hasPreX, g.castXMin = NoCard, 0, false, 0
+		g.castGrantor = NoCard
 		g.castTargets, g.castTargetsFor = nil, NoCard
+		g.castWaterbend = false
 		// A cast that went on the stack released the hold (castExitMatches).
 		// One that failed after a cost part already fired a trigger (a
 		// sacrifice before a later part could not be paid) still owes it: the
@@ -696,8 +838,9 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 
 // castCost is the mana cost pid pays to cast c under opts: the printed (or
 // alternative) cost with the chosen kicker costs added, then every cost
-// modification applied (spellCost; paying as there).
-func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana.Cost, bool) {
+// modification applied (spellCost; paying as there). controller answers an
+// Optional$ ManaConvert as the cost is paid, nil when it is only measured.
+func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool, controller PlayerController) (mana.Cost, bool) {
 	base := c.manaCost()
 	switch {
 	case opts.withoutManaCost:
@@ -717,9 +860,9 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana
 	}
 	// extras: a non-mana RaiseCost is paid as the spell's additional cost
 	// (castExtraCost) on every path but Mutate's, which does not pay it.
-	total, ok := g.spellCost(pid, c.ID, base, paying, !opts.mutate)
+	total, ok := g.spellCost(pid, c.ID, base, paying, !opts.mutate, opts.altReduce)
 	total = opts.optional.reduced(total)
-	staticType, staticColor := g.manaConvertForSpell(pid, c.ID)
+	staticType, staticColor := g.manaConvertForSpell(pid, c.ID, controller)
 	switch {
 	case opts.anyType || staticType:
 		total = anyTypeCost(total)
@@ -754,7 +897,7 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 	if opts.paysNoMana() {
 		return true
 	}
-	total, ok := g.castCost(pid, c, opts, false)
+	total, ok := g.castCost(pid, c, opts, false, nil)
 	if !ok {
 		return true
 	}
@@ -833,7 +976,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	if opts.paysNoMana() {
 		return xAnnounced{}, true
 	}
-	total, ok := g.castCost(pid, c, opts, true)
+	total, ok := g.castCost(pid, c, opts, true, controller)
 	if !ok {
 		return xAnnounced{}, false
 	}
@@ -848,7 +991,11 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 		total = reducedByEmerge(g, total, emerged)
 	}
 	total, assist := g.assistCost(controller, pid, c, total)
-	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN+g.staticRaiseWaterbend(pid, c))
+	waterbendN := opts.optional.waterbendN + opts.altWaterbend + g.staticRaiseWaterbend(pid, c)
+	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, waterbendN)
+	// SpellAbility.maxWaterbend: a spell with a Waterbend cost is a waterbend
+	// once it is on the stack (MagicStack.java:397-399, checkSpellCastTriggers).
+	g.castWaterbend = waterbendN > 0
 	g.snowAnyColor = opts.snowAnyColor
 	restore := g.payingFor(&payContext{item: &Ability{Source: c.ID, Controller: pid, spell: true}, cost: total})
 	if sp := firstSpellAbility(c); sp != nil {
@@ -894,6 +1041,14 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 	from := g.Card(card).Zone
 	g.Move(card, Stack, pid)
 	g.Card(card).controller = pid
+	if g.Card(card).castFor("Bestow") {
+		// GameAction.java:229-235 (Card.java:7489-7490): the stack object the
+		// move makes is the bestowed Aura spell again.
+		g.animateBestow(card)
+	}
+	if g.Card(card).castFor("Prototype") {
+		g.enterPrototyped(card)
+	}
 	g.noteGraveyardExit(card, from)
 	// The cards the optional costs exiled are exiled with the spell object:
 	// Java pays with the spell already on the stack (PlaySpellAbility.java:624,
@@ -915,12 +1070,11 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 // resolution.
 //
 // Reports false for every legal-but-declined case castableAsPermanent's own
-// CastSpell branch already has, plus two more: enchantSpec finds nothing
-// checkable (an "Enchant Player"/"Enchant Opponent" Aura, its own doc
-// comment's gap -- this port cannot tell a legal host from an illegal one
-// without a card-type spec to check), or the battlefield has no legal host
-// at all (CR 601.2c: a spell requiring a target that has none is illegal to
-// cast, not one cast with nothing to point at).
+// CastSpell branch already has, plus two more: the Aura has no Enchant
+// keyword enchantSpec can read (an Enchant player Aura is castPlayerAura's),
+// or the battlefield has no legal host at all (CR 601.2c: a spell requiring
+// a target that has none is illegal to cast, not one cast with nothing to
+// point at).
 //
 // checkBecomesTargetTriggers (trigger.go) runs after the push too: an Aura's
 // own attach target is CR 115's "becomes the target of a spell" exactly as
@@ -928,9 +1082,7 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 // own identical call, trigger.go) -- Illusionary Servant's real "when
 // CARDNAME becomes the target of a spell or ability, sacrifice it" fires
 // off an opponent Auraing it exactly as much as off a triggered ability
-// targeting it, and this is the only cast-time path this port has today
-// that could ever reach it (a targeted Instant/Sorcery is not built yet,
-// checkBecomesTargetTriggers' own doc comment).
+// targeting it.
 func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
 	if kind, ok := enchantPlayerSpec(c); ok {
 		return g.castPlayerAura(pid, card, c, controller, opts, kind)
@@ -975,7 +1127,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{CardEntity(target)}
-	matches := g.checkBecomesTargetTriggers(tgts, true, pid, card)
+	matches := g.checkBecomesTargetTriggers(tgts, &cast)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(cast)...)
 	g.pushTriggeredAbilities(controller, matches)
@@ -1044,7 +1196,7 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{target}
-	matches := g.checkBecomesTargetTriggers(tgts, true, pid, card)
+	matches := g.checkBecomesTargetTriggers(tgts, &cast)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(cast)...)
 	g.pushTriggeredAbilities(controller, matches)
@@ -1071,6 +1223,11 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 // paid.
 func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
 	spellAbility := firstSpellAbility(c)
+	if opts.altKeyword == "Awaken" {
+		// The awaken spell is its own copy of the first spell, the land's
+		// PutCounter and Animate at the end of its chain (compile/awaken.go).
+		spellAbility = c.Def.Faces[0].AwakenSpell
+	}
 	if spellAbility == nil {
 		return false
 	}
@@ -1097,8 +1254,20 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 			opts.raiseMana, opts.hasRaiseMana = cost, true
 		}
 	}
+	// Splice (PlaySpellAbility.java:608): after the modes, before the targets.
+	charmModes := len(a.Modes)
+	if !c.IsCopiedSpell && !g.chooseSplices(controller, pid, c, &a, &opts.optional) {
+		return false
+	}
 	if !g.resolveTargets(controller, &a) || !g.resolveChainTargets(controller, &a) {
 		return false
+	}
+	// The spliced abilities are the chain's tail: their targets come last
+	// (setupTargets walks the chain).
+	for i := charmModes; i < len(a.Modes); i++ {
+		if !g.resolveTargets(controller, &a.Modes[i]) || !g.resolveChainTargets(controller, &a.Modes[i]) {
+			return false
+		}
 	}
 	// Targets are chosen: from here the spell is "on the stack" for an
 	// EffectZone$ Stack CantTarget line (targetAsk.casting), and its cost is
@@ -1145,7 +1314,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := allTargetsOf(a)
-	matches := g.checkBecomesTargetTriggers(tgts, false, pid, card)
+	matches := g.checkBecomesTargetTriggers(tgts, &a)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	matches = append(matches, g.crimeTriggers(a)...)
 	g.pushTriggeredAbilities(controller, matches)
@@ -1339,6 +1508,7 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		g.Card(a.Source).Tapped = true
 	}
 	g.Move(a.Source, Battlefield, a.Controller)
+	g.Card(a.Source).enterTransformed()
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	if sneak {
 		g.sneakJoinsCombat(a.Source)
@@ -1347,6 +1517,19 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		// GameAction.java:571: the half the Room was cast as unlocks for
 		// its caster as it enters, firing its "when you unlock this door".
 		g.unlockDoor(controller, a.Source, a.Controller, door)
+	}
+	// CR 608.3g, PermanentEffect.java:41-53: a permanent cast for its Dash
+	// cost returns to its owner's hand, one cast for its Blitz cost is
+	// sacrificed, one cast for its Warp cost is exiled, at the beginning of
+	// the next end step.
+	if c := g.Card(a.Source); c.Zone == Battlefield {
+		for _, leave := range [...]struct{ keyword, location string }{{"Dash", "Hand"}, {"Blitz", "Sacrifice"}, {"Warp", "Exile"}} {
+			if c.castFor(leave.keyword) {
+				if err := g.registerDelayedLeave(c.ID, a.Controller, nil, leave.keyword, leave.location, "", leave.keyword, []CardID{c.ID}); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	g.checkETBTriggers(controller, a.Source, origin)
 	// A lone entry is a batch of one for Mode$ ChangesZoneAll (GameAction's

@@ -4,7 +4,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined amount control parts effecthelpers effect replacement manaability condition combat
+//enginelint:allow id card game player ability defined amount control parts effecthelpers effect replacement manaability condition combat token tokentable valid zone
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // replacementResult is ReplacementResult: what running a replacement did to
@@ -46,17 +47,24 @@ type replacementEvent struct {
 	vars map[string]int
 
 	// affected is the damaged object (DamageDone's Affected); source the card
-	// dealing it (DamageSource, Defined$ ReplacedSourceController), NoCard when
+	// dealing it (DamageSource, Defined$ ReplacedSourceController) or the host
+	// of a draw's cause (Draw's Source, Defined$ ReplacedSource), NoCard when
 	// the event records none.
 	affected EntityID
 	source   CardID
+	// cause is a Draw event's Cause, the ability whose draw was replaced
+	// (Game.drawCause): the substitute's own draws keep it.
+	cause *Ability
 	// redirect and redirectAmount are the split-off half ReplaceSplitDamage
 	// adds: redirectAmount of the damage goes to redirect instead.
 	redirect       EntityID
 	redirectAmount int
 
-	// counterType is AddCounter's counter kind.
+	// counterType is AddCounter's counter kind; placer the player putting
+	// the counters, the key of Java's GameEntityCounterTable row that
+	// ReplaceCounter's ValidSource$ reads (NoPlayer for none).
 	counterType CounterType
+	placer      PlayerID
 
 	// mana is ProduceMana's produced mana.
 	mana producedMana
@@ -65,6 +73,10 @@ type replacementEvent struct {
 	// Defined$ ReplacedCard names (entersascopy.go). NoCard for every other
 	// event.
 	card CardID
+
+	// cards is Cascade's Cards: what the cascade's dig moved, what Defined$
+	// ReplacedCards names (ReplaceCascade.java). Nil for every other event.
+	cards []CardID
 
 	// player and defendingPlayer are DeclareBlocker's two replacing objects
 	// (ReplaceDeclareBlocker.setReplacingObjects): AbilityKey.Player, who
@@ -78,6 +90,11 @@ type replacementEvent struct {
 	// step, earlier defenders' included, which the ReplaceWith$ ability adds
 	// its own to in place of the normal declaration (ADR-0035).
 	blocks []Block
+
+	// tokens is CreateToken's Token: the table of tokens about to be made,
+	// which ReplaceToken edits in place for the row of player, the event's
+	// Affected (ReplaceToken.setReplacingObjects). Nil for every other event.
+	tokens *tokenTable
 
 	// exchanges is RollDice's DicePTExchanges set (RollDiceEffect.java:140):
 	// the cards whose ReplaceEffect VarType$ CardSet added themselves, each
@@ -225,7 +242,10 @@ func replacingAmount(g *Game, a *Ability, value string, ev *replacementEvent) (i
 	if n, ok := resolveReplaceCountAmount(g, a.Amounts, source, value, ev.amount, ev.amountName); ok {
 		return n, true
 	}
-	return resolveNamedAmount(g, a.Amounts, source, value)
+	// An SVar reading another that is a ReplaceCount$ (Rock Hydra's
+	// SVar$NumDmg/LimitMax.Y, NumDmg ReplaceCount$DamageAmount): the event's
+	// values stand in for them first.
+	return resolveNamedAmount(g, replaceCountAmounts(g, a.Amounts, source, a.Params, ev), source, value)
 }
 
 // replaceDamageEffect is ReplaceDamageEffect.java: prevent Amount$ (default
@@ -234,15 +254,20 @@ func replacingAmount(g *Game, a *Ability, value string, ev *replacementEvent) (i
 // is spent is exiled. The prevented amount is recorded as the host's
 // PreventedDamage SVar. Nothing left means the damage is replaced
 // outright.
+//
+// DivideShield$ True (here and on ReplaceSplitDamage) is ReplacementHandler's
+// ask that the decider divide a "next N damage" shield among the targets of
+// one simultaneous damage event (ReplacementHandler.java:756-776). This port
+// deals damage one source and one target at a time, so the shield is spent
+// on the targets in the order their damage is dealt and the division is
+// never asked (quirks.md). One target -- a source hitting only you -- gives
+// Java's result (Harm's Way, Shining Shoal).
 type replaceDamageEffect struct{}
 
 func (replaceDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	ev := a.replacing
 	if ev == nil {
 		return nil
-	}
-	if err := rejectParams(a, "ReplaceDamage", "DivideShield"); err != nil {
-		return err
 	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
@@ -325,9 +350,6 @@ func (replaceSplitDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController)
 	if ev == nil {
 		return nil
 	}
-	if err := rejectParams(a, "ReplaceSplitDamage", "DivideShield"); err != nil {
-		return err
-	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
 	}
@@ -372,15 +394,32 @@ func (replaceSplitDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController)
 	return nil
 }
 
-// replaceTokenEffect is ReplaceTokenEffect.java's Type$ Amount: the number
-// of tokens the matched creation makes is put through Amount$ (default
-// Twice) -- Doubling Season's "twice that many". The dispatch checks
-// ValidToken$ before this runs. Type$ AddToken/ReplaceToken/
-// ReplaceController, which change which tokens are made or who controls
-// them, are rejected.
+// replaceTokenEffect is ReplaceTokenEffect.java over the CreateToken event's
+// table (ev.tokens), for the row of the affected player (ev.player). The
+// cells it touches are those the replacement's own ValidToken$ admits (its
+// host's controller as the valid string's "you"); none named admits every
+// cell (matchesValidParam). Type$:
+//
+//   - Amount: each such cell's count goes through Amount$ (default Twice),
+//     Doubling Season.
+//   - AddToken (Chatterfang, Academy Manufactor's siblings, Xorn): per
+//     controller of those cells, their summed count -- or Amount$ instead,
+//     once per controller -- of each TokenScript$, entering under that
+//     controller, created by the replacement's controller.
+//   - ReplaceToken (Divine Visitation, Esix): those cells go and, per cell,
+//     its count of each TokenScript$ replaces it, same creator and
+//     controller. `Chosen` is a copy of a card the replacement's controller
+//     picks among ValidChoices$ on the battlefield; with none to pick the
+//     event is not replaced.
+//   - ReplaceController (Crafty Cutpurse): those cells enter under
+//     NewController$ (default the replacement's controller) instead.
+//
+// Java takes a timestamp for AddToken, ReplaceToken and ReplaceController
+// whether or not anything matches (:61, :99, :144); so does this. Any other
+// Type$ changes nothing and still reports the event updated (:158).
 type replaceTokenEffect struct{}
 
-func (replaceTokenEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (replaceTokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	ev := a.replacing
 	if ev == nil {
 		return errNotReplacing("ReplaceToken")
@@ -388,23 +427,176 @@ func (replaceTokenEffect) Resolve(g *Game, a *Ability, _ PlayerController) error
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
 	}
-	if ev.amountName != "TokenNum" {
+	t := ev.tokens
+	if ev.amountName != "TokenNum" || t == nil || len(g.replacing) == 0 {
 		return fmt.Errorf("engine: ReplaceToken: not replacing token creation")
 	}
-	if t, _ := a.Params.Param("Type"); t != "Amount" {
-		return fmt.Errorf("engine: ReplaceToken: Type$ %q not resolvable yet", t)
+	cur := g.replacing[len(g.replacing)-1]
+	host := g.Card(cur.host)
+	validToken := func(c tokenCell) bool {
+		v, ok := cur.rule.Param("ValidToken")
+		return !ok || Matches(g, c.proto(), valid.Parse(v), host.Controller(), host.ID)
 	}
-	op, ok := a.Params.Param("Amount")
-	if !ok {
-		op = "Twice"
+	matching := func() []int {
+		var out []int
+		for i, c := range t.cells {
+			if c.creator == ev.player && validToken(c) {
+				out = append(out, i)
+			}
+		}
+		return out
 	}
-	n, ok := doXMath(ev.amount, op)
-	if !ok {
-		return fmt.Errorf("engine: ReplaceToken: Amount$ %q not resolvable yet", op)
+	typ, _ := a.Params.Param("Type")
+	switch typ {
+	case "Amount":
+		op, ok := a.Params.Param("Amount")
+		if !ok {
+			op = "Twice"
+		}
+		for _, i := range matching() {
+			n, ok := doXMath(t.cells[i].n, op)
+			if !ok {
+				return fmt.Errorf("engine: ReplaceToken: Amount$ %q not resolvable yet", op)
+			}
+			t.cells[i].n = n
+		}
+	case "AddToken":
+		g.timestamp++
+		var ctrls []PlayerID
+		sums := map[PlayerID]int{}
+		for _, i := range matching() {
+			c := t.cells[i]
+			ctrl := c.proto().controller
+			if _, seen := sums[ctrl]; !seen {
+				ctrls = append(ctrls, ctrl)
+			}
+			sums[ctrl] += c.n
+		}
+		if len(ctrls) > 0 {
+			if _, ok := a.Params.Param("Amount"); ok {
+				n, err := optionalAmount(g, a, "ReplaceToken", "Amount", 0)
+				if err != nil {
+					return err
+				}
+				for _, p := range ctrls {
+					sums[p] = n
+				}
+			}
+			defs, err := replaceTokenScripts(g, a)
+			if err != nil {
+				return err
+			}
+			for _, p := range ctrls {
+				for _, def := range defs {
+					t.put(tokenCell{creator: a.Controller, spec: tokenSpec{Def: def, Owner: a.Controller, Controller: p}, n: sums[p]})
+				}
+			}
+		}
+	case "ReplaceToken":
+		var chosen CardID
+		if spec, ok := a.Params.Param("ValidChoices"); ok {
+			parsed := valid.Parse(spec)
+			var choices []CardID
+			for _, pid := range g.Players() {
+				for _, id := range g.Zone(Battlefield, pid).Cards() {
+					if Matches(g, g.Card(id), parsed, a.Controller, a.Source) {
+						choices = append(choices, id)
+					}
+				}
+			}
+			if len(choices) == 0 {
+				ev.result = replacementNotReplaced
+				return nil
+			}
+			picked := controller.ChooseCardsForEffect(g, a.Controller, a.Source, choices, 1, 1)
+			if err := checkChoice(picked, choices, 1, 1); err != nil {
+				return fmt.Errorf("engine: ReplaceToken: ValidChoices$: %w", err)
+			}
+			chosen = picked[0]
+		}
+		// Every script is looked up before the table changes, so a bad one
+		// fails the line with the table untouched.
+		scripts, ok := a.Params.Param("TokenScript")
+		if !ok {
+			return fmt.Errorf("engine: ReplaceToken: no TokenScript$")
+		}
+		var defs []*compile.Card // nil for Chosen
+		for _, script := range strings.Split(scripts, ",") {
+			if script = strings.TrimSpace(script); script == "Chosen" {
+				if chosen == NoCard {
+					return fmt.Errorf("engine: ReplaceToken: TokenScript$ Chosen with no ValidChoices$")
+				}
+				defs = append(defs, nil)
+				continue
+			}
+			def, err := tokenScript(g, script)
+			if err != nil {
+				return err
+			}
+			defs = append(defs, def)
+		}
+		g.timestamp++
+		var replaced []tokenCell
+		for _, i := range matching() {
+			replaced = append(replaced, t.cells[i])
+		}
+		kept := t.cells[:0]
+		for _, c := range t.cells {
+			if c.creator != ev.player || !validToken(c) {
+				kept = append(kept, c)
+			}
+		}
+		t.cells = kept
+		for _, old := range replaced {
+			if old.n <= 0 {
+				continue
+			}
+			for _, def := range defs {
+				spec := tokenSpec{Def: def, Owner: old.creator, Controller: old.proto().controller}
+				if def == nil {
+					orig := g.Card(chosen).copiableValues()
+					spec.Def, spec.Power, spec.HasPower, spec.Toughness, spec.HasToughness = orig.def, orig.power, orig.hasPower, orig.toughness, orig.hasToughness
+				}
+				t.put(tokenCell{creator: ev.player, spec: spec, n: old.n, remembered: old.remembered})
+			}
+		}
+	case "ReplaceController":
+		g.timestamp++
+		newCtrl := a.Controller
+		if v, ok := a.Params.Param("NewController"); ok {
+			players, err := definedPlayers(g, a.Controller, a.Source, v, a.refs())
+			if err != nil {
+				return fmt.Errorf("engine: ReplaceToken: NewController$: %w", err)
+			}
+			if len(players) == 0 {
+				// ReplaceTokenEffect.java:147 takes get(0) unguarded.
+				return fmt.Errorf("engine: ReplaceToken: NewController$ %q names no player", v)
+			}
+			newCtrl = players[0]
+		}
+		for _, i := range matching() {
+			t.cells[i].spec.Controller = newCtrl
+		}
 	}
-	ev.amount = max(n, 0)
 	ev.result = replacementUpdated
 	return nil
+}
+
+// replaceTokenScripts is TokenScript$'s comma list, each looked up.
+func replaceTokenScripts(g *Game, a *Ability) ([]*compile.Card, error) {
+	scripts, ok := a.Params.Param("TokenScript")
+	if !ok {
+		return nil, fmt.Errorf("engine: ReplaceToken: no TokenScript$")
+	}
+	var defs []*compile.Card
+	for _, script := range strings.Split(scripts, ",") {
+		def, err := tokenScript(g, strings.TrimSpace(script))
+		if err != nil {
+			return nil, err
+		}
+		defs = append(defs, def)
+	}
+	return defs, nil
 }
 
 // doXMath is AbilityUtils.doXMath for the operators a bare Amount$ names:
@@ -438,7 +630,10 @@ func doXMath(n int, op string) (int, bool) {
 // expression over the original number ("that many plus one", "twice that
 // many"). ValidCounterType$ limits it to one kind. ChooseCounter$ only
 // matters when counters come from several sources at once, which this
-// port's single-source placements never do. ValidSource$ is rejected.
+// port's single-source placements never do. ValidSource$ leaves the counters
+// alone unless the player placing them matches (ReplaceCounterEffect.java:63-65,
+// Vorinclex's and Halving Season's You and Opponent lines); a placement with
+// no placer matches nothing, as Java's null player does.
 type replaceCounterEffect struct{}
 
 func (replaceCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
@@ -446,14 +641,23 @@ func (replaceCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 	if ev == nil {
 		return nil
 	}
-	if err := rejectParams(a, "ReplaceCounter", "ValidSource"); err != nil {
-		return err
-	}
 	if !subAbilityConditionMet(g, g.Card(a.Source), a.Amounts, a.Params) {
 		return nil
 	}
 	if ev.amountName != "CounterNum" {
 		return fmt.Errorf("engine: ReplaceCounter: not replacing counters")
+	}
+	if v, ok := a.Params.Param("ValidSource"); ok {
+		if ev.placer == NoPlayer {
+			return nil
+		}
+		matched, recognized := matchesPlayerSpec(g, ev.placer, a.Controller, a.Source, v)
+		if !recognized {
+			return fmt.Errorf("engine: ReplaceCounter: ValidSource$ %q is not resolvable", v)
+		}
+		if !matched {
+			return nil
+		}
 	}
 	value, ok := a.Params.Param("Amount")
 	if !ok {

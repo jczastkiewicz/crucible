@@ -87,6 +87,7 @@ func (g *Game) hasLandDrop(pid PlayerID) bool {
 func (g *Game) playLandNow(controller PlayerController, pid PlayerID, card CardID) {
 	c := g.Card(card)
 	origin := c.Zone
+	played := sacrificeRecord{player: pid, card: *c}
 	// Player.playLand counts the land drop and fires LandPlayed whether or not
 	// the land entered (Player.java:1645-1650): a Lake of the Dead sent to the
 	// graveyard still used the drop (PORT-7).
@@ -96,6 +97,7 @@ func (g *Game) playLandNow(controller PlayerController, pid PlayerID, card CardI
 		g.enterBattlefieldReplacements(controller, card, origin)
 		g.checkETBTriggers(controller, card, origin)
 	}
+	g.playedLandsThisTurn = append(g.playedLandsThisTurn, played)
 	g.checkLandPlayedTriggers(controller, card, pid, origin)
 	g.Player(pid).LandsPlayed++
 }

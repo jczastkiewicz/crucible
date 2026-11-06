@@ -1,0 +1,6 @@
+# CR 502.4, 704.3: no player receives priority during the untap step, and
+# state-based actions are checked only when a player would receive priority
+# (PhaseHandler.checkStateBasedEffects). A negative setup life survives the
+# load-time pass (GameState.java:695-702), so at Untap the player is still in;
+# life-loss-below-zero-also-loses takes the same board to Upkeep's check.
+startturn human

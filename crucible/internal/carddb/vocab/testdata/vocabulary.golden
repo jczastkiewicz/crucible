@@ -969,7 +969,6 @@ paramKey	Tapped
 paramKey	Tapper
 paramKey	TapperController
 paramKey	Target
-paramKey	TargetControls
 paramKey	TargetMax
 paramKey	TargetMin
 paramKey	TargetRelativeToCause
@@ -1523,6 +1522,7 @@ mode	FlippedCoin
 mode	FlippedCoinOnce
 mode	Forage
 mode	Foretell
+mode	ForetellAnyTurn
 mode	FullyUnlock
 mode	Gain
 mode	GainLifeRadiation
@@ -2308,6 +2308,7 @@ validBase	Wraith
 validBase	Wurm
 validBase	You
 validBase	Zombie
+validProperty	!Active
 validProperty	!AllColors
 validProperty	!Attached
 validProperty	!CardOwner
@@ -2719,7 +2720,6 @@ validProperty	Ninjutsu
 validProperty	Nissa
 validProperty	NoAbilities
 validProperty	Noble
-validProperty	NonActive
 validProperty	NotDefinedOriginalHost
 validProperty	NotDefinedParentTarget
 validProperty	NotDefinedReplacedSimultaneousETB
@@ -2728,7 +2728,6 @@ validProperty	NotDefinedTriggeredAttackers
 validProperty	NotDefinedTriggeredCard
 validProperty	NotDefinedTriggeredTarget
 validProperty	NotedColor
-validProperty	NotedDefender
 validProperty	NotedForArcaneSavant
 validProperty	NotedForGreenAnchor
 validProperty	NotedGuessPhantasm
@@ -2759,7 +2758,7 @@ validProperty	Otter
 validProperty	Outlast
 validProperty	Outlaw
 validProperty	OwnedBy EnchantedController
-validProperty	OwnedBy Opponent.NonActive
+validProperty	OwnedBy Opponent.!Active
 validProperty	OwnedBy Player.Chosen
 validProperty	OwnedBy Player.EnchantedBy
 validProperty	OwnedBy Player.IsRemembered
@@ -2807,6 +2806,7 @@ validProperty	Rogue
 validProperty	Room
 validProperty	Rune
 validProperty	Sacrificed
+validProperty	SacrificedToPay
 validProperty	Saddle
 validProperty	SaddledThisTurn
 validProperty	Samurai
@@ -4101,6 +4101,8 @@ svarProperty	LandType
 svarProperty	LandsControlled
 svarProperty	LandsInGraveyard
 svarProperty	LandsPlayed
+svarProperty	LandsPlayed Card.!inRealZoneHand,Card.YouDontOwn
+svarProperty	LandsPlayed Card.inRealZoneExile
 svarProperty	LibNum1
 svarProperty	LifeAmount
 svarProperty	LifeGained

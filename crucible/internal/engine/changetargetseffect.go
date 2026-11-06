@@ -63,6 +63,9 @@ type retargeted struct {
 	id     StackItemID
 	source CardID
 	spell  bool
+	// by is the rewritten item, the targeting object a BecomesTarget
+	// ValidSource$ is matched against.
+	by Ability
 }
 
 func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -145,14 +148,11 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			break
 		}
 		if len(changed) > 0 {
-			fired = append(fired, retargeted{targets: changed, controller: item.Controller, id: item.ID, source: item.Source, spell: item.spell})
+			fired = append(fired, retargeted{targets: changed, controller: item.Controller, id: item.ID, source: item.Source, spell: item.spell, by: *item})
 		}
 	}
 	for _, f := range fired {
-		// isSpellSource false, as castInstantOrSorcery passes it for the
-		// same spell's own cast-time targets (castspell.go); Aura spells
-		// are refused by retargetParts.
-		matches := g.checkBecomesTargetTriggers(f.targets, false, f.controller, f.source)
+		matches := g.checkBecomesTargetTriggers(f.targets, &f.by)
 		if f.spell {
 			matches = append(matches, g.checkWardTriggers(f.targets, f.source, f.controller)...)
 		} else {
@@ -169,6 +169,14 @@ func changeTargetsSpells(g *Game, a *Ability) ([]StackItemID, error) {
 		defined, _ := a.Params.Param("Defined")
 		switch defined {
 		case "Targeted":
+			// AbilityUtils.java:1264-1277: Targeted reads getAllTargetChoices,
+			// every targeting link from the root down (SpellAbility.java:1920-1931),
+			// not only the nearest one a inherited: Sudden Substitution's
+			// DBChooseTargets sits below a link targeting a creature and names
+			// the spell the root targets.
+			if a.rootAbility != nil {
+				return g.targetedSpellItems(allTargetsOf(*a.rootAbility)), nil
+			}
 		case "Remembered":
 			// AbilityUtils.java:1235-1241: each remembered card's spell abilities
 			// (a spell on the stack is its card's one) -- a copy is remembered as its
@@ -193,8 +201,14 @@ func changeTargetsSpells(g *Game, a *Ability) ([]StackItemID, error) {
 			return nil, fmt.Errorf("engine: ChangeTargets: Defined$ %q not resolvable yet", defined)
 		}
 	}
+	return g.targetedSpellItems(a.Targets), nil
+}
+
+// targetedSpellItems is TargetChoices.getTargetSpells over targets: each
+// targeted stack item, and each targeted card's spell on the stack.
+func (g *Game) targetedSpellItems(targets []EntityID) []StackItemID {
 	var ids []StackItemID
-	for _, t := range a.Targets {
+	for _, t := range targets {
 		if id, ok := t.AsStackItem(); ok {
 			// An activated or triggered ability (ADR-0041): Willbender, Bolt
 			// Bend, Spellskite, Reroute.
@@ -209,7 +223,7 @@ func changeTargetsSpells(g *Game, a *Ability) ([]StackItemID, error) {
 			ids = append(ids, id)
 		}
 	}
-	return ids, nil
+	return ids
 }
 
 // retargetParts is item's targeting parts in Java's sub-instance order: the

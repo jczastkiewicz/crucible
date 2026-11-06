@@ -10,16 +10,6 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
-// digUnresolvedParams are DigEffect.java's params this port cannot honour
-// yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
-// (WithDifferentPowers$),
-// entering-state modifiers (FaceDown*$, WithCounters$), exile
-// bookkeeping, and GainControl$'s Cybership reorder.
-var digUnresolvedParams = [...]string{
-	"GainControl",
-	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-}
-
 // digEffect is DigEffect.java: each Defined$/ValidTgts$ player (default
 // You) looks at the top DigNum$ cards of their library; the activator
 // chooses ChangeNum$ (default 1, or All, or Any) of those matching
@@ -39,11 +29,6 @@ type digEffect struct{}
 func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range digUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: Dig: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -312,20 +297,54 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			source.Memory.ClearRemembered()
 		}
 		chosen = reversedCards(chosen)
-		if dest1 == Battlefield || dest1 == Library {
+		gainControl := hasParam(a, "GainControl")
+		switch {
+		case (dest1 == Battlefield || dest1 == Library) && gainControl:
+			// DigEffect.java:367-369 (Cybership): the activator orders Java's
+			// rest list, which still holds every dug card at this point, and
+			// that order is what moves. Cybership's ChangeNum$ All makes it
+			// the chosen cards; any other ChangeNum$ would move the unchosen
+			// ones too, as Java does.
+			chosen = top
+			if len(top) > 1 {
+				chosen = controller.OrderCardsForZone(g, a.Controller, top, dest1)
+				if err := checkChoice(chosen, top, len(top), len(top)); err != nil {
+					return fmt.Errorf("engine: Dig: %w", err)
+				}
+			}
+		case dest1 == Battlefield || dest1 == Library:
 			chosen, err = g.orderCardsByTheirOwners(controller, chosen, dest1)
 			if err != nil {
 				return fmt.Errorf("engine: Dig: %w", err)
 			}
 		}
 		for _, id := range chosen {
+			newController := NoPlayer
+			if dest1 == Battlefield && gainControl {
+				newController = a.Controller
+			}
+			if hasParam(a, "FaceDown") && dest1 != Library {
+				// DigEffect.java:389-392: the card turns face down with
+				// FaceDownPower$/FaceDownToughness$/FaceDownSetType$ before it
+				// moves, ChangeZone's own timing (a library destination never
+				// reads it, :379-380).
+				if dest1 != Battlefield {
+					return fmt.Errorf("engine: Dig: FaceDown$ with DestinationZone$ %v not resolvable yet", dest1)
+				}
+				if g.turnFaceDown(id, true) {
+					if err := g.setFaceDownState(a, source, g.Card(id)); err != nil {
+						return fmt.Errorf("engine: Dig: %w", err)
+					}
+					g.Card(id).faceDownEntry = true
+				}
+			}
 			// DigEffect.java:409: Attacking$/Blocking$ join combat as the card
 			// enters, changeZoneJoinCombat's own timing note.
-			joined, err := g.changeZoneJoinCombat(controller, a, id, dest1, NoPlayer)
+			joined, err := g.changeZoneJoinCombat(controller, a, id, dest1, newController)
 			if err != nil {
 				return fmt.Errorf("engine: Dig: %w", err)
 			}
-			melded := g.moveByEffect(controller, id, dest1, libPos1, NoPlayer, tapped, enter...)
+			melded := g.moveByEffect(controller, id, dest1, libPos1, newController, tapped, enter...)
 			g.changeZoneLeftCombat(id, joined)
 			g.applyChangeZoneStatic(staticTmpl, id)
 			if dest1 == Exile {

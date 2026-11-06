@@ -3,4 +3,4 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 ailife=20
-aibattlefield=Forest|Tapped;Grizzly Bears|Id:3;Spider Climb|Id:4|SummonSick|AttachedTo:3
+aibattlefield=Forest|Tapped;Grizzly Bears|Id:3;Spider Climb|Id:4|AttachedTo:3

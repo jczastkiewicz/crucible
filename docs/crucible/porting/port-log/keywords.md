@@ -107,6 +107,7 @@ the line it came from. `ok == false` leaves the keyword inert: no template, or d
 | Cycling           |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                                                                                                                                      |
 | TypeCycling       |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>`                                                                                                                  |
 | Crew              |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                                                                                                                                          |
+| Craft             |             24 | `AB$ ChangeZone \| Cost$ Exile<1/CARDNAME> <cost> \| Origin$ Exile \| Destination$ Battlefield \| Transformed$ True \| Defined$ CorrectedSelf \| SorcerySpeed$ True`; back on the battlefield it takes over the exiled materials (`retainCraftMaterials`)   |
 | Affinity          |             77 | `S:Mode$ ReduceCost \| ValidCard$ Card.Self \| Type$ Spell \| Amount$ KWAffinity<n> \| EffectZone$ All`, the amount `Count$Valid <type>.YouCtrl` in `Face.Amounts`                                                                                          |
 | Prowess           |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                                                                                                                                   |
 | Exalted           |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                                                                                                                                  |
@@ -134,13 +135,21 @@ the line it came from. `ok == false` leaves the keyword inert: no template, or d
 | Cascade           |             43 | `T:Mode$ SpellCast` (`ValidCard$ Card.Self`, `TriggerZones$ Stack`) running `DB$ DigUntil` (nonland, `cmcLT` the spell's `Count$CardManaCost`), then `DB$ Play` (free, optional), `DB$ ChangeZoneAll` (the rest to the bottom, random order), `DB$ Cleanup` |
 | Storm             |             37 | `T:Mode$ SpellCast` (self, from the stack) running `DB$ CopySpellAbility \| Amount$ TriggerCount$CurrentStormCount/Minus.1 \| MayChooseTarget$ True`                                                                                                        |
 | Exploit           |             25 | `T:Mode$ ChangesZone` (enters) running `DB$ Sacrifice \| SacValid$ Creature \| Optional$ True`; Sacrifice fires `Mode$ Exploited` (`exploit.go`) for a keyword-tagged ability                                                                               |
+| Ingest            |              9 | `T:Mode$ DamageDone` (combat damage to a player) running `DB$ Dig \| DigNum$ 1 \| DestinationZone$ Exile \| Defined$ TriggeredTarget`                                                                                                                       |
+| Provoke           |              8 | `T:Mode$ Attacks` (`OptionalDecider$ You`) running `DB$ MustBlock \| Duration$ UntilEndOfCombat` on a target the defending player controls, then `DB$ Untap` of it                                                                                          |
+| Decayed           |              1 | `S:Mode$ CantBlock` on Self, and `T:Mode$ Attacks` making a `DB$ DelayedTrigger \| Phase$ EndCombat` that sacrifices it                                                                                                                                     |
+| Gravestorm        |              3 | `T:Mode$ SpellCast` (self, from the stack) copying it `Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent` times                                                                                                                                    |
+| Undaunted         |              5 | `S:Mode$ ReduceCost` on Self, the amount `PlayerCountOpponents$Amount` (`CostAdjustment.java:471`)                                                                                                                                                          |
+| Ravenous          |             12 | `R:Event$ Moved` (enters) putting `Count$xPaid` +1/+1 counters, and `T:Mode$ ChangesZone` (enters, X 5 or more) drawing a card                                                                                                                              |
 
 Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
 (about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
 activated `AB$ Attach` (`attachActivated`, `castspell.go`) by attaching the source to its first creature target unless
 protection refuses; `Draw` defaults `Defined$` to You as `getTargetPlayers` does; Layer 7 reads
-`AffectedDefined$ Equipped/Enchanted`. Granted keywords (`AddKeyword$ Prowess`) do not expand yet: they need ADR-0023's
-trait overlay. A bare `Flashback` (no cost) casts for the card's own mana cost. Persist and Undying needed
+`AffectedDefined$ Equipped/Enchanted`. A continuous static's AddKeyword list expands each keyword at
+load (compile `expandGrantedKeywords`) into `AddKeyword` subs on the static; `applyOneContinuousTraits` hangs them on the
+receiver's trait grant (ADR-0038 decision 4), and `compareOperand` reads a granted ability's SVars from its `Amounts`.
+Keywords granted by an effect (Pump, Animate) do not expand yet. A bare `Flashback` (no cost) casts for the card's own mana cost. Persist and Undying needed
 `ChangeZone`'s `WithCountersType$`/`WithCountersAmount$` (the permanent enters with the counters before its enter
 replacements, `moveByEffect`'s `enterCounters`) and `Defined$ TriggeredNewCard[LKICopy]` (the card a dies or enters
 trigger recorded); Annihilator needed `Defined$ TriggeredDefendingPlayer`. Tests: `keywordexpansion_test.go`, scenario
@@ -156,7 +165,7 @@ synthesized SVar whose name the card already defines. A numeric valid property r
 source card (`compareOperand`, `valid-strings.md`). Training's own `Training$ True` param is read by nothing in Forge
 and is dropped. `etbCounter` is a Forge pseudo-keyword (no `Keyword` enum value). Not expanded yet, each for a named
 reason: Rampage (`Count$Valid Creature.blockingTriggeredAttacker` needs `blocking<Defined>` in `CardProperty`) and Melee
-(`TriggeredPlayersDefenders$Amount`). Tests: `keywordtriggers_test.go`.
+(`TriggeredPlayersDefenders$Amount`, the Attacks trigger's `Defenders` is not recorded). With no template at all, so inert: Amplify (9 lines), Compleated (7), Demonstrate (6), Escalate (9), Impending (6), Increment (10), Ripple (5), Spectacle (11) and Web-slinging (10). Tests: `keywordtriggers_test.go`.
 
 ### Flashback is casting infrastructure, not an expansion
 

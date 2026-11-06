@@ -45,11 +45,63 @@ func (g *Game) addCardCounters(controller PlayerController, placer PlayerID, sou
 	emitCounterChanged(g, source, CardEntity(id), ct, n)
 	var matches []Ability
 	for i := 1; i <= n; i++ {
-		matches = g.counterAddedMatches(matches, "CounterAdded", placer, id, ct, old+i)
+		matches = g.counterAddedMatches(matches, "CounterAdded", placer, CardEntity(id), ct, old+i)
 	}
-	matches = g.counterAddedMatches(matches, "CounterAddedOnce", placer, id, ct, n)
+	matches = g.counterAddedMatches(matches, "CounterAddedOnce", placer, CardEntity(id), ct, n)
 	g.pushTriggeredAbilities(controller, matches)
 	g.checkCounterBatchTriggers(controller, placer, id, ct, n, first)
+}
+
+// putPlayerCounters is a player getting n counters of ct from an effect, the
+// way GameEntityCounterTable.replaceCounterEffect places them: the
+// AddCounter replacements first (countersReplaced: Melira's one poison
+// counter, Winding Constrictor's one more, Vorinclex doubling), then
+// addPlayerCounters. It returns how many were put.
+func (g *Game) putPlayerCounters(controller PlayerController, placer PlayerID, source CardID, pid PlayerID, ct CounterType, n int) int {
+	n = g.countersReplaced(controller, placer, PlayerEntity(pid), ct, n)
+	g.addPlayerCounters(controller, placer, source, pid, ct, n)
+	return max(n, 0)
+}
+
+// addPlayerCounters is Player.addCounterInternal (Player.java:858-890): n
+// counters of ct on pid, the event, the Radiation effect card a first rad
+// counter brings (createRadiationEffect), then the triggers -- Mode$
+// CounterAdded once per counter with the new total, Mode$ CounterAddedOnce
+// once (Aether Revolt, Fabrication Module: "whenever you get one or more
+// {E}"), and Mode$ CounterPlayerAddedAll for the placer
+// (GameEntityCounterTable.triggerCountersPutAll; All Will Be One). Java logs
+// no player placement in the turn's counter record (Game.addCounterAddedThisTurn
+// is Card-only), so neither does this. n <= 0 does nothing (CR 107.1b).
+func (g *Game) addPlayerCounters(controller PlayerController, placer PlayerID, source CardID, pid PlayerID, ct CounterType, n int) {
+	if n <= 0 {
+		return
+	}
+	p := g.Player(pid)
+	old := p.Counters.Count(ct)
+	p.Counters.Add(ct, n)
+	emitCounterChanged(g, source, PlayerEntity(pid), ct, n)
+	if ct == Radiation {
+		g.syncRadiationEffect(pid)
+	}
+	var matches []Ability
+	for i := 1; i <= n; i++ {
+		matches = g.counterAddedMatches(matches, "CounterAdded", placer, PlayerEntity(pid), ct, old+i)
+	}
+	matches = g.counterAddedMatches(matches, "CounterAddedOnce", placer, PlayerEntity(pid), ct, n)
+	matches = append(matches, g.counterPlayerAddedAllMatches(placer, PlayerEntity(pid), n)...)
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// payCounterCost is CostPutCounter's own placement on the source
+// (CostPutCounter.java:182, :201-207): the payer puts n counters of ct on
+// card through the AddCounter replacements, as a cost and not an effect, so
+// Vizier of Remedies and Vorinclex apply and Doubling Season does not, and
+// the counters fire CounterAdded and enter the turn's log like any other
+// placement.
+func (g *Game) payCounterCost(controller PlayerController, payer PlayerID, card CardID, ct CounterType, n int) {
+	if n = g.countersReplacedBy(controller, payer, CardEntity(card), ct, n, false); n > 0 {
+		g.addCardCounters(controller, payer, card, card, ct, n)
+	}
 }
 
 // counterAddedParams are the params this port reads on each mode; a trigger
@@ -57,16 +109,22 @@ func (g *Game) addCardCounters(controller PlayerController, placer PlayerID, sou
 // The general ones (TriggerZones$, IsPresent$, OptionalDecider$, ...) are read
 // by triggerEffectAPI.
 var counterAddedParams = map[string][]string{
-	"CounterAdded":     {"ValidCard", "ValidSource", "CounterType", "CounterAmount"},
-	"CounterAddedOnce": {"ValidCard", "ValidSource", "CounterType"},
+	"CounterAdded":     {"ValidCard", "ValidPlayer", "ValidSource", "CounterType", "CounterAmount"},
+	"CounterAddedOnce": {"ValidCard", "ValidPlayer", "ValidSource", "CounterType"},
 }
 
 // counterAddedMatches appends every CounterAdded or CounterAddedOnce trigger
 // (mode) that placer's placement of amount counters (the new total for
-// CounterAdded) on card id fires. The placer is matched, never recorded:
+// CounterAdded) on object, a card or a player, fires. The placer is matched, never recorded:
 // TriggerCounterAdded.java:97-98 and TriggerCounterAddedOnce.java:92-94 keep
 // only Card and Player (and Amount) as triggering objects.
-func (g *Game) counterAddedMatches(matches []Ability, mode string, placer PlayerID, id CardID, ct CounterType, amount int) []Ability {
+func (g *Game) counterAddedMatches(matches []Ability, mode string, placer PlayerID, object EntityID, ct CounterType, amount int) []Ability {
+	var objects triggeredObjects
+	if id, ok := object.AsCard(); ok {
+		objects.card = id
+	} else {
+		objects.player, _ = object.AsPlayer()
+	}
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
@@ -78,16 +136,16 @@ func (g *Game) counterAddedMatches(matches []Ability, mode string, placer Player
 					if !strings.EqualFold(t.Name, mode) || !counterAddedTriggerReadable(t, mode) {
 						continue
 					}
-					if !g.counterAddedTriggerMatches(t, h, host, placer, id, ct, amount) {
+					if !g.counterAddedTriggerMatches(t, h, host, placer, object, ct, amount) {
 						continue
 					}
-					objects := triggeredObjects{card: id}
+					o := objects
 					if mode == "CounterAddedOnce" {
-						objects.counts = triggerCounts{amount: amount, set: countAmount}
+						o.counts = triggerCounts{amount: amount, set: countAmount}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-							triggered: face.objects(objects), staticTrigger: isStaticTrigger(t)})
+							triggered: face.objects(o), staticTrigger: isStaticTrigger(t)})
 					}
 				}
 			}
@@ -125,9 +183,22 @@ func counterAddedTriggerReadable(t *compile.Ability, mode string) bool {
 // null source) matches nothing, as matchesValidParam fails on null; a player
 // spec matchesPlayerSpec cannot read leaves the trigger unfired rather than
 // guessed.
-func (g *Game) counterAddedTriggerMatches(t *compile.Ability, h *Card, host CardID, placer PlayerID, id CardID, ct CounterType, amount int) bool {
-	if vc, ok := t.Param("ValidCard"); ok && !Matches(g, g.Card(id), valid.Parse(vc), h.Controller(), host) {
+func (g *Game) counterAddedTriggerMatches(t *compile.Ability, h *Card, host CardID, placer PlayerID, object EntityID, ct CounterType, amount int) bool {
+	// matchesValidParam on the run's Card or Player, the other one null: a
+	// ValidCard$ line never fires for a player's counters, a ValidPlayer$ one
+	// never for a card's.
+	id, isCard := object.AsCard()
+	pid, isPlayer := object.AsPlayer()
+	if vc, ok := t.Param("ValidCard"); ok && (!isCard || !Matches(g, g.Card(id), valid.Parse(vc), h.Controller(), host)) {
 		return false
+	}
+	if vp, ok := t.Param("ValidPlayer"); ok {
+		if !isPlayer {
+			return false
+		}
+		if matched, recognized := matchesPlayerSpec(g, pid, h.Controller(), host, vp); !recognized || !matched {
+			return false
+		}
 	}
 	if vs, ok := t.Param("ValidSource"); ok {
 		if placer == NoPlayer {
@@ -153,6 +224,42 @@ func (g *Game) counterAddedTriggerMatches(t *compile.Ability, h *Card, host Card
 	return true
 }
 
+// counterPlayerAddedAllMatches is Mode$ CounterPlayerAddedAll
+// (TriggerCounterPlayerAddedAll.performTest) for placer's placement of n
+// counters on object: ValidSource$ against the placer, ValidObject$ against
+// the card or player. The trigger's Amount is the counters placed
+// (setTriggeringObjects: the CounterMap's size), All Will Be One's "that
+// much". A ValidObjectToSource$ line (every corpus one names a creature) does
+// not fire for a player. No placer fires nothing (Optional.get() on an empty
+// source cannot run).
+func (g *Game) counterPlayerAddedAllMatches(placer PlayerID, object EntityID, n int) []Ability {
+	if placer == NoPlayer {
+		return nil
+	}
+	id, isCard := object.AsCard()
+	pid, _ := object.AsPlayer()
+	return g.scanTriggers([]string{"CounterPlayerAddedAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, counterPlayerAddedAllParams) || !g.triggerPlayerMatches(h, t, "ValidSource", placer) {
+			return triggeredObjects{}, false
+		}
+		counts := triggerCounts{amount: n, set: countAmount}
+		if !isCard {
+			if _, ok := t.Param("ValidObjectToSource"); ok || !g.triggerPlayerMatches(h, t, "ValidObject", pid) {
+				return triggeredObjects{}, false
+			}
+			return triggeredObjects{player: pid, counts: counts}, true
+		}
+		c := g.Card(id)
+		if !g.triggerCardMatches(h, t, "ValidObject", c) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidObjectToSource"); ok && !Matches(g, c, valid.Parse(spec), placer, h.ID) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: id, counts: counts}, true
+	})
+}
+
 var (
 	counterPlayerAddedAllParams = effectEventParams("validobject", "validsource", "validobjecttosource")
 	counterAddedAllParams       = effectEventParams("valid", "validsource", "countertype")
@@ -176,21 +283,12 @@ func (g *Game) countersAddedToThisTurn(id CardID) bool {
 // every counter one effect puts on all its targets into one table; this port
 // fires per placement, a one-entry table (see quirks). A placement with no
 // placer fires no CounterPlayerAddedAll (Optional.get() on an empty source
-// cannot run). Counters on players are not routed here.
+// cannot run). Counters on players fire CounterPlayerAddedAll from
+// addPlayerCounters; CounterAddedAll and CounterTypeAddedAll read cards only,
+// as every corpus Valid$/ValidObject$ of theirs names a card.
 func (g *Game) checkCounterBatchTriggers(controller PlayerController, placer PlayerID, id CardID, ct CounterType, n int, first bool) {
 	c := g.Card(id)
-	var matches []Ability
-	if placer != NoPlayer {
-		matches = append(matches, g.scanTriggers([]string{"CounterPlayerAddedAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
-			if !paramsResolvable(t, counterPlayerAddedAllParams) || !g.triggerCardMatches(h, t, "ValidObject", c) || !g.triggerPlayerMatches(h, t, "ValidSource", placer) {
-				return triggeredObjects{}, false
-			}
-			if spec, ok := t.Param("ValidObjectToSource"); ok && !Matches(g, c, valid.Parse(spec), placer, h.ID) {
-				return triggeredObjects{}, false
-			}
-			return triggeredObjects{card: id}, true
-		})...)
-	}
+	matches := g.counterPlayerAddedAllMatches(placer, CardEntity(id), n)
 	matches = append(matches, g.scanTriggers([]string{"CounterAddedAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
 		if !paramsResolvable(t, counterAddedAllParams) || !g.triggerCardMatches(h, t, "Valid", c) {
 			return triggeredObjects{}, false

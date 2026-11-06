@@ -56,17 +56,17 @@ func TestDamageDealtOnceFiresOnceForSourceHittingMultipleTargets(t *testing.T) {
 	blocker2 := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	g.NewCard(damageTableWatcherDef(t, "Test Watcher", "DamageDealtOnce", "CombatDamage$ True | ValidSource$ Creature.YouCtrl"), a, engine.Battlefield)
 
-	ac := engine.NewScriptedController()
+	ac := keepingOrder()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
 	declareBlockers(t, g, bc)
 
-	dc := engine.NewScriptedController()
+	dc := keepingOrder()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
 		{Blocker: blocker1, Amount: 2},
 		{Blocker: blocker2, Amount: 3},
@@ -177,17 +177,17 @@ func TestDamageAllFiresOnceRegardlessOfGrouping(t *testing.T) {
 	blocker2 := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	g.NewCard(damageTableWatcherDef(t, "Test Watcher", "DamageAll", "CombatDamage$ True"), a, engine.Battlefield)
 
-	ac := engine.NewScriptedController()
+	ac := keepingOrder()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
 	declareBlockers(t, g, bc)
 
-	dc := engine.NewScriptedController()
+	dc := keepingOrder()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
 		{Blocker: blocker1, Amount: 2},
 		{Blocker: blocker2, Amount: 3},

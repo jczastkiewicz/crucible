@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=18
+humanbattlefield=Font of Agonies|Id:1|Counters:BLOOD=2
+humanhand=Island|Id:3
+humangraveyard=Gitaxian Probe|Id:2
+ailife=20

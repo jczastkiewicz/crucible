@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // Pump/PumpAll KW$ "HIDDEN " lines: PumpEffect.applyPump (PumpEffect.java:48-73)
@@ -181,5 +182,75 @@ func TestPumpHiddenRejectsWhatNothingReads(t *testing.T) {
 				t.Errorf("ResolveStack = %v, want an error containing %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// TestUndiscoveredParadiseReturnsToHandAtTheNextUntapStep taps three copies of
+// the real card for mana: each Pump grants the hidden bounce line, and the
+// controller's next untap step returns all of them to hand before anything untaps
+// (Untap.java:91-98). Played again, the land is a new object without the
+// grant and stays through the following untap step.
+func TestUndiscoveredParadiseReturnsToHandAtTheNextUntapStep(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	var lands []engine.CardID
+	for range 3 {
+		lands = append(lands, g.NewCard(corpusCard(t, "Undiscovered Paradise"), p, engine.Battlefield))
+	}
+	c := engine.NewScriptedController()
+	for _, land := range lands {
+		c.QueueManaColor(mana.Green)
+		if !g.ActivateManaAbility(p, land, 0, c) {
+			t.Fatal("ActivateManaAbility returned false, want true")
+		}
+	}
+	checkSBA(g)
+	toUntap := func(turn int) {
+		t.Helper()
+		g.SetTurnState(turn, opp, engine.Cleanup)
+		g.AdvancePhase(c)
+		if g.ActivePlayer() != p || g.ActivePhase() != engine.Untap {
+			t.Fatalf("setup: turn is %v in %v, want p's untap step", g.ActivePlayer(), g.ActivePhase())
+		}
+	}
+	toUntap(2)
+	for _, land := range lands {
+		if got := g.Card(land).Zone; got != engine.Hand {
+			t.Errorf("land is in %v, want hand", got)
+		}
+	}
+	g.Move(lands[0], engine.Battlefield, p)
+	checkSBA(g)
+	toUntap(4)
+	if got := g.Card(lands[0]).Zone; got != engine.Battlefield {
+		t.Errorf("replayed land is in %v, want battlefield", got)
+	}
+}
+
+// TestMutablePupaGainsTheEnteringCreaturesKeywords runs Mutable Pupa's Pump:
+// SharedRestrictions$ Card.TriggeredCard keeps, of the listed keywords, the
+// ones the entering creature has (PumpEffect.java:312-316).
+func TestMutablePupaGainsTheEnteringCreaturesKeywords(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	pupa := g.NewCard(corpusCard(t, "Mutable Pupa"), p, engine.Battlefield)
+	entering := g.NewCard(creatureWithKeywords(t, "1", "1", "Flying"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	if !g.CastSpell(p, entering, c) {
+		t.Fatal("cast failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !g.Card(pupa).HasKeyword("Flying") {
+		t.Error("Mutable Pupa lacks Flying")
+	}
+	if g.Card(pupa).HasKeyword("Trample") {
+		t.Error("Mutable Pupa has Trample, which the entering creature lacks")
 	}
 }

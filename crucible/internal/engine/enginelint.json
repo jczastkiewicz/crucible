@@ -28,6 +28,8 @@
     "mulligan": ["mulligan.go"],
     "match": ["match.go"],
     "stack": ["stack.go"],
+    "rebound": ["rebound.go"],
+    "face": ["face.go"],
     "priority": ["priority.go"],
     "driver": ["driver.go"],
     "valid": ["valid.go", "validhistory.go"],
@@ -45,7 +47,7 @@
     "manaability": ["manaability.go", "activatemanaability.go"],
     "land": ["land.go"],
     "castspell": ["castspell.go", "activateability.go"],
-    "trigger": ["trigger.go", "blockerstriggers.go", "madnesstrigger.go"],
+    "trigger": ["trigger.go", "blockerstriggers.go", "madnesstrigger.go", "triggerevent.go"],
     "statictrigger": ["statictrigger.go"],
     "panharmonicon": ["panharmonicon.go"],
     "continuous": ["continuous.go"],
@@ -209,7 +211,10 @@
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "match": ["id", "zone", "game", "control"],
+    "face": ["id", "zone", "game", "control", "card", "room", "castspell", "ability", "land"],
+    "rebound": ["id", "zone", "game", "control", "ability", "card", "valid", "replacement"],
     "stack": [
+      "rebound",
       "id",
       "alwaystrigger",
       "ability",
@@ -224,7 +229,7 @@
       "subability",
       "additional"
     ],
-    "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room"],
+    "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room", "ability"],
     "driver": ["id", "game", "phase", "control", "effect", "mulligan", "openinghand", "registry"],
     "valid": [
       "id",
@@ -239,7 +244,8 @@
       "amount",
       "playerproperty",
       "defined",
-      "ability"
+      "ability",
+      "manaability"
     ],
     "attack": [
       "triggerhooks",
@@ -336,7 +342,7 @@
       "excessdamage",
       "removecountereffect"
     ],
-    "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict", "amount"],
+    "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict", "amount", "priority"],
     "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone", "valid"],
     "manaability": [
       "chosencosts",
@@ -508,6 +514,7 @@
       "zonemove"
     ],
     "replacement": [
+      "additional",
       "id",
       "zone",
       "card",
@@ -611,9 +618,10 @@
       "rulesmod",
       "emerge",
       "altcost",
-      "unlesscost"
+      "unlesscost",
+      "morph"
     ],
-    "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability"],
+    "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability", "player"],
     "playerproperty": [
       "id",
       "zone",
@@ -626,7 +634,19 @@
       "castrecord",
       "excessdamage"
     ],
-    "foretell": ["id", "zone", "card", "game", "control", "parts", "mana", "manarestrict", "ability", "triggerhooks"],
+    "foretell": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "control",
+      "parts",
+      "mana",
+      "manarestrict",
+      "ability",
+      "triggerhooks",
+      "valid"
+    ],
     "lifelost": [
       "id",
       "zone",

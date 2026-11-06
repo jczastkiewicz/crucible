@@ -29,7 +29,7 @@ func TestRadiationMillsAtPrecombatMain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
-			c := engine.NewScriptedController()
+			c := keepingOrder()
 			// Library top first: two nonland cards around a land when rad
 			// is 3, two nonland cards when it is 2.
 			if tc.rad == 3 {

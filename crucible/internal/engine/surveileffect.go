@@ -13,11 +13,9 @@
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/SurveilEffect.java's
 // resolve and forge-game/src/main/java/forge/game/player/Player.java's own
-// surveil. CR 702's own Surveil-number static modifier
-// (StaticAbilitySurveilNum.surveilNumMod) is not ported -- 0 real lines
-// carry the qualifying keyword -- and, the identical reason scryEffect's own
-// doc comment gives for Mode$ Scry, the corpus's own T:Mode$ Surveil is 0
-// real lines too, so nothing here checks a trigger at all.
+// surveil. A Mode$ SurveilNum static (Enhanced Surveillance) raises each
+// player's count (surveilNumMod, below), and Mode$ Surveil fires once per
+// surveiling player (checkSurveilTriggers, triggerpack.go).
 
 package engine
 
@@ -87,6 +85,7 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			_, rememberKept := a.Params.Param("RememberKept")
 			for _, id := range toGraveyard {
 				g.moveToGraveyard(controller, id)
+				g.Card(id).surveilled = true
 				if rememberMoved {
 					source.Memory.Remember(CardEntity(id))
 				}

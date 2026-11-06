@@ -48,9 +48,9 @@ import (
 // controller is asked to pay the cost (Cumulative upkeep's, multiplied by the
 // AGE counters it now holds, one more each time) and the permanent is
 // sacrificed when it is not paid, unless its controller has changed since the
-// trigger. Not ported: the PayEcho/PayCumulativeUpkeep triggers each fires (5
-// corpus cards), and the player keyword "You may pay 0 rather than pay the
-// echo cost" (1 card).
+// trigger. Mode$ PayEcho and PayCumulativeUpkeep fire once the player answers
+// (checkUpkeepPaidTriggers), and Thick-Skinned Goblin's player keyword pays
+// an echo cost with {0} (upkeepCostPaid, unlesscost.go).
 //
 // SubAbility$ chains through resolveSubAbility (subability.go,
 // Registry.Resolve, effect.go) once this effect's own body finishes,
@@ -150,7 +150,9 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	}
 	if eachValid {
 		for _, pid := range players {
-			sacrificeCards(g, controller, a, g.sacrificeEachValid(controller, a, pid, sacValid, amount))
+			if err := g.sacrificeChosen(controller, a, g.sacrificeEachValid(controller, a, pid, sacValid, amount), false); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -190,21 +192,23 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 			for _, i := range g.randomSample(len(candidates), n) {
 				picked = append(picked, candidates[i])
 			}
-			if destroy {
-				g.destroyChosen(controller, a, picked)
-				continue
+			if err := g.sacrificeChosen(controller, a, picked, destroy); err != nil {
+				return err
 			}
-			sacrificeCards(g, controller, a, picked)
 			continue
 		}
 		if !optional || strict {
 			// minTargets = amount (SacrificeEffect.java:138): exactly Amount$
 			// of the candidates, or all of them when fewer.
+			var picked []CardID
 			if destroy {
-				g.destroyChosen(controller, a, controller.ChoosePermanentsToDestroy(g, pid, candidates, n))
-				continue
+				picked = controller.ChoosePermanentsToDestroy(g, pid, candidates, n)
+			} else {
+				picked = controller.ChoosePermanentsToSacrifice(g, pid, candidates, n)
 			}
-			sacrificeCards(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, n))
+			if err := g.sacrificeChosen(controller, a, picked, destroy); err != nil {
+				return err
+			}
 			continue
 		}
 		// Optional$ without StrictAmount$ (Exploit, Devour, "you may sacrifice
@@ -216,8 +220,26 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		if !isSubset(chosen, candidates) || hasDuplicate(chosen) || len(chosen) > n {
 			return fmt.Errorf("engine: Sacrifice: optional answer %v is not up to %d of the %d offered", chosen, n, len(candidates))
 		}
-		sacrificeCards(g, controller, a, chosen)
+		if err := g.sacrificeChosen(controller, a, chosen, false); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// sacrificeChosen sacrifices (or, with Destroy$, destroys) what one player
+// chose, ordered for the graveyard by the cards' owners first
+// (SacrificeEffect.java:152, CR 613.7m).
+func (g *Game) sacrificeChosen(controller PlayerController, a *Ability, ids []CardID, destroy bool) error {
+	ordered, err := g.orderCardsByTheirOwners(controller, ids, Graveyard)
+	if err != nil {
+		return fmt.Errorf("engine: Sacrifice: %w", err)
+	}
+	if destroy {
+		g.destroyChosen(controller, a, ordered)
+		return nil
+	}
+	sacrificeCards(g, controller, a, ordered)
 	return nil
 }
 
@@ -377,6 +399,8 @@ func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []C
 			g.noteDevoured(controller, a.Source, id)
 		}
 		if isExploitAbility(a) {
+			h := g.Card(a.Source)
+			h.exploited = append(append([]CardID(nil), h.exploited...), id)
 			g.checkExploitedTriggers(controller, a.Source, id)
 		}
 	}

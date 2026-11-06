@@ -7,6 +7,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
@@ -349,7 +350,6 @@ func TestPlayRejectsUnbuiltShapes(t *testing.T) {
 	}{
 		{"DB$ Play | Defined$ Remembered | ReplaceGraveyard$ Hand", "ReplaceGraveyard$"},
 		{"DB$ Play | Defined$ Remembered | TgtZone$ Graveyard", "TgtZone$"},
-		{"DB$ Play | Valid$ Card.ExiledWithSourceLKI | ValidZone$ Exile", "ExiledWithSourceLKI"},
 		{"DB$ Play | Valid$ Card.cmcLEX | ValidZone$ Exile", "cmcLEX"},
 		{"DB$ Play | Valid$ Card | ValidZone$ Nowhere", "ValidZone$"},
 		{"DB$ Play | Defined$ Remembered | ValidSA$ Spell.cmcLEZ", "cmcLEZ"},
@@ -761,5 +761,127 @@ func TestPlayWithTotalCMCStopsWhenTheBudgetIsSpent(t *testing.T) {
 	}
 	if got := g.Card(small).Zone; got != engine.Exile {
 		t.Errorf("small spell zone = %v, want Exile", got)
+	}
+}
+
+// TestPlayCastsTheSecondFaceWhenTheFrontIsNotASpell proves Play offers a
+// multi-face card's second face (ADR-0052): with ValidSA$ Spell a land front
+// is no option, so the Adventure half is cast, gaining life, and the card
+// leaves the stack for exile as an Adventure card does.
+func TestPlayCastsTheSecondFaceWhenTheFrontIsNotASpell(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	def := gainInstant(t, "Adv", "W", "4")
+	def.SplitType = carddb.SplitAdventure
+	def.Faces[carddb.FaceAlternate] = def.Faces[0]
+	def.Faces[0].Name = "Front Land"
+	def.Faces[0].Type = cardtype.ParseToken("Land")
+	def.Faces[0].ManaCost = mana.NoCost()
+	def.Faces[0].Abilities = nil
+	card := g.NewCard(def, p, engine.Exile)
+	c := engine.NewScriptedController()
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | Defined$ Remembered | ValidSA$ Spell | WithoutManaCost$ True")
+	if err := resolvePlay(t, g, host, c, card); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 24 {
+		t.Errorf("life = %d, want 24 (the Adventure half cast)", got)
+	}
+	if got := g.Card(card).Zone; got != engine.Exile {
+		t.Errorf("card zone = %v, want Exile (on an adventure)", got)
+	}
+}
+
+// wearTearSetup puts Wear // Tear in p's zone and an artifact and an
+// enchantment on the other player's battlefield.
+func wearTearSetup(t *testing.T, zone engine.ZoneType) (*engine.Game, engine.PlayerID, engine.CardID, engine.CardID, engine.CardID) {
+	t.Helper()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	card := g.NewCard(corpusCard(t, "Wear"), p, zone)
+	artifact := g.NewCard(corpusCard(t, "Ornithopter"), other, engine.Battlefield)
+	enchantment := g.NewCard(corpusCard(t, "Glorious Anthem"), other, engine.Battlefield)
+	return g, p, card, artifact, enchantment
+}
+
+// Play offers a Fuse card from the hand as Wear, Tear, or both fused (Java's
+// order, CardState.java:495-502 and the Fuse keyword's spell), and the
+// controller picks (PlayEffect.java:323): fused, it destroys both targets.
+func TestPlayCastsAFuseCardFusedFromTheHand(t *testing.T) {
+	t.Parallel()
+	g, p, card, artifact, enchantment := wearTearSetup(t, engine.Hand)
+	c := &optionRecorder{ScriptedController: engine.NewScriptedController()}
+	c.QueueConfirmEffect(true)
+	c.QueueCardChoice([]engine.CardID{card})
+	c.QueueOptionNamed("Cast Wear // Tear fused")
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(artifact)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(enchantment)})
+	pushPlayLine(t, g, p, nil, "DB$ Play | Valid$ Card.nonLand+YouOwn | ValidZone$ Hand | ValidSA$ Spell | WithoutManaCost$ True | Optional$ True")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"Cast Wear", "Cast Tear", "Cast Wear // Tear fused"}
+	if len(c.offers) != 1 || !slices.Equal(c.offers[0], want) {
+		t.Fatalf("offered %v, want [%v]", c.offers, want)
+	}
+	if g.Card(artifact).Zone != engine.Graveyard || g.Card(enchantment).Zone != engine.Graveyard {
+		t.Errorf("Ornithopter in %v, Glorious Anthem in %v, want both destroyed", g.Card(artifact).Zone, g.Card(enchantment).Zone)
+	}
+	if got := g.Card(card).Zone; got != engine.Graveyard {
+		t.Errorf("Wear // Tear in %v, want the graveyard", got)
+	}
+	// Off the stack the card is the printed one again, not the fused view,
+	// and has both halves' names (CR 709.4).
+	if got := g.Card(card).Def.Name; got != "Wear" {
+		t.Errorf("card in the graveyard is %q, want the printed Wear", got)
+	}
+	if got := g.Card(card).Name(); got != "Wear // Tear" {
+		t.Errorf("card in the graveyard is named %q, want Wear // Tear", got)
+	}
+}
+
+// Fuse casts from the hand only (SpellAbilityRestriction.java:364): from
+// exile Play offers the two halves, and the right one cast alone destroys
+// only its target.
+func TestPlayOffersNoFusedSpellOutsideTheHand(t *testing.T) {
+	t.Parallel()
+	g, p, card, artifact, enchantment := wearTearSetup(t, engine.Exile)
+	c := &optionRecorder{ScriptedController: engine.NewScriptedController()}
+	c.QueueConfirmEffect(true)
+	c.QueueCardChoice([]engine.CardID{card})
+	c.QueueOptionNamed("Cast Tear")
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(enchantment)})
+	pushPlayLine(t, g, p, nil, "DB$ Play | Valid$ Card.YouOwn | ValidZone$ Exile | ValidSA$ Spell | WithoutManaCost$ True | Optional$ True")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"Cast Wear", "Cast Tear"}
+	if len(c.offers) != 1 || !slices.Equal(c.offers[0], want) {
+		t.Fatalf("offered %v, want [%v]", c.offers, want)
+	}
+	if g.Card(artifact).Zone != engine.Battlefield || g.Card(enchantment).Zone != engine.Graveyard {
+		t.Errorf("Ornithopter in %v, Glorious Anthem in %v, want only the enchantment destroyed", g.Card(artifact).Zone, g.Card(enchantment).Zone)
+	}
+}
+
+// Each option is judged on its own cost (SpellAbilityProperty.java:254-260
+// reads the spell's own mana): under ValidSA$ Spell.cmcLE1, Wear ({1}{R}) and
+// the fused spell fail and Tear ({W}) is cast with no question asked.
+func TestPlayJudgesEachHalfOnItsOwnManaValue(t *testing.T) {
+	t.Parallel()
+	g, p, card, artifact, enchantment := wearTearSetup(t, engine.Hand)
+	c := &optionRecorder{ScriptedController: engine.NewScriptedController()}
+	c.QueueConfirmEffect(true)
+	c.QueueCardChoice([]engine.CardID{card})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(enchantment)})
+	pushPlayLine(t, g, p, nil, "DB$ Play | Valid$ Card.nonLand+YouOwn | ValidZone$ Hand | ValidSA$ Spell.cmcLE1 | WithoutManaCost$ True | Optional$ True")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.offers) != 0 {
+		t.Errorf("asked %v, want no choice: only Tear qualifies", c.offers)
+	}
+	if g.Card(artifact).Zone != engine.Battlefield || g.Card(enchantment).Zone != engine.Graveyard {
+		t.Errorf("Ornithopter in %v, Glorious Anthem in %v, want Tear cast alone", g.Card(artifact).Zone, g.Card(enchantment).Zone)
 	}
 }

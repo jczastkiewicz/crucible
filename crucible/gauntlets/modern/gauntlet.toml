@@ -1,0 +1,120 @@
+# The Modern gauntlet (docs/crucible/research/meta-gauntlet.md): one .dck per
+# archetype, weighted by its share of the paper metagame. A refresh is a new
+# snapshot, never an edit to this one.
+format = "modern"
+snapshot = "2026-11-06"
+source = "MTGGoldfish paper Modern metagame, https://www.mtggoldfish.com/metagame/modern/full#paper, read 2026-11-06: the 14 archetypes at 2.5% or more (70.7% of the field together). Each list is the archetype page's featured deck, a melee.gg tournament result named in its file"
+# weight: the archetype's metagame share in percent, as published; a reader
+# normalises over the decks it loads.
+
+[[deck]]
+file = "eldrazi-ramp.dck"
+archetype = "Eldrazi Ramp"
+weight = 10.3
+event = "Ultimate Guard European Magic Series - Regional Championship - Ghent 2026, 2nd Place, 13-3-1"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/7997877"
+
+[[deck]]
+file = "izzet-prowess.dck"
+archetype = "Izzet Prowess"
+weight = 7.2
+event = "Regional Championship - SCG CON Los Angeles - Season 5 - Round 1 - Saturday - 9:00 am, 4th Place, 13-3-1"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/8006212"
+
+[[deck]]
+file = "affinity.dck"
+archetype = "Affinity"
+weight = 6.6
+event = "$5K RCQ - Modern - SCG CON Los Angeles - Saturday - 9:30 am, 1st Place, 10-1"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/7997485"
+
+[[deck]]
+file = "domain-zoo.dck"
+archetype = "Domain Zoo"
+weight = 6.0
+event = "Regional Championship - SCG CON Los Angeles - Season 5 - Round 1 - Saturday - 9:00 am, 3rd Place, 13-3-1"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/8006211"
+
+[[deck]]
+file = "boros-energy.dck"
+archetype = "Boros Energy"
+weight = 5.5
+event = "Regional Championship - SCG CON Los Angeles - Season 5 - Round 1 - Saturday - 9:00 am, 6th Place, 12-3-1"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/8006214"
+
+[[deck]]
+file = "esper-blink.dck"
+archetype = "Esper Blink"
+weight = 5.2
+event = "$5K RCQ - Modern - SCG CON Los Angeles - Saturday - 9:30 am, 7th Place, 6-1-2"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/7997491"
+
+[[deck]]
+file = "eldrazi.dck"
+archetype = "Eldrazi"
+weight = 4.9
+event = "Ultimate Guard European Magic Series - Regional Championship - Ghent 2026, 1st Place, 15-2"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/7997876"
+
+[[deck]]
+file = "jeskai-energy.dck"
+archetype = "Jeskai Energy"
+weight = 4.2
+event = "$5K RCQ - Modern - SCG CON Los Angeles - Saturday - 9:30 am, 5th Place, 7-2"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/7997489"
+
+[[deck]]
+file = "azorius-control.dck"
+archetype = "Azorius Control"
+weight = 3.9
+event = "Regional Championship - SCG CON Los Angeles - Season 5 - Round 1 - Saturday - 9:00 am, 1st Place, 15-1-2"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/8006209"
+
+[[deck]]
+file = "rakdos-midrange.dck"
+archetype = "Rakdos Midrange"
+weight = 3.8
+event = "ANZ Super Series Cycle 13 Regional Championships - Sydney, 3rd Place, 8-2-1"
+date = "Oct 23, 2026"
+url = "https://www.mtggoldfish.com/deck/8016148"
+
+[[deck]]
+file = "amulet-titan.dck"
+archetype = "Amulet Titan"
+weight = 3.7
+event = "ANZ Super Series Cycle 13 Regional Championships - Sydney, 5th Place, 7-1-2"
+date = "Oct 23, 2026"
+url = "https://www.mtggoldfish.com/deck/8016150"
+
+[[deck]]
+file = "goryos-vengeance.dck"
+archetype = "Goryo's Vengeance"
+weight = 3.4
+event = "$1K Modern RCQ - SCG CON Los Angeles - Friday - 10:00 am, 11th Place, 5-1-1"
+date = "Oct 9, 2026"
+url = "https://www.mtggoldfish.com/deck/7999486"
+
+[[deck]]
+file = "ruby-storm.dck"
+archetype = "Ruby Storm"
+weight = 3.4
+event = "MIT Championship 台灣冠軍賽-第十三輪, 10th Place, 5-2"
+date = "Nov 1, 2026"
+url = "https://www.mtggoldfish.com/deck/8031341"
+
+[[deck]]
+file = "mono-green-basking-broodscale-combo.dck"
+archetype = "Mono-Green Basking Broodscale Combo"
+weight = 2.6
+event = "$5K RCQ - Modern - SCG CON Los Angeles - Saturday - 9:30 am, 4th Place, 7-2-1"
+date = "Oct 10, 2026"
+url = "https://www.mtggoldfish.com/deck/7997488"

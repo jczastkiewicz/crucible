@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Combat Damage
 humanlife=20
 humanhand=Grizzly Bears
-humanbattlefield=Hypnotic Specter|Tapped
+humanbattlefield=Hypnotic Specter|Tapped|Attacking
 ailife=18
 aigraveyard=Lightning Bolt

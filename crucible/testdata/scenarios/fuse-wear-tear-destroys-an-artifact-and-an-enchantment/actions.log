@@ -1,0 +1,13 @@
+# AbilityFactory.buildFusedAbility (:383-415): both halves of a Fuse card are one
+# spell, the combined {1}{R}{W}, Wear's Destroy with Tear's Destroy as the last
+# sub-ability. Both targets are chosen as it is cast (ADR-0052, face.go).
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 W
+queue paygeneric R
+queue targets 5
+queue targets 6
+castspell human 1 fuse
+resolvestack

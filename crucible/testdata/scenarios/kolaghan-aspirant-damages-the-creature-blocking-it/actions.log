@@ -1,0 +1,10 @@
+# Mode$ AttackerBlockedByCreature: "whenever Kolaghan Aspirant becomes
+# blocked by a creature, it deals 1 damage to that creature" (CR 509.3d).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+resolvestack

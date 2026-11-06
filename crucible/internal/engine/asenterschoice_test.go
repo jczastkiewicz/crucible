@@ -78,7 +78,7 @@ func TestAsEntersMillRunsBeforeTheMove(t *testing.T) {
 		"K:ETBReplacement:Other:DBMill",
 		"SVar:DBMill:DB$ Mill | NumCards$ 2 | Defined$ You")
 	entrant := g.NewCard(def, p, engine.Hand)
-	if err := castEntrant(t, g, p, entrant, engine.NewScriptedController()); err != nil {
+	if err := castEntrant(t, g, p, entrant, keepingOrder()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 	if got := len(g.Zone(engine.Graveyard, p).Cards()); got != 2 {

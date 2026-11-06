@@ -47,6 +47,12 @@ type attackRequirement struct {
 	causes []CardID
 }
 
+// hasRequirement is AttackRequirement.hasRequirement (AttackRequirement.java:
+// 84-86): a requirement toward some defender, or a creature it forces.
+func (r *attackRequirement) hasRequirement() bool {
+	return slices.ContainsFunc(r.counts, func(n int) bool { return n > 0 }) || len(r.causes) > 0
+}
+
 // causeCount is causesToAttack.get(forced).size(): the statics forcing it.
 func (r *attackRequirement) causeCount(forced CardID) int {
 	n := 0
@@ -377,7 +383,10 @@ func (g *Game) sortedFilteredRequirements(ac attackConstraints) ([]attackOption,
 		if !g.canAttackAtAll(r.attacker) {
 			continue
 		}
-		allowed := g.goadTargets(r.attacker, targets)
+		allowed, err := g.goadTargets(r.attacker, targets)
+		if err != nil {
+			return nil, err
+		}
 		var own []attackOption
 		for i, d := range r.defenders {
 			if containsEntity(allowed, d) {
@@ -604,7 +613,7 @@ func (g *Game) eachCombatStatic(mode string, f func(h *Card, face *compile.Face,
 			if h.Def == nil {
 				continue
 			}
-			for fi := range h.traitFaces() {
+			for fi := range h.liveTraitFaces() {
 				face := &h.traitFaces()[fi]
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
@@ -692,4 +701,59 @@ func staticValidMatches(g *Game, h *Card, s *compile.Ability, key string, card C
 		return true
 	}
 	return Matches(g, g.Card(card), valid.Parse(spec), h.Controller(), h.ID)
+}
+
+// couldAttackButNotAttacking is CombatUtil.couldAttackButNotAttacking
+// (CombatUtil.java:95-119) for one of the active player's creatures, read at
+// any time (Season of the Witch's end step): it is not attacking, and some
+// defender it can attack without an attack cost leaves, beside the current
+// attackers, no more requirements unmet than the best attack does.
+func (g *Game) couldAttackButNotAttacking(id CardID) (bool, error) {
+	if containsCard(g.combat.Attackers, id) || !g.canAttackAtAll(id) {
+		return false, nil
+	}
+	v, err := g.newAttackValidation()
+	if err != nil {
+		return false, err
+	}
+	best, err := g.legalAttack(v.ac, v.options)
+	if err != nil {
+		return false, err
+	}
+	bestN, err := g.countViolations(v.ac, best)
+	if err != nil {
+		return false, err
+	}
+	if empty, err := g.countViolations(v.ac, nil); err != nil {
+		return false, err
+	} else if empty < bestN {
+		bestN = empty
+	}
+	attack := map[CardID]EntityID{}
+	for _, a := range g.combat.Attackers {
+		attack[a] = g.combat.AttackTargets[a]
+	}
+	allowed, err := g.goadTargets(id, g.eligibleAttackTargets())
+	if err != nil {
+		return false, err
+	}
+	for _, d := range allowed {
+		if _, costed, err := g.attackCost(id, d); err != nil {
+			return false, err
+		} else if costed {
+			continue
+		}
+		attack[id] = d
+		if !v.ac.limits.legal(attack) {
+			continue
+		}
+		n, err := g.countViolations(v.ac, attack)
+		if err != nil {
+			return false, err
+		}
+		if n <= bestN {
+			return true, nil
+		}
+	}
+	return false, nil
 }

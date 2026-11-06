@@ -17,8 +17,12 @@ import (
 // tokenSpec is one token to create: the script, who creates (owns) it, and
 // the per-token adjustments TokenEffectBase applies before it enters.
 type tokenSpec struct {
-	Def                    *compile.Card
-	Owner                  PlayerID
+	Def   *compile.Card
+	Owner PlayerID
+	// Controller is who the token enters under when it is not its owner (a
+	// CreateToken replacement's AddToken or ReplaceController); NoPlayer is
+	// the owner.
+	Controller             PlayerID
 	Tapped                 bool
 	Power, Toughness       int
 	HasPower, HasToughness bool
@@ -56,7 +60,13 @@ func (g *Game) createToken(controller PlayerController, spec tokenSpec) CardID {
 	if spec.P1P1 > 0 {
 		enter = append(enter, enterCounters{kind: P1P1, n: spec.P1P1, placer: spec.Owner})
 	}
-	g.moveByEffect(controller, id, Battlefield, 0, NoPlayer, spec.Tapped, enter...)
+	newCtrl := NoPlayer
+	if spec.Controller != NoPlayer && spec.Controller != spec.Owner {
+		// TokenEffectBase.java:119-121: a token another player controls is
+		// still created, and owned, by its creator.
+		newCtrl = spec.Controller
+	}
+	g.moveByEffect(controller, id, Battlefield, 0, newCtrl, spec.Tapped, enter...)
 	if g.Card(id).Zone == Battlefield {
 		// TokenEffectBase.java:171-173: the token entered, so its creator's
 		// count moves and Mode$ TokenCreated fires for it.

@@ -8,7 +8,21 @@ set -euo pipefail
 version=v0.50.0
 sha256=bc2b8902b0d9c796c82ef45f16ae2307e17757afeca5ee156235a3dc7bda5f89
 
-command -v rtk >/dev/null 2>&1 && exit 0
+# rtk's own grep and rg take flags of their own (-h is its help), so a rewritten
+# `grep -h ...` or `rg -o -h ...` prints usage instead of matches. Keep both
+# native in the hook: exclude them in rtk's config, once.
+exclude_native() {
+	local cfg="$HOME/.config/rtk/config.toml"
+	local bin
+	bin=$(command -v rtk || echo "$HOME/.local/bin/rtk")
+	[ -f "$cfg" ] || "$bin" config --create >/dev/null 2>&1 || return 0
+	sed -i 's/^exclude_commands = \[\]$/exclude_commands = ["grep", "rg"]/' "$cfg"
+}
+
+if command -v rtk >/dev/null 2>&1; then
+	exclude_native
+	exit 0
+fi
 
 bindir="$HOME/.local/bin"
 mkdir -p "$bindir"
@@ -33,3 +47,5 @@ case ":$PATH:" in
 	echo "ensure-rtk: installed to $bindir, which is not on PATH -- add it" >&2
 	;;
 esac
+
+exclude_native

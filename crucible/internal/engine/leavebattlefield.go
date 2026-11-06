@@ -19,6 +19,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -35,11 +36,35 @@ func leaveBattlefieldZone(a *Ability, api string) (zone string, has bool, err er
 // addLeaveBattlefieldReplacement installs the effect card for card, which must
 // be on the battlefield; a card that has left already has nothing to replace.
 func (g *Game) addLeaveBattlefieldReplacement(a *Ability, card CardID, zone string) {
+	g.leaveBattlefieldEffect(a, card, zone, effectHostName(g.Card(a.Source))+"'s Effect")
+}
+
+// unearthReturned is ChangeZoneEffect.java:680-698: a card an Unearth ability
+// (the keyword.Expand template, CardFactoryUtil.java:3636-3648) put onto the
+// battlefield gains haste, is exiled instead if it would leave the
+// battlefield (one effect card carries both), and is exiled at the beginning
+// of the next end step, and is unearthed (Card.setUnearthed, read by
+// IsUnearthed).
+func (g *Game) unearthReturned(a *Ability, card CardID) error {
+	if keyword.Parse(a.Params.Keyword).Name != "Unearth" || g.Card(card).Zone != Battlefield {
+		return nil
+	}
+	g.Card(card).unearthed = true
+	haste := &compile.Ability{Record: compile.Static, Name: "Continuous", Params: []vocab.Param{
+		{Key: "Mode", Value: "Continuous"}, {Key: "Affected", Value: "Card.IsRemembered"},
+		{Key: "EffectZone", Value: "Command"}, {Key: "AddKeyword", Value: "Haste"},
+	}}
+	g.leaveBattlefieldEffect(a, card, "Exile", "Unearth Effect", haste)
+	return g.registerDelayedLeave(a.Source, a.Controller, a.Amounts, "ChangeZone", "Exile", "", a.Params.Keyword, []CardID{card})
+}
+
+// leaveBattlefieldEffect makes the effect card named name that remembers card
+// and replaces its leaving the battlefield with a move to zone, with statics
+// beside the replacement.
+func (g *Game) leaveBattlefieldEffect(a *Ability, card CardID, zone, name string, statics ...*compile.Ability) {
 	if g.Card(card).Zone != Battlefield {
 		return
 	}
-	source := g.Card(a.Source)
-	name := effectHostName(source) + "'s Effect"
 	send := &compile.Ability{Record: compile.SubAbility, Name: "ChangeZone", Params: []vocab.Param{
 		{Key: "DB", Value: "ChangeZone"}, {Key: "Defined", Value: "ReplacedCard"},
 		{Key: "Origin", Value: "Battlefield"}, {Key: "Destination", Value: zone},
@@ -54,6 +79,7 @@ func (g *Game) addLeaveBattlefieldReplacement(a *Ability, card CardID, zone stri
 	face.Name = name
 	face.Amounts = a.Amounts
 	face.Replacements = []*compile.Ability{moved}
+	face.Statics = statics
 	id := g.NewCard(def, a.Controller, Command)
 	eff := g.Card(id)
 	eff.IsEffect = true

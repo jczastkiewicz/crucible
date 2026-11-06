@@ -21,10 +21,10 @@ import (
 )
 
 // charmUnresolvedParams are CharmEffect params this port does not model:
-// Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
-// dead script param, forge-java-defects.md and card-script-defects.md; refused until
-// the scripts drop it, PORT-8). ActivationLimit$/GameActivationLimit$ are enforced at
-// activation (activationLimitsMet, activateability.go).
+// Defined$, which CharmEffect never reads; upstream dropped its 40 dead
+// `Defined$ You` lines (#12312), so a script that brings one back is refused
+// rather than silently ignored (PORT-8). ActivationLimit$/GameActivationLimit$
+// are enforced at activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
 	"Defined",
 }
@@ -70,6 +70,17 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 		options = append(options, mode)
 		names = append(names, sub.SVar)
+	}
+
+	if a.spell && g.spellOptional(a.Source).has(optEntwine) {
+		// CharmEffect.java:228-232: an entwined spell takes every mode that
+		// can be chosen, in printed order, with no count, Optional$ or
+		// dilemma asked (CR 702.42a).
+		all := make([]int, len(options))
+		for i := range all {
+			all[i] = i
+		}
+		return g.chainCharmModes(controller, a, options, names, all)
 	}
 
 	num := 1
@@ -180,14 +191,19 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 			facer = decider
 		}
 		g.Player(facer).dilemmasFacedThisTurn++
+		g.checkFacesDilemmaTriggers(controller, facer, hasRandom)
 	}
 
-	// chainAbilities appends each chosen mode, its own SubAbility$ chain with
-	// it, to the Charm's tail (CharmEffect.java:293-317), and setupTargets
-	// then walks the whole chain (SpellAbility.java:2141-2171): each mode's
-	// targets, then its own links', before the next mode's. A link naming its
-	// own ValidTgts$ (Inscription of Abundance's fight) is chosen here, not
-	// handed the mode's targets.
+	return g.chainCharmModes(controller, a, options, names, chosen)
+}
+
+// chainCharmModes is chainAbilities: it appends each chosen mode, its own
+// SubAbility$ chain with it, to the Charm's tail (CharmEffect.java:293-317),
+// and setupTargets then walks the whole chain (SpellAbility.java:2141-2171):
+// each mode's targets, then its own links', before the next mode's. A link
+// naming its own ValidTgts$ (Inscription of Abundance's fight) is chosen
+// here, not handed the mode's targets.
+func (g *Game) chainCharmModes(controller PlayerController, a *Ability, options []Ability, names []string, chosen []int) (bool, error) {
 	a.Modes = nil
 	for _, i := range chosen {
 		mode := options[i]

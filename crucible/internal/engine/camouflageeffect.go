@@ -79,32 +79,24 @@ func (camouflageEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	return nil
 }
 
-// camouflagePiles is CamouflageEffect.java:75-101, the human branch: one
+// camouflagePiles is CamouflageEffect.java:75-97, the human branch: one
 // ChooseCardsForEffect per attacker (every attacker in combat, not only
-// defender's), 0 to all of what is left in the pool. A chosen creature
-// leaves the pool unless it can block more attackers than it has been piled
-// for; nothing in this port grants "can block an additional creature"
-// (blockvalidation.go's absent defaults), so every chosen creature leaves.
-// Once the pool is empty the remaining piles are empty without asking, the
-// only answer the declarer could give.
-//
-// The pool is defender's creatures (Player.getCreaturesInPlay), less those
-// CombatUtil.canBlock(blocker) rejects (canBlockAtAll: tapped, "can't
-// block", ...). Java's own filter (:78-80) removes from the list it is
-// iterating: ConcurrentModificationException for any such creature except
-// one sitting second-to-last, which is removed while the last one goes
-// unchecked (forge-java-defects.md). Failing closed per ADR-0035, a pool
-// holding any such creature is an error before anything is chosen, so the
-// declarer is never offered a creature that cannot block, and Crucible
-// never silently plays a game state Java crashes on.
+// defender's), 0 to all of what is left in the pool. The pool is defender's
+// creatures (Player.getCreaturesInPlay) less those CombatUtil.canBlock
+// rejects (canBlockAtAll: tapped, "can't block", ...), which simply block
+// nothing, as Camouflage's text has it. A chosen creature stays in the pool
+// for the next pile while it can block any number of creatures or more
+// additional ones than it has been piled for (blockedSoFar); otherwise it
+// leaves. Once the pool is empty the remaining piles are empty without
+// asking, the only answer the declarer could give.
 func camouflagePiles(g *Game, a *Ability, c PlayerController, declarer, defender PlayerID) ([][]CardID, error) {
-	pool := g.creaturesInPlay(defender)
-	for _, id := range pool {
-		if !g.canBlockAtAll(id) {
-			return nil, fmt.Errorf("engine: Camouflage: defender's creature %d cannot block: "+
-				"CamouflageEffect.java:78-80's pool filter throws ConcurrentModificationException here, not resolvable", id)
+	var pool []CardID
+	for _, id := range g.creaturesInPlay(defender) {
+		if g.canBlockAtAll(id) {
+			pool = append(pool, id)
 		}
 	}
+	blockedSoFar := make(map[CardID]int, len(pool))
 	piles := make([][]CardID, len(g.combat.Attackers))
 	for i := range piles {
 		if len(pool) == 0 {
@@ -115,7 +107,14 @@ func camouflagePiles(g *Game, a *Ability, c PlayerController, declarer, defender
 			return nil, fmt.Errorf("engine: Camouflage: pile %d: %w", i+1, err)
 		}
 		piles[i] = append([]CardID(nil), chosen...)
-		pool = withoutCards(pool, chosen)
+		var leave []CardID
+		for _, id := range chosen {
+			blockedSoFar[id]++
+			if b := g.Card(id); !b.canBlockAny && b.canBlockMore < blockedSoFar[id] {
+				leave = append(leave, id)
+			}
+		}
+		pool = withoutCards(pool, leave)
 	}
 	return piles, nil
 }

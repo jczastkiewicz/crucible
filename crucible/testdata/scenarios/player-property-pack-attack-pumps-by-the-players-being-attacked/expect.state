@@ -4,5 +4,5 @@ activephase=Combat Damage
 humanlife=20
 humanhand=Plains
 humangraveyard=Pack Attack
-humanbattlefield=Grizzly Bears|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped
+humanbattlefield=Grizzly Bears|Tapped|Attacking;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped
 ailife=17

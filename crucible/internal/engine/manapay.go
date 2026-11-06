@@ -124,6 +124,10 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		x = xAnnounced{value: n, announced: true}
 	}
 
+	if generic > 0 || len(cost.Shards()) > 0 {
+		g.manaPaymentWindow(decider, cost, controller)
+	}
+
 	var xPaid [5]int
 	for _, pure := range resolved {
 		for i, col := range [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
@@ -202,6 +206,19 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		}
 	}
 
+	// ManaConvert's per-color matrix (ManaPool.canPayForShardWithColor):
+	// each colored or colorless requirement becomes the mana that may pay it.
+	// A generic unit is paid by any type either way, so it is left out.
+	if m := g.payMatrix(decider); !m.isIdentity() {
+		for i, s := range resolved {
+			conv, ok := g.convertShard(m, s, decider, controller)
+			if !ok {
+				return xAnnounced{}, false
+			}
+			resolved[i] = conv
+		}
+	}
+
 	for i := 0; i < generic; i++ {
 		resolved = append(resolved, controller.ChoosePayGeneric(g, decider))
 	}
@@ -240,9 +257,14 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		}
 	}
 	x.xPaid = xPaid
-	if life > 0 {
+	// Phyrexian life is paid through Player.payLife
+	// (InputPayManaOfCostPayment.java:61-64, Player.java:578-600): Event$
+	// PayLife may replace it; otherwise the life is lost and PayLife triggers.
+	if life > 0 && !g.lifePaymentReplaced(controller, decider, life) {
 		g.Player(decider).Life -= life
 		g.sink.Emit(Event{Kind: LifeChanged, Source: NoCard, Target: PlayerEntity(decider), Amount: int32(-life)})
+		g.noteLifeLost(controller, decider, life)
+		g.checkPayLifeTriggers(controller, decider, life)
 	}
 	return x, true
 }
@@ -294,4 +316,26 @@ func xColorMask(ab *compile.Ability) mana.Colors {
 		}
 	}
 	return mask
+}
+
+// manaPaymentWindow is PlayerController.payManaCost's mana-ability half (CR
+// 605.3a, ADR-0054): decider names, once per payment, the mana abilities to
+// activate before the pool pays cost, and the engine activates each in order,
+// skipping one that is not legal now. A mana ability with a mana cost of its
+// own opens a nested window through its own payment; payingFor restores the
+// outer payment's context after it. Mana produced for a payment that then
+// fails stays in the pool (quirks.md).
+func (g *Game) manaPaymentWindow(decider PlayerID, cost mana.Cost, controller PlayerController) {
+	paidFor := NoCard
+	if g.payFor != nil && g.payFor.item != nil {
+		paidFor = g.payFor.item.Source
+	}
+	for _, a := range controller.PayManaCost(g, decider, cost, paidFor) {
+		switch a.Kind {
+		case ActionTapForMana:
+			g.TapLandForMana(decider, a.Card, a.Color, controller)
+		case ActionManaAbility:
+			g.ActivateManaAbility(decider, a.Card, a.AbilityIndex, controller)
+		}
+	}
 }

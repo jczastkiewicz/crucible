@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Swamp|Id:1;Swamp|Id:2;Swamp|Id:3;Swamp|Id:4;Swamp|Id:5
+humanhand=Custodi Lich|Id:6
+aibattlefield=Grizzly Bears|Id:7

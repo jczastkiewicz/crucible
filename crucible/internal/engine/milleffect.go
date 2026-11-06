@@ -88,7 +88,11 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		if optional && (numCards > len(g.Zone(Library, pid).Cards()) || !controller.ConfirmEffect(g, pid, a.Source)) {
 			continue
 		}
-		for _, id := range g.millCards(controller, pid, numCards) {
+		cards, err := g.millCards(controller, pid, numCards)
+		if err != nil {
+			return fmt.Errorf("engine: Mill: %w", err)
+		}
+		for _, id := range cards {
 			milled = append(milled, id)
 			if remember {
 				source.Memory.Remember(CardEntity(id))
@@ -107,22 +111,27 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 // millCards is GameAction.mill for one player: the Event$ Mill replacement
 // ("they mill twice that many cards instead"), then the top numCards of pid's
 // library to the graveyard, each firing Milled, and MilledOnce for the batch.
-// It returns the cards milled in library order; the caller fires MilledAll and
-// the zone-change batch triggers.
-func (g *Game) millCards(controller PlayerController, pid PlayerID, numCards int) []CardID {
+// The milled cards are ordered for the graveyard by their owner first
+// (Player.java:1597-1599, CR 613.7m). It returns them in the order they moved;
+// the caller fires MilledAll and the zone-change batch triggers.
+func (g *Game) millCards(controller PlayerController, pid PlayerID, numCards int) ([]CardID, error) {
 	pidCards, replaced := g.playerAmountReplaced(controller, "Mill", "Number", pid, numCards)
 	if replaced || pidCards <= 0 {
-		return nil
+		return nil, nil
 	}
 	lib := g.Zone(Library, pid).Cards()
 	n := min(pidCards, len(lib))
 	// topN copies before Move mutates the zone out from under lib's own
 	// slice -- scryEffect's own identical defensive copy (scryeffect.go).
-	topN := append([]CardID(nil), lib[:n]...)
+	topN, err := g.orderCardsByTheirOwners(controller, append([]CardID(nil), lib[:n]...), Graveyard)
+	if err != nil {
+		return nil, err
+	}
 	for _, id := range topN {
 		g.moveToGraveyard(controller, id)
+		g.Card(id).milled = true // Player.java:1604
 		g.checkMilledTriggers(controller, pid, id)
 	}
 	g.checkMilledOnceTriggers(controller, pid, topN)
-	return topN
+	return topN, nil
 }

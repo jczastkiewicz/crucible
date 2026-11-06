@@ -1,0 +1,20 @@
+# R20c gauntlet probe (Sire of Seven Deaths): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+tapformana human 100 U
+tapformana human 101 U
+tapformana human 102 U
+tapformana human 103 U
+tapformana human 104 U
+tapformana human 105 U
+tapformana human 106 U
+castspell human 1
+resolvestack

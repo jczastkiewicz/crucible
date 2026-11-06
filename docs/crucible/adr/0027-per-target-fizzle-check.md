@@ -50,14 +50,18 @@ This port's `Card.Timestamp` cannot stand in for Java's `gameTimestamp`: it is r
    stamped as it is now.
 3. **`targetStillLegal`** checks each target on its own: a card is illegal when its `zoneStamp` differs from the
    recorded one, it is phased out, or it no longer matches the ability's `ValidTgts$`; a player is illegal when they
-   left the game or no longer match. Anything else (an ability targeted by `ChangeTargets`) is kept. An ability with no
-   recorded stamps (resolved without going on the stack) gets the other checks only.
+   left the game or no longer match; an ability on the stack is illegal once it has left it (Decision 5). An ability
+   with no recorded stamps (resolved without going on the stack) gets the other checks only. These are CR 608.2b's
+   illegal targets: an object that changed zones is a new object (CR 400.7), a phased-out permanent is treated as though
+   it does not exist (CR 702.26b).
 4. **`dropIllegalTargets`** removes illegal targets from the ability and its modes; the ability fizzles when at least
    one target was chosen and none is left, unless `CantFizzle$`. An Aura's own `Target` keeps `auraTargetStillLegal`,
    which now also compares its stamp.
-5. **Checks are limited to what choosing a target checks.** Hexproof, shroud, protection and ward
-   (`StaticAbilityCantTarget`) and `canTarget`'s multi-target params (`TargetUnique`, `SameController`, ...) are checked
-   at neither point. They are one gap, closed at both points together.
+5. **Checks are the ones choosing a target makes.** Hexproof, shroud and protection (`StaticAbilityCantTarget`,
+   `cardCantBeTargetedBy`/`playerCantBeTargetedBy`) and `TargetsWithSameController$` are checked at both points, as
+   Java's `canTarget` runs them with or without `fizzleCheck`. An ability on the stack targeted under ADR-0041 is legal
+   while it is still there and still passes the targeting ability's checks. Ward is not one of these checks: it is a
+   triggered ability (CR 702.21a, ADR-0028).
 
 ## Consequences
 

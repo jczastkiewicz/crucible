@@ -55,3 +55,21 @@ func TestPumpRandomKeywordNoRepetitionSkipsWhatTheTargetHas(t *testing.T) {
 		t.Error("creature lacks Haste, the only keyword left to draw")
 	}
 }
+
+// TestPumpRandomKeywordNoRepetitionWithNoTargetResolves proves NoRepetition$
+// with no target card skips the filter (PumpEffect.java:385 tests
+// tgtCards.isEmpty() first) instead of failing the resolution.
+func TestPumpRandomKeywordNoRepetitionWithNoTargetResolves(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := etbPumpTriggerDefParams(t, "Test No Repetition Nobody",
+		`Defined$ Remembered | KW$ Flying & Haste | RandomKeyword$ True | NoRepetition$ True | Duration$ Permanent`, nil)
+	creature, err := castETBPump(t, g, p, def)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v, want nil: no target card leaves every keyword in the draw", err)
+	}
+	if c := g.Card(creature); c.HasKeyword("Flying") || c.HasKeyword("Haste") {
+		t.Error("creature gained a keyword, want none: nothing was remembered")
+	}
+}

@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
-	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -518,6 +517,7 @@ func applyOneContinuousKeyword(g *Game, host *Card, amounts map[string]expr.Amou
 			RemoveKeywords: change.remove,
 			RemoveAll:      change.removeAll,
 			CantHave:       change.cantHave,
+			Source:         host.ID,
 		})
 	}
 	if spec, ok := s.Param("Affected"); ok {
@@ -819,6 +819,25 @@ func pumpLayerKeywords(g *Game) {
 	livePumps(g, func(c *Card, p *pumpRecord) {
 		if len(p.Keywords) > 0 {
 			c.KeywordMod.Add(KeywordEffect{Timestamp: p.Timestamp, AddKeywords: p.Keywords})
+		}
+		if len(p.Traits) > 0 {
+			// The keywords' own abilities and triggers (Card.addChangedCardKeywords
+			// makes CardFactoryUtil's keyword traits appear on the card), their
+			// CardManaCost the card's own (PumpEffect.java:453-466).
+			grant := traitGrant{amounts: p.TraitAmounts}
+			for _, t := range p.Traits {
+				switch t.Record {
+				case compile.Trigger:
+					grant.triggers = append(grant.triggers, t)
+				case compile.StaticEffect:
+					grant.statics = append(grant.statics, t)
+				case compile.Replacement:
+					grant.replacements = append(grant.replacements, t)
+				default:
+					grant.abilities = append(grant.abilities, t)
+				}
+			}
+			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), costSubstitutedGrant(grant, c))
 		}
 	})
 }
@@ -1194,7 +1213,7 @@ func hiddenKeywordRead(line string) bool {
 	case "CARDNAME can't block.", "CARDNAME can't attack.", "CARDNAME can't attack or block.",
 		"All creatures able to block CARDNAME do so.", "CARDNAME must be blocked if able.",
 		"CARDNAME can't attack alone.", "CARDNAME can only attack alone.",
-		untapNextStepKeyword, noRedirectKeyword:
+		untapNextStepKeyword, untapBounceKeyword, noRedirectKeyword:
 		return true
 	}
 	// "CARDNAME count as <name>." is read by a valid string's hasKeyword
@@ -1298,10 +1317,11 @@ func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 // The static must be active where its host is (StaticAbility.zonesCheck):
 // a battlefield host needs no EffectZone$ or EffectZone$ Battlefield/All;
 // an Effect card's statics work from the Command zone whatever they name
-// (EffectEffect.java). A host in any other zone is not walked at all
-// (traitHosts), so the EffectZone$ Graveyard "cast this from your
-// graveyard" lines stay a gap. Battlefield and Stack in AffectedZone$ grant
-// nothing: nothing is cast from either.
+// (EffectEffect.java); a card in another zone functions from the EffectZone$
+// zones it names (appendOffZoneStatics), so an EffectZone$ Graveyard "cast
+// this from your graveyard" line (Gravecrawler) grants from the graveyard.
+// Battlefield and Stack in AffectedZone$ grant nothing: nothing is cast from
+// either.
 //
 // MayLookAt$ on the same line needs nothing: the engine is omniscient
 // (lookateffect.go), so "may look at" changes no state.
@@ -1329,10 +1349,20 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 		}
 	}
 	// ValidSA$ names the spell ability the option is for: a plain Spell is
-	// every cast; Spell.Blitz/Warp/Bestow/Mutate need an alternative cast
-	// this port has no way to make, so that grant would never be used.
+	// every cast; Spell.Blitz/Warp/Bestow/Mutate/Sneak only that keyword's
+	// cast (validSA, castOptions' validSAOption). Any other spec grants
+	// nothing (GO-7).
+	validSA := ""
 	if v, ok := s.Param("ValidSA"); ok && v != "Spell" {
-		return
+		name, ok := strings.CutPrefix(v, "Spell.")
+		switch {
+		case !ok:
+			return
+		case name == "Blitz" || name == "Warp" || name == "Bestow" || name == "Mutate" || name == "Sneak":
+			validSA = name
+		default:
+			return
+		}
 	}
 	var afterStack valid.Spec
 	_, hasAfterStack := s.Param("ValidAfterStack")
@@ -1369,7 +1399,7 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 			zones = append(zones, z)
 		}
 	}
-	grant := mayPlayGrant{LimitKey: mayPlayLimitKey{Host: host.ID, Index: index}}
+	grant := mayPlayGrant{LimitKey: mayPlayLimitKey{Host: host.ID, Index: index}, ValidSA: validSA}
 	_, grant.WithoutManaCost = s.Param("MayPlayWithoutManaCost")
 	_, grant.WithFlash = s.Param("MayPlayWithFlash")
 	_, noZonePermission := s.Param("MayPlayDontGrantZonePermissions")
@@ -1397,12 +1427,11 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 		}
 		grant.RaiseText = raw
 	}
-	if raw, ok := s.Param("MayPlayAltManaCost"); ok {
-		mc, err := mana.Parse(raw)
-		if err != nil || mc.CountX() > 0 || !cost.Parse(raw).IsPureMana() {
+	altText, hasAltText := s.Param("MayPlayAltManaCost")
+	if hasAltText && !strings.Contains(altText, "ConvertedManaCost") {
+		if !setGrantAltCost(&grant, altText) {
 			return
 		}
-		grant.AltCost, grant.HasAltCost = mc, true
 	}
 	if raw, ok := s.Param("MayPlayLimit"); ok {
 		n, err := strconv.Atoi(raw)
@@ -1440,6 +1469,14 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 						continue
 					}
 					gr := grant
+					if hasAltText && strings.Contains(altText, "ConvertedManaCost") {
+						// StaticAbilityContinuous.java:933-939: the affected
+						// card's mana value stands for ConvertedManaCost
+						// (Bolas's Citadel's PayLife<ConvertedManaCost>).
+						if !setGrantAltCost(&gr, strings.ReplaceAll(altText, "ConvertedManaCost", strconv.Itoa(c.CMC()))) {
+							continue
+						}
+					}
 					grantee := player
 					if byExiler {
 						if !c.exiledWith.hasExiler {
@@ -1589,6 +1626,19 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 			grant.statics = append(grant.statics, sub.Ability)
 		case strings.EqualFold(sub.Key, "AddReplacementEffect"):
 			grant.replacements = append(grant.replacements, sub.Ability)
+		case strings.EqualFold(sub.Key, "AddKeyword"):
+			// The traits a granted keyword stands for (compile's
+			// expandGrantedKeywords, ADR-0038 decision 4).
+			switch sub.Ability.Record {
+			case compile.Trigger:
+				grant.triggers = append(grant.triggers, sub.Ability)
+			case compile.StaticEffect:
+				grant.statics = append(grant.statics, sub.Ability)
+			case compile.Replacement:
+				grant.replacements = append(grant.replacements, sub.Ability)
+			default:
+				grant.abilities = append(grant.abilities, sub.Ability)
+			}
 		}
 	}
 	removal := removalNone
@@ -1612,6 +1662,9 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 		return nil
 	}
 	stickerGrants = append(stickerGrants, abilityGrants...)
+	for i := range stickerGrants {
+		stickerGrants[i].grantor = s
+	}
 	granting := len(grant.triggers) > 0 || len(grant.abilities) > 0 || len(grant.statics) > 0 || len(grant.replacements) > 0 || len(stickerGrants) > 0
 	if !granting && removal == removalNone {
 		return nil
@@ -1625,6 +1678,7 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 	}
 	grant.amounts = amounts
 	grant.origin = host.ID
+	grant.grantor = s
 	var added []layerStatic
 	for _, id := range affected {
 		c := g.Card(id)
@@ -1680,4 +1734,19 @@ func (c *Card) removeTraits(kind abilityRemoval) {
 		}
 	}
 	c.traitGrants = kept
+}
+
+// setGrantAltCost reads text, a MayPlayAltManaCost$ cost, into gr: its mana
+// part (or {0}) into AltCost and the whole text into AltText. False when a
+// part is not one this port pays, or the mana names an X.
+func setGrantAltCost(gr *mayPlayGrant, text string) bool {
+	uc, ok := parseUnlessCost(text)
+	if !ok || uc.hasMana && uc.mana.CountX() > 0 {
+		return false
+	}
+	gr.AltCost, gr.HasAltCost, gr.AltText = mana.MustParse("0"), true, text
+	if uc.hasMana {
+		gr.AltCost = uc.mana
+	}
+	return true
 }

@@ -113,3 +113,29 @@ func TestMutateWithAGoneTargetResolvesAsACreature(t *testing.T) {
 		t.Errorf("spell in %v, want Battlefield", z)
 	}
 }
+
+// Brokkos, Apex of Forever's ValidSA$ Spell.Mutate grant casts it from the
+// graveyard for its mutate cost onto a non-Human creature its owner owns, and
+// it merges on top: the permanent is a 6/6.
+func TestBrokkosIsMutatedFromTheGraveyard(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	brokkos := g.NewCard(corpusCard(t, "Brokkos, Apex of Forever"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	g.Player(p).ManaPool.Add(mana.Green, 4)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	c.QueueHybridManaColor(mana.Black)
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueueCardChoice([]engine.CardID{brokkos})
+	castThenResolve(t, g, p, brokkos, c)
+	if z := g.Card(brokkos).Zone; z != engine.Merged {
+		t.Fatalf("Brokkos in %v, want merged", z)
+	}
+	if pw, _ := g.Card(bears).Power(); pw != 6 {
+		t.Errorf("merged power %d, want Brokkos's 6", pw)
+	}
+}

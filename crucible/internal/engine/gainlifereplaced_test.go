@@ -226,11 +226,11 @@ func TestGainLifePlusOneByReplaceEffect(t *testing.T) {
 	}
 }
 
-// TestGainLifeNotReplacedByChainedReplaceEffect proves a DB$ ReplaceEffect
-// target naming its own SubAbility$ is refused outright too, the identical
-// GO-7 refusal TestGainLifeNotReplacedByTargetAbilityWithSubAbility already
-// proves for a full-substitution target: the gain proceeds unresized.
-func TestGainLifeNotReplacedByChainedReplaceEffect(t *testing.T) {
+// TestGainLifeChainedReplaceEffectRunsItsChain proves a DB$ ReplaceEffect
+// target naming its own SubAbility$ resizes the gain and then resolves the
+// chain (ReplacementHandler.executeReplacement resolves the whole ability):
+// 3 doubled to 6, then the chained 1 life lost.
+func TestGainLifeChainedReplaceEffectRunsItsChain(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -249,8 +249,8 @@ func TestGainLifeNotReplacedByChainedReplaceEffect(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 
-	if got := g.Player(p).Life; got != 23 {
-		t.Errorf("p life = %d, want 23 -- a chained ReplaceWith$ target must not dispatch, so the gain must proceed unresized", got)
+	if got := g.Player(p).Life; got != 25 {
+		t.Errorf("p life = %d, want 25 -- 3 doubled to 6, then 1 lost", got)
 	}
 }
 

@@ -1,0 +1,16 @@
+# Maelstrom Pulse's DestroyAll reads ValidCards$ TargetedCard.Self,Permanent.
+# NotDefinedTargeted+sharesNameWith Targeted through
+# AbilityUtils.filterListByType (:836-852): the targeted Grizzly Bears is the
+# source, NotDefinedTargeted (CardProperty.java:2067-2071) leaves it to the
+# first alternative, and the other Grizzly Bears shares its name: both are
+# destroyed, Pacifism follows. L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+queue targets 50
+queue cardorder 50,54
+tapformana human 100 B
+tapformana human 101 B
+tapformana human 102 G
+castspell human 1
+resolvestack

@@ -31,8 +31,11 @@ func TestAnimateAllHandStaticReducesTheCastCost(t *testing.T) {
 	}
 }
 
-// Perpetual Power$/Toughness$ on a card in hand shows once it is on the
-// battlefield; the same grant without Perpetual does not outlive the hand.
+// Power$/Toughness$ on a card in hand shows once it is on the battlefield,
+// Perpetual or not: Java's changeZone keeps the same object for a battlefield
+// destination (GameAction.java:170-172). Only a Perpetual one outlives the next
+// move, which copies the object (GameAction.java:207, 265-266); a Java test on
+// upstream/master gives 5, 5 and 5, 2.
 func TestAnimatePerpetualOutlivesTheZoneChange(t *testing.T) {
 	t.Parallel()
 
@@ -48,8 +51,14 @@ func TestAnimatePerpetualOutlivesTheZoneChange(t *testing.T) {
 		}
 		g.Move(card, engine.Battlefield, p)
 		sba(g)
+		if got, _ := g.Card(card).Power(); got != 5 {
+			t.Errorf("%s: power on the battlefield = %d, want 5", tc.duration, got)
+		}
+		g.Move(card, engine.Graveyard, p)
+		g.Move(card, engine.Battlefield, p)
+		sba(g)
 		if got, _ := g.Card(card).Power(); got != tc.want {
-			t.Errorf("%s: power on the battlefield = %d, want %d", tc.duration, got, tc.want)
+			t.Errorf("%s: power back from the graveyard = %d, want %d", tc.duration, got, tc.want)
 		}
 	}
 }
@@ -71,7 +80,7 @@ func TestAnimateStaticAbilitiesGrantsAContinuousStatic(t *testing.T) {
 	}
 }
 
-// A mode nothing reads (here a ManaConvert shape castCost does not apply) is
+// A mode nothing reads (here a ManaConvert naming no mana type) is
 // refused rather than granted inert.
 func TestAnimateStaticAbilitiesRefusesAModeNothingReads(t *testing.T) {
 	t.Parallel()
@@ -80,9 +89,9 @@ func TestAnimateStaticAbilitiesRefusesAModeNothingReads(t *testing.T) {
 	victim := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 	_, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(victim)},
 		"DB$ Animate | ValidTgts$ Creature | staticAbilities$ Spend | Duration$ Permanent",
-		"Spend", "Mode$ ManaConvert | ValidCard$ Card.Self | ManaConversion$ White->Red")
+		"Spend", "Mode$ ManaConvert | ValidCard$ Card.Self | ManaConversion$ Purple->Red")
 	if err == nil {
-		t.Error("a per-color ManaConvert grant was accepted, want a refusal")
+		t.Error("a ManaConvert grant of an unknown type was accepted, want a refusal")
 	}
 }
 

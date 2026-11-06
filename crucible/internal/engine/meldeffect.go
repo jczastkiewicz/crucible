@@ -19,7 +19,7 @@ import (
 // with Tapped$ and attacking with Attacking$ True, representing both cards.
 // The other card goes to no zone's card list (PlayerZoneBattlefield.
 // addToMelded); leaving the battlefield splits them apart again (Game.unmeld,
-// CR 712.4c).
+// CR 712.21).
 //
 // Ported from forge-game/src/main/java/forge/game/ability/effects/
 // MeldEffect.java's resolve. Name$ is the meld face's name for the ability's
@@ -81,7 +81,7 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 
 	// GameAction.exile on both, the host first: each exile fires its own
 	// leave-the-battlefield triggers, the pair its ChangesZoneAll triggers.
-	exileCards(g, controller, []CardID{primary, secondary})
+	exileCards(g, controller, nil, []CardID{primary, secondary})
 	// GameAction.java:424-429: a permanent leaving the battlefield leaves
 	// combat. Game.Move does not (combat.go's removeFromCombat), and an
 	// attacking card melded away must not deal combat damage as though it
@@ -110,6 +110,7 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	back.Faces[0] = front.Faces[carddb.FaceAlternate]
 	p.frontDef, p.Def = front, back
 	p.MeldedWith = secondary
+	p.meldedCMC = s.CMC()
 
 	// PlayerZoneBattlefield.addToMelded: the other card leaves exile for the
 	// activator's battlefield, but joins none of its cards.
@@ -118,6 +119,11 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	s.Melded = true
 
 	g.moveByEffect(controller, primary, Battlefield, 0, a.Controller, hasParam(a, "Tapped"))
+	// CR 123.5a (MeldEffect.java:86-89): the melded permanent takes the
+	// secondary's stickers once it is on the battlefield.
+	if p.Zone == Battlefield {
+		g.takeStickersFrom(primary, secondary)
+	}
 	if !hasParam(a, "Attacking") {
 		return nil
 	}

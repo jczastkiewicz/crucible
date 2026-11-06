@@ -6,6 +6,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
 // registerAtEOT is SpellAbilityEffect.registerDelayedTrigger (:403-:480), the
@@ -26,6 +27,18 @@ func registerAtEOT(g *Game, a *Ability, cards []CardID) error {
 	if !ok || len(cards) == 0 {
 		return nil
 	}
+	cond, _ := a.Params.Param("AtEOTCondition")
+	return g.registerDelayedLeave(a.Source, a.Controller, a.Amounts, a.Params.Name, location, cond, "", cards)
+}
+
+// registerDelayedLeave is registerDelayedTrigger itself: location is the
+// AtEOT$ value (or PermanentEffect's "Hand", "Sacrifice" and "Exile" for a
+// Dash, Blitz or Warp permanent, PermanentEffect.java:42-53), cond an
+// AtEOTCondition$ or "", api the caller's name for an error. kw is the
+// keyword of the ability that registers it (trig.setKeyword,
+// SpellAbilityEffect.java:494), carried by the trigger and its body: a warp
+// exile reads it (warpedEffect).
+func (g *Game) registerDelayedLeave(host CardID, controller PlayerID, amounts map[string]expr.Amount, api, location, cond, kw string, cards []CardID) error {
 	your := strings.HasPrefix(location, "Your")
 	combat := strings.HasSuffix(location, "Combat")
 	upkeep := strings.HasSuffix(location, "Upkeep")
@@ -51,9 +64,9 @@ func registerAtEOT(g *Game, a *Ability, cards []CardID) error {
 	case "Destroy":
 		body = []vocab.Param{{Key: "DB", Value: "Destroy"}, {Key: "Defined", Value: "DelayTriggerRememberedLKI"}}
 	default:
-		return fmt.Errorf("engine: %s: AtEOT$ %q not resolvable yet", a.Params.Name, location)
+		return fmt.Errorf("engine: %s: AtEOT$ %q not resolvable yet", api, location)
 	}
-	if cond, ok := a.Params.Param("AtEOTCondition"); ok {
+	if cond != "" {
 		// SpellAbilityEffect.java:486-489: the body gains ConditionCheckSVar$.
 		body = append(body, vocab.Param{Key: "ConditionCheckSVar", Value: cond})
 	}
@@ -68,14 +81,21 @@ func registerAtEOT(g *Game, a *Ability, cards []CardID) error {
 	if your {
 		trigParams = append(trigParams, vocab.Param{Key: "ValidPlayer", Value: "You"})
 	}
-	execute := &compile.Ability{Record: compile.SubAbility, Name: body[0].Value, Params: body}
+	execute := &compile.Ability{Record: compile.SubAbility, Name: body[0].Value, Params: body, Keyword: kw}
 	d := delayedTrigger{
 		Trigger: &compile.Ability{Record: compile.SubAbility, Name: "DelayedTrigger", Params: trigParams,
-			Subs: []compile.SubRef{{Key: "Execute", Ability: execute}}},
-		Host: a.Source, Controller: a.Controller, Amounts: a.Amounts, HostTransforms: g.Card(a.Source).Transforms,
+			Subs: []compile.SubRef{{Key: "Execute", Ability: execute}}, Keyword: kw},
+		Host: host, Controller: controller, Amounts: amounts, HostTransforms: g.Card(host).Transforms,
+	}
+	moves := body[0].Value == "ChangeZone"
+	if moves {
+		d.RememberedStamps = map[CardID]uint64{}
 	}
 	for _, c := range cards {
 		d.Remembered = append(d.Remembered, CardEntity(c))
+		if moves {
+			d.RememberedStamps[c] = g.Card(c).zoneStamp
+		}
 	}
 	g.delayed = append(g.delayed, d)
 	return nil

@@ -34,8 +34,12 @@ func (becomesBlockedEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 			continue
 		}
 		wasBlocked := g.combat.isBlocked(id)
-		if !containsCard(g.combat.ForcedBlocked, id) {
-			g.combat.ForcedBlocked = append(g.combat.ForcedBlocked, id)
+		// Combat.setBlocked blocks the attacker's whole band (CR 702.22i,
+		// Combat.java:398-399); AttackerBlocked runs for the target only.
+		for _, member := range g.combat.bandOf(id) {
+			if !containsCard(g.combat.ForcedBlocked, member) {
+				g.combat.ForcedBlocked = append(g.combat.ForcedBlocked, member)
+			}
 		}
 		if !wasBlocked {
 			g.checkAttackerBlockedTriggers(controller, id, nil)

@@ -217,7 +217,10 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 	if z := g.Card(left).Zone; z != Graveyard {
 		switch z {
 		case Exile:
+			// The replacement's ReplaceWith$ ChangeZone exiles through
+			// GameAction.exile, which runs Mode$ Exiled too.
 			g.checkExiledTriggers(controller, left)
+			g.checkModeExiledTriggers(controller, left, Battlefield, nil)
 		case Library, Hand:
 			g.checkLeftToTriggers(controller, left, z)
 		}
@@ -350,7 +353,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 // Card.AttacksThisTurn (card.go), CardDamageHistory.getCreatureAttacksThisTurn's
 // own per-card counter, incremented for each declared attacker right before
 // this function runs (DeclareCombatAttackers, attack.go) and reset every
-// cleanup (cleanupStep, turn.go) -- true exactly when the just-incremented
+// cleanup (endCleanup, turn.go) -- true exactly when the just-incremented
 // count is 1, "this is the first time this creature has attacked this
 // turn," ported directly from Java's own `> 1` skip rather than a `== 1`
 // require, since a trigger carrying neither param is unaffected either way.
@@ -490,17 +493,16 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // unconditionally (GO-7). Player.EnchantedBy (5) resolves from
 // Player.Attachments.
 //
-// Not resolved, skipped via hasAnyParam below: ValidSA/ValidSAonCard (a
-// SpellAbility, not a Card, Matches (valid.go) only evaluates one of
-// those), TargetsValid/CanTargetOtherCondition (this port's targeting has
-// no per-trigger target-inspection hook), NoColoredMana/
-// SnowSpentForCardsColor (no mana-payment-detail tracking past whether the
-// cost was paid), IsSingleTarget (no generic target-count reader),
-// TriggersWhenSpent (a mana-ability-specific remembered-list this port has
-// no mana-ability ChosenPlayer/Remembered plumbing for) and
-// ActivatorThisTurnCast/ActivatorThisTurnCastEach (a per-turn cast-history
-// count this port tracks nothing for). 1,163 of 1,435 real lines carry none
-// of these.
+// ValidSA$ reads the spell or ability through spellAbilityMatches;
+// ValidSAonCard$, TargetsValid$, CanTargetOtherCondition$, IsSingleTarget$
+// and NoColoredMana$ through spellCastTargetsAndManaOK.
+// SnowSpentForCardsColor$ and TriggersWhenSpent$ are not resolved
+// (spellCastUnresolvedParams): a trigger that would fire but for one of them
+// is an error.
+//
+// ActivatorThisTurnCast/ActivatorThisTurnCastEach (Flurry and the "second
+// spell each turn" family, 115 lines) are resolved by activatorCastCountOK
+// from the turn's cast record.
 //
 // HasXManaCost is resolved: TriggerSpellAbilityCastOrCopy.java:171-181's
 // spell branch, the cast card's own mana cost carrying at least one {X}
@@ -514,6 +516,11 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // waiting list before MagicStack.add ran the cast modes (TriggerHandler.java:
 // 264, MagicStack.java:331-400), and the whole list is ordered as one batch.
 func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, activator PlayerID, held []Ability) {
+	// MagicStack.java:349: the static abilities are checked again once the
+	// spell is on the stack, so a keyword an AffectedZone$ Stack static grants
+	// it (Crackling Spellslinger's Storm, Bigger on the Inside's Cascade)
+	// is there when its SpellCast trigger is collected.
+	g.refreshLayers()
 	matches := held
 	c := g.Card(cast)
 	// AbilityKey.SpellAbility: the spell just pushed, read before any
@@ -524,6 +531,16 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 		for _, host := range g.traitHosts(pid) {
 			matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false, spellCastModes, castCounts)
 		}
+		// A card outside play watches from the zones its TriggerZones$ names
+		// (Vengevine, Cantor of the Refrain from the graveyard): Java collects
+		// every card's triggers in every zone (TriggerHandler.java:193-201).
+		// Hands and libraries are not walked on every cast for the one line
+		// naming them (Summitfest Closing Ceremony, game-state.md).
+		for _, z := range [...]ZoneType{Graveyard, Exile} {
+			for _, host := range g.Zone(z, pid).Cards() {
+				matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false, spellCastModes, castCounts)
+			}
+		}
 	}
 	// The spell's own triggers, from the stack: traitHosts never covers it.
 	if c.Zone == Stack {
@@ -532,6 +549,12 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	// Delayed triggers run after every collected card trigger
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:356-361).
 	matches = append(matches, g.delayedSpellCastMatches(c, activator, spellID)...)
+	if g.castWaterbend {
+		// MagicStack.java:397-399, after the SpellCast triggers.
+		g.castWaterbend = false
+		matches = append(matches, g.elementalBendMatches(activator, "Waterbend")...)
+	}
+	g.effectsSeeCast(cast)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -556,11 +579,15 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 // one cast: the 3 multi-face cards among them (Bruna, the Fading Light;
 // Lae'zel, Githyanki Warrior; Drowner of Truth) print it on the front face,
 // and their other faces are melded, specialized or a land, never cast.
+//
+// A host outside play (offZone: graveyard, exile) fires only from a zone its
+// TriggerZones$ names.
 func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool, modes []string, counts triggerCounts) []Ability {
 	h := g.Card(host)
 	if h.Def == nil {
 		return matches
 	}
+	offZone := !onStack && !h.IsEffect && h.Zone != Battlefield && h.Zone != Command
 	for face := range h.triggerFaces {
 		for _, t := range face.Triggers {
 			if !modeIn(t, modes) {
@@ -569,7 +596,9 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
 				continue
 			}
-			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {
+			if offZone && !hasZone(t, "TriggerZones", h.Zone.String()) {
+				// A line with no TriggerZones$ stays battlefield-only for a
+				// card outside play, as graveyardWatcher reads it.
 				continue
 			}
 			if hasAnyParam(t, "HasXManaCost") && (c.Def == nil || c.Def.Faces[0].ManaCost.CountX() == 0) {
@@ -581,6 +610,9 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
 				continue
 			}
+			if !g.activatorCastCountOK(t, c, activator, h.Controller(), host) {
+				continue
+			}
 			if spec, ok := t.Param("ValidSA"); ok {
 				spell, found := g.stackItem(spellID)
 				if !found {
@@ -589,6 +621,15 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 				if m, known := g.spellAbilityMatches(spell, spec, h, h.Controller(), face.Amounts); !known || !m {
 					continue
 				}
+			}
+			if !g.spellCastTargetsAndManaOK(t, h, h.Controller(), c, spellID, face.Amounts) {
+				continue
+			}
+			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {
+				// The trigger would fire but for a test this port cannot
+				// make: an error, never a silent miss (GO-7).
+				g.recordPendingError(fmt.Errorf("engine: %s's SpellCast trigger: params %v not resolvable yet", h.Name(), spellCastUnresolvedParams))
+				continue
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
@@ -601,11 +642,141 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 }
 
 // spellCastUnresolvedParams are the SpellCast params no check here resolves: a
-// trigger carrying one never fires, and a DelayedTrigger carrying one is
-// refused at registration.
-var spellCastUnresolvedParams = [...]string{"ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
-	"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
-	"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach"}
+// trigger carrying one that would otherwise fire is an error, and a
+// DelayedTrigger carrying one is refused at registration.
+// SnowSpentForCardsColor$ needs the color of each snow unit spent, which the
+// cast record does not keep; TriggersWhenSpent$ the spawning mana ability's
+// remembered spell.
+var spellCastUnresolvedParams = [...]string{"SnowSpentForCardsColor", "TriggersWhenSpent"}
+
+// spellCastTargetsAndManaOK is TriggerSpellAbilityCastOrCopy.java:125-203
+// past ValidSA$, for the spell or ability spellID cast from (or copied as) c:
+//   - ValidSAonCard$ reads it with c as the source and c's controller as You
+//     (matchesValidParam's srcCard form, CardTraitBase.java:209-221);
+//   - TargetsValid$: some target of it or a link of its chain is valid for
+//     host h, with you as "You";
+//   - CanTargetOtherCondition$: its first link with targets could target
+//     another card the condition admits;
+//   - IsSingleTarget$: it targets exactly one object across every link;
+//   - NoColoredMana$: no colored mana paid for it.
+func (g *Game) spellCastTargetsAndManaOK(t *compile.Ability, h *Card, you PlayerID, c *Card, spellID StackItemID, amounts map[string]expr.Amount) bool {
+	if !hasAnyParam(t, "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition", "IsSingleTarget", "NoColoredMana") {
+		return true
+	}
+	spell, found := g.stackItem(spellID)
+	if !found {
+		return false
+	}
+	if spec, ok := t.Param("ValidSAonCard"); ok {
+		m, known := g.spellAbilityMatches(spell, spec, c, c.Controller(), amounts)
+		if !known {
+			g.recordPendingError(fmt.Errorf("engine: %s's SpellCast trigger: ValidSAonCard$ %q not resolvable yet", h.Name(), spec))
+			return false
+		}
+		if !m {
+			return false
+		}
+	}
+	targets := allTargetsOf(*spell)
+	if spell.Target != NoCard {
+		targets = append(targets, CardEntity(spell.Target))
+	}
+	if spec, ok := t.Param("TargetsValid"); ok && !slices.ContainsFunc(targets, func(e EntityID) bool { return g.entityMatchesAnyAs(h, you, e, spec) }) {
+		return false
+	}
+	if spec, ok := t.Param("CanTargetOtherCondition"); ok && !g.canTargetOther(spell, spec) {
+		return false
+	}
+	if _, ok := t.Param("IsSingleTarget"); ok {
+		if distinct := slices.Compact(slices.Sorted(slices.Values(targets))); len(distinct) != 1 {
+			return false
+		}
+	}
+	if _, ok := t.Param("NoColoredMana"); ok && spell.spell && g.Card(spell.Source).castPaid != [5]int{} {
+		return false
+	}
+	return true
+}
+
+// canTargetOther is CanTargetOtherCondition$ (TriggerSpellAbilityCastOrCopy
+// .java:147-169): the first link of spell's chain with targets, the cards it
+// could target besides those it does, filtered by spec with the spell's
+// controller as You and its card as the source.
+func (g *Game) canTargetOther(spell *Ability, spec string) bool {
+	for _, link := range targetingLinks(spell) {
+		if len(link.Targets) == 0 {
+			continue
+		}
+		parsed := valid.Parse(spec)
+		defer g.inAbilityContext(spell)()
+		for _, id := range g.cardsInGame() {
+			if slices.Contains(link.Targets, CardEntity(id)) || !g.targetStillLegal(link, CardEntity(id)) {
+				continue
+			}
+			if Matches(g, g.Card(id), parsed, spell.Controller, spell.Source) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// activatorCastCountOK is TriggerSpellAbilityCastOrCopy.java:86-114: the
+// spells cast this turn that match ValidCard$ (default Card) from the host
+// controller's side and that activator controls, compared against
+// ActivatorThisTurnCast$ ("EQ2": the second spell); with
+// ActivatorThisTurnCastEach$, the count is taken per ValidCard$ alternative
+// the cast card matches and any one satisfying it is enough. Java checks both
+// only inside its ValidActivatingPlayer$ branch; every corpus line carrying
+// one also carries ValidActivatingPlayer$.
+func (g *Game) activatorCastCountOK(t *compile.Ability, cast *Card, activator, hostController PlayerID, host CardID) bool {
+	if _, ok := t.Param("ValidActivatingPlayer"); !ok {
+		return true
+	}
+	validCard, ok := t.Param("ValidCard")
+	if !ok {
+		validCard = "Card"
+	}
+	count := func(spec string) int {
+		parsed := valid.Parse(strings.TrimSpace(spec))
+		n := 0
+		for _, rec := range g.castThisTurn {
+			if rec.controller != activator {
+				continue
+			}
+			view := *g.Card(rec.card)
+			view.controller = rec.controller
+			if Matches(g, &view, parsed, hostController, host) {
+				n++
+			}
+		}
+		return n
+	}
+	if cmp, ok := t.Param("ActivatorThisTurnCast"); ok {
+		right, err := strconv.Atoi(cmp[2:])
+		if err != nil || !javaCompare(count(validCard), cmp, right) {
+			return false
+		}
+	}
+	if cmp, ok := t.Param("ActivatorThisTurnCastEach"); ok {
+		right, err := strconv.Atoi(cmp[2:])
+		if err != nil {
+			return false
+		}
+		found := false
+		for _, v := range strings.Split(validCard, ",") {
+			if Matches(g, cast, valid.Parse(v), hostController, host) && javaCompare(count(v), cmp, right) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
 // matchesValidParam("ValidActivatingPlayer", activator) -- matchesPlayerSpec
@@ -638,8 +809,8 @@ var spellCopyModes = []string{"SpellCopy", "SpellAbilityCopy", "SpellCastOrCopy"
 
 // copyTriggerWatching reports whether any trait host has a copy trigger
 // (SpellCopy, SpellAbilityCopy, SpellCastOrCopy) carrying a param
-// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams: Grip of
-// Chaos's IsSingleTarget$), which would silently never fire.
+// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams), which
+// would silently never fire.
 func (g *Game) copyTriggerWatching() bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.traitHosts(pid) {
@@ -1632,8 +1803,8 @@ func (g *Game) checkSacrificedTriggers(controller PlayerController, card CardID,
 // special-cased here.
 //
 // Not resolved: ValidCause$ (0 real lines) -- a SpellAbility, not a Card,
-// Matches cannot evaluate one; WhileKeyword$ (1) -- whileKeywordCheck, a
-// further mechanic this port does not have; ActivationLimit$ (7) and
+// Matches cannot evaluate one; WhileKeyword$ (1, Foul Emissary's
+// Spell.withEmerge) -- whileKeywordMatches reads only Ability.<keyword>; ActivationLimit$ (7) and
 // ResolvedLimit$ (1) -- the identical per-turn-cap gap LifeGained's own
 // ActivationLimit$ already documents, this port tracking no such counter. A
 // trigger carrying any of these four is skipped entirely, not fired
@@ -2316,6 +2487,7 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // ability's own chosen targets are exactly as real a "becomes the target of
 // a spell or ability" event as a spell's are, CR 115 draws no distinction.
 func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
+	matches = g.eventConditionsHold(matches)
 	matches = g.withPanharmonicon(matches)
 	// Static$ True triggers run first, inline, in the order found
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:300-309); the rest
@@ -2344,10 +2516,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 		return
 	}
 	for _, pid := range g.playersInAPNAPOrder() {
-		for i := range matches {
-			if matches[i].Controller != pid {
-				continue
-			}
+		for _, i := range g.triggerPushOrder(controller, pid, matches) {
 			if !matches[i].targetsChosen && !g.chooseAbilityTargets(controller, &matches[i]) {
 				continue
 			}
@@ -2367,7 +2536,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 			if pushed.isTrigger {
 				batch = g.abilityTriggeredMatches(pushed)
 			}
-			batch = append(batch, g.checkBecomesTargetTriggers(tgts, false, matches[i].Controller, matches[i].Source)...)
+			batch = append(batch, g.checkBecomesTargetTriggers(tgts, &pushed)...)
 			batch = append(batch, g.checkWardTriggersForAbility(tgts, pushed.ID, pushed.Source, pushed.Controller)...)
 			batch = append(batch, g.crimeTriggers(pushed)...)
 			g.pushTriggeredAbilities(controller, batch)
@@ -2954,10 +3123,19 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 	if !triggerPhasesCheck(g, host, t) {
 		return nil, 0, false, false
 	}
-	if !triggerCommonRequirementsMet(g, host, amounts, t) {
+	// Without an event in hand the conditions naming a triggering object
+	// wait for the match's objects (eventConditionsHold, triggerevent.go).
+	checked := t
+	if g.triggerEvent == nil {
+		checked = withoutEventConditions(amounts, t)
+	}
+	if !triggerCommonRequirementsMet(g, host, amounts, checked) {
 		return nil, 0, false, false
 	}
 	optional, ok := triggerIsOptional(t)
+	if !ok && otherOptionalDecider(t) {
+		optional, ok = true, true
+	}
 	if !ok {
 		return nil, 0, false, false
 	}
@@ -2980,13 +3158,8 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // integers, as Integer.parseInt reads them; one that is not refuses, GO-7).
 // pushTriggeredAbilities counts a firing as the trigger goes on the stack.
 func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
-	// CR 603.2i: ResolvedLimit$ counts resolutions this turn (Trigger.
-	// checkResolvedLimit), where ActivationLimit$ counts firings.
-	if raw, ok := t.Param("ResolvedLimit"); ok {
-		limit, err := strconv.Atoi(raw)
-		if resolved, _ := host.trigResolved.of(execute); err != nil || resolved >= limit {
-			return false
-		}
+	if !triggerResolvedLimitMet(host, t, execute) {
+		return false
 	}
 	turn, game := host.trigActs.of(execute)
 	for _, k := range [...]struct {
@@ -3005,6 +3178,19 @@ func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
 	return true
 }
 
+// triggerResolvedLimitMet is Trigger.checkResolvedLimit (CR 603.2i):
+// ResolvedLimit$ counts resolutions this turn, where ActivationLimit$ counts
+// firings; a value that is not an integer refuses (GO-7).
+func triggerResolvedLimitMet(host *Card, t, execute *compile.Ability) bool {
+	raw, ok := t.Param("ResolvedLimit")
+	if !ok {
+		return true
+	}
+	limit, err := strconv.Atoi(raw)
+	resolved, _ := host.trigResolved.of(execute)
+	return err == nil && resolved < limit
+}
+
 // triggerIsOptional is CR 603.3d's own "may" trigger, WrappedAbility.java's
 // own decider: TriggerHandler.java's own registerActiveTrigger sets
 // sa.setOptionalTrigger(true) and reads `decider =
@@ -3016,23 +3202,17 @@ func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
 // runs, right before the ability's own body would (Ability.Optional's own
 // doc comment, ability.go, and Registry.Resolve, effect.go, carry that half).
 //
-// OptionalDecider$ You -- the ability's own Controller, already in scope at
-// every one of this function's own callers -- is 1,506 of the corpus's own
-// 1,584 real OptionalDecider$ lines corpus-wide (95%), and the ONLY decider
-// this function resolves: ok is false for every other real value
-// (TriggeredCardController, 43; True, 11; TriggeredSourceController, 5;
-// TriggeredPlayer/Opponent, 4 each; EnchantedController, 3;
-// TriggeredAttackingPlayer/TriggeredActivator/TargetedController, 2 each;
-// eleven more distinct values corpus-wide, 1 real line apiece) -- each names
-// a decider this port has no resolver for (a further AbilityUtils
-// .getDefinedPlayers-shaped question, distinct from the "You" case this
-// function answers directly off host.Controller() with none), so the whole
-// trigger line is skipped rather than confirmed against the wrong player or
-// run unconditionally as if it were mandatory (GO-7) -- the identical "skip
-// the line, don't guess" contract every other unresolved trigger param in
-// this file already has, chosen over Java's own "push regardless, ask
-// nobody" fallback because this port's own ConfirmOptionalTrigger has
-// nobody correct to ask yet.
+// OptionalDecider$ You -- the ability's own Controller -- is 1,506 of the
+// corpus's 1,584 real OptionalDecider$ lines (95%) and the one decider this
+// function answers: ok is false for every other value. triggerEffectAPI
+// accepts those through otherOptionalDecider (TriggeredCardController, 43;
+// TriggeredSourceController, 5; TriggeredPlayer/Opponent, 4 each, and the
+// rest), and optionalTriggerDecider resolves the player at resolution as a
+// defined player (TriggerHandler.java:515-517). True is left out: no real
+// T: line carries it (its 11 lines are all DB$ Draw SVar bodies), and
+// getDefinedPlayers would answer it from its default branch, every seated
+// player in turn order (AbilityUtils.java:1187-1190), get(0) the first seat,
+// a decider no Defined$ form here names, so such a line is skipped (GO-7).
 //
 // 83 more real lines name OptionalDecider$ on a sub-ability's own SVar body
 // rather than a T: line (a chained SubAbility$'s own independent "may," CR
@@ -3049,6 +3229,38 @@ func triggerIsOptional(t *compile.Ability) (optional, ok bool) {
 		return false, false
 	}
 	return true, true
+}
+
+// otherOptionalDecider reports whether t names an OptionalDecider$ other than
+// You that optionalTriggerDecider resolves at resolution: any Defined$ player
+// form but True, which no real T: line carries and which getDefinedPlayers'
+// default branch would answer with the first seated player
+// (AbilityUtils.java:1187-1190, triggerIsOptional's own doc comment).
+func otherOptionalDecider(t *compile.Ability) bool {
+	decider, ok := t.Param("OptionalDecider")
+	return ok && !strings.EqualFold(decider, "You") && !strings.EqualFold(decider, "True")
+}
+
+// optionalTriggerDecider is the player who confirms an optional trigger:
+// TriggerHandler.java:515-517 reads OptionalDecider$ as a defined player
+// (Nihil Spellbomb's TriggeredCardController), the ability's controller
+// otherwise.
+func (g *Game) optionalTriggerDecider(a *Ability) (PlayerID, error) {
+	if a.trigger == nil {
+		return a.Controller, nil
+	}
+	spec, ok := a.trigger.Param("OptionalDecider")
+	if !ok || strings.EqualFold(spec, "You") {
+		return a.Controller, nil
+	}
+	players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+	if err != nil {
+		return NoPlayer, fmt.Errorf("engine: OptionalDecider$ %q: %w", spec, err)
+	}
+	if len(players) == 0 {
+		return NoPlayer, fmt.Errorf("engine: OptionalDecider$ %q names no player", spec)
+	}
+	return players[0], nil
 }
 
 // checkAttackersDeclaredTrigger is CR 508.1's own "whenever a player
@@ -3648,79 +3860,25 @@ func isLandPlayedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "LandPlayed")
 }
 
-// checkBecomesTargetTriggers is CR 115/603.3's own "whenever ~ becomes the
-// target of a spell or ability" -- Mode$ BecomesTarget, ported from
-// TriggerBecomesTarget.performTest at the shape this port can reach:
-// targets carries every distinct object a.Targets (targeting.go) just chose
-// for one ability, deduplicated the identical way MagicStack.add's own
-// distinctObjects set is ("Track distinct objects so Becomes targets don't
-// trigger for things like Seeds of Strength"). Called from
-// pushTriggeredAbilities (below) right after PushAbility, matching
-// MagicStack.add's own order (SpellCastOrCopy/cast-trigger checks, then
-// "Run BecomesTarget triggers"), and from castAura (castspell.go) for an
-// Aura's own single cast-time target -- the two places this port ever
-// finishes choosing a target for something. A targeted Instant/Sorcery would
-// be a third (not built -- CastSpell only casts a permanent or an Aura
-// today, castspell.go's own doc comment), so this only sees a
-// triggered-ability's own targets or an Aura's own attach target, not yet a
-// removal spell's, the identical "mechanism now, content later" gap
-// targeting.go's own doc comment already names for a future cast path.
+// checkBecomesTargetTriggers is Mode$ BecomesTarget (CR 603.2, "whenever ~
+// becomes the target of a spell or ability"; TriggerBecomesTarget.java), run
+// by every path that finishes choosing targets for an object put on the
+// stack: a cast spell (castspell.go, mutate.go), a pushed activated or
+// triggered ability (pushTriggeredAbilities), a copy (CopySpellAbility) and
+// a retarget (ChangeTargets). by is that object as it sits on the stack;
+// targets is every object it targets, deduplicated as MagicStack.add's
+// distinctObjects set is (MagicStack.java:455-486), and BecomesTargetOnce
+// runs after, once for the lot.
 //
-// ValidTarget$ is matched with attackedTargetMatches (below,
-// AttackersDeclared's own AttackedTarget$ dispatch): the identical
-// one-entity-of-either-kind problem, since a real ValidTarget$ can be a
-// player spec, a card spec, or (rarely) a comma list mixing both.
-// Card.AttachedBy/EnchantedBy ("enchanted creature becomes the target of a
-// spell or ability," Ice Cage's own real shape) needs no new code at all:
-// Matches (valid.go) already reads its own source argument as "the object
-// c is checked for being attached to," and host.ID -- the watcher itself --
-// is exactly that for a trigger living on the Aura in question.
-//
-// FirstTime$ (Glyph Keeper's own "for the first time each turn, counter
-// it") reads a new Card.BecameTargetThisTurn (card.go): Java's own
-// hasBecomeTargetThisTurn()/addTargetFromThisTurn is a per-target Player
-// set, but every real FirstTime$ line just asks whether the set was empty,
-// never which players are in it, so a bool suffices. Computed once per
-// distinct target (not once per watcher) the same "check, then mark"
-// order Java's own MagicStack.add loop has, so two watchers checking the
-// same targeting event see identical first-time-ness.
-//
-// ValidSource$ (71 of 77 real lines) resolves too -- matched against the
-// triggering ability itself (AbilityKey.SourceSA in Java, a SpellAbility,
-// not a Card, SpellAbility.isValid's own dispatch) -- through
-// becomesTargetSourceMatches (below), a Spell/Triggered ability-kind
-// classifier built from this dispatch's own two real call sites rather than
-// a general SpellAbility-kind field on Ability: castAura's own Aura is
-// always a Spell (isSpell()==true, and this port's only spell-casting path
-// today, so "the one spell source reaching here" and "an Aura spell" are the
-// identical set -- Spell.Aura's own qualifier is therefore always true
-// whenever the kind itself is Spell), and a triggered ability pushed through
-// pushTriggeredAbilities is always Java's own isAbility()/isTrigger() pair
-// (this port has no activated-ability targeting built yet, so "Ability" and
-// "Triggered" collapse to the identical "not a Spell" check for now).
-// "SpellAbility" itself matches unconditionally (Java's own "match anything"
-// case), and .YouCtrl/.OppCtrl compare the ability's own controller against
-// the watching trigger's host controller the identical way every other
-// YouCtrl/OppCtrl property in this port already does. 6 stay unresolved:
-// silverfur_partisan.txt's/wild_defiance.txt's own real `Instant,Sorcery`
-// (a card-type check neither of this port's two sources -- a Trigger, an
-// Aura -- can ever satisfy) and four real lines combining a kind with a
-// property past YouCtrl/OppCtrl/Aura (`namedGoblin Artisans`, `numTargets
-// EQ1`, `Land+named...`, `Backup`), each its own further mechanic.
-//
-// 101 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
-// Illusionary Servant's own real "When CARDNAME becomes the target of a
-// spell or ability, sacrifice it" among them (Sacrifice itself is still
-// ErrUnimplemented, M6's own remaining scope; TestDestroyLethalToughnessFiresDiesTrigger's
-// own "prove the trigger reached the stack, not that its effect ran"
-// precedent applies here identically). OptionalDecider$ (12, every real line
-// "You") resolves too now, through triggerEffectAPI's own triggerIsOptional
-// (below). Not resolved, each failing loudly by name rather than firing
-// unconditionally (PORT-8/GO-7): Valiant$ (10) -- Card.isValiant's own
-// per-activator "have you not targeted this before" set, a separate
-// mechanic FirstTime$'s own plain bool cannot answer; ActivationLimit$ (3)
-// and Static$ (1) -- each its own further mechanic.
-func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool, sourceController PlayerID, cause CardID) []Ability {
+// ValidTarget$ goes through attackedTargetMatches (a spec may name a player,
+// a card, or both). ValidSource$ is SpellAbility.isValid against by
+// (becomesTargetSourceMatches). FirstTime$ reads Card.BecameTargetThisTurn,
+// computed once per distinct target before any watcher looks (Java's
+// per-target player set is only ever asked whether it is empty). The
+// trigger records the target, by's host card as Source and by's controller
+// as the SourceSA's (becomesTargetSourceObjects). Valiant$ (a per-activator
+// set) and Static$ lines are not fired (isBecomesTargetTrigger, GO-7).
+func (g *Game) checkBecomesTargetTriggers(targets []EntityID, by *Ability) []Ability {
 	var matches []Ability
 	seen := make(map[EntityID]bool, len(targets))
 	var distinct []EntityID
@@ -3757,17 +3915,20 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 							continue
 						}
 						if validSource, ok := t.Param("ValidSource"); ok &&
-							!becomesTargetSourceMatches(isSpellSource, sourceController, w.Controller(), validSource) {
+							!g.becomesTargetSourceMatches(by, w, face.Amounts, validSource) {
 							continue
 						}
 						if _, ok := t.Param("FirstTime"); ok && !firstTime {
 							continue
 						}
-						// TriggerBecomesTarget.java:84-85 records AbilityKey.Target,
-						// the targeted card or player; Source (the targeting spell's
-						// host) and SourceSA are not recorded here.
+						// TriggerBecomesTarget.java:83-86 records AbilityKey.Target
+						// (the targeted card or player), Source (the targeting
+						// spell's or ability's host card) and SourceSA (read here
+						// for its controller).
 						if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, trigger: t, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{target: tgt}), staticTrigger: isStaticTrigger(t)})
+							objs := g.becomesTargetSourceObjects(by)
+							objs.target = tgt
+							matches = append(matches, Ability{API: api, trigger: t, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(objs), staticTrigger: isStaticTrigger(t)})
 						}
 					}
 				}
@@ -3775,7 +3936,7 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 		}
 	}
 	// MagicStack.java:474-486: then BecomesTargetOnce, once for the lot.
-	return append(matches, g.becomesTargetOnceMatches(distinct, isSpellSource, sourceController, cause)...)
+	return append(matches, g.becomesTargetOnceMatches(distinct, by)...)
 }
 
 // checkWardTriggers is CR 702.21a's own trigger for a spell: fired at the
@@ -3783,7 +3944,7 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 // castInstantOrSorcery, CopySpellAbility's copies, ChangeTargets'
 // retargeted spells; ADR-0028). An activated or triggered ability goes
 // through checkWardTriggersForAbility. Each of a newly-targeted
-// battlefield card's own Ward lines fires independently (CR 702.21g,
+// battlefield card's own Ward lines fires independently (CR 113.2c,
 // protectionEach's own "check every line" precedent, ADR-0027's implementing
 // pack) when spellController is an opponent of the warded card's own
 // controller -- matchesPlayerSpec's "Opponent" base, the identical check
@@ -3796,9 +3957,8 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 // Def.Faces[].Triggers the way checkBecomesTargetTriggers' own scan is: no
 // script text names Ward's Execute$, so there is nothing to scan. A Ward
 // line whose cost parseUnlessCost cannot read (after wardCostResolvable
-// evaluates its X) is skipped before the stack, the identical pre-check
-// resolveUnlessCost (effect.go) makes, so a shape that would error there is
-// never pushed here at all.
+// evaluates its X) records a pending error instead of reaching the stack
+// (GO-7): dropping the trigger would let the spell resolve uncountered.
 //
 // Controller is the warded card's own controller (CR 603.3a: a triggered
 // ability's controller is its source's controller), not spellController --
@@ -3873,6 +4033,9 @@ func (g *Game) wardTriggers(targets []EntityID, sourceController PlayerID, sourc
 				triggered: triggeredObjects{source: CardEntity(source), sourceController: sourceController},
 			}
 			if !g.wardCostResolvable(&w, k.Details) {
+				// CR 702.21a counters the spell when its controller cannot
+				// pay; skipping the trigger would let it resolve instead.
+				g.recordPendingError(fmt.Errorf("engine: %q: Ward cost %q not resolvable yet", c.Def.Name, k.Details))
 				continue
 			}
 			matches = append(matches, w)
@@ -3918,68 +4081,30 @@ func isBecomesTargetTrigger(t *compile.Ability) bool {
 	return !hasAnyParam(t, "Valiant", "Static")
 }
 
-// becomesTargetSourceMatches is TriggerBecomesTarget.performTest's own
-// ValidSource$ check -- SpellAbility.isValid's own restriction split,
-// ported at the two ability kinds this port's own two real call sites can
-// ever produce (isSpellSource true for castAura's own Aura, false for a
-// triggered ability pushed through pushTriggeredAbilities -- this port has
-// no activated-ability targeting built yet, so Java's own separate
-// isAbility()/isTrigger() checks collapse to the identical "not a Spell"
-// test here). "SpellAbility" matches unconditionally (Java's own "match
-// anything" case); "Spell" requires isSpellSource; "Ability"/"Triggered"
-// require !isSpellSource; every other head (Activated/Instant/Sorcery/
-// Static/LandAbility) refuses outright -- Activated because this port has
-// nothing that ever sets isSpellSource false for an activated ability
-// specifically, Instant/Sorcery because neither of this port's two sources
-// is ever a card of that type. A "."-qualified property afterward is
-// YouCtrl/OppCtrl (the ability's own controller compared against the
-// watching trigger's own host controller, the identical YouCtrl/OppCtrl
-// contract every other property in this port already has) or Aura (always
-// true once the kind itself is Spell, since this port's only spell source
-// reaching here IS an Aura being cast, castAura's own doc comment) --
-// anything else refuses the whole line (GO-7): silverfur_partisan.txt's/
-// wild_defiance.txt's own real `Instant,Sorcery` and four more real lines
-// combining a kind with a property past YouCtrl/OppCtrl/Aura (`namedGoblin
-// Artisans`, `numTargets EQ1`, `Land+named...`, `Backup`), each its own
-// further mechanic.
-func becomesTargetSourceMatches(isSpellSource bool, sourceController, hostController PlayerID, restriction string) bool {
-	head, rest, hasRest := strings.Cut(restriction, ".")
-	var kindMatch bool
-	switch head {
-	case "SpellAbility":
-		kindMatch = true
-	case "Spell":
-		kindMatch = isSpellSource
-	case "Ability", "Triggered":
-		kindMatch = !isSpellSource
-	default:
-		return false
+// becomesTargetSourceObjects is what both BecomesTarget modes record about
+// by, the targeting spell or ability: AbilityKey.Source, its host card
+// (TriggeredSource, TriggeredSourceController), and the SourceSA's controller
+// (TriggeredSourceSAController).
+func (g *Game) becomesTargetSourceObjects(by *Ability) triggeredObjects {
+	o := triggeredObjects{sourceSAController: by.Controller}
+	if by.Source != NoCard {
+		o.source, o.sourceController = CardEntity(by.Source), g.Card(by.Source).Controller()
 	}
-	if !kindMatch {
-		return false
-	}
-	if !hasRest {
-		return true
-	}
-	for _, prop := range strings.Split(rest, "+") {
-		switch prop {
-		case "YouCtrl":
-			if sourceController != hostController {
-				return false
-			}
-		case "OppCtrl":
-			if sourceController == hostController {
-				return false
-			}
-		case "Aura":
-			// Always true here: this port's only isSpellSource-true caller
-			// (castAura) never reaches this dispatch for anything but an
-			// Aura spell.
-		default:
-			return false
-		}
-	}
-	return true
+	return o
+}
+
+// becomesTargetSourceMatches is TriggerBecomesTarget.performTest's
+// ValidSource$ check (TriggerBecomesTarget.java:67-71, matchesValidParam over
+// AbilityKey.SourceSA): SpellAbility.isValid (SpellAbility.java:2201-2268)
+// against by, the spell or ability that chose the target, as it sits on the
+// stack, read from the watcher's point of view. by's kind tells Spell,
+// Activated and Triggered apart (Ability.causeKind) and Instant/Sorcery read
+// its card's type. A spec this port cannot evaluate (Ability.Backup) matches
+// nothing: the line does not fire (GO-7, the same fail-closed answer the
+// trigger's other unreadable params get).
+func (g *Game) becomesTargetSourceMatches(by *Ability, watcher *Card, amounts map[string]expr.Amount, spec string) bool {
+	matched, recognized := g.spellAbilityMatches(by, spec, watcher, watcher.Controller(), amounts)
+	return matched && recognized
 }
 
 // checkPlaneswalkedFromTriggers is Mode$ PlaneswalkedFrom
@@ -4195,4 +4320,47 @@ func (g *Game) planeswalkTriggerMatches(mode string, cards []CardID, static bool
 		}
 	}
 	return matches
+}
+
+// triggerPushOrder is the order pid's triggered abilities in matches go on
+// the stack (CR 603.3b): the indices of matches whose controller is pid, in
+// the order they are put on the stack, so the last one resolves first. With
+// two or more, pid orders them (OrderSimultaneousTriggers); the default is
+// the order found.
+func (g *Game) triggerPushOrder(controller PlayerController, pid PlayerID, matches []Ability) []int {
+	var idx []int
+	for i := range matches {
+		if matches[i].Controller == pid {
+			idx = append(idx, i)
+		}
+	}
+	if len(idx) < 2 {
+		return idx
+	}
+	items := make([]TriggerOrderItem, len(idx))
+	for k, i := range idx {
+		items[k].Source = matches[i].Source
+		if matches[i].trigger != nil {
+			items[k].Mode = matches[i].trigger.Name
+		}
+	}
+	order := controller.OrderSimultaneousTriggers(g, pid, items)
+	seen := make([]bool, len(idx))
+	valid := len(order) == len(idx)
+	for _, k := range order {
+		if k < 0 || k >= len(idx) || seen[k] {
+			valid = false
+			break
+		}
+		seen[k] = true
+	}
+	if !valid {
+		return idx
+	}
+	// order is the resolution order; the stack takes them last first.
+	pushed := make([]int, len(idx))
+	for pos, k := range order {
+		pushed[len(idx)-1-pos] = idx[k]
+	}
+	return pushed
 }

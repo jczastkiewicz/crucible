@@ -14,7 +14,7 @@ func TestDracoplasmTakesTheTotalOfTheSacrificedCreatures(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	g.SetTurnState(1, p, engine.Main1)
 	a := g.NewCard(creatureDefPT(t, "3", "1"), p, engine.Battlefield)
 	b := g.NewCard(creatureDefPT(t, "2", "4"), p, engine.Battlefield)

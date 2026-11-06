@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=Arbor Colossus|Id:1;Forest|Id:2;Forest|Id:3;Forest|Id:4;Forest|Id:5;Forest|Id:6;Forest|Id:7
+aibattlefield=Wind Drake|Id:8;Grizzly Bears|Id:9

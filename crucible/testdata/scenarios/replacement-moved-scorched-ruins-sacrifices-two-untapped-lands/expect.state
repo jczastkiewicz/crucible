@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Forest;Scorched Ruins|SummonSick
+humanbattlefield=Forest;Scorched Ruins
 humangraveyard=Mountain;Mountain
 ailife=20

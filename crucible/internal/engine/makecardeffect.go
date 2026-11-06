@@ -13,7 +13,9 @@ import (
 // activator by default), cards are made from outside the game -- by Name$
 // (ChosenName: the host's named cards), Names$, the printed names of the
 // DefinedName$ cards, or one picked from a Spellbook$/Choices$ name list
-// (SpellbookAmount$ times; AtRandom$ picks with Aggregates.random). Each
+// (SpellbookAmount$ times; AtRandom$ picks with Aggregates.random).
+// SpellbookName$ is only the prompt's "Choose a card from {0}'s spellbook"
+// label (MakeCardEffect.java:111-115), never which list is offered. Each
 // name is made Amount$ times (default 1), owned by that player, and put
 // into Zone$ (default Library; at LibraryPosition$, else the top and then
 // the library is shuffled), tapped with Tapped$, entering with WithCounter$
@@ -163,7 +165,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				if g.Card(id).Zone == Exile {
 					g.turnFaceDownInExile(id)
 				} else {
-					g.turnFaceDown(id)
+					g.turnFaceDown(id, true)
 				}
 			}
 			if hasParam(a, "RememberMade") {

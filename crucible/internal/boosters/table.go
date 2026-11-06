@@ -217,3 +217,15 @@ func (t *Table) byCode(code string) (*Edition, bool) {
 	e, ok := t.Pool.byCode[fold(code)]
 	return e, ok
 }
+
+// OriginalEdition is the edition code of
+// CardDb.getCardFromEditions(name, ORIGINAL_ART_ALL_EDITIONS): the card's
+// print from its oldest edition (CardProperty.java:1960-1969 reads it for
+// the set<CODE> property). ok is false when no edition prints the name.
+func (t *Table) OriginalEdition(name string) (code string, ok bool) {
+	pr := t.Pool.fromEditions(name, 1, false)
+	if pr == nil {
+		return "", false
+	}
+	return pr.Edition, true
+}

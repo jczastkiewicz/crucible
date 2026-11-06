@@ -44,6 +44,29 @@ type KeywordEffect struct {
 	// timestamps (Card.java:5198-5200, KeywordCollection.removeAll). Card
 	// only; a player's fold has nothing to strip.
 	CantHave []string
+	// Source is the static ability host that granted AddKeywords (Java's
+	// KeywordInterface.getStatic().getHostCard()), NoCard for a grant that
+	// is not a static's: the KeywordSource spell ability property reads it.
+	Source CardID
+}
+
+// grantSource is the static host that granted c's latest line named name
+// (keyword.Parse's Name), NoCard when no static grants one: a printed line
+// has no granting static (Java's getStatic() is null for it).
+func (km KeywordMod) grantSource(name string) CardID {
+	var best KeywordEffect
+	for _, e := range km.effects {
+		if e.Source == NoCard || e.Timestamp < best.Timestamp {
+			continue
+		}
+		for _, line := range e.AddKeywords {
+			if keyword.Parse(line).Name == name {
+				best = e
+				break
+			}
+		}
+	}
+	return best.Source
 }
 
 // Add records one continuous effect. Order does not matter here, the same

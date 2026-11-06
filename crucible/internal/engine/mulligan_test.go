@@ -79,6 +79,14 @@ func (c *scriptedMulliganController) DeclareCombatAttackers(_ *engine.Game, _ en
 	panic("scriptedMulliganController: DeclareCombatAttackers was not expected to be called")
 }
 
+func (c *scriptedMulliganController) PayManaCost(_ *engine.Game, _ engine.PlayerID, _ mana.Cost, _ engine.CardID) []engine.Action {
+	return nil
+}
+
+func (c *scriptedMulliganController) DeclareBands(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) [][]engine.CardID {
+	panic("scriptedMulliganController: DeclareBands was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ExertAttackers(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) []engine.CardID {
 	panic("scriptedMulliganController: ExertAttackers was not expected to be called")
 }
@@ -529,6 +537,14 @@ func (c *scriptedMulliganController) ChooseRollToSwap(_ *engine.Game, _ engine.P
 	panic("scriptedMulliganController: ChooseRollToSwap was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChooseAssistant(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.PlayerID, _ int) engine.PlayerID {
+	return engine.NoPlayer
+}
+
+func (c *scriptedMulliganController) AssistAmount(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ int) int {
+	panic("scriptedMulliganController: AssistAmount was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChooseRollSwapValue(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _, _, _ int) int {
 	panic("scriptedMulliganController: ChooseRollSwapValue was not expected to be called")
 }
@@ -539,6 +555,10 @@ func (c *scriptedMulliganController) ChooseStickerNamePosition(_ *engine.Game, _
 
 func (c *scriptedMulliganController) DivideAmongTargets(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.EntityID, _ int) []int {
 	panic("scriptedMulliganController: DivideAmongTargets was not expected to be called")
+}
+
+func (c *scriptedMulliganController) OrderSimultaneousTriggers(_ *engine.Game, _ engine.PlayerID, _ []engine.TriggerOrderItem) []int {
+	return nil
 }
 
 func (c *scriptedMulliganController) ChooseRoomDoor(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.Door) engine.Door {

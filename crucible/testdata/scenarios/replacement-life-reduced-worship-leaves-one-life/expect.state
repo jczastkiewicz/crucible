@@ -4,4 +4,4 @@ activephase=Combat Damage
 humanlife=1
 humanbattlefield=Worship;Grizzly Bears
 ailife=20
-aibattlefield=Hill Giant|Tapped
+aibattlefield=Hill Giant|Tapped|Attacking

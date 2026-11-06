@@ -3131,9 +3131,10 @@ func tapsForManaTriggerLandDefActivator(t *testing.T, name, typeLine, activator 
 }
 
 // TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator proves
-// Activator$ Player.NonActive resolves through matchesPlayerSpec's own
-// Active/NonActive property (Game.ActivePlayer(), valid.go): other, not the
-// active player p, taps their own land, so NonActive matches.
+// Activator$ Player.!Active (City of Solitude, Price of Glory) resolves
+// through matchesPlayerSpec's negated Active property (Game.ActivePlayer(),
+// valid.go): other, not the active player p, taps their own land, so it
+// matches.
 func TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator(t *testing.T) {
 	t.Parallel()
 
@@ -3141,7 +3142,7 @@ func TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator(t *testing.T
 	p, other := g.Players()[0], g.Players()[1]
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 	g.SetTurnState(1, p, engine.Main1)
-	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.NonActive"), other, engine.Battlefield)
+	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.!Active"), other, engine.Battlefield)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
 
 	if !g.TapLandForMana(other, plains, mana.White, engine.NewScriptedController()) {
@@ -3151,13 +3152,13 @@ func TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator(t *testing.T
 		t.Fatalf("ResolveStack: %v", err)
 	}
 	if g.Card(top).Zone != engine.Hand {
-		t.Errorf("library card zone = %v, want Hand -- Activator$ Player.NonActive should match other, not the active player p", g.Card(top).Zone)
+		t.Errorf("library card zone = %v, want Hand -- Activator$ Player.!Active should match other, not the active player p", g.Card(top).Zone)
 	}
 }
 
 // TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator proves the
 // same trigger does NOT fire when the active player p taps their own land --
-// p is Active, not NonActive.
+// p is the active player.
 func TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator(t *testing.T) {
 	t.Parallel()
 
@@ -3165,14 +3166,14 @@ func TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator(t *testing.T
 	p, other := g.Players()[0], g.Players()[1]
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 	g.SetTurnState(1, p, engine.Main1)
-	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.NonActive"), p, engine.Battlefield)
+	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.!Active"), p, engine.Battlefield)
 
 	if !g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains for white")
 	}
 
 	if got := g.StackLen(); got != 0 {
-		t.Fatalf("StackLen() = %d, want 0 -- Activator$ Player.NonActive must reject the active player p", got)
+		t.Fatalf("StackLen() = %d, want 0 -- Activator$ Player.!Active must reject the active player p", got)
 	}
 }
 

@@ -100,6 +100,10 @@ type Ability struct {
 	// Subs are the abilities this one names, resolved. Order is the order the
 	// params appear in, so it is the script's.
 	Subs []SubRef
+	// SplitFrom is the static a multi-mode Mode$ line was split from
+	// (splitStaticModes), so the engine can tell the pieces of one static
+	// apart from separate statics; nil for every other ability.
+	SplitFrom *Ability
 	// Keyword is the `K:` line this ability was synthesized from (ADR-0038),
 	// empty for a line the card wrote itself.
 	Keyword string
@@ -196,6 +200,12 @@ type Face struct {
 	Colors    mana.Colors
 	HasColors bool
 
+	// Lights is an Attraction's lit numbers, the face's `Lights:` line read
+	// once here (CardFace.java:100-105). A printing variant's own lights
+	// (`Variant:<n>:Lights:`) are not read: the port plays a card, not a
+	// printing (porting/port-log/deck-serializer.md).
+	Lights []int
+
 	// Keywords are the face's `K:` lines, carried through unchanged from
 	// carddb.Face -- keyword.Parse resolves one to a name at read time
 	// (engine.Card.HasKeyword's job), the same "carry the printed text,
@@ -222,6 +232,11 @@ type Face struct {
 	// Stickers is a sticker sheet's slots, in `K:StickerSheet:` order
 	// (sticker.go); nil on every other face.
 	Stickers []Sticker
+
+	// AwakenSpell is the spell an Awaken cast puts on the stack (awaken.go):
+	// the face's first spell ability with the awaken land's PutCounter and
+	// Animate appended to its chain; nil without `K:Awaken`.
+	AwakenSpell *Ability
 
 	// Amounts is every SVar this face defines that is NOT itself an ability
 	// (one of the four slices above, reached through a Sub reference when a
@@ -256,6 +271,11 @@ type Card struct {
 	// every variant's key.
 	FlavorNames       []string
 	SupportedVariants []string
+	// HandDelta and LifeDelta are a Vanguard avatar's HandLifeModifier:+H/+L
+	// (CardRules.setVanguardProperties, CardRules.java:480-486): what the
+	// avatar adds to its owner's starting hand size and starting life
+	// (ADR-0056). Zero for every other card.
+	HandDelta, LifeDelta int
 }
 
 // Compile resolves every ability line of every face.
@@ -267,6 +287,13 @@ type Card struct {
 func Compile(card *carddb.Card) (*Card, error) {
 	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name, SplitType: card.SplitType,
 		SupportedVariants: card.SupportedVariants}
+	if card.HandLifeModifier != "" {
+		hand, life, err := parseHandLifeModifier(card.HandLifeModifier)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", card.Filename, err)
+		}
+		out.HandDelta, out.LifeDelta = hand, life
+	}
 	for _, i := range card.PresentFaces() {
 		for _, key := range card.SupportedVariants {
 			if v := card.Faces[i].Variants[key]; v != nil && v.FlavorName != "" && v.FlavorName != card.Faces[i].Name {
@@ -293,6 +320,13 @@ func compileFace(face *carddb.Face) (Face, error) {
 		Loyalty: face.InitialLoyalty, Defense: face.Defense, Keywords: face.Keywords,
 		ManaCost: face.ManaCost, Colors: face.Colors, HasColors: face.HasColors,
 	}
+	for _, field := range strings.Fields(face.AttractionLights) {
+		n, err := strconv.Atoi(field)
+		if err != nil {
+			return Face{}, fmt.Errorf("attraction lights %q: %w", face.AttractionLights, err)
+		}
+		out.Lights = append(out.Lights, n)
+	}
 	for _, group := range []struct {
 		lines  []string
 		target *[]*Ability
@@ -311,6 +345,7 @@ func compileFace(face *carddb.Face) (Face, error) {
 			*group.target = append(*group.target, ability)
 		}
 	}
+	out.Statics = splitStaticModes(out.Statics)
 	for _, kw := range face.Keywords {
 		if rest, ok := strings.CutPrefix(kw, "ETBReplacement:"); ok {
 			r, err := c.etbReplacement(rest)
@@ -342,6 +377,9 @@ func compileFace(face *carddb.Face) (Face, error) {
 	}
 	out.Amounts = compileAmounts(face)
 	if err := c.expandKeywords(&out); err != nil {
+		return Face{}, err
+	}
+	if err := c.expandGrantedKeywords(&out); err != nil {
 		return Face{}, err
 	}
 	out.Amounts = addInlineAmounts(out.Amounts, out.Statics)
@@ -382,58 +420,194 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 			continue
 		}
 		exp, ok := keyword.Expand(keyword.Parse(line))
+		if keyword.Parse(line).Name == "Cipher" {
+			if err := c.appendCipherEncode(out, line); err != nil {
+				return err
+			}
+		}
+		if keyword.Parse(line).Name == "Awaken" {
+			if err := c.buildAwaken(out, line); err != nil {
+				return err
+			}
+		}
+		if keyword.Parse(line).Name == "Suspend" {
+			// Suspend's haste half is built only for a permanent card.
+			exp, ok = keyword.ExpandSuspend(keyword.Parse(line), c.face.Type.IsPermanent())
+		}
+		if keyword.Parse(line).Name == "Sunburst" {
+			// Sunburst's counter follows the face's printed type.
+			exp, ok = keyword.ExpandSunburst(keyword.Parse(line), c.face.Type.Has(cardtype.Creature))
+		}
 		if !ok {
 			continue
 		}
-		for _, sv := range exp.Amounts {
-			if out.Amounts == nil {
-				out.Amounts = map[string]expr.Amount{}
-			}
-			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
-			if _, taken := out.Amounts[strings.ToLower(name)]; taken {
-				return fmt.Errorf("keyword %q: synthesized SVar %q collides with an existing one", line, name)
-			}
-			out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
+		built, err := c.buildExpansion(out, line, slot, exp)
+		if err != nil {
+			return err
 		}
-		for _, sv := range exp.SVars {
-			if c.extra == nil {
-				c.extra = map[string]string{}
+		out.Abilities = append(out.Abilities, built.abilities...)
+		out.Triggers = append(out.Triggers, built.triggers...)
+		out.Statics = append(out.Statics, built.statics...)
+		out.Replacements = append(out.Replacements, built.replacements...)
+	}
+	return nil
+}
+
+// expandGrantedKeywords is ADR-0038 decision 4: a Mode$ Continuous static's
+// AddKeyword$ (" & " list, StaticAbilityContinuous.java) grants the traits each
+// keyword stands for, as Card.addChangedCardKeywords makes CardFactoryUtil's
+// keyword abilities appear on the receiver. They are compiled here once, in
+// the granting face's namespace, and hung on the static as `AddKeyword` subs
+// that the engine's trait overlay (applyOneContinuousTraits) reads by Record.
+// The face's own S: lines and every static an SVar reaches (an Effect's
+// StaticAbilities$, Crackling Spellslinger's GrantStorm) are expanded. A
+// Pump or PumpAll line's KW$ (PumpEffect.java/PumpAllEffect.java, the same
+// " & " list) is expanded the same way into `KW` subs, which the engine's
+// pump record carries. A keyword with no template stays inert (GO-7).
+func (c *faceCompiler) expandGrantedKeywords(out *Face) error {
+	seen := map[*Ability]bool{}
+	for si, st := range out.Statics {
+		seen[st] = true
+		if strings.EqualFold(st.Name, "Continuous") {
+			if err := c.expandGrant(out, st, "g"+strconv.Itoa(si)+"x", "AddKeyword"); err != nil {
+				return err
 			}
-			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
-			if _, own := c.face.SVars.Get(name); own {
-				return fmt.Errorf("keyword %q: synthesized SVar %q collides with the card's own", line, name)
-			}
-			c.extra[name] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
 		}
-		for _, group := range []struct {
-			lines  []string
-			target *[]*Ability
-			record Record
-		}{
-			{exp.Abilities, &out.Abilities, Spell},
-			{exp.Triggers, &out.Triggers, Trigger},
-			{exp.Statics, &out.Statics, StaticEffect},
-			{exp.Replacements, &out.Replacements, Replacement},
-		} {
-			for _, text := range group.lines {
-				ability, err := c.line(strings.ReplaceAll(text, keyword.Slot, slot), group.record)
-				if err != nil {
-					return fmt.Errorf("keyword %q: %w", line, err)
+	}
+	n, k := 0, 0
+	expandPump := func(a *Ability) error {
+		if a.Record == Spell || a.Record == Activated || a.Record == SubAbility {
+			if strings.EqualFold(a.Name, "Pump") || strings.EqualFold(a.Name, "PumpAll") {
+				k++
+				return c.expandGrant(out, a, "k"+strconv.Itoa(k-1)+"x", "KW")
+			}
+		}
+		return nil
+	}
+	var walk func(a *Ability) error
+	walk = func(a *Ability) error {
+		for _, sub := range a.Subs {
+			b := sub.Ability
+			if b == nil || seen[b] {
+				continue
+			}
+			seen[b] = true
+			if b.Record == StaticEffect && strings.EqualFold(b.Name, "Continuous") {
+				if err := c.expandGrant(out, b, "v"+strconv.Itoa(n)+"x", "AddKeyword"); err != nil {
+					return err
 				}
-				ability.Keyword = line
-				// The ability a synthesized trigger or replacement runs is the
-				// keyword's too (SpellAbility.isKeyword over the one the
-				// trigger executes): Renown's counters, a chapter on the stack.
-				for _, ref := range ability.Subs {
-					if strings.EqualFold(ref.Key, "Execute") || strings.EqualFold(ref.Key, "ReplaceWith") {
-						ref.Ability.Keyword = line
-					}
+				n++
+			}
+			if err := expandPump(b); err != nil {
+				return err
+			}
+			if err := walk(b); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, group := range [][]*Ability{out.Abilities, out.Triggers, out.Statics, out.Replacements} {
+		for _, a := range group {
+			if !seen[a] {
+				seen[a] = true
+				if err := expandPump(a); err != nil {
+					return err
 				}
-				*group.target = append(*group.target, ability)
+			}
+			if err := walk(a); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+// expandGrant hangs the expansion of each keyword st's param (AddKeyword$ or
+// KW$) names on st as subs keyed by that param; prefix plus the keyword's
+// index keeps their SVars unique.
+func (c *faceCompiler) expandGrant(out *Face, st *Ability, prefix, param string) error {
+	raw, ok := st.Param(param)
+	if !ok {
+		return nil
+	}
+	for ki, line := range strings.Split(raw, " & ") {
+		exp, ok := keyword.Expand(keyword.Parse(line))
+		if !ok {
+			continue
+		}
+		built, err := c.buildExpansion(out, line, prefix+strconv.Itoa(ki), exp)
+		if err != nil {
+			return err
+		}
+		for _, group := range [][]*Ability{built.abilities, built.triggers, built.statics, built.replacements} {
+			for _, ability := range group {
+				st.Subs = append(st.Subs, SubRef{Key: param, SVar: line, Ability: ability})
+			}
+		}
+	}
+	return nil
+}
+
+// expansion is one keyword's compiled traits, by the face list each belongs
+// to (an `AB$` line keeps its own Record, so the group, not Record, says where
+// it goes).
+type expansion struct{ abilities, triggers, statics, replacements []*Ability }
+
+// buildExpansion compiles one keyword's expansion: its value SVars into
+// out.Amounts, its ability SVars into the face's synthesized set, and each
+// trait line into an Ability tagged with the keyword line. The slot makes
+// every SVar name unique to the keyword line on the card.
+func (c *faceCompiler) buildExpansion(out *Face, line, slot string, exp keyword.Expansion) (expansion, error) {
+	for _, sv := range exp.Amounts {
+		if out.Amounts == nil {
+			out.Amounts = map[string]expr.Amount{}
+		}
+		name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+		if _, taken := out.Amounts[strings.ToLower(name)]; taken {
+			return expansion{}, fmt.Errorf("keyword %q: synthesized SVar %q collides with an existing one", line, name)
+		}
+		out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
+	}
+	for _, sv := range exp.SVars {
+		if c.extra == nil {
+			c.extra = map[string]string{}
+		}
+		name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+		if _, own := c.face.SVars.Get(name); own {
+			return expansion{}, fmt.Errorf("keyword %q: synthesized SVar %q collides with the card's own", line, name)
+		}
+		c.extra[name] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
+	}
+	var built expansion
+	for _, group := range []struct {
+		lines  []string
+		record Record
+		target *[]*Ability
+	}{
+		{exp.Abilities, Spell, &built.abilities},
+		{exp.Triggers, Trigger, &built.triggers},
+		{exp.Statics, StaticEffect, &built.statics},
+		{exp.Replacements, Replacement, &built.replacements},
+	} {
+		for _, text := range group.lines {
+			ability, err := c.line(strings.ReplaceAll(text, keyword.Slot, slot), group.record)
+			if err != nil {
+				return expansion{}, fmt.Errorf("keyword %q: %w", line, err)
+			}
+			ability.Keyword = line
+			// The ability a synthesized trigger or replacement runs is the
+			// keyword's too (SpellAbility.isKeyword over the one the
+			// trigger executes): Renown's counters, a chapter on the stack.
+			for _, ref := range ability.Subs {
+				if strings.EqualFold(ref.Key, "Execute") || strings.EqualFold(ref.Key, "ReplaceWith") {
+					ref.Ability.Keyword = line
+				}
+			}
+			*group.target = append(*group.target, ability)
+		}
+	}
+	return built, nil
 }
 
 // addInlineAmounts parses a static ability's power/toughness value written
@@ -771,6 +945,46 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 // here once, as keyword expansion is (ADR-0038), so no script text is read at
 // runtime (PORT-2). The engine grants it to the host and resolves it
 // (ignoreeffect.go).
+// splitStaticModes gives a static whose Mode$ lists several modes
+// (Pacifism's `Mode$ CantAttack,CantBlock`, 87 corpus S: lines) one Ability per
+// mode, in the order written. Java's Mode is a set (StaticAbility.java:257,
+// StaticAbilityMode.java:233-237) and each mode's check asks whether the set
+// holds it; one Ability per mode lets every engine check keep comparing Name.
+// The pieces share params and subs, with Mode$ narrowed to the piece's own
+// mode, except the IgnoreEffectCost$ ability, which only the Continuous piece
+// keeps (StaticAbilityContinuous.java:516-518 builds it from the Continuous
+// mode alone).
+func splitStaticModes(statics []*Ability) []*Ability {
+	var out []*Ability
+	for _, st := range statics {
+		if !strings.Contains(st.Name, ",") {
+			out = append(out, st)
+			continue
+		}
+		for _, mode := range splitTrim(st.Name, ",") {
+			cp := *st
+			cp.Name = mode
+			cp.SplitFrom = st
+			cp.Params = make([]vocab.Param, len(st.Params))
+			copy(cp.Params, st.Params)
+			for i := range cp.Params {
+				if strings.EqualFold(cp.Params[i].Key, "Mode") {
+					cp.Params[i].Value = mode
+				}
+			}
+			cp.Subs = nil
+			for _, sub := range st.Subs {
+				if strings.EqualFold(sub.Key, "IgnoreEffectCost") && !strings.EqualFold(mode, "Continuous") {
+					continue
+				}
+				cp.Subs = append(cp.Subs, sub)
+			}
+			out = append(out, &cp)
+		}
+	}
+	return out
+}
+
 func ignoreEffectSub(cost string) SubRef {
 	return SubRef{Key: "IgnoreEffectCost", Ability: &Ability{
 		Record: Activated,
@@ -1123,4 +1337,22 @@ func splitTrim(value, sep string) []string {
 		}
 	}
 	return out
+}
+
+// parseHandLifeModifier reads HandLifeModifier's "+H/+L" (each side a signed
+// integer, CardRules.java:480-486). Java's Integer.parseInt takes a leading
+// "+"; a malformed value is a script error here rather than Java's
+// NumberFormatException at load (PORT-8).
+func parseHandLifeModifier(v string) (hand, life int, err error) {
+	h, l, ok := strings.Cut(v, "/")
+	if !ok {
+		return 0, 0, fmt.Errorf("HandLifeModifier %q: want +H/+L", v)
+	}
+	if hand, err = strconv.Atoi(strings.TrimSpace(h)); err != nil {
+		return 0, 0, fmt.Errorf("HandLifeModifier %q: %w", v, err)
+	}
+	if life, err = strconv.Atoi(strings.TrimSpace(l)); err != nil {
+		return 0, 0, fmt.Errorf("HandLifeModifier %q: %w", v, err)
+	}
+	return hand, life, nil
 }

@@ -336,10 +336,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
-	if shape.Tap && (c.Tapped || c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
+	if shape.Tap && (c.Tapped || c.IsSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
 		return false
 	}
-	if general && parsed.Untap && (!c.Tapped || c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
+	if general && parsed.Untap && (!c.Tapped || c.IsSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
 		return false
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
@@ -354,10 +354,14 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	var tapCandidates []CardID
 	if shape.TapTypeN > 0 {
-		if !tapTypeResolvable(shape.TapTypeSpec) {
+		if !tapTypeActivatable(shape.TapTypeSpec) {
 			return false
 		}
-		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		if shape.TapTypeSpec == "OriginalHost" {
+			tapCandidates = originalHostCandidates(g, card, c.grantOrigin(ability))
+		} else {
+			tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		}
 		if len(tapCandidates) < shape.TapTypeN {
 			return false
 		}
@@ -448,7 +452,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			return false
 		}
 	} else {
-		restore := g.payingFor(&payContext{item: &Ability{API: APIMana, Source: card, Controller: pid, activated: true}, cost: costMana})
+		item := &Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true}
+		// PlaySpellAbility.java:653-664: a mana ability pays under the
+		// ManaConvert statics and its grantor's ManaConversion$ too.
+		costMana = g.manaConvertForActivation(pid, card, item, costMana)
+		restore := g.payingFor(&payContext{item: item, cost: costMana})
 		paid := g.PayManaCost(pid, costMana, controller)
 		restore()
 		if !paid {
@@ -463,11 +471,12 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			sacrificeCardsFor(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card}, false)
 		}
 		if shape.SelfExile {
-			exileCards(g, controller, []CardID{card})
+			exileCards(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card})
 		}
 		g.payCostCards(controller, pid, chosen, &Ability{Source: card, Controller: pid, Params: ability})
 		if shape.SelfExert {
 			c.Exerted = true
+			c.exertedThisTurn++
 			g.checkExertedTriggers(controller, card)
 		}
 		if shape.PayEnergyN > 0 {
@@ -475,13 +484,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			emitCounterChanged(g, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
 		}
 		if shape.TapTypeN > 0 {
-			chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
+			chosen := chooseTapType(g, controller, pid, tapCandidates, shape.TapTypeN, shape.TapTypeSpec)
 			tapChosenPermanents(g, controller, chosen)
 		}
 		if shape.AddCounterType != "" {
-			ct := CounterType(strings.ToUpper(shape.AddCounterType))
-			c.Counters.Add(ct, shape.AddCounterN)
-			emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
+			g.payCounterCost(controller, pid, card, CounterType(strings.ToUpper(shape.AddCounterType)), shape.AddCounterN)
 		}
 		if shape.SubCounterType != "" {
 			ct := CounterType(strings.ToUpper(shape.SubCounterType))
@@ -607,7 +614,13 @@ func (g *Game) payManaAbilityGeneral(controller PlayerController, act *Ability, 
 		g.checkTapAllTriggers(controller, []CardID{act.Source})
 	}
 	if parsed.Untap {
+		// CostUntap.payAsDecided (CostUntap.java:88-95): Card.untap's triggers
+		// and untap commands, then UntapAll for the activator. The flag
+		// cleared before the other parts were paid, so the Untaps check sees
+		// it untapped (quirks.md).
 		g.checkUntapsTriggers(controller, act.Source)
+		g.runUntapCommands(controller, act.Source)
+		g.pushTriggeredAbilities(controller, g.untapAllMatches(pid, []CardID{act.Source}))
 	}
 	return true
 }

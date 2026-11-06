@@ -222,17 +222,19 @@ func (g *Game) resetForRestart() {
 // grant naming a non-lost player as controller or controlled remains --
 // releaseControlBy (scheduledaction.go) needs no separate call here. A
 // lost player's own stale controlledBy, if any, is left as is: Java never
-// resets a player who has already left the game either. Commander stats
-// have no counterpart here.
+// resets a player who has already left the game either.
+// resetCommanderStats (`:71`) clears the commander casts and damage.
 func (g *Game) resetPlayerForRestart(pid PlayerID) {
 	p := g.Player(pid)
-	p.Life = startingLife
+	// p.setStartingLife(p.getStartingLife()) (`:64`).
+	p.Life = p.StartingLife
+	p.commanderCasts, p.commanderDamage = nil, nil
 	p.Blessing = false
 	p.Counters = Counters{}
 	p.SpellsCastThisTurn = 0
 	p.spellsCastThisGame = 0
 	p.expendThisTurn = 0
-	p.LandsPlayed, p.LandsPlayedLastTurn = 0, 0
+	p.LandsPlayed, p.LandsPlayedMyLastTurn = 0, 0
 	// p.onCleanupPhase() rolls the draws over (Player.java:2474), then
 	// RestartGameEffect.java:67 zeroes the life lost last turn.
 	p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, 0
@@ -242,6 +244,7 @@ func (g *Game) resetPlayerForRestart(pid PlayerID) {
 	p.DrawnThisDrawStep = 0
 	p.DescendedThisTurn, p.descended = false, 0
 	p.committedCrimes = 0
+	p.elementalBends = 0
 	p.VenturedThisTurn = 0
 	p.LifeGainedTimesThisTurn = 0
 	p.LifeGainedThisTurn = 0

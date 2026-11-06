@@ -1,0 +1,10 @@
+# Pacifism's one static has two modes, Mode$ CantAttack,CantBlock (Java's Mode
+# is a set, StaticAbility.java:257): the enchanted Bears cannot attack, so the
+# declaration offering them is refused and the AI takes no damage.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+advance
+advance

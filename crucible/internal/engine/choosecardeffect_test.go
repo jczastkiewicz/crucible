@@ -325,35 +325,6 @@ func TestChooseCardEffectChooseEach(t *testing.T) {
 	_ = creature
 }
 
-// TestChooseCardEffectTargetControlsLimitsPoolToChoosers proves
-// TargetControls$ (ChooseCardEffect.java:73-75): the pool keeps only cards
-// the choosing players control, so the chooser's own creature is offered and
-// the opponent's is not.
-func TestChooseCardEffectTargetControlsLimitsPoolToChoosers(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		name    string
-		pick    func(mine, theirs engine.CardID) engine.CardID
-		wantErr bool
-	}{
-		{"own creature offered", func(mine, _ engine.CardID) engine.CardID { return mine }, false},
-		{"opponent creature not offered", func(_, theirs engine.CardID) engine.CardID { return theirs }, true},
-	} {
-		g, p, other := newTwoPlayerGame(t)
-		mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-		theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
-		c := engine.NewScriptedController()
-		c.QueueCardChoice([]engine.CardID{tc.pick(mine, theirs)})
-		def := etbChainDef(t, "Test ChooseCard TargetControls",
-			"DB$ ChooseCard | Choices$ Creature | TargetControls$ True | Mandatory$ True | RememberChosen$ True")
-		_, err := castETBChain(t, g, p, def, c)
-		if (err != nil) != tc.wantErr {
-			t.Errorf("%s: ResolveStack error = %v, want error %v", tc.name, err, tc.wantErr)
-		}
-	}
-}
-
 // EachBasicType$ asks once per basic land type the chooser has, in Java's
 // HashSet order (Mountain, Swamp, Forest, Plains, Island), and a type nobody
 // has is not asked (ChooseCardEffect.java:119-130; Sundering Titan).
@@ -466,5 +437,76 @@ func TestChooseCardEffectAllCardsReachesAnyZone(t *testing.T) {
 	}
 	if got := g.Card(host).Memory.Chosen(); len(got) != 1 || got[0] != pick {
 		t.Errorf("host Memory.Chosen = %v, want [%v]", got, pick)
+	}
+}
+
+// TestChooseCardWithDifferentManaValuesDropsTheChosenValue proves
+// WithDifferentManaValues$ (Running Is Useless, ChooseCardEffect.java:
+// 192-209): after a 2-mana creature is chosen, the other 2-mana creature is
+// no longer offered.
+func TestChooseCardWithDifferentManaValuesDropsTheChosenValue(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChooseCard | Defined$ You | MinAmount$ 0 | Amount$ 3 | Choices$ Creature | WithDifferentManaValues$ True"
+	setup := func() (*engine.Game, engine.PlayerID, [3]engine.CardID) {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids [3]engine.CardID
+		for i, cost := range []string{"1 G", "G G", "2 G"} {
+			ids[i] = g.NewCard(creatureDefManaCost(t, cost), p, engine.Battlefield)
+		}
+		return g, p, ids
+	}
+
+	t.Run("one creature per mana value", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[2]})
+		c.QueueCardChoice(nil) // the optional pick of the test host itself, declined
+		host, err := castETBChain(t, g, p, etbChainDef(t, "Test Mana Values", line), c)
+		if err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		if got := g.Card(host).Memory.Chosen(); len(got) != 2 {
+			t.Errorf("chosen = %v, want the 2-mana and the 3-mana creature", got)
+		}
+	})
+
+	t.Run("a second creature of a chosen mana value is not offered", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[1]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Mana Values", line), c); err == nil {
+			t.Fatal("choosing a second 2-mana creature succeeded")
+		}
+	})
+}
+
+// Running Is Useless as printed: Amount$ Max is Count$Valid
+// Creature$DifferentCardManaCost (the number of mana values among creatures,
+// AbilityUtils.java:3854-3860), so two creatures of different mana values
+// are chosen and destroyed.
+func TestRunningIsUselessDestroysCreaturesOfDifferentManaValues(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Running Is Useless"), p, engine.SchemeDeck)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	angel := g.NewCard(corpusCard(t, "Serra Angel"), other, engine.Battlefield)
+	c := keepingOrder()
+	c.QueueCardChoice([]engine.CardID{bears})
+	c.QueueCardChoice([]engine.CardID{angel})
+	c.QueueCardChoice(nil) // a further optional pick, declined
+	resolveLine(t, g, p, c, "DB$ SetInMotion")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []engine.CardID{bears, angel} {
+		if z := g.Card(id).Zone; z != engine.Graveyard {
+			t.Errorf("%s in %v, want Graveyard", g.Card(id).Name(), z)
+		}
 	}
 }

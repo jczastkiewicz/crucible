@@ -39,7 +39,7 @@ func (g *Game) panharmoniconExtra(host *Card, t *compile.Ability, moved *Card, o
 	for _, pid := range g.Players() {
 		for _, sid := range g.traitHosts(pid) {
 			sh := g.Card(sid)
-			for _, face := range sh.traitFaces() {
+			for _, face := range sh.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if mode, _ := s.Param("Mode"); mode == "Panharmonicon" && g.panharmoniconApplies(sh, s, host, moved, origin, dest) {
 						n++
@@ -105,7 +105,7 @@ func (g *Game) withPanharmonicon(matches []Ability) []Ability {
 	for _, pid := range g.Players() {
 		for _, sid := range g.traitHosts(pid) {
 			sh := g.Card(sid)
-			for _, face := range sh.traitFaces() {
+			for _, face := range sh.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if mode, _ := s.Param("Mode"); mode == "Panharmonicon" {
 						lines = append(lines, struct {

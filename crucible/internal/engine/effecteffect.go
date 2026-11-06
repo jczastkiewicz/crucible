@@ -3,13 +3,14 @@
 
 package engine
 
-//enginelint:allow id zone card game player ability defined condition control parts amount effecthelpers controlcommands ateot untilcommand
+//enginelint:allow id zone card game player ability defined condition control parts amount effecthelpers controlcommands ateot untilcommand valid
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // ExileOnLost$ is accepted and does nothing: the trigger it adds sits on an
@@ -17,17 +18,9 @@ import (
 // walks (quirks.md).
 //
 // effectUnresolvedParams are EffectEffect params this port does not model,
-// each its own further mechanic: granted activated abilities (Abilities$),
-// remembering a spell, a last-known copy or keywords rather than objects
-// (RememberKeywords$ and its SharedKeywordsZone$/
-// SharedRestrictions$), the counter-driven forget/exile triggers
-// (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), a
-// standalone forget-on-cast (ForgetOnCast$ without RememberObjects$), the
-// Boon one-shot (Boon$, TriggerHandler removes the effect after its first
-// trigger), imprinting the effect
-// on its host (ImprintOnHost$), the Adventure name, and the
-// SpellAbilityCondition shapes subAbilityConditionMet does not cover
-// (ConditionZone$, and a Condition$ value rejectUnreadCondition refuses).
+// each its own further mechanic: remembering keywords rather than objects
+// (RememberKeywords$ and its SharedKeywordsZone$/SharedRestrictions$), the
+// counter-driven exile trigger (ExileOnCounter$) and the Adventure name.
 var effectUnresolvedParams = [...]string{
 	"RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
 	"ExileOnCounter",
@@ -414,6 +407,10 @@ type effectLifetime struct {
 	player   PlayerID
 	armed    bool
 	host     CardID
+	// hostStamp is the host object's stamp as the effect is made
+	// (SpellAbilityEffect.getEffectSource's Card, its game timestamp):
+	// ExiledWithEffectSource compares it.
+	hostStamp uint64
 	// until is a Duration$ addUntilCommand puts the ending command on
 	// (AsLongAsControl, UntilUntaps, UntilYourNextEndStep, ...): the effect is
 	// permanent until that command runs, not a lifetime this struct's
@@ -422,6 +419,11 @@ type effectLifetime struct {
 	exileOnMoved  zoneMask
 	forgetOnMoved zoneMask
 	forgetOnCast  bool
+	// forgetCastSpec is a standalone ForgetOnCast$ (EffectEffect.java:253-254,
+	// an effect that remembers no list): a cast spell it matches is forgotten
+	// and, the effect then remembering no card, the effect is exiled
+	// (addForgetOnCastTrigger, getForgetSpellAbility).
+	forgetCastSpec string
 	// forgetOnPhasedIn forgets a remembered card as it phases in
 	// (effectCardsSeePhaseIn, phasing.go).
 	forgetOnPhasedIn bool
@@ -439,6 +441,7 @@ type effectLifetime struct {
 func effectDurationOf(g *Game, a *Ability) (life effectLifetime, ok bool, err error) {
 	d, has := a.Params.Param("Duration")
 	life.host = a.Source
+	life.hostStamp, _ = g.hostObjectStamp(a.Source)
 	switch {
 	case !has:
 		life.duration = effectUntilEndOfTurn
@@ -487,6 +490,10 @@ func effectMoveWatch(a *Ability, life *effectLifetime) error {
 		}
 		onCast, _ := a.Params.Param("ForgetOnCast")
 		life.forgetOnCast = v != "Stack" && !strings.EqualFold(onCast, "False")
+	}
+	if spec, ok := a.Params.Param("ForgetOnCast"); ok && !hasParam(a, "RememberObjects") && !hasParam(a, "RememberLKI") &&
+		!strings.EqualFold(spec, "False") {
+		life.forgetCastSpec = spec
 	}
 	return nil
 }
@@ -580,6 +587,27 @@ func (g *Game) effectCardsSeeMove(moved CardID, from, to ZoneType) {
 			continue
 		}
 		e.Memory.Forget(CardEntity(moved))
+		if !effectRemembersAnyCard(e) {
+			g.exileEffect(id)
+		}
+	}
+}
+
+// effectsSeeCast is the standalone ForgetOnCast$ trigger
+// (addForgetOnCastTrigger, a static SpellCast trigger): every effect whose
+// spec matches the cast spell forgets it and, remembering no card, is exiled.
+// It runs once the spell's SpellCast triggers are collected, so a keyword the
+// effect grants the spell (Crackling Spellslinger's Storm, Bigger on the
+// Inside's Cascade) still triggers, as Java collects them before the static
+// effects are checked again.
+func (g *Game) effectsSeeCast(cast CardID) {
+	for _, id := range g.effectCards() {
+		e := g.Card(id)
+		spec := e.effectLife.forgetCastSpec
+		if e.Zone != Command || spec == "" || !Matches(g, g.Card(cast), valid.Parse(spec), e.Controller(), e.ID) {
+			continue
+		}
+		e.Memory.Forget(CardEntity(cast))
 		if !effectRemembersAnyCard(e) {
 			g.exileEffect(id)
 		}

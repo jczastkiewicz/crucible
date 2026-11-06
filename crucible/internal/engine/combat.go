@@ -40,6 +40,15 @@ type Combat struct {
 	// that is not blocked: before blockers are declared no attacker is
 	// "unblocked".
 	blockDecided []CardID
+	// bands are the attacking bands of two or more declared this combat
+	// (banding.go, ADR-0057), in declaration order; every other attacker is
+	// a band of one.
+	bands [][]CardID
+	// hadToAttack are the creatures with an attack requirement as attackers
+	// were declared (AttackConstraints.getRequirements, AttackRequirement.
+	// hasRequirement), each as the object it was then: the
+	// hadToAttackThisCombat property reads it.
+	hadToAttack []objectStamp
 }
 
 // isUnblocked is Combat.isUnblocked: an attacker whose blocked status was
@@ -155,6 +164,7 @@ func (g *Game) removeFromCombat(id CardID) {
 		}
 	}
 	g.combat.Attackers = attackers
+	g.combat.keepBands(attackers)
 	if g.combat.AttackTargets != nil {
 		delete(g.combat.AttackTargets, id)
 	}
@@ -235,5 +245,6 @@ func (c Combat) clone() Combat {
 
 		dealtFirstStrike: append([]CardID(nil), c.dealtFirstStrike...),
 		blockDecided:     append([]CardID(nil), c.blockDecided...),
+		hadToAttack:      append([]objectStamp(nil), c.hadToAttack...),
 	}
 }

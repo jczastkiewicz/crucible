@@ -80,12 +80,14 @@ Option 3 chosen.
    | Cleanup           | unchanged                                          | only if the step's state-based check did something or the stack is non-empty (CR 514.3a) |
    | every other step  | unchanged                                          | always                                                                                   |
 
-   Skip rules (`drivenSkips`): Draw on turn 1 of a two-player game (CR 103.7a, `:221-222`); and, entering
+   Skip rules (`drivenSkips`): Draw on turn 1 of a two-player game (CR 103.8a, `:221-222`); and, entering
    DeclareBlockers driven sets `Game.skipDamageSteps` to "no attackers declared" (`:229`), with none DeclareBlockers,
    FirstStrikeDamage and CombatDamage. Each is skipped the way `consumeSkip` skips them — not begun, no `PhaseBegan`, no
    triggers — matching Java's `skipped` path, which runs neither turn-based actions nor `TriggerType.Phase` (`:244-246`,
    `:436-441`). "Damage is assigned" mirrors `assignCombatDamage`'s return: some live attacker dealing damage in the
-   step has power above zero, or some live blocker dealing damage in the step still blocks a live attacker.
+   step has power above zero, or some live blocker dealing damage in the step still blocks a live attacker. A damage
+   step that assigns nothing granting no priority is Java's, not CR 510.3's (a `quirks.md` row and a
+   `forge-java-defects.md` row).
 
    Declaration errors (ADR-0024) and a static trigger's pending error (ADR-0020) are returned from the driven step
    before any priority round.
@@ -106,13 +108,12 @@ Option 3 chosen.
 
 5. **Mid-round phase jumps.** `EndTurn` and `EndCombatPhase` (`endturneffect.go`, `endcombatphaseeffect.go`) move the
    phase non-driven during resolution. The round continues in the new phase, as Java's does; the next `Step` advances
-   from wherever the phase landed. A Cleanup begun this way does not repeat (its state-based result is discarded): named
-   as a gap, not silently right.
+   from wherever the phase landed. A Cleanup `EndTurn` begins grants priority and repeats under CR 514.3a like any other
+   (`Game.endTurnCleanup`, Java's `bRepeatCleanup`).
 
 **Explicitly out of scope:** a cap on actions per priority round — `ScriptedController` is finite, and a looping AI is
-M7's problem, the same place Java put its guard (`:1102-1105`); the per-combatant "dealt first-strike damage" set
-(`Combat.java:906-917`) — `dealsInStep` reads keywords held now, so a creature gaining or losing first strike between
-the two damage steps diverges; mulligans and opening hands, which the caller runs before `StartTurn`.
+M7's problem, the same place Java put its guard (`:1102-1105`); mulligans and opening hands, which the caller runs
+before `StartTurn`.
 
 ## Consequences
 

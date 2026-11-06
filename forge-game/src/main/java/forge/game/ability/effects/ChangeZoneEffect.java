@@ -1003,6 +1003,7 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
             boolean shuffleMandatory = true;
             boolean searchedLibrary = false;
             if (defined) {
+                shuffleMandatory = false;
                 fetchList = new CardCollection();
                 String param = chooseFromDef ? "ChooseFromDefined" : "Defined";
                 for (Card c : AbilityUtils.getDefinedCards(source, sa.getParam(param), sa)) {
@@ -1528,7 +1529,7 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
                 game.getAction().reveal(movedCards, player);
             }
 
-            if ((origin.contains(ZoneType.Library) && !ZoneType.Library.equals(destination) && !defined && shuffleMandatory)
+            if ((origin.contains(ZoneType.Library) && !ZoneType.Library.equals(destination) && shuffleMandatory)
                     || (sa.hasParam("Shuffle") && "True".equals(sa.getParam("Shuffle")))) {
                 player.shuffle(sa);
             }

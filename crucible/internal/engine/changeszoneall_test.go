@@ -129,7 +129,7 @@ func TestChangesZoneAllFiresOnceForSimultaneousSBADeath(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "1", "0"), p, engine.Battlefield)
 	g.NewCard(creatureDefPT(t, "1", "0"), p, engine.Battlefield)
 
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	engine.CheckStateBasedActions(g, c)
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)

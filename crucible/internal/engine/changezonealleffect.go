@@ -1,11 +1,10 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands changezonestatic
+//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands changezonestatic amount
 
 import (
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // changeZoneAllUnresolvedParams are ChangeZoneAllEffect.java's params this
@@ -16,7 +15,7 @@ import (
 // SpellAbility.isHidden does, for ChangeZone).
 var changeZoneAllUnresolvedParams = [...]string{
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"WithCountersType", "TypeLimit",
+	"WithCountersType",
 	"Pawprint", "Random",
 	"Ultimate",
 }
@@ -91,29 +90,23 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		return nil
 	}
 	if changeType, ok := a.Params.Param("ChangeType"); ok {
-		if strings.HasPrefix(changeType, "Targeted") {
-			// AbilityUtils.filterListByType (:834-847): the first targeted card
-			// becomes the source and "Targeted(Card)" reads "Card" in the valid
-			// string, every occurrence (Tawnos's Coffin: "Targeted.Self,Aura.
-			// AttachedTo Card.Self" is the creature and its Auras). No target, no
-			// cards.
-			targeted, err := definedCards(source, "Targeted", a.refs())
-			if err != nil {
-				return fmt.Errorf("engine: ChangeZoneAll: %w", err)
-			}
-			if len(targeted) == 0 {
-				cards = nil
-			} else {
-				if strings.HasPrefix(changeType, "TargetedCard") {
-					changeType = strings.ReplaceAll(changeType, "TargetedCard", "Card")
-				} else {
-					changeType = strings.ReplaceAll(changeType, "Targeted", "Card")
-				}
-				cards = filterValid(g, cards, changeType, a.Controller, targeted[0])
-			}
-		} else {
-			cards = filterValid(g, cards, changeType, a.Controller, a.Source)
+		// ChangeZoneAllEffect.java:85: AbilityUtils.filterListByType -- a
+		// Triggered, Targeted or Remembered card is the valid string's
+		// source (Tawnos's Coffin: "Targeted.Self,Aura.AttachedTo Card.Self"
+		// is the creature and its Auras).
+		var err error
+		if cards, err = filterListByType(g, a, cards, changeType); err != nil {
+			return fmt.Errorf("engine: ChangeZoneAll: %w", err)
 		}
+	}
+	if v, ok := a.Params.Param("TypeLimit"); ok {
+		// ChangeZoneAllEffect.java:87-89: the first TypeLimit$ cards of the
+		// list (Ashiok's "that many cards from the top of your library").
+		n, known := resolveNamedAmount(g, a.Amounts, source, v)
+		if !known {
+			return fmt.Errorf("engine: ChangeZoneAll: TypeLimit$ %q not resolvable yet", v)
+		}
+		cards = cards[:min(max(n, 0), len(cards))]
 	}
 	if _, ok := a.Params.Param("ForgetOtherRemembered"); ok {
 		source.Memory.ClearRemembered()

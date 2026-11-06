@@ -25,7 +25,7 @@ func TestOptionalSacrificeChoosesUpToAmount(t *testing.T) {
 				g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield),
 				g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield),
 			}
-			c := engine.NewScriptedController()
+			c := keepingOrder()
 			c.QueueConfirmEffect(true)
 			c.QueueCardChoice(bears[:tc.pick])
 			def := etbSacrificeTriggerDefParams(t, "Test Up To Two", "SacValid$ Creature.Other | Amount$ 2 | Optional$ True", nil)
@@ -56,7 +56,7 @@ func TestOptionalStrictSacrificeTakesExactlyAmount(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	a := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 	b := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueConfirmEffect(true)
 	c.QueueSacrificeChoice([]engine.CardID{a, b})
 	def := etbSacrificeTriggerDefParams(t, "Test Strict Two", "SacValid$ Creature.Other | Amount$ 2 | Optional$ True | StrictAmount$ True", nil)

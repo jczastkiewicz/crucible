@@ -2,7 +2,7 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Valeron Wardens|Tapped|Counters:P1P1=2
+humanbattlefield=Valeron Wardens|Tapped|Counters:P1P1=2|Renowned|Attacking
 humanhand=Island
 humanlibrary=Island
 ailife=19

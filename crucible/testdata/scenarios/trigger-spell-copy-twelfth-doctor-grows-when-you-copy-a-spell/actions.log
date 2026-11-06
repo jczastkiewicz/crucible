@@ -1,0 +1,15 @@
+# Mode$ SpellCopy (TriggerSpellAbilityCastOrCopy): Twincast copies the
+# human's own Lightning Bolt aimed at the opponent; "whenever you copy a
+# spell, put a +1/+1 counter on The Twelfth Doctor" fires off the copy. The
+# copy keeps its target, so the opponent takes 3 twice.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets ai
+castspell human 5
+tapformana human 3 U
+tapformana human 4 U
+queue targets stack:1
+castspell human 6
+queue confirmeffect false
+resolvestack

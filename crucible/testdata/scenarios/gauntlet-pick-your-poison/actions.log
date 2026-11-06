@@ -1,0 +1,9 @@
+# R20c gauntlet probe (Pick Your Poison): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue modechoice 1
+queue sacrificechoice 53
+tapformana human 100 G
+castspell human 1
+resolvestack

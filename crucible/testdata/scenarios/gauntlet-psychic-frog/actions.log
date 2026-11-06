@@ -1,0 +1,7 @@
+# R20c gauntlet probe (Psychic Frog): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue action human activate 1 1
+queue cardchoice 70,71,74
+passpriority

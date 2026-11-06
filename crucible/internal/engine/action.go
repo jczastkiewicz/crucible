@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -62,23 +63,19 @@ import (
 // (amount.go) is wired into Mode$ Continuous's own PT params, `ptParam`,
 // continuous.go, not this text field yet), the rest of 704.5v's
 // own exception (a Battle whose own trigger is still on the stack -- always
-// false today, destroyZeroDefense's own doc comment), and the legend rule's
-// own Corner Case 1, a Corner-Case-2 permanent's own borrowed names colliding
-// with some OTHER legendary's own literal printed name (resolveLegendRule's
-// doc comment) -- needs a card-name lookup across every creature card this
-// game ever printed, which this port's `*Game` holds no reference for. A
-// rule this port has not implemented simply never fires, the same as it
-// would in a real game with no permanent that rule applies to.
+// false today, destroyZeroDefense's own doc comment). A rule this port has
+// not implemented simply never fires, the same as it would in a real game
+// with no permanent that rule applies to. The legend rule's Corner Case 1
+// reads the game's *carddb.DB (resolveLegendRule).
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
 // the same result in any order. Kept anyway: it costs nothing, and a future
 // port of that card should not have to notice these were ever reordered.
 //
-// Java's `canRemoveCounters` guard on 704.5q -- some cards grant "counters
-// can't be removed from CARDNAME" -- is a static ability, so it is not
-// checked either: nothing this port can build yet grants that effect, so its
-// absence changes no card's behaviour today.
+// Java's `canRemoveCounters` guard on 704.5q and 704.5r -- an Event$
+// RemoveCounter Layer$ CantHappen line -- is removeCounterBlocked
+// (annihilateCounters, trimDreamCounters).
 //
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
 // can make another one true (destroying a permanent can, in turn, empty an
@@ -169,6 +166,17 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 		}
 	}
 	if wins > 0 {
+		if wins == 1 {
+			// GameAction.checkGameOverCondition (GameAction.java:1944-1966):
+			// the rest lose to OpponentWon, which no GameLoss replacement
+			// sees (Player.loseConditionMet, Player.java:2000-2006).
+			for _, id := range g.Players() {
+				if id != winner {
+					g.Player(id).Lost = true
+				}
+			}
+			g.onPlayersLost(controller)
+		}
 		g.over = true
 		actor := winner
 		if wins > 1 {
@@ -192,6 +200,7 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 		case drewFromEmpty && g.loseConditionMet(id, lossMilled):
 		case p.Life <= 0 && g.loseConditionMet(id, lossLifeReachedZero):
 		case p.Counters.Count(Poison) >= 10 && g.loseConditionMet(id, lossPoisoned):
+		case g.lostToCommanderDamage(id) && g.loseConditionMet(id, lossCommanderDamage):
 		}
 	}
 	g.onPlayersLost(controller)
@@ -272,11 +281,32 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	performed = assignEnduringStories(g) || performed
 	performed = assignSectors(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
+	if !performed {
+		// GameAction.java:1561-1570: only when nothing else happened in the
+		// pass so far (Java's !checkAgain), after the legend rule.
+		performed = g.returnCommandersToCommandZone(controller)
+	}
 	performed = resolveWorldRule(g, controller) || performed
 	performed = resolveRoleRule(g, controller) || performed
 	performed = startYourEngines(g) || performed
 	performed = cleanupDanglingAttachments(g, controller) || performed
 	return false, performed
+}
+
+// sbaOrder orders cards a state-based action puts into graveyards together
+// by their owners (GameAction.java:1591-1615, orderCardsByTheirOwners, CR
+// 613.7m). Java collects one list per kind of move each pass -- put into the
+// graveyard (0 toughness, legend, planeswalker, world rule, battles, Auras),
+// destroyed (lethal damage), sacrificed (Sagas) -- and asks each once; each
+// rule here asks for its own cards (quirks.md). A bad answer is recorded
+// and the cards keep their order.
+func (g *Game) sbaOrder(controller PlayerController, ids []CardID) []CardID {
+	ordered, err := g.orderCardsByTheirOwners(controller, ids, Graveyard)
+	if err != nil {
+		g.recordPendingError(fmt.Errorf("engine: state-based actions: %w", err))
+		return ids
+	}
+	return ordered
 }
 
 // assignSectors is CR 704.5u (stateBasedAction704_5u, GameAction.java:
@@ -392,13 +422,14 @@ func assignEnduringStories(g *Game) (performed bool) {
 
 // annihilateCounters is CR 704.5q: N +1/+1 and N -1/-1 counters are removed
 // together, where N is the smaller pile. A card carrying only one kind, or
-// neither, is untouched. Sourced from id itself: the rule is self-inflicted,
+// neither, is untouched, and so is one either kind cannot be removed from
+// (GameAction.java:1875-1877, Card.canRemoveCounters: removeCounterBlocked). Sourced from id itself: the rule is self-inflicted,
 // not a card's ability doing it, the same as Move's ETB loyalty/defense grant
 // (game.go) has no other card to attribute it to.
 func annihilateCounters(g *Game, id CardID) bool {
 	c := g.Card(id)
 	plus, minus := c.Counters.Count(P1P1), c.Counters.Count(M1M1)
-	if plus == 0 || minus == 0 {
+	if plus == 0 || minus == 0 || g.removeCounterBlocked(id, P1P1) || g.removeCounterBlocked(id, M1M1) {
 		return false
 	}
 	remove := plus
@@ -415,8 +446,7 @@ func annihilateCounters(g *Game, id CardID) bool {
 // trimDreamCounters is CR 704.5r (stateBasedAction704_5r, GameAction.java:
 // 1867): a card holding more Dream counters than a Mode$ MaxCounter static
 // allows loses the excess. Java asks the Dream kind only, and skips the trim
-// when canRemoveCounters says no -- that guard is not ported (704.5q's own
-// is not either).
+// when canRemoveCounters says no (GameAction.java:1902, removeCounterBlocked).
 func trimDreamCounters(g *Game, id CardID) bool {
 	c := g.Card(id)
 	have := c.Counters.Count("DREAM")
@@ -424,7 +454,7 @@ func trimDreamCounters(g *Game, id CardID) bool {
 		return false
 	}
 	limit, capped := g.maxCounter(id, "DREAM")
-	if !capped || have <= limit {
+	if !capped || have <= limit || g.removeCounterBlocked(id, "DREAM") {
 		return false
 	}
 	c.Counters.Add("DREAM", limit-have)
@@ -469,6 +499,7 @@ func destroyLethalToughness(g *Game, controller PlayerController) bool {
 	// stack in one APNAP pass (beginTriggerBatch).
 	g.beginTriggerBatch()
 	defer g.endTriggerBatch(controller)
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
@@ -528,6 +559,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 	// One APNAP pass for the dies triggers and ChangesZoneAll, as above.
 	g.beginTriggerBatch()
 	defer g.endTriggerBatch(controller)
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		if g.destroyInstead(controller, id) || g.regenerate(controller, id) {
 			continue
@@ -551,10 +583,10 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 // Card.Counters.Count(Loyalty) directly rather than calling a "current
 // loyalty" accessor that would just be that same call one level removed.
 //
-// Move itself puts a starting loyalty counter on a planeswalker that enters
-// the battlefield through real play (CR 121.5, Game.Move's own doc
-// comment) -- CastSpell/PlayLand-driven entries get it for free. A
-// permanent placed directly by setup.state (Game.NewCard) does not, the
+// A planeswalker that enters the battlefield through real play gets its
+// starting loyalty from the entry's counters (CR 121.5, applyEnterCounters,
+// entercounters.go). A permanent placed directly by setup.state
+// (Game.NewCard) or by a bare Game.Move does not, the
 // same "exactly what the fixture says" contract NewCard's own doc comment
 // gives every other battlefield-entry field -- a fixture naming a
 // planeswalker there still sets Counters:LOYALTY= itself if it wants one.
@@ -578,6 +610,7 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) bool {
 			}
 		}
 	}
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
@@ -670,6 +703,7 @@ func destroyZeroDefense(g *Game, controller PlayerController) bool {
 			}
 		}
 	}
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
@@ -778,6 +812,7 @@ func resolveLegendRule(g *Game, controller PlayerController) bool {
 				}
 			}
 		}
+		removed = g.sbaOrder(controller, removed)
 		for _, id := range removed {
 			performed = true
 			g.moveToGraveyard(controller, id)
@@ -852,16 +887,17 @@ func resolveWorldRule(g *Game, controller PlayerController) bool {
 		}
 	}
 
-	performed := false
+	var lost []CardID
 	for _, id := range worlds {
-		if tied == 1 && id == newest {
-			continue
+		if tied != 1 || id != newest {
+			lost = append(lost, id)
 		}
-		performed = true
+	}
+	for _, id := range g.sbaOrder(controller, lost) {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
-	return performed
+	return len(lost) > 0
 }
 
 // cleanupDanglingAttachments is CR 704.5's attachment-legality rule: an
@@ -945,9 +981,12 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 			switch {
 			case legal:
 				continue
-			case c.Type().HasSubtype("Aura"):
+			case c.Type().HasSubtype("Aura") && (!attached || !c.Bestowed()):
 				toGraveyard = append(toGraveyard, id)
 			case attached:
+				// A bestowed Aura is unattached, and so a creature again,
+				// rather than put into the graveyard (GameAction.java:1782-
+				// 1785, Card.java:4003-4004, CR 702.103f).
 				toUnattach = append(toUnattach, id)
 			}
 		}
@@ -955,6 +994,7 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	for _, id := range toUnattach {
 		g.Unattach(id)
 	}
+	toGraveyard = g.sbaOrder(controller, toGraveyard)
 	for _, id := range toGraveyard {
 		// Move unattaches id itself as a side effect of leaving the
 		// battlefield (game.go), so there is nothing left to do here.
@@ -1047,6 +1087,7 @@ func resolveRoleRule(g *Game, controller PlayerController) bool {
 			}
 		}
 	}
+	dead = g.sbaOrder(controller, dead)
 	for _, id := range dead {
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)

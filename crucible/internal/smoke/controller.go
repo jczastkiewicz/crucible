@@ -153,6 +153,17 @@ func attackRestricted(g *engine.Game) bool {
 	return false
 }
 
+// PayManaCost activates nothing: the probe fills the pools itself, and
+// choosing sources is the M7 AI's decision (ComputerUtilMana, ADR-0054).
+func (*Controller) PayManaCost(*engine.Game, engine.PlayerID, mana.Cost, engine.CardID) []engine.Action {
+	return nil
+}
+
+// DeclareBands forms no band.
+func (*Controller) DeclareBands(*engine.Game, engine.PlayerID, []engine.CardID) [][]engine.CardID {
+	return nil
+}
+
 // ExertAttackers exerts nothing.
 func (*Controller) ExertAttackers(*engine.Game, engine.PlayerID, []engine.CardID) []engine.CardID {
 	return nil
@@ -402,6 +413,14 @@ func (*Controller) ChoosePlayerForEffect(_ *engine.Game, _ engine.PlayerID, _ en
 	return options[0]
 }
 
+// ChooseAssistant asks no one, as Java's AI does (PlayerControllerAi.java:395-410).
+func (*Controller) ChooseAssistant(*engine.Game, engine.PlayerID, engine.CardID, []engine.PlayerID, int) engine.PlayerID {
+	return engine.NoPlayer
+}
+
+// AssistAmount pays nothing; ChooseAssistant never names a player to ask.
+func (*Controller) AssistAmount(*engine.Game, engine.PlayerID, engine.CardID, int) int { return 0 }
+
 // ChooseColors picks the first colours offered, at least one when the choice allows it.
 func (*Controller) ChooseColors(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, options mana.Colors, lo, hi int) mana.Colors {
 	var out mana.Colors
@@ -540,6 +559,11 @@ func (*Controller) ChooseRollSwapValue(*engine.Game, engine.PlayerID, engine.Car
 // ChooseRoomDoor picks the first door.
 func (*Controller) ChooseRoomDoor(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, doors []engine.Door) engine.Door {
 	return doors[0]
+}
+
+// OrderSimultaneousTriggers keeps the default order.
+func (*Controller) OrderSimultaneousTriggers(*engine.Game, engine.PlayerID, []engine.TriggerOrderItem) []int {
+	return nil
 }
 
 // ChooseReplacementEffect applies the first replacement effect.

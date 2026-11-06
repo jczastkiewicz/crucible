@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jczastkiewicz/crucible/internal/boosters"
-	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/smoke"
@@ -29,7 +28,7 @@ func cardSmoke(args []string) error {
 	corpus := fs.String("corpus", "../forge-gui/res/cardsfolder", "card script directory")
 	tokens := fs.String("tokens", "../forge-gui/res/tokenscripts", "token script directory")
 	types := fs.String("types", "../forge-gui/res/lists/TypeLists.txt", "subtype vocabulary")
-	editions := fs.String("editions", "../forge-gui/res/editions", "edition files, for the cards that open a booster (empty: none)")
+	editions := fs.String("editions", "../forge-gui/res/editions", "edition files, for the cards that open a booster or read their edition (empty: none)")
 	blockdata := fs.String("blockdata", "../forge-gui/res/blockdata", "print sheets, for the cards that open a booster")
 	decks := fs.String("decks", "", "decklist file, or a directory searched for .dck files")
 	cards := fs.String("cards", "", "comma-separated card names (a comma inside a name is written as a semicolon)")
@@ -73,18 +72,7 @@ func cardSmoke(args []string) error {
 
 // smokeCards resolves the card set to names the database holds.
 func smokeCards(db *compile.DB, decks, cards string, all bool) (names []string, source string, err error) {
-	byLower := map[string]string{}
-	for _, n := range db.Names() {
-		byLower[strings.ToLower(n)] = n
-	}
-	resolve := func(name string) (string, bool) {
-		for _, k := range []string{strings.ToLower(name), strings.ToLower(carddb.NormalizeName(name))} {
-			if n, ok := byLower[k]; ok {
-				return n, true
-			}
-		}
-		return "", false
-	}
+	resolve := db.Resolve
 
 	switch {
 	case all:

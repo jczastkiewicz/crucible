@@ -1,0 +1,6 @@
+# Mode$ CounterRemoved: suspend removes a time counter from the exiled Aeon
+# Chronicler at its owner's upkeep (CR 702.62b), and the card's own trigger
+# draws a card.
+startturn human
+advance
+resolvestack

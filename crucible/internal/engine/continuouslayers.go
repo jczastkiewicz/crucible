@@ -13,7 +13,7 @@
 
 package engine
 
-//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck classlevel
+//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck classlevel phase defined
 
 import (
 	"slices"
@@ -37,11 +37,10 @@ import (
 // CheckSVar$ chain compares true (layerCheckSVars).
 //
 // ClassLevel$ is the host's Class level at least the line's (classlevel.go).
-// Phases$, PlayerTurn$ and GameStage$ report false: each needs a
-// phase-range parser, a defined-player turn check or the game's own stage
-// this port does not read for statics yet (1, 0 and 1 real Mode$ Continuous
-// lines). False means the line does nothing this pass -- a
-// coverage gap rather than an effect applied when it should not be (GO-7).
+// Phases$ (Scotty, Zurgo) and PlayerTurn$ read as staticOtherConditionsMet
+// does. GameStage$ (one Vanguard line) reports false: the game's stage is not
+// tracked, and false means the line does nothing this pass -- a coverage gap
+// rather than an effect applied when it should not be (GO-7).
 func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) bool {
 	if _, cda := s.Param("CharacteristicDefining"); !cda && !layerHostZoneActive(host, s) {
 		return false
@@ -49,8 +48,18 @@ func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *
 	if !continuousConditionMet(g, host, s) {
 		return false
 	}
-	for _, key := range [...]string{"Phases", "PlayerTurn", "GameStage"} {
-		if _, ok := s.Param(key); ok {
+	if _, ok := s.Param("GameStage"); ok {
+		return false
+	}
+	if phases, ok := s.Param("Phases"); ok {
+		set, ok := parsePhaseRange(phases)
+		if !ok || !set.has(g.activePhase) {
+			return false
+		}
+	}
+	if turn, ok := s.Param("PlayerTurn"); ok {
+		players, err := definedPlayers(g, host.Controller(), host.ID, turn, abilityRefs{})
+		if err != nil || !slices.Contains(players, g.activePlayer) {
 			return false
 		}
 	}
@@ -78,12 +87,10 @@ func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *
 // battlefield card whose line reads EffectZone$ Graveyard is therefore off
 // while it is in play.
 //
-// This function itself has no zone bias, but every caller only ever visits
-// hosts g.traitHosts (game.go) returns -- battlefield cards and Command-zone
-// effect cards -- so an EffectZone$ naming Graveyard/Hand/Stack/Library/Exile
-// alone never has a host to test true against: that line stays a coverage
-// gap (GO-7's "does nothing" case), not resolved, until traitHosts walks
-// those zones too.
+// It has no zone bias: the layer walk reaches battlefield and Command-zone
+// hosts through g.traitHosts (game.go) and cards in the other zones through
+// appendOffZoneStatics, which tests those against the same EffectZone$ rule
+// (staticFunctionsOffBattlefield).
 func layerHostZoneActive(host *Card, s *compile.Ability) bool {
 	if host.IsEffect {
 		return host.Zone == Command
@@ -118,9 +125,8 @@ func layerZoneList(v string) ([]ZoneType, bool) {
 
 // offZoneHostZones are the zones whose cards continuousStaticsAllZones walks
 // beyond traitHosts: the five a card's own static can function from. Command
-// is traitHosts' (effect cards, schemes); a plane, phenomenon or Vanguard
-// avatar there is not a host (68 real EffectZone$ Command lines, all of them
-// planar or Vanguard play); Sideboard and the rest hold no live card.
+// is traitHosts' (effect cards, schemes, Vanguard avatars, planes and
+// phenomena, ADR-0056); Sideboard and the rest hold no live card.
 var offZoneHostZones = [...]ZoneType{Hand, Library, Graveyard, Exile, Stack}
 
 // appendOffZoneStatics adds to out the Mode$ Continuous lines of every card
@@ -369,7 +375,7 @@ func layerTypeChange(g *Game, host *Card, s *compile.Ability) (TypeEffect, bool)
 		}
 	}
 	reg := g.db.Types()
-	e := TypeEffect{Timestamp: host.Timestamp}
+	e := TypeEffect{Timestamp: host.Timestamp, CharacteristicDefining: hasParamOn(s, "CharacteristicDefining")}
 
 	add, hasAdd := s.Param("AddType")
 	var addWords []string
@@ -484,7 +490,7 @@ func layerColorChange(host *Card, s *compile.Ability) (ColorEffect, bool) {
 	if !ok {
 		return ColorEffect{}, false
 	}
-	e := ColorEffect{Timestamp: host.Timestamp, Overwrite: overwrite}
+	e := ColorEffect{Timestamp: host.Timestamp, Overwrite: overwrite, CharacteristicDefining: hasParamOn(s, "CharacteristicDefining")}
 	switch v {
 	case "ChosenColor":
 		e.Colors = host.Memory.ChosenColors()
@@ -858,17 +864,7 @@ func (k *layerKeywords) layerKeywordsFor(c *Card) []string {
 		}
 		kept = append(kept, extra...)
 		add = kept
-		// CardManaCost wins over ConvertedManaCost in one keyword
-		// (StaticAbilityContinuous.java:735-741, an else-if): a keyword with
-		// both keeps the second token as written.
-		for i, tok := range add {
-			switch {
-			case strings.Contains(tok, "CardManaCost"):
-				add[i] = strings.ReplaceAll(tok, "CardManaCost", c.shortManaCost())
-			case strings.Contains(tok, "ConvertedManaCost"):
-				add[i] = strings.ReplaceAll(tok, "ConvertedManaCost", strconv.Itoa(c.CMC()))
-			}
-		}
+		add = c.costPlaceholderKeywords(add)
 	}
 	if k.multiplier != 1 && len(add) > 0 {
 		repeated := make([]string, 0, len(add)*k.multiplier)
@@ -901,7 +897,8 @@ func applyChangelings(g *Game) {
 		if !ok {
 			return
 		}
-		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all})
+		// Changeling is a characteristic-defining ability (CR 702.73a).
+		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all, CharacteristicDefining: true})
 	}
 }
 

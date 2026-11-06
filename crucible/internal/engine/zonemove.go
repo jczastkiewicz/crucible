@@ -54,10 +54,13 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 	var melded CardID
 	// A Moved replacement for leaving the battlefield (LeaveBattlefield$'s
 	// effect card, Realmbreaker's "exile it instead") redirects any destination
-	// but the graveyard, whose moves moveToGraveyard reads it for.
+	// but the graveyard, whose moves moveToGraveyard reads it for; one bound
+	// for the hand or library is read from any origin (the Commander Effect,
+	// ADR-0053).
 	var redirected *movedPost
-	if origin == Battlefield && dest != Battlefield && dest != Graveyard {
-		dest, redirected = g.movedDestination(id, dest)
+	requested := dest
+	if origin == Battlefield && dest != Battlefield && dest != Graveyard || dest == Hand || dest == Library {
+		dest, redirected = g.movedDestination(controller, id, dest)
 	}
 	switch dest {
 	case Battlefield:
@@ -111,6 +114,14 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 	if origin == Hand || origin == Library || origin == Exile {
 		g.checkLeftZoneTriggers(controller, []CardID{id}, origin)
 	}
+	if origin == Stack && dest != Graveyard && !c.IsCopiedSpell {
+		// A spell an effect moves off the stack anywhere but the graveyard
+		// (countered into exile, Dissipate; returned to hand, Remand): the
+		// Origin$ Stack lines see it (Goblin Artisans', Geth's Summons'
+		// Destination$ Any cleanups). The graveyard path fires them itself
+		// (moveResolvedSpellToGraveyard, stack.go).
+		g.checkLeftZoneTriggers(controller, []CardID{id}, Stack)
+	}
 	if origin != Battlefield {
 		return melded
 	}
@@ -121,8 +132,17 @@ func (g *Game) moveByEffectOnly(controller PlayerController, id CardID, dest Zon
 		g.checkExiledTriggers(controller, id)
 	case Hand:
 		g.checkReturnedTriggers(controller, id)
-	case Library:
-		g.checkLeftToTriggers(controller, id, Library)
+	case Library, Command:
+		// Command: a commander the Commander Effect sent there (ADR-0053).
+		g.checkLeftToTriggers(controller, id, dest)
+	}
+	if requested == Exile || dest == Exile {
+		// GameAction.moveTo(ZoneType.Exile) is GameAction.exile, which runs
+		// Mode$ Exiled after the move whatever a Moved replacement made of it
+		// (GameAction.java:934-957). A move a Moved replacement sends into
+		// exile runs its ReplaceWith$ ChangeZone, which exiles through the
+		// same call.
+		g.checkModeExiledTriggers(controller, id, Battlefield, nil)
 	}
 	return melded
 }

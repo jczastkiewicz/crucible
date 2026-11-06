@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Mountain|Id:2|Tapped;Mountain|Id:3|Tapped
+humangraveyard=Pyroclasm;Grizzly Bears
+ailife=20
+aibattlefield=Soltari Priest|Id:5

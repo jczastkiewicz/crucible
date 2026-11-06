@@ -81,6 +81,9 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 				altered = c.commander != activate
 				if altered {
 					if activate {
+						// AlterAttributeEffect.java:119-124: a game with no
+						// commander variant gets the Commander one.
+						g.applyVariant(VariantCommander)
 						g.addCommander(c.Owner, id)
 					} else {
 						g.removeCommander(c.Owner, id)

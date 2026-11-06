@@ -51,13 +51,12 @@ func castETBWinsGame(t *testing.T, g *engine.Game, p engine.PlayerID, def *compi
 	return creature, g.ResolveStack(engine.NewRegistry(), c)
 }
 
-// TestWinsGameEffectEndsTheGameImmediatelyWithOpponentsStillAlive proves CR
-// 104.1's own alt-win: a three-player game ends the moment one player wins,
-// independent of CR 104.2a's own elimination count -- CheckStateBasedActions
-// (action.go) checks Player.Won first, above the Lost-based count, exactly
-// so an effect-driven win does not wait for every opponent to also be
-// eliminated.
-func TestWinsGameEffectEndsTheGameImmediatelyWithOpponentsStillAlive(t *testing.T) {
+// TestWinsGameEffectEndsTheGameAndTheOpponentsLose proves CR 104.1's own
+// alt-win: a three-player game ends the moment one player wins, independent
+// of CR 104.2a's own elimination count, and every opponent loses to
+// OpponentWon on the way out (GameAction.checkGameOverCondition,
+// GameAction.java:1944-1966).
+func TestWinsGameEffectEndsTheGameAndTheOpponentsLose(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b", "c")
@@ -76,8 +75,8 @@ func TestWinsGameEffectEndsTheGameImmediatelyWithOpponentsStillAlive(t *testing.
 	if !g.Over() {
 		t.Error("Over() = false, want true")
 	}
-	if g.Player(second).Lost || g.Player(third).Lost {
-		t.Error("second/third Lost = true, want false -- an effect-driven win needs no elimination")
+	if !g.Player(second).Lost || !g.Player(third).Lost {
+		t.Error("second/third Lost = false, want true: the opponents of a winner lose")
 	}
 }
 

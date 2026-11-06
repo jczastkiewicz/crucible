@@ -5,6 +5,7 @@
 # the damaged player.
 startturn human
 advance 3
+queue cardorder 4,5,6,7
 tapformana human 3 R
 queue targets human
 castspell human 1

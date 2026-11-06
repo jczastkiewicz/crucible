@@ -88,6 +88,12 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	if err := g.checkAttackCosts(attackers, targets); err != nil {
 		return nil, err
 	}
+	// Bands are declared with the attack (InputAttack.java:186-249), before
+	// anything taps or pays, so an illegal band changes nothing.
+	bands, err := g.declareBands(controller, attackers, targets)
+	if err != nil {
+		return nil, err
+	}
 
 	prev := g.combat
 	g.combat.Attackers = attackers
@@ -95,6 +101,12 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 		g.Card(id).notAttacked = 0
 	}
 	g.combat.AttackTargets = targets
+	g.combat.bands = bands
+	for i := range v.ac.requirements {
+		if r := &v.ac.requirements[i]; r.hasRequirement() {
+			g.combat.hadToAttack = append(g.combat.hadToAttack, objectStamp{card: r.attacker, stamp: g.Card(r.attacker).zoneStamp})
+		}
+	}
 	// One batch for every mode the declaration runs (Taps, Exerted, Attacks,
 	// AttackersDeclared...): Java collects them all before any reaches the
 	// stack (beginTriggerBatch).
@@ -110,10 +122,16 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 			provisional = append(provisional, id)
 		}
 	}
-	attackers, err = g.payAttackCosts(controller, v, provisional, prev)
+	// CR 508.1g: the exerters are chosen before any attack cost is paid
+	// (PhaseHandler.java:568-571); each one's exert, and each Enlist, is paid
+	// inside that attacker's own cost (CombatUtil.getAttackCost with the
+	// optional-cost attackers, payAttackCosts).
+	exerters := g.chooseExerters(controller, attackers)
+	attackers, err = g.payAttackCosts(controller, v, provisional, prev, exerters)
 	if err != nil {
 		return nil, err
 	}
+	g.combat.keepBands(attackers)
 	var tapped []CardID
 	for _, id := range attackers {
 		if containsCard(provisional, id) {
@@ -122,12 +140,6 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 		}
 	}
 	g.checkTapAllTriggers(controller, tapped)
-	// Java asks which attackers exert before the attack costs and pays the
-	// exert inside the same Cost (PhaseHandler.java:564-578); here exert is
-	// offered after, to the attackers whose costs were paid, so a dropped
-	// attacker never exerts. Only the order of the questions differs.
-	g.exertDeclaredAttackers(controller, attackers)
-	g.enlistDeclaredAttackers(controller, attackers)
 	for _, id := range attackers {
 		g.Card(id).AttacksThisTurn++
 		g.recordAttacked(id)
@@ -192,16 +204,14 @@ func (g *Game) canAttackAtAll(id CardID) bool {
 	return len(g.attackableTargets(id, g.eligibleAttackTargets())) > 0
 }
 
-// exertDeclaredAttackers is CR 508.1c: after tapping, before target
-// assignment (PhaseHandler.declareAttackersTurnBasedAction, right after
-// attackers are provisionally tapped -- CombatUtil.getOptionalAttackCostCreatures
-// filters the same way optionalAttackCostExert (below) does). Every
-// attacker carrying a real S:Mode$ OptionalAttackCost | Cost$
-// Exert<1/CARDNAME> static ability (Ahn-Crop Crasher) is offered; if none
-// are, the controller is not asked at all, the same "nothing meaningful to
-// decide" reasoning DeclareCombatAttackers itself already uses for an empty
-// eligible set.
-func (g *Game) exertDeclaredAttackers(controller PlayerController, attackers []CardID) {
+// chooseExerters is CR 508.1g's exert choice, made after the attackers are
+// provisionally tapped and before any attack cost is paid
+// (PhaseHandler.java:568-571; CombatUtil.getOptionalAttackCostCreatures
+// filters the way optionalAttackCostExert, below, does). Every attacker
+// carrying a real S:Mode$ OptionalAttackCost | Cost$ Exert<1/CARDNAME> static
+// ability (Ahn-Crop Crasher) is offered; with none, the controller is not
+// asked.
+func (g *Game) chooseExerters(controller PlayerController, attackers []CardID) []CardID {
 	var eligible []CardID
 	for _, id := range attackers {
 		if _, ok := optionalAttackCostExert(g.Card(id)); ok {
@@ -209,18 +219,28 @@ func (g *Game) exertDeclaredAttackers(controller PlayerController, attackers []C
 		}
 	}
 	if len(eligible) == 0 {
-		return
+		return nil
 	}
-	chosen := controller.ExertAttackers(g, g.activePlayer, eligible)
-	for _, id := range chosen {
-		c := g.Card(id)
-		c.Exerted = true
-		g.checkExertedTriggers(controller, id)
-		g.resolveOptionalAttackCostPayoff(controller, id)
+	var chosen []CardID
+	for _, id := range controller.ExertAttackers(g, g.activePlayer, eligible) {
+		if containsCard(eligible, id) {
+			chosen = append(chosen, id)
+		}
 	}
+	return chosen
 }
 
-// optionalAttackCostExert is exertDeclaredAttackers' own eligibility check:
+// exertAttacker pays a chosen exerter's exert as part of its attack cost
+// (CostExert.payAsDecided): it is exerted, Exerted fires and the static's
+// payoff resolves. Paid with no rollback, as Java pays it.
+func (g *Game) exertAttacker(controller PlayerController, id CardID) {
+	g.Card(id).Exerted = true
+	g.Card(id).exertedThisTurn++
+	g.checkExertedTriggers(controller, id)
+	g.resolveOptionalAttackCostPayoff(controller, id)
+}
+
+// optionalAttackCostExert is chooseExerters' own eligibility check:
 // c's own S:Mode$ OptionalAttackCost static ability, if its own Cost$ names
 // Exert<1/CARDNAME|NICKNAME> (cost.ActivationShape's own SelfExert,
 // activateability.go's identical reuse for the unrelated activated-ability
@@ -230,7 +250,7 @@ func optionalAttackCostExert(c *Card) (*compile.Ability, bool) {
 	if c.Def == nil {
 		return nil, false
 	}
-	for _, face := range c.traitFaces() {
+	for _, face := range c.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, "OptionalAttackCost") {
 				continue
@@ -298,7 +318,10 @@ func (g *Game) chooseAttackTargets(controller PlayerController, attackers []Card
 	eligible := g.eligibleAttackTargets()
 	targets := make(map[CardID]EntityID, len(attackers))
 	for _, id := range attackers {
-		options := g.goadTargets(id, eligible)
+		options, err := g.goadTargets(id, eligible)
+		if err != nil {
+			return nil, err
+		}
 		if len(options) == 1 {
 			targets[id] = options[0]
 			continue
@@ -380,9 +403,9 @@ func (g *Game) attackersOf(target EntityID) []CardID {
 	return attackers
 }
 
-// enlistDeclaredAttackers is Enlist (CR 702.154, CostEnlist.java), offered
-// with exert (PhaseHandler.java:574-578): for each attacker carrying the
-// keyword's OptionalAttackCost, in declaration order, its controller picks
+// enlistAttacker is Enlist (CR 702.154, CostEnlist.java), paid inside the
+// attacker's attack cost (PhaseHandler.java:574-578, CombatUtil.getAttackCost):
+// for an attacker carrying the keyword's OptionalAttackCost, its controller picks
 // at most one untapped, non-attacking creature they control without
 // summoning sickness to tap (CostEnlist.getCardsForEnlisting,
 // CostEnlist.java:110-112; Java asks enlistAttackers, then the cost's card
@@ -391,44 +414,42 @@ func (g *Game) attackersOf(target EntityID) []CardID {
 // enlistedThisCombat and fires Enlisted, then the keyword's "when you do"
 // pump goes on the stack with the tapped creature as TriggerRemembered
 // (CostEnlist.java:76-91).
-func (g *Game) enlistDeclaredAttackers(controller PlayerController, attackers []CardID) {
-	for _, id := range attackers {
-		payoff, ok := optionalAttackCostEnlist(g.Card(id))
-		if !ok {
-			continue
-		}
-		pid := g.Card(id).Controller()
-		var eligible []CardID
-		for _, cid := range g.Zone(Battlefield, pid).Cards() {
-			c := g.Card(cid)
-			if c.Type().Has(cardtype.Creature) && !c.Tapped && !c.isSick() && !c.IsPhasedOut() && !containsCard(attackers, cid) {
-				eligible = append(eligible, cid)
-			}
-		}
-		if len(eligible) == 0 {
-			continue
-		}
-		chosen := controller.ChooseCardsForEffect(g, pid, id, eligible, 0, 1)
-		if len(chosen) != 1 || !containsCard(eligible, chosen[0]) {
-			continue
-		}
-		tapped := chosen[0]
-		g.Card(tapped).Tapped = true
-		g.checkTapsTriggers(controller, tapped, pid, false)
-		g.checkTapAllTriggers(controller, []CardID{tapped})
-		g.combat.enlisted = append(g.combat.enlisted, id)
-		g.checkEnlistedTriggers(controller, id, tapped)
-		if payoff == nil {
-			continue
-		}
-		api, ok := APIByName(payoff.Name)
-		if !ok {
-			continue
-		}
-		c := g.Card(id)
-		g.pushTriggeredAbilities(controller, []Ability{{API: api, Source: id, Controller: pid, Params: payoff,
-			Amounts: c.Def.Faces[0].Amounts, TriggerRemembered: []EntityID{CardEntity(tapped)}}})
+func (g *Game) enlistAttacker(controller PlayerController, id CardID, attackers []CardID) {
+	payoff, ok := optionalAttackCostEnlist(g.Card(id))
+	if !ok {
+		return
 	}
+	pid := g.Card(id).Controller()
+	var eligible []CardID
+	for _, cid := range g.Zone(Battlefield, pid).Cards() {
+		c := g.Card(cid)
+		if c.Type().Has(cardtype.Creature) && !c.Tapped && !c.IsSick() && !c.IsPhasedOut() && !containsCard(attackers, cid) {
+			eligible = append(eligible, cid)
+		}
+	}
+	if len(eligible) == 0 {
+		return
+	}
+	chosen := controller.ChooseCardsForEffect(g, pid, id, eligible, 0, 1)
+	if len(chosen) != 1 || !containsCard(eligible, chosen[0]) {
+		return
+	}
+	tapped := chosen[0]
+	g.Card(tapped).Tapped = true
+	g.checkTapsTriggers(controller, tapped, pid, false)
+	g.checkTapAllTriggers(controller, []CardID{tapped})
+	g.combat.enlisted = append(g.combat.enlisted, id)
+	g.checkEnlistedTriggers(controller, id, tapped)
+	if payoff == nil {
+		return
+	}
+	api, ok := APIByName(payoff.Name)
+	if !ok {
+		return
+	}
+	c := g.Card(id)
+	g.pushTriggeredAbilities(controller, []Ability{{API: api, Source: id, Controller: pid, Params: payoff,
+		Amounts: c.Def.Faces[0].Amounts, TriggerRemembered: []EntityID{CardEntity(tapped)}}})
 }
 
 // optionalAttackCostEnlist is c's Enlist OptionalAttackCost static ability's
@@ -438,7 +459,7 @@ func optionalAttackCostEnlist(c *Card) (payoff *compile.Ability, ok bool) {
 	if c.Def == nil {
 		return nil, false
 	}
-	for _, face := range c.traitFaces() {
+	for _, face := range c.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, "OptionalAttackCost") {
 				continue

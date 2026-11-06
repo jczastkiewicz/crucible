@@ -1,0 +1,12 @@
+# FoughtThisTurn (CardProperty.java:1071-1074): Craw Wurm fights the Bears
+# through Prey Upon (FightEffect.java:169-171), which meets Boxing Ring's
+# IsPresent$ Creature.YouCtrl+FoughtThisTurn: its {T} makes a Treasure.
+startturn human
+advance 3
+tapformana human 2 G
+queue targets 3
+queue targets 5
+castspell human 1
+resolvestack
+queue action human activate 4 0
+passpriority

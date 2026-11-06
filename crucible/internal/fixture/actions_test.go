@@ -758,6 +758,31 @@ func TestRunActionsQueueCardChoiceResolvesFixtureIDs(t *testing.T) {
 	}
 }
 
+// queue entitychoice answers an effect's ChooseEntitiesForEffect with a card
+// by its Id: number and a player by name; none is an empty pick.
+func TestRunActionsQueueEntityChoice(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue entitychoice 1,ai\nqueue entitychoice none\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+	got := c.ChooseEntitiesForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil, 0, 2)
+	want := []engine.EntityID{engine.CardEntity(l.CardByFixtureID[1]), engine.PlayerEntity(l.Game.Players()[1])}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("entity choice %v, want %v", got, want)
+	}
+	if got := c.ChooseEntitiesForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil, 0, 0); len(got) != 0 {
+		t.Errorf("none: entity choice %v, want empty", got)
+	}
+	if err := runActions(t, l, c, "queue entitychoice abc\n"); err == nil {
+		t.Error("an unknown entity did not error")
+	}
+}
+
 // queue abilitychoice answers an effect's ChooseAbilitiesForEffect with mode
 // indices.
 func TestRunActionsQueueAbilityChoice(t *testing.T) {
@@ -837,6 +862,21 @@ func TestRunActionsQueueCardChoiceNoneAndPlayerChoice(t *testing.T) {
 	}
 	if err := runActions(t, l, c, "queue option -1\n"); err == nil {
 		t.Error("a negative option did not error")
+	}
+	if err := runActions(t, l, c, "queue sticker -1\nqueue sticker 3\nqueue stickerpos 1\n"); err != nil {
+		t.Fatalf("queue sticker/stickerpos: %v", err)
+	}
+	p0 := l.Game.Players()[0]
+	if a, b := c.ChooseSticker(l.Game, p0, engine.NoCard, engine.NoCard, nil, true), c.ChooseSticker(l.Game, p0, engine.NoCard, engine.NoCard, nil, true); a != -1 || b != 3 {
+		t.Errorf("stickers = %d, %d, want -1, 3", a, b)
+	}
+	if got := c.ChooseStickerNamePosition(l.Game, p0, engine.NoCard, engine.StickerOption{}); got != 1 {
+		t.Errorf("sticker name position = %d, want 1", got)
+	}
+	for _, bad := range []string{"queue sticker -2", "queue sticker x", "queue stickerpos -1"} {
+		if err := runActions(t, l, c, bad+"\n"); err == nil {
+			t.Errorf("%q did not error", bad)
+		}
 	}
 	if err := runActions(t, l, c, "queue abilitychoice 1,0\n"); err != nil {
 		t.Fatalf("queue abilitychoice: %v", err)
@@ -1493,8 +1533,8 @@ func TestRunActionsPlayLandMovesCardToBattlefield(t *testing.T) {
 	}
 }
 
-// A declined play -- here, a second land the same turn -- is not a fixture
-// error: the verb does not assert success, the same as tapformana.
+// A refused play -- here, a second land the same turn -- is a fixture error,
+// and the card stays in hand.
 func TestRunActionsPlayLandFailureLeavesCardInHand(t *testing.T) {
 	t.Parallel()
 
@@ -1503,8 +1543,8 @@ func TestRunActionsPlayLandFailureLeavesCardInHand(t *testing.T) {
 	c := engine.NewScriptedController()
 
 	err := runActions(t, l, c, "startturn human\nadvance 3\nplayland human 1\nplayland human 2\n")
-	if err != nil {
-		t.Fatalf("RunActions: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "refused") {
+		t.Fatalf("RunActions: err = %v, want the second play refused", err)
 	}
 
 	if l.Game.Card(l.CardByFixtureID[2]).Zone != engine.Hand {
@@ -1595,8 +1635,8 @@ func TestRunActionsCastSpellAuraAttachesToChosenTarget(t *testing.T) {
 	}
 }
 
-// A declined cast -- here, no mana at all -- is not a fixture error: the
-// verb does not assert success, the same as playland.
+// A refused cast -- here, no mana at all -- is a fixture error, as a refused
+// land play is, and the card stays in hand.
 func TestRunActionsCastSpellFailureLeavesCardInHand(t *testing.T) {
 	t.Parallel()
 
@@ -1605,8 +1645,8 @@ func TestRunActionsCastSpellFailureLeavesCardInHand(t *testing.T) {
 	c := engine.NewScriptedController()
 
 	err := runActions(t, l, c, "startturn human\nadvance 3\ncastspell human 1\n")
-	if err != nil {
-		t.Fatalf("RunActions: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "refused") {
+		t.Fatalf("RunActions: err = %v, want the cast refused", err)
 	}
 
 	if l.Game.Card(l.CardByFixtureID[1]).Zone != engine.Hand {
@@ -1709,5 +1749,32 @@ func TestRunActionsQueueVerbsAcceptWellFormedArguments(t *testing.T) {
 				t.Errorf("%q: %v", line, err)
 			}
 		})
+	}
+}
+
+// queue tapchoice answers a tapXType cost's ChoosePermanentsToTap with the
+// fixture's cards; queue triggerorder answers OrderSimultaneousTriggers with
+// the listed indices. Both reject a value that does not parse.
+func TestRunActionsQueueTapChoiceAndTriggerOrder(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+	p := l.Game.Players()[0]
+
+	if err := runActions(t, l, c, "queue tapchoice 2\nqueue triggerorder 1,0\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+	if got := c.ChoosePermanentsToTap(l.Game, p, nil, 1); len(got) != 1 || got[0] != l.CardByFixtureID[2] {
+		t.Errorf("tap choice %v, want [%v]", got, l.CardByFixtureID[2])
+	}
+	if got := c.OrderSimultaneousTriggers(l.Game, p, nil); len(got) != 2 || got[0] != 1 || got[1] != 0 {
+		t.Errorf("trigger order %v, want [1 0]", got)
+	}
+	for _, line := range []string{"queue tapchoice abc\n", "queue triggerorder a,b\n"} {
+		if err := runActions(t, l, c, line); err == nil {
+			t.Errorf("%q: a value that does not parse did not error", line)
+		}
 	}
 }

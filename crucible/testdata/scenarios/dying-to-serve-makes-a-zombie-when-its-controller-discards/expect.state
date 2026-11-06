@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Dying to Serve;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;T:b_2_2_zombie|Tapped|SummonSick
+humangraveyard=Island;Plains;Mind Rot
+ailife=20

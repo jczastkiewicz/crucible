@@ -122,10 +122,10 @@ func TestPlayLandFailsWhenCardIsNotALand(t *testing.T) {
 	}
 }
 
-// cleanupStep (turn.go) rolls LandsPlayed into LandsPlayedLastTurn and
-// resets it to zero for every player, not just the active one -- the same
-// "every player, not just the active one" scope emptyManaPools already has
-// for CR 500.4.
+// endCleanup (turn.go) resets LandsPlayed to zero for every player, not just
+// the active one, and rolls it into LandsPlayedMyLastTurn for the active
+// player only (Player.onCleanupPhase, Player.java:2539-2546): the other
+// player's count is not their own turn's.
 func TestCleanupResetsLandsPlayedForEveryPlayer(t *testing.T) {
 	t.Parallel()
 
@@ -136,18 +136,24 @@ func TestCleanupResetsLandsPlayedForEveryPlayer(t *testing.T) {
 	g.SetTurnState(1, active, engine.EndOfTurn)
 
 	g.AdvancePhase(engine.NewScriptedController())
+	// Cleanup itself is still the turn: Game.onCleanupPhase resets the count
+	// as the step ends (PhaseHandler.java:508-511).
+	if got := g.Player(active).LandsPlayed; got != 1 {
+		t.Errorf("active player's LandsPlayed in cleanup = %d, want 1", got)
+	}
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 
 	if got := g.Player(active).LandsPlayed; got != 0 {
 		t.Errorf("active player's LandsPlayed after cleanup = %d, want 0", got)
 	}
-	if got := g.Player(active).LandsPlayedLastTurn; got != 1 {
-		t.Errorf("active player's LandsPlayedLastTurn after cleanup = %d, want 1", got)
+	if got := g.Player(active).LandsPlayedMyLastTurn; got != 1 {
+		t.Errorf("active player's LandsPlayedMyLastTurn after cleanup = %d, want 1", got)
 	}
 	if got := g.Player(other).LandsPlayed; got != 0 {
 		t.Errorf("other player's LandsPlayed after cleanup = %d, want 0", got)
 	}
-	if got := g.Player(other).LandsPlayedLastTurn; got != 1 {
-		t.Errorf("other player's LandsPlayedLastTurn after cleanup = %d, want 1", got)
+	if got := g.Player(other).LandsPlayedMyLastTurn; got != 0 {
+		t.Errorf("other player's LandsPlayedMyLastTurn after cleanup = %d, want 0", got)
 	}
 }
 

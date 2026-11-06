@@ -77,7 +77,7 @@ func TestMillEffectDefinedYouMillsTopOfOwnLibrary(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 	lib := libraryCards(t, g, p, 5)
 
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	_, err := castETBMill(t, g, p, etbMillTriggerDefParams(t, "Test Mill You", "NumCards$ 2 | Defined$ You"), c)
 	if err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -129,7 +129,7 @@ func TestMillEffectClampsToLibrarySize(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 	lib := libraryCards(t, g, p, 2)
 
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	_, err := castETBMill(t, g, p, etbMillTriggerDefParams(t, "Test Mill Clamp", "NumCards$ 10 | Defined$ You"), c)
 	if err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -154,7 +154,7 @@ func TestMillEffectRememberMilledWritesMemory(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 	lib := libraryCards(t, g, p, 2)
 
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	host, err := castETBMill(t, g, p, etbMillTriggerDefParams(t, "Test Mill Remember", "NumCards$ 2 | Defined$ You | RememberMilled$ True"), c)
 	if err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -232,7 +232,7 @@ func TestMillEffectOptionalAsksTheMiller(t *testing.T) {
 			g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 			lib := libraryCards(t, g, p, tc.libSize)
 
-			c := engine.NewScriptedController()
+			c := keepingOrder()
 			if tc.libSize >= 2 {
 				c.QueueConfirmEffect(tc.confirm)
 			}
@@ -251,4 +251,14 @@ func TestMillEffectOptionalAsksTheMiller(t *testing.T) {
 			}
 		})
 	}
+}
+
+// keepingOrder is a ScriptedController that keeps the order it is given for
+// cards moving together into a zone (KeepCardOrder), for a test whose subject
+// is not that order (CR 613.7m: a mill, sacrifice or destroy of two or more
+// cards asks it).
+func keepingOrder() *engine.ScriptedController {
+	c := engine.NewScriptedController()
+	c.KeepCardOrder()
+	return c
 }

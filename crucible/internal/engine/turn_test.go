@@ -313,7 +313,7 @@ func TestDrawMovesTopOfLibraryToHand(t *testing.T) {
 	}
 }
 
-// CR 103.7a: the first player skips the draw step of their own first turn
+// CR 103.8a: the first player skips the draw step of their own first turn
 // in a two-player game.
 func TestDrawSkipsFirstPlayerFirstTurnTwoPlayer(t *testing.T) {
 	t.Parallel()

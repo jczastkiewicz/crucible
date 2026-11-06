@@ -1,0 +1,16 @@
+# R20c gauntlet probe (Solitude): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+queue targets 50
+tapformana human 100 W
+tapformana human 101 W
+tapformana human 102 W
+tapformana human 103 W
+tapformana human 104 W
+castspell human 1
+resolvestack
+resolvestack

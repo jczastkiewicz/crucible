@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Prey Upon|Id:1
+humanbattlefield=Forest|Id:2;Craw Wurm|Id:3;Boxing Ring|Id:4
+aibattlefield=Grizzly Bears|Id:5

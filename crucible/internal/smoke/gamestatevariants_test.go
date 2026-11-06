@@ -87,8 +87,8 @@ func TestProbeReportsWhatTheStagedBoardReveals(t *testing.T) {
 		// PumpAll AtEOT$ resolves.
 		{"Tears of Rage", smoke.Plays},
 		// Its second target, "blockedByValidThisTurn ParentTarget", is a
-		// Defined$ list the valid evaluator is not given.
-		{"Glyph of Delusion", smoke.Inconclusive},
+		// Defined$ list read in the ability in context.
+		{"Glyph of Delusion", smoke.Plays},
 	} {
 		t.Run(tc.card, func(t *testing.T) {
 			t.Parallel()

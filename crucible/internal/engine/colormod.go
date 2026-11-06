@@ -26,6 +26,10 @@ type ColorEffect struct {
 	Timestamp uint64
 	Colors    mana.Colors
 	Overwrite bool
+	// CharacteristicDefining marks a CDA's change (Transguild Courier's "is
+	// all colors"): Java keeps those in changedCardColorsCharacterDefining,
+	// applied before every other change (CR 613.3, Card.java:4209).
+	CharacteristicDefining bool
 }
 
 // Add records one continuous effect. Order does not matter here: folding
@@ -42,15 +46,21 @@ func (cm ColorMod) clone() ColorMod {
 	return ColorMod{effects: append([]ColorEffect(nil), cm.effects...)}
 }
 
-// foldColor applies every ColorEffect to base in Timestamp order (CR
-// 613.7): an Overwrite effect replaces the running color set outright, a
+// foldColor applies every ColorEffect to base, the characteristic-defining
+// ones first (CR 613.3), each group in Timestamp order (CR 613.7): an
+// Overwrite effect replaces the running color set outright, a
 // non-Overwrite one unions its own Colors into it -- foldType's own doc
 // comment gives the identical reason CR 613.8's dependency reordering is
 // not in play (nothing here has more than one continuous effect on the
 // same card yet to depend on another).
 func foldColor(base mana.Colors, effects []ColorEffect) mana.Colors {
 	sorted := append([]ColorEffect(nil), effects...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Timestamp < sorted[j].Timestamp })
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].CharacteristicDefining != sorted[j].CharacteristicDefining {
+			return sorted[i].CharacteristicDefining
+		}
+		return sorted[i].Timestamp < sorted[j].Timestamp
+	})
 	result := base
 	for _, e := range sorted {
 		if e.Overwrite {

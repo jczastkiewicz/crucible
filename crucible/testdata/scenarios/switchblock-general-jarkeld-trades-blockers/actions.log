@@ -5,6 +5,7 @@
 # both attackers: each blocker now blocks the other attacker. Combat damage
 # then kills both blockers -- the Wurm kills the Giant, the Bears kill the
 # Raiders -- instead of the Giant killing the Bears.
+queue cardorder 4,5
 startturn human
 advance 5
 queue attackers 1,2

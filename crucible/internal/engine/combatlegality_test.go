@@ -612,6 +612,54 @@ func TestLureAttackerMustBeBlocked(t *testing.T) {
 	}
 }
 
+// A lure does not force a creature that can't block alone to block when no
+// other creature of its controller could block with it (CombatUtil.java:
+// 805-809): blocking nothing is legal; with a partner able to block, the
+// requirement stands again.
+func TestLureSparesACreatureThatCantBlockAlone(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		partner bool
+	}{{"alone", false}, {"with a partner", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, a, b := combatGame(t)
+			lure := g.NewCard(creatureDefPTKeywords(t, "2", "2", "All creatures able to block CARDNAME do so."), a, engine.Battlefield)
+			g.NewCard(creatureDefPTKeywords(t, "2", "2", "CARDNAME can't block alone."), b, engine.Battlefield)
+			if tc.partner {
+				g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
+			}
+			declareAttacking(t, g, lure)
+			err := tryBlocks(g)
+			if tc.partner {
+				wantIllegal(t, err, "CR 509.1c")
+			} else if err != nil {
+				t.Fatalf("no blocks: %v, want legal", err)
+			}
+		})
+	}
+}
+
+// Mode$ BlockRestrict caps the whole declaration (CombatUtil.java:720-723), and
+// a lure does not require a creature to block once others reached the cap
+// (CombatUtil.java:812-815).
+func TestBlockRestrictCapsTheDeclarationAndSparesTheLure(t *testing.T) {
+	t.Parallel()
+	g, a, b := combatGame(t)
+	g.NewCard(scriptDef(t, "Test Cap", "Enchantment", "S:Mode$ BlockRestrict | MaxBlockers$ 1"), a, engine.Battlefield)
+	lure := g.NewCard(creatureDefPTKeywords(t, "2", "2", "All creatures able to block CARDNAME do so."), a, engine.Battlefield)
+	first := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	declareAttacking(t, g, lure)
+	if g.BlocksLegal(b, []engine.Block{{Blocker: first, Attacker: lure}, {Blocker: second, Attacker: lure}}) {
+		t.Error("two blockers under a one-blocker cap are legal")
+	}
+	if err := tryBlocks(g, engine.Block{Blocker: first, Attacker: lure}); err != nil {
+		t.Fatalf("one blocker at the cap: %v, want legal", err)
+	}
+}
+
 // "CARDNAME must be blocked if able." wants one blocker, not every one.
 func TestMustBeBlockedIfAbleIsMetByOneBlocker(t *testing.T) {
 	t.Parallel()

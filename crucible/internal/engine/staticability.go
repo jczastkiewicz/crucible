@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -102,7 +103,7 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantBlockBy") {
 						continue
@@ -265,7 +266,7 @@ func (g *Game) landwalkIgnored(attacker, blocker CardID, line string) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnoreLandWalk") || !staticParamsKnown(s, ignoreLandwalkParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -290,9 +291,18 @@ func (g *Game) landwalkIgnored(attacker, blocker CardID, line string) bool {
 // staticParamsKnown reports whether static line s names only params in known
 // or the conditions staticConditionsMet reads (staticConditionParams): a
 // reader that checks those conditions reads every param s carries.
+// siblingModeParams are params one mode of a multi-mode static reads and its
+// other modes ignore (Lost in Thought's Affected$ is the Continuous mode's,
+// ValidSA$ the CantBeActivated mode's): a split piece tolerates them, as
+// Java's per-mode check never reads them.
+var siblingModeParams = map[string]bool{
+	"affected": true, "affecteddefined": true, "affectedzone": true, "ignoreeffectcost": true,
+	"validsa": true, "activator": true, "caster": true, "player": true,
+}
+
 func staticParamsKnown(s *compile.Ability, known map[string]bool) bool {
 	for _, p := range s.Params {
-		if k := strings.ToLower(p.Key); !known[k] && !staticConditionParams[k] {
+		if k := strings.ToLower(p.Key); !known[k] && !staticConditionParams[k] && (s.SplitFrom == nil || !siblingModeParams[k]) {
 			return false
 		}
 	}
@@ -480,7 +490,7 @@ func cantAttachStatic(g *Game, attachment *Card, host CardID) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CantAttach") || !staticParamsKnown(s, cantAttachParams) || !g.staticConditionsMet(h, s) {
 					continue
@@ -761,7 +771,7 @@ func canBlockIfShadow(g *Game, attacker, blocker CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CanBlockIfShadow") || !continuousConditionMet(g, h, s) {
 						continue
@@ -847,7 +857,7 @@ func ignoreLegendRule(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnoreLegendRule") {
 						continue
@@ -885,7 +895,7 @@ func ignorePlaneswalkerZeroLoyaltyRule(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnorePlaneswalkerZeroLoyaltyRule") {
 						continue
@@ -939,7 +949,7 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
 						continue
@@ -970,7 +980,7 @@ func assignsAsUnblocked(g *Game, c *Card, optional bool) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "AssignCombatDamageAsUnblocked") || !g.staticConditionsMet(h, s) {
 						continue
@@ -1062,7 +1072,7 @@ func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability, mode flashMod
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s, sa, mode) {
 					continue
@@ -1114,7 +1124,7 @@ func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Abil
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !playerStaticApplies(g, pid, h, s) {
 						continue
@@ -1236,7 +1246,7 @@ func (g *Game) cantSacrifice(c *Card, effect bool, cause *Ability) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantSacrifice") || !g.staticConditionsMet(h, s) {
 						continue
@@ -1285,6 +1295,37 @@ func (g *Game) cantDiscard(pid PlayerID, cause *Ability, effect bool) bool {
 		return !ok || causeMatches(spec, causeNone, cause.Controller, h.Controller())
 	})
 }
+
+// cantTransform is Card.canTransform's static check for c, a permanent
+// (StaticAbilityCantTransform.cantTransform): a live Mode$ CantTransform line
+// whose ValidCard$ matches c, unless its ExceptCause$ admits cause, the
+// ability transforming it. Immerwolf stops non-Human Werewolves; a daybound
+// or nightbound creature turns over only by its own keyword's ability
+// (CardFactoryUtil.java:3867-3868, 3950-3951). No cause matches no
+// ExceptCause$ (CardTraitBase.matchesValid(null)); one this port cannot
+// evaluate stops the transform and records why (GO-7).
+func (g *Game) cantTransform(c *Card, cause *Ability) bool {
+	return g.anyStatic("CantTransform", cantTransformParams, func(h *Card, s *compile.Ability) bool {
+		spec, ok := s.Param("ValidCard")
+		if !ok || !Matches(g, c, valid.Parse(spec), h.Controller(), h.ID) {
+			return false
+		}
+		except, ok := s.Param("ExceptCause")
+		if !ok || cause == nil {
+			return true
+		}
+		matched, recognized := g.spellAbilityMatches(cause, except, h, h.Controller(), h.abilityAmounts(s))
+		if !recognized {
+			g.recordPendingError(fmt.Errorf("engine: %q: CantTransform ExceptCause$ %q not resolvable yet", h.Def.Name, except))
+			return true
+		}
+		return !matched
+	})
+}
+
+// cantTransformParams are the params a Mode$ CantTransform line may carry
+// that cantTransform reads.
+var cantTransformParams = map[string]bool{"validcard": true, "exceptcause": true}
 
 // cantDiscardParams are the params a Mode$ CantDiscard line may carry that
 // cantDiscard reads.
@@ -1399,7 +1440,7 @@ func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
 			if h.Zone == Battlefield && slices.Contains(g.enterBatch, host) {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantPutCounter") || !staticParamsKnown(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1447,11 +1488,15 @@ func paramsResolvable(s *compile.Ability, known map[string]bool) bool {
 // staticHostZoneOK is StaticAbility.zonesCheck (StaticAbility.java:337): the
 // host's own zone must be one the line is active in. EffectZone$ names them
 // ("All", or a comma list); without it the default is in play. The Command
-// zone is accepted by default too, since the effect-like hosts traitHosts walks
-// there carry their statics without an EffectZone$ of their own. This is what
-// keeps a card's own statics (a host the callers add for EffectZone$ All lines)
-// from applying while it sits in hand.
+// zone is accepted by default for an effect card or a scheme, which carry
+// their statics without an EffectZone$ of their own; a Vanguard avatar, plane
+// or phenomenon there needs EffectZone$ Command, as in Java (ADR-0056). This
+// is what keeps a card's own statics (a host the callers add for EffectZone$
+// All lines) from applying while it sits in hand.
 func staticHostZoneOK(host *Card, s *compile.Ability) bool {
+	if _, ok := s.Param("EffectZone"); !ok && host.Zone == Command && !host.isCommandEffectLike() {
+		return false
+	}
 	return staticZoneOK(host.Zone, s)
 }
 
@@ -1484,7 +1529,7 @@ func (g *Game) canDamagePrevented(source CardID, isCombat bool) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.traitFaces() {
+		for _, face := range h.liveTraitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CantPreventDamage") || !staticParamsKnown(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
 					continue
@@ -1531,7 +1576,7 @@ func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "MaxCounter") || !staticParamsKnown(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1662,7 +1707,7 @@ func (g *Game) cantTargetHost(h *Card, onStack bool, entity EntityID, activator 
 	if h.Def == nil {
 		return false
 	}
-	for _, face := range h.traitFaces() {
+	for _, face := range h.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, "CantTarget") || !staticParamsKnown(s, cantTargetParams) {
 				continue
@@ -1784,7 +1829,7 @@ func (g *Game) maxBlockers(defender PlayerID) (limit int, ok bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "BlockRestrict") || !staticParamsKnown(s, blockRestrictParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1833,7 +1878,7 @@ func (g *Game) asIfHaste(mode string, c *Card, target EntityID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !staticParamsKnown(s, asIfHasteParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1856,12 +1901,19 @@ func (g *Game) asIfHaste(mode string, c *Card, target EntityID) bool {
 // target): any comma-separated alternative of spec admits it,
 // read for host h. NoEntity matches nothing.
 func (g *Game) entityMatchesAny(h *Card, target EntityID, spec string) bool {
+	return g.entityMatchesAnyAs(h, h.Controller(), target, spec)
+}
+
+// entityMatchesAnyAs is entityMatchesAny with you as "You": a delayed
+// trigger's controller, the player whose ability made it
+// (CardTraitBase.java:215-219).
+func (g *Game) entityMatchesAnyAs(h *Card, you PlayerID, target EntityID, spec string) bool {
 	for _, alt := range strings.Split(spec, ",") {
 		if pid, ok := target.AsPlayer(); ok {
-			if matched, known := matchesPlayerSpec(g, pid, h.Controller(), h.ID, alt); known && matched {
+			if matched, known := matchesPlayerSpec(g, pid, you, h.ID, alt); known && matched {
 				return true
 			}
-		} else if id, ok := target.AsCard(); ok && Matches(g, g.Card(id), valid.Parse(alt), h.Controller(), h.ID) {
+		} else if id, ok := target.AsCard(); ok && Matches(g, g.Card(id), valid.Parse(alt), you, h.ID) {
 			return true
 		}
 	}
@@ -1888,7 +1940,7 @@ func (g *Game) hexproofIgnored(mode string, activator PlayerID, target EntityID)
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !staticParamsKnown(s, ignoreHexproofParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1939,9 +1991,12 @@ func (g *Game) anyStatic(mode string, known map[string]bool, apply func(h *Card,
 	return false
 }
 
-// hostStatic is anyStatic for the lines of one host.
+// hostStatic is anyStatic for the lines of one host: its current state's
+// only (liveTraitFaces), as Card.getStaticAbilities reads currentState, so a
+// transforming card's back-face static is not live while it is face up
+// (Nightbound's CantTransform on Bird Admirer's front).
 func (g *Game) hostStatic(h *Card, mode string, known map[string]bool, apply func(h *Card, s *compile.Ability) bool) bool {
-	for _, face := range h.traitFaces() {
+	for _, face := range h.liveTraitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, mode) || !g.staticConditionsMet(h, s) {
 				continue
@@ -2089,4 +2144,65 @@ func (g *Game) loyaltyAdditional(c *Card) int {
 		return false
 	})
 	return addl
+}
+
+// protectionPreventsDamage is the damage half of Protection (CR 702.16e):
+// CardFactoryUtil.java:2583-2594 and PlayerFactoryUtil.java:66-75 install
+// `Event$ DamageDone | Prevent$ True | ValidTarget$ <self> | ValidSource$
+// <Protection.getProtectionValid(kw, damage=true)>` for every Protection line,
+// combat or not. lines is the protected card's or player's keyword lines,
+// controller and host the protected entity's, for a ControlledBy source.
+// Protection.java:10-53: a colour or colourless characteristic (or "from
+// <colour>") gets the "Source" suffix so the colour of the damage source is
+// read; "from everything" has no ValidSource, so it prevents everything; "from
+// each color" is nonColorlessSource; a Player characteristic names the
+// source's controller and is wrapped "Card.v,Emblem.v" like every "from" form,
+// while a bare characteristic is not (quirks.md). An unrecognised "from X"
+// is skipped (Java throws at card load).
+func (g *Game) protectionPreventsDamage(source CardID, lines []string, controller PlayerID, host CardID) bool {
+	if source == NoCard {
+		return false
+	}
+	src := g.Card(source)
+	for _, line := range lines {
+		k := keyword.Parse(line)
+		if k.Name != "Protection" {
+			continue
+		}
+		spec := ""
+		if rest, isFrom := strings.CutPrefix(k.Details, "from "); isFrom {
+			switch rest {
+			case "white", "blue", "black", "red", "green", "colorless":
+				spec = strings.ToUpper(rest[:1]) + rest[1:] + "Source"
+			case "each color":
+				spec = "nonColorlessSource"
+			case "everything":
+				return true
+			default:
+				continue
+			}
+			spec = "Card." + spec + ",Emblem." + spec
+		} else {
+			characteristic, _, _ := strings.Cut(k.Details, ":")
+			if characteristic == "" {
+				continue
+			}
+			if strings.HasPrefix(characteristic, "Player") {
+				v := "ControlledBy " + characteristic
+				spec = "Card." + v + ",Emblem." + v
+			} else {
+				for _, suffix := range [...]string{"White", "Blue", "Black", "Red", "Green", "Colorless", "MonoColor", "MultiColor", "EnemyColor"} {
+					if strings.HasSuffix(characteristic, suffix) {
+						characteristic += "Source"
+						break
+					}
+				}
+				spec = characteristic
+			}
+		}
+		if Matches(g, src, valid.Parse(spec), controller, host) {
+			return true
+		}
+	}
+	return false
 }

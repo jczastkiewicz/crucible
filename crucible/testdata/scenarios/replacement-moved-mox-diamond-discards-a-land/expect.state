@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanhand=Island
-humanbattlefield=Mox Diamond|SummonSick
+humanbattlefield=Mox Diamond
 humangraveyard=Forest
 ailife=20

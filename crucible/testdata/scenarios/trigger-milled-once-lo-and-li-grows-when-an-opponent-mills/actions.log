@@ -2,6 +2,7 @@
 # each Advisor Lo and Li's controller has (Lo and Li itself), once for the mill.
 startturn human
 advance 3
+queue cardorder 4,5,6,7,8
 tapformana human 2 U
 queue targets ai
 castspell human 1

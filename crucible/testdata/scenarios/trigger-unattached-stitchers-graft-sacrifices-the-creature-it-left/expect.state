@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Stitcher's Graft|Id:2|AttachedTo:3;Llanowar Elves|Id:3;Plains|Id:4|Tapped;Plains|Id:5|Tapped
+humangraveyard=Grizzly Bears
+ailife=20

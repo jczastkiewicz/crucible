@@ -122,15 +122,25 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			}
 		}
 
-		for _, blkID := range blockers {
-			blk := g.Card(blkID)
-			if g.dealsInStep(blk, firstStrike) {
-				g.noteFirstStrikeDealer(blkID, firstStrike)
-				g.maskTurnUp(controller, blkID) // Combat.java:720
-				if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
-					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
-				}
+	}
+	// Every blocker's damage after every attacker's, as Java assigns it
+	// (Combat.java:957-958): a blocker blocking several attackers divides its
+	// damage among them (CR 510.1d) rather than dealing it to each.
+	for _, blkID := range g.combatBlockers() {
+		var attackers []CardID
+		for _, b := range g.combat.Blocks {
+			if b.Blocker == blkID && g.alive(b.Attacker) && !containsCard(attackers, b.Attacker) {
+				attackers = append(attackers, b.Attacker)
 			}
+		}
+		blk := g.Card(blkID)
+		if len(attackers) == 0 || !g.alive(blkID) || !g.dealsInStep(blk, firstStrike) {
+			continue
+		}
+		g.noteFirstStrikeDealer(blkID, firstStrike)
+		g.maskTurnUp(controller, blkID) // Combat.java:720
+		if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
+			g.dealBlockerDamage(controller, blkID, bp, attackers, &table)
 		}
 	}
 	g.checkDamageTableTriggers(controller, table, true)
@@ -234,13 +244,51 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 
 	default:
 		assigned := 0
-		for _, a := range controller.AssignCombatDamage(g, atk.Controller(), attacker, liveBlockers) {
+		// Blockers that share banding divide it (CR 702.22j, Combat.java:839-840:
+		// the first blocker's controller).
+		decider := atk.Controller()
+		if g.validBand(liveBlockers, true) {
+			decider = g.Card(liveBlockers[0]).Controller()
+		}
+		for _, a := range controller.AssignCombatDamage(g, decider, attacker, liveBlockers) {
 			g.dealPermanentDamage(controller, attacker, a.Blocker, a.Amount, deathtouch, true, table)
 			assigned += a.Amount
 		}
 		if trample && power > assigned {
 			g.dealAttackTargetDamage(controller, attacker, power-assigned, deathtouch, table)
 		}
+	}
+}
+
+// combatBlockers is every blocker of this combat once, in block order
+// (Combat.getAllBlockers).
+func (g *Game) combatBlockers() []CardID {
+	var out []CardID
+	for _, b := range g.combat.Blocks {
+		if !containsCard(out, b.Blocker) {
+			out = append(out, b.Blocker)
+		}
+	}
+	return out
+}
+
+// dealBlockerDamage is Combat.assignBlockersDamage (Combat.java:743-797) for
+// one blocker: its whole damage to a lone attacker, else divided among the
+// attackers it blocks as its controller answers AssignCombatDamage, the
+// blocker in the attacker's place and the attackers as the recipients.
+func (g *Game) dealBlockerDamage(controller PlayerController, blocker CardID, power int, attackers []CardID, table *damageTable) {
+	deathtouch := g.Card(blocker).HasKeyword("Deathtouch")
+	if len(attackers) == 1 {
+		g.dealPermanentDamage(controller, blocker, attackers[0], power, deathtouch, true, table)
+		return
+	}
+	// Attackers that share banding divide it (CR 702.22k, Combat.java:780-781).
+	decider := g.Card(blocker).Controller()
+	if g.validBand(attackers, true) {
+		decider = g.Card(attackers[0]).Controller()
+	}
+	for _, a := range controller.AssignCombatDamage(g, decider, blocker, attackers) {
+		g.dealPermanentDamage(controller, blocker, a.Blocker, a.Amount, deathtouch, true, table)
 	}
 }
 
@@ -387,7 +435,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		flags |= FlagDeathtouch
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: CardEntity(target), Amount: int32(amount), Flags: flags})
-	g.noteDamagedThisGame(source, CardEntity(target))
+	g.noteDamagedThisGame(source, CardEntity(target), isCombat)
 	// CardDamageHistory.registerDamage (GameAction.java:2757): logged after
 	// the damage is applied, with copies of source and target as they are now.
 	record := g.logCardDamage(source, target, amount, isCombat)
@@ -448,6 +496,9 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	}
 	g.Player(target).damageThisTurn[kind] += amount
 	g.recordPlayerDamage(source, target, amount, isCombat)
+	if isCombat {
+		g.noteCommanderDamage(source, target, amount)
+	}
 	var flags EventFlags
 	if isCombat {
 		flags = FlagCombat
@@ -470,16 +521,13 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 		poison += toxicMagnitude(g.Card(source))
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
-	g.noteDamagedThisGame(source, PlayerEntity(target))
+	g.noteDamagedThisGame(source, PlayerEntity(target), isCombat)
 	if !infect && lost > 0 {
 		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-lost), Flags: flags})
 		g.noteLifeLost(controller, target, lost)
 	}
 	if poison > 0 {
-		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {
-			g.Player(target).Counters.Add(Poison, n)
-			emitCounterChanged(g, source, PlayerEntity(target), Poison, n)
-		}
+		g.putPlayerCounters(controller, g.Card(source).Controller(), source, target, Poison, poison)
 	}
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)
 	if table != nil {

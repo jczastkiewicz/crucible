@@ -54,26 +54,28 @@ Pain's Reward, Dance with Calamity) answered yes forever loops by the controller
 
 ## Results
 
-Measured on the full corpus (34,078 cards):
+Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,661 |
-| refused      |      1 |
+| plays        | 33,594 |
+| refused      |      0 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
-| inconclusive |     16 |
+| inconclusive |     86 |
 
-100.0% of the 33,662 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+100.0% of the 33,594 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,666 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `Mode$ MustAttack: ValidPlayer$ not resolvable` |
+
+No card is refused. A valid-string property no case of `valid.go` ports still errors (`checkTypeWord`, open plan R19b)
+instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 
@@ -102,7 +104,7 @@ LandPlayed are gone).
   pays generic mana with the colour floating most, so a cost of twelve generic needs twelve of one.
 - Command-zone cards are counted as `placed`, which proves nothing about their one-shot abilities. A sticker sheet is
   refused by the probe itself (open plan R15), not by the engine, and that line goes when stickers are ported.
-- The replay-parity harness (ADR-0010 L3): `RecordingPlayerController` over the 110 `PlayerController` methods in
+- The replay-parity harness (ADR-0010 L3): `RecordingPlayerController` over the 112 `PlayerController` methods in
   `oracle-java` and a `ReplayController` here. Separate work; open plan, Exit gates, P5.
 
 Tests: `internal/smoke/probe_test.go`.

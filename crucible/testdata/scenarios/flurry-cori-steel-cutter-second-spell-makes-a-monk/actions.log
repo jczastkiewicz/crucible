@@ -1,0 +1,14 @@
+# Flurry (TriggerSpellAbilityCastOrCopy.java:86-95): ActivatorThisTurnCast$ EQ2
+# counts the spells human cast this turn, this one included, so the second
+# Lightning Bolt makes the Monk and the confirmed Attach moves the Cutter
+# onto it. L2: same as Java.
+startturn human
+advance 3
+queue targets ai
+queue targets ai
+queue confirmeffect true
+tapformana human 100 R
+tapformana human 101 R
+castspell human 2
+castspell human 3
+resolvestack

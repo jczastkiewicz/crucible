@@ -178,7 +178,7 @@ func (g *Game) checkAttackCosts(attackers []CardID, targets map[CardID]EntityID)
 // (the TODO at PhaseHandler.java:577). Attackers that left the battlefield
 // while paying leave combat (Combat.removeAbsentCombatants). It returns the
 // attackers left.
-func (g *Game) payAttackCosts(controller PlayerController, v attackValidation, provisional []CardID, prev Combat) ([]CardID, error) {
+func (g *Game) payAttackCosts(controller PlayerController, v attackValidation, provisional []CardID, prev Combat, exerters []CardID) ([]CardID, error) {
 	for _, id := range slices.Clone(g.combat.Attackers) {
 		if !containsCard(g.combat.Attackers, id) || g.Card(id).Zone != Battlefield {
 			continue
@@ -188,6 +188,12 @@ func (g *Game) payAttackCosts(controller PlayerController, v attackValidation, p
 			return nil, err
 		}
 		if uc == nil || g.payAttackCost(controller, id, *uc) {
+			// The optional parts of the same cost (CombatUtil.getAttackCost
+			// with the optional-cost attackers): the exert, then Enlist.
+			if containsCard(exerters, id) {
+				g.exertAttacker(controller, id)
+			}
+			g.enlistAttacker(controller, id, g.combat.Attackers)
 			continue
 		}
 		g.removeFromCombat(id)

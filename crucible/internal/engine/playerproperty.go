@@ -98,6 +98,8 @@ func (g *Game) cleanupPlayerRecords(pid PlayerID) {
 	g.sacrificedThisTurn = kept
 	p.tappedLandForManaThisTurn = false
 	p.planeswalkedToThisTurn = nil
+	p.lifeStartedThisTurnWith, p.lifeStarted = p.Life, true
+	p.attractionsVisitedThisTurn = 0
 	if pid == g.activePlayer {
 		p.attackedPlayersLastTurn = p.attackedPlayersThisTurn
 		p.attackedPlayersThisTurn = nil
@@ -173,6 +175,30 @@ func (g *Game) sacrificedThisTurnCount(pid PlayerID, source CardID, body string)
 		}
 	}
 	return n, true
+}
+
+// playedLandsCount is pid's lands played this turn matching spec, each
+// matched as last known before it moved, relative to pid.
+func (g *Game) playedLandsCount(pid PlayerID, source CardID, spec string) int {
+	parsed := valid.Parse(spec)
+	n := 0
+	for i := range g.playedLandsThisTurn {
+		if l := &g.playedLandsThisTurn[i]; l.player == pid && Matches(g, &l.card, parsed, pid, source) {
+			n++
+		}
+	}
+	return n
+}
+
+// forgetPlayedLands is Player.resetLandsPlayedThisTurn's list half.
+func (g *Game) forgetPlayedLands(pid PlayerID) {
+	var kept []sacrificeRecord
+	for _, l := range g.playedLandsThisTurn {
+		if l.player != pid {
+			kept = append(kept, l)
+		}
+	}
+	g.playedLandsThisTurn = kept
 }
 
 // playerPropertyOperand is calculateAmount(source, operand) for a property's
@@ -552,10 +578,20 @@ func (g *Game) inGamePlayers() []PlayerID {
 }
 
 // noteDamagedThisGame is CardDamageHistory.registerDamage's per-game list
-// (getThisGameDamaged): source has dealt damage to target.
-func (g *Game) noteDamagedThisGame(source CardID, target EntityID) {
+// (getThisGameDamaged): source has dealt damage to target. It notes the kind
+// of damage dealt and, for combat damage to a player, the player damaged this
+// combat too.
+func (g *Game) noteDamagedThisGame(source CardID, target EntityID, combat bool) {
 	c := g.Card(source)
+	if combat {
+		c.dealtDamage |= dealtCombat
+	} else {
+		c.dealtDamage |= dealtNoncombat
+	}
 	if pid, ok := target.AsPlayer(); ok {
+		if combat {
+			c.combatDamagedPlayers = append(slices.Clone(c.combatDamagedPlayers), pid)
+		}
 		if !slices.Contains(c.damagedPlayers, pid) {
 			c.damagedPlayers = append(slices.Clone(c.damagedPlayers), pid)
 		}
@@ -573,3 +609,9 @@ func (g *Game) noteDamagedThisGame(source CardID, target EntityID) {
 	}
 	c.damagedCards = append(slices.Clone(c.damagedCards), damagedCard{id, stamp})
 }
+
+// The bits of Card.dealtDamage.
+const (
+	dealtNoncombat uint8 = 1 << iota
+	dealtCombat
+)

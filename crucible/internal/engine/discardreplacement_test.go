@@ -11,9 +11,11 @@ import (
 // The discard replacement walk (ReplaceMoved's Discard$ True, Player.discard)
 // refuses what it cannot order or check rather than guessing (GO-7).
 
-// A discard paid as a cost carries no cause the walk knows: Loxodon Smiter's
-// EffectOnly$/ValidCause$ line cannot be decided, and is refused.
-func TestDiscardReplacementWithUnknownCauseIsAnError(t *testing.T) {
+// A discard paid as a spell's cost is not an effect (PlaySpellAbility.java:683
+// builds the cost's decision maker with ability.isTrigger()), so Loxodon
+// Smiter's EffectOnly$/ValidCause$ line does not apply and the Smiter goes to
+// the graveyard.
+func TestDiscardPaidAsASpellCostIsNotAnEffect(t *testing.T) {
 	t.Parallel()
 	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
 	voice := g.NewCard(corpusCard(t, "Tormenting Voice"), p, engine.Hand)
@@ -27,23 +29,53 @@ func TestDiscardReplacementWithUnknownCauseIsAnError(t *testing.T) {
 	if !g.CastSpell(p, voice, c) {
 		t.Fatal("could not cast Tormenting Voice")
 	}
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "cause is not known") {
-		t.Errorf("err = %v, want the Smiter's cause check refused", err)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(smiter).Zone; got != engine.Graveyard {
+		t.Errorf("Loxodon Smiter is in %v, want the graveyard", got)
 	}
 }
 
-// Madness and Rest in Peace both apply to the discard: CR 616.1's order is
-// the player's, which the walk does not ask, so it is refused.
-func TestMadnessBesideAGraveyardReplacementIsAnError(t *testing.T) {
+// Madness and Rest in Peace both apply to the discard: they are two candidates
+// of one CR 616.1 choice for the discarding player (ReplacementHandler.java:
+// 256-279). Choosing Rest in Peace exiles the card with no madness trigger;
+// choosing Madness exiles it and the madness trigger asks to cast it.
+func TestMadnessBesideAGraveyardReplacementIsOneChoice(t *testing.T) {
 	t.Parallel()
-	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
-	g.NewCard(corpusCard(t, "Rest in Peace"), p, engine.Battlefield)
-	g.NewCard(corpusCard(t, "Fiery Temper"), p, engine.Hand)
-	_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ Discard | Defined$ You | Mode$ Hand")
-	if err == nil || !strings.Contains(err.Error(), "graveyard replacement both apply") {
-		t.Errorf("err = %v, want the two replacements refused", err)
+	setup := func(t *testing.T) (*engine.Game, engine.PlayerID, engine.CardID) {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.NewCard(corpusCard(t, "Rest in Peace"), p, engine.Battlefield)
+		temper := g.NewCard(corpusCard(t, "Fiery Temper"), p, engine.Hand)
+		return g, p, temper
 	}
+
+	t.Run("rest in peace", func(t *testing.T) {
+		t.Parallel()
+		g, p, temper := setup(t)
+		c := engine.NewScriptedController()
+		c.QueueReplacementEffect(1)
+		if _, err := resolveNow(t, g, p, c, nil, "DB$ Discard | Defined$ You | Mode$ Hand"); err != nil {
+			t.Fatal(err)
+		}
+		if got := g.Card(temper).Zone; got != engine.Exile {
+			t.Errorf("Fiery Temper is in %v, want exile", got)
+		}
+	})
+
+	t.Run("madness", func(t *testing.T) {
+		t.Parallel()
+		g, p, temper := setup(t)
+		c := engine.NewScriptedController()
+		c.QueueReplacementEffect(0)
+		c.QueueConfirmEffect(false)
+		if _, err := resolveNow(t, g, p, c, nil, "DB$ Discard | Defined$ You | Mode$ Hand"); err != nil {
+			t.Fatal(err)
+		}
+		if got := g.Card(temper).Zone; got != engine.Exile {
+			t.Errorf("Fiery Temper is in %v, want exile (Madness, then Rest in Peace)", got)
+		}
+	})
 }
 
 // A ValidCause$ the walk does not read is refused, and so is a line whose

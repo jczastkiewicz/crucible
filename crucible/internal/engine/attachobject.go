@@ -56,6 +56,11 @@ func (g *Game) attachObject(a *Ability, controller PlayerController) error {
 	if !ok || g.Card(host).Zone != Battlefield || !g.Card(host).Type().Has(cardtype.Creature) {
 		return nil
 	}
+	// AttachEffect.java:131: the attachments are ordered by their
+	// controllers once the host is known (CR 613.7m: their new timestamps).
+	if attachments, err = g.orderCardsByTheirOwners(controller, attachments, Battlefield); err != nil {
+		return fmt.Errorf("engine: Attach: %w", err)
+	}
 	for _, id := range attachments {
 		if g.Card(id).Zone != Battlefield || id == host || hostRefusesAttach(g, g.Card(id), host) {
 			continue
@@ -185,6 +190,12 @@ func (g *Game) attachObjectToChoice(a *Ability, controller PlayerController, att
 		return fmt.Errorf("engine: Attach: %w", err)
 	}
 	host := picked[0]
+	// AttachEffect.java:131: the attachments are ordered by their
+	// controllers once the host is known (CR 613.7m: their new timestamps).
+	attachments, err := g.orderCardsByTheirOwners(controller, attachments, Battlefield)
+	if err != nil {
+		return fmt.Errorf("engine: Attach: %w", err)
+	}
 	_, optional := a.Params.Param("Optional")
 	for _, id := range attachments {
 		if g.Card(id).Zone != Battlefield {
@@ -237,6 +248,11 @@ func (g *Game) attachObjectToPlayerChoice(a *Ability, controller PlayerControlle
 	if len(players) > 1 {
 		host = controller.ChoosePlayerForEffect(g, a.Controller, a.Source, players)
 	}
+	// AttachEffect.java:131: the attachments are ordered by their
+	// controllers once the host is known (CR 613.7m: their new timestamps).
+	if attachments, err = g.orderCardsByTheirOwners(controller, attachments, Battlefield); err != nil {
+		return fmt.Errorf("engine: Attach: %w", err)
+	}
 	for _, id := range attachments {
 		if g.Card(id).Zone != Battlefield {
 			continue
@@ -255,7 +271,7 @@ func (g *Game) attachObjectToPlayerChoice(a *Ability, controller PlayerControlle
 // canBeAttached is Card.cantBeAttachedMsg == null for a card host on the
 // battlefield (Card.java:7029-7034, GameEntity.java:236-307,
 // Card.java:6996-7026): only an attachment (Aura, Equipment, Fortification),
-// never onto itself, not a creature (Reconfigure is not ported), neither one
+// never onto itself, not a creature without reconfigure (GameEntity.java:244), neither one
 // phased out; an Aura needs an Enchant keyword whose type the host is (a
 // player Aura's is not a card's); Equipment a creature host; Fortification a
 // land host and not itself a land. StaticAbilityCantAttach is
@@ -268,7 +284,7 @@ func (g *Game) canBeAttached(attachment *Card, host CardID) bool {
 	if !isAura && !isEquipment && !isFortification {
 		return false
 	}
-	if attachment.ID == host || t.Has(cardtype.Creature) || attachment.IsPhasedOut() || h.IsPhasedOut() {
+	if attachment.ID == host || (t.Has(cardtype.Creature) && !attachment.HasKeyword("Reconfigure")) || attachment.IsPhasedOut() || h.IsPhasedOut() {
 		return false
 	}
 	ht := h.Type()

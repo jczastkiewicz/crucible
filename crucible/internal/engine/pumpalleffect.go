@@ -112,7 +112,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err != nil {
 		return err
 	}
-	if grant.keywords, err = pumpSharedKeywords("PumpAll", g, source, a.Params, grant.keywords); err != nil {
+	if grant.keywords, err = pumpSharedKeywords("PumpAll", g, source, a, grant.keywords); err != nil {
 		return err
 	}
 	if perpetual && (len(grant.hidden) > 0 || grant.switched) {
@@ -126,6 +126,11 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	validCards, ok := a.Params.Param("ValidCards")
 	if !ok {
 		return fmt.Errorf("engine: PumpAll: ValidCards$ missing")
+	}
+	// PumpAllEffect.java:142: AbilityUtils.filterListByType.
+	validCards, src, found, err := listTypeSource(g, a, validCards)
+	if err != nil {
+		return fmt.Errorf("engine: PumpAll: %w", err)
 	}
 	spec := valid.Parse(validCards)
 
@@ -153,7 +158,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, pid := range players {
 		for _, z := range pumpAllZones(a.Params) {
 			for _, cid := range g.Zone(z, pid).Cards() {
-				if !Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
+				if !found || !Matches(g, g.Card(cid), spec, source.Controller(), src) {
 					continue
 				}
 				matched = append(matched, cid)
@@ -167,6 +172,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 					Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
 					Keywords: grant.keywords, Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
 					HasUntil: untilNextTurn, UntilTurnOf: a.Controller, Perpetual: perpetual,
+					Traits: pumpKeywordTraits(a.Params, grant.keywords), TraitAmounts: a.Amounts,
 				})
 				if until != "" {
 					if err := g.addUntilCommand(a, until, cardCommand{Kind: commandEndPump, Target: cid, Timestamp: timestamp}); err != nil {

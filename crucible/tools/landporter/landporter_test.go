@@ -224,6 +224,24 @@ func TestCausesRewriteTheRefusalTable(t *testing.T) {
 	}
 }
 
+// With every card playing the refusal table has a header and no rows; the next
+// reconcile must still find it.
+func TestAnEmptyRefusalTableIsStillFound(t *testing.T) {
+	t.Parallel()
+	root := tree(t)
+	p := filepath.Join(root, smokeDoc)
+	b, _ := os.ReadFile(p)
+	empty := strings.Replace(string(b), "|     1 | old     |\n", "", 1)
+	if err := os.WriteFile(p, []byte(empty), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	all, _ := ParseSmoke(allOut)
+	pre, _ := ParseSmoke(preOut)
+	if _, _, err := Reconcile(root, all, pre); err != nil {
+		t.Fatalf("reconcile over an empty refusal table: %v", err)
+	}
+}
+
 func TestPlanEditsAndBrief(t *testing.T) {
 	t.Parallel()
 	root := tree(t)

@@ -246,7 +246,7 @@ func TestAssembleContraptionEffectRejectsUnresolvedParams(t *testing.T) {
 	cases := []string{
 		"DB$ AssembleContraption | DefinedContraption$ Self",
 		"DB$ AssembleContraption | Reassemble$ True",
-		"DB$ AssembleContraption | DefinedAssembler$ ReplacedCause",
+		"DB$ AssembleContraption | DefinedAssembler$ Opponent",
 		"DB$ AssembleContraption | Amount$ Result",
 	}
 	for _, trig := range cases {
@@ -280,5 +280,50 @@ func TestAssembleContraptionAmountResultReadsTheRollDiceTotal(t *testing.T) {
 	}
 	if assembled != 2 {
 		t.Errorf("assembled %d Contraptions, want 2 (the dice total)", assembled)
+	}
+}
+
+// TestSteamfloggerBossMakesARiggerAssembleTwo runs Steamflogger Boss's
+// Event$ AssembleContraption replacement (AssembleContraptionEffect.java:
+// 124-137): a Rigger's assemble becomes two, assembled by ReplacedCause, and
+// the nested assemble is not replaced again. A noncreature host assembles
+// as its player, which ValidCause$ Rigger does not match.
+func TestSteamfloggerBossMakesARiggerAssembleTwo(t *testing.T) {
+	t.Parallel()
+
+	for name, rigger := range map[string]bool{"rigger": true, "player": false} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			deck := deckCards(t, g, p, engine.ContraptionDeck, 3)
+			boss := g.NewCard(corpusCard(t, "Steamflogger Boss"), p, engine.Battlefield)
+			def := etbChainDef(t, "Test Assembler", "DB$ AssembleContraption")
+			host := g.NewCard(def, p, engine.Battlefield)
+			if rigger {
+				host = boss
+			}
+			c := engine.NewScriptedController()
+			want := 1
+			if rigger {
+				want = 2
+			}
+			for range want {
+				c.QueueNumberChoice(1)
+			}
+			g.PushAbility(engine.Ability{API: engine.APIAssembleContraption, Source: host, Controller: p,
+				Params: def.Faces[0].Triggers[0].Subs[0].Ability})
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			got := 0
+			for _, id := range deck {
+				if g.Card(id).Zone == engine.Battlefield {
+					got++
+				}
+			}
+			if got != want {
+				t.Errorf("assembled %d, want %d", got, want)
+			}
+		})
 	}
 }

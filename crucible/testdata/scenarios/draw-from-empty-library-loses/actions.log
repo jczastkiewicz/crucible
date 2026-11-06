@@ -3,7 +3,7 @@
 # CheckStateBasedActions -- run at the end of the same beginPhase call, not
 # a separate advance later -- turns that into a loss immediately. Starting
 # at ai's Cleanup on turn 1 and advancing three times reaches human's own
-# Draw step on turn 2, past CR 103.7a's first-turn skip, with no library at
+# Draw step on turn 2, past CR 103.8a's first-turn skip, with no library at
 # all.
 advance
 advance

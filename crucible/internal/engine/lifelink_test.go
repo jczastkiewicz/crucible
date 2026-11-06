@@ -64,11 +64,11 @@ func TestLifelinkIsOneGainPerSourceAcrossBlockers(t *testing.T) {
 	blocker1 := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	blocker2 := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
 	declareAttacking(t, g, attacker)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker1, Attacker: attacker}, {Blocker: blocker2, Attacker: attacker}})
 	declareBlockers(t, g, bc)
 
-	dc := engine.NewScriptedController()
+	dc := keepingOrder()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{{Blocker: blocker1, Amount: 1}, {Blocker: blocker2, Amount: 2}})
 	g.DealCombatDamage(dc)
 	if err := g.ResolveStack(engine.NewRegistry(), dc); err != nil {

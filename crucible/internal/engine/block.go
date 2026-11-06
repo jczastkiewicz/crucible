@@ -135,6 +135,9 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 			return nil, err
 		}
 	}
+	// Validated as declared; only then does a block on a band member become
+	// a block on every member (CR 702.22h, ADR-0057).
+	blocks = g.combat.expandBandBlocks(blocks)
 	g.combat.Blocks = blocks
 	// declareBlockersTurnBasedAction sets every band's blocked flag
 	// (AttackingBand.setBlocked): from here an attacker is blocked or
@@ -160,6 +163,11 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 			blockedAttackers = append(blockedAttackers, blk.Attacker)
 		}
 		blockersByAttacker[blk.Attacker] = append(blockersByAttacker[blk.Attacker], blk.Blocker)
+	}
+	for _, attacker := range attackers {
+		if g.combat.isBlocked(attacker) {
+			g.Card(attacker).notBeenBlocked = 0
+		}
 	}
 	for _, attacker := range blockedAttackers {
 		g.checkAttackerBlockedTriggers(controller, attacker, blockersByAttacker[attacker])

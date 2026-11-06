@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Blood Moon;Temple Garden|SummonSick
+humanbattlefield=Blood Moon;Temple Garden
 ailife=20

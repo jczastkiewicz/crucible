@@ -4,6 +4,7 @@
 # AssignCombatDamage -- which is simply wasted, no trample to carry it
 # further (unlike combat-trample-excess-to-player). Both blockers still deal
 # their own full power back to the Wurm (1 + 2 = 3, survives at 4 toughness).
+queue cardorder 2,3
 startturn human
 advance 5
 queue attackers 1

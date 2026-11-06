@@ -1,0 +1,14 @@
+# CardFactoryUtil.java:2780-2810: K:Disturb:3 W casts the back face (Morning
+# Apparition, no mana cost of its own) from the graveyard for the disturb cost;
+# ADR-0052 swaps Def for the back face, which stays the permanent.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+castspell human 1 face
+resolvestack

@@ -50,17 +50,19 @@ in the same second pass as `AttachedTo:` and in declaration order; `Dump` writes
 would write `AttachedTo:` (`GameState.java:368`). An unknown player is an error here, where Java falls back to the first
 seat.
 
-`AttachedTo:`, `RememberedCards:`, `Imprinting:` and `ExiledWith:` can name a card declared later in the same fixture —
+`AttachedTo:`, `RememberedCards:`, `Imprinting:`, `ChosenCards:` and `ExiledWith:` can name a card declared later in
+the same fixture —
 Rancor attaching to a creature written after it in the file has to work. `ExiledWith:` (`GameState.java:1398`, applied
 at `:771-781`) marks the card as exiled with that host's current object through `Game.SetExiledWith`, listed on it
 whatever zone the host is in, as Java's `addExiledCard` is; `Dump` writes it on Exile entries only, ahead of `Counters:`
-(`GameState.java:407-410`). ADR-0034. `Load`'s `loader` type collects these as it creates cards and resolves them once
+(`GameState.java:407-410`). `ChosenCards:` (`GameState.java:1408-1414`, set at `:1081-1083`) adds each card to the
+holder's chosen list (`Memory.Choose`); `Dump` writes it after `NamedCard:` (`:392-398`). ADR-0034. `Load`'s `loader` type collects these as it creates cards and resolves them once
 every card in the fixture exists (`resolveRefs`), the same two-pass shape `GameState.applyGameOnThread` uses
 (`idToCard`, `cardToAttachId`, ...).
 
 The lists are ordered slices, not maps keyed by card, because two auras naming the same host must attach in the order
 the fixture wrote them: that order is what breaks a tie between their continuous effects when both share a timestamp
-(GO-12). `RememberedCards:`/`Imprinting:` have no such cross-card ordering concern — each card's `Memory` is independent
+(GO-12). `RememberedCards:`/`Imprinting:`/`ChosenCards:` have no such cross-card ordering concern — each card's `Memory` is independent
 — but the slices are ordered anyway, once discipline was already needed for attachments.
 
 ## `Id:` is the card's own handle
@@ -105,11 +107,12 @@ own `ManaAtom.MANATYPES` has no snow entry either, so there was never a snow tok
 first place). `TestDumpRoundTripsThroughParse`'s own fixture now sets `humanmanapool=W W U` so this exact gap cannot
 reopen silently; `TestDumpAndWriteRoundTripManaPool` is the narrower, Lost/Won/Over-shaped test for it on its own.
 
-`landsplayed=`/`landsplayedlastturn=` had the identical gap on the `Write` side alone: `Parse` has read both since
-before `PlayLand` existed (`fixture.go`'s own `number(&p.LandsPlayed)` case), but `Write` had no line to emit either
-one. Caught this time before a scenario ever needed the round trip, while adding `Player.LandsPlayed` itself
-(`## Playing a land is not casting a spell`, `game-state.md`) rather than after — `TestDumpAndWriteRoundTripLandsPlayed`
-is `TestDumpAndWriteRoundTripManaPool`'s own shape, for this pair.
+`landsplayed=` had the identical gap on the `Write` side alone: `Parse` has read it since before `PlayLand` existed
+(`fixture.go`'s own `number(&p.LandsPlayed)` case), but `Write` had no line to emit. Caught this time before a scenario
+ever needed the round trip, while adding `Player.LandsPlayed` itself (`## Playing a land is not casting a spell`,
+`game-state.md`) rather than after — `TestDumpAndWriteRoundTripLandsPlayed` is `TestDumpAndWriteRoundTripManaPool`'s own
+shape, for this key. There is no `landsplayedlastturn=`: `GameState` dropped it, and `Player.LandsPlayedMyLastTurn` has
+no rules reader to set up.
 
 ## Scenarios: `actions.log` and the harness
 
@@ -147,6 +150,9 @@ queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker p
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue discardchoice <id>[,...]  ScriptedController.QueueDiscardChoice, ChooseCardsToDiscard's pick (a Discard<N/Card> cost), ids from Loaded.CardByFixtureID
+queue entitychoice <t>[,...]|none  ScriptedController.QueueEntityChoice, an effect's ChooseEntitiesForEffect pick (Proliferate), each <t> a card's Loaded.CardByFixtureID or a seated player's name; none is an empty pick
+queue tapchoice <id>[,...]      ScriptedController.QueueTapChoice, a tapXType cost's ChoosePermanentsToTap pick (Station, Crew), ids from Loaded.CardByFixtureID
+queue triggerorder <i>[,...]    ScriptedController.QueueTriggerOrder, a player's OrderSimultaneousTriggers answer (CR 603.3b): indices of their triggers in the order found, listed in the order they resolve
 queue cardchoice <id>[,...]|none  ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID; none is an empty pick (a declined Optional$ Discard)
 queue option <n>              ScriptedController.QueueOption, ChooseOption's index into the options offered (a type from a list, a "choose one")
 queue optionname <text>       ScriptedController.QueueOptionNamed, the ChooseOption answer equal to the text (_ stands for a space), for lists too long to index: a creature card name out of the whole database
@@ -164,8 +170,8 @@ queue replacement <index>        ScriptedController.QueueReplacementEffect, the 
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
-playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID
-castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID
+playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID; a refused play is an error
+castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID; a refused cast is an error, `expecterror refused castspell ...` states a meant one
 resolvestack                  Game.ResolveStack(NewRegistry(), controller), no arguments
 passpriority                  Game.PassPriority(NewRegistry(), controller), one CR 117 round (ADR-0019), no arguments
 step [n]                      Game.Step(NewRegistry(), controller), n times (default 1), one driven step each (ADR-0026)
@@ -180,16 +186,21 @@ queue action <p> cast <id> <door>         ScriptedController.QueueAction, p cast
 queue action <p> unlockdoor <id> <door>   ScriptedController.QueueAction, p unlocks Room id's LeftSplit/RightSplit door (special action)
 queue action <p> foretell <id>     ScriptedController.QueueAction, p foretells id (special action)
 queue action <p> plot <id>         ScriptedController.QueueAction, p plots id (special action)
+queue action <p> turnfaceup <id> [<way>]  ScriptedController.QueueAction, p turns face-down id face up by its way'th ability (special action)
 foretell <player> <id>        Game.Foretell(player, id, controller), id from Loaded.CardByFixtureID
 plot <player> <id>            Game.Plot(player, id, controller), id from Loaded.CardByFixtureID
+turnfaceup <player> <id> [<way>]  Game.TurnFaceUp(player, id, way, controller), way 0 by default
 queue roomdoor <door>                 ScriptedController.QueueRoomDoor, UnlockDoor's LeftSplit/RightSplit pick
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
+queue assistant <p>           ScriptedController.QueueAssistant, the player an Assist spell's caster asks to pay (ChooseAssistant, CR 702.132a); none queued asks no one
+queue assistamount <n>        ScriptedController.QueueAssistAmount, the generic mana that assistant pays from their pool (AssistAmount)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
 queue hybridmanacolor <color> ScriptedController.QueueHybridManaColor, a bare color letter
 queue paymonocoloredhybrid <bool>     ScriptedController.QueuePayMonocoloredHybrid
 queue paycolorlesshybrid <bool>       ScriptedController.QueuePayColorlessHybrid
-queue payphyrexian <bool>             ScriptedController.QueuePayPhyrexian
+queue payphyrexian <bool>             ScriptedController.QueuePayPhyrexian: true pays the color, false pays 2 life
+queue coincall <heads|tails>          ScriptedController.QueueCoinCall, the flipping player's call
 queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
 queue confirmeffect <bool>            ScriptedController.QueueConfirmEffect, an effect's yes/no prompt (Play's single option, CopySpellAbility's Optional$/MayChooseTarget$)
 queue optionaltrigger <bool>          ScriptedController.QueueConfirmOptionalTrigger, an OptionalDecider$ trigger's "you may" (Swarm Intelligence's copy trigger)
@@ -308,7 +319,7 @@ ask. Targets still come from the shared `queue targets` FIFO, in cast order. Fix
 itself (so a scenario queues `attackers`/`blocks` answers instead of calling `declareattackers`) and opens a priority
 round wherever the step grants one, so a phase trigger resolves before `step` returns. A queued action is spent on the
 first round that asks its player — Upkeep included — so a scenario steps to the step it wants before queueing: on turn
-1, `step` from Untap stops in Upkeep and the next step is Main1 (the driver skips turn 1's draw step, CR 103.7a).
+1, `step` from Untap stops in Upkeep and the next step is Main1 (the driver skips turn 1's draw step, CR 103.8a).
 Fixtures: `testdata/scenarios/driver-*`.
 
 `queue enchanttarget` answers `ChooseEnchantTarget` (`castspell.go`'s own Aura branch, CR 601.2c) the same
@@ -346,10 +357,15 @@ touched again — is exactly that; the `CardID` a shuffle produces is not someth
 The comparison itself does not go through `Dump`. `Dump`'s `Id:` is the card's own `CardID` (see above), and
 `setup.state` (run through actions.log) and `expect.state` are two independently loaded games whose `CardID`s were never
 going to agree by number. `compareGames` (`scenario_test.go`) compares the two `*engine.Game`s directly instead — zone
-contents by name and position, `Tapped`/`SummonSick`/`Damage`/`Counters`/attachment/protector per card — which sidesteps
+contents by name and position, `Tapped`/`SummonSick`/`Renowned`/`Monstrous`/`Damage`/`Counters`/attachment/protector
+per card — which sidesteps
 the numbering question entirely and reaches fields `Dump` cannot write down at all (see below). Protector is compared by
 name too, the same reasoning `CardID` gets: two independently loaded games were never going to agree on raw `PlayerID`s
-either, only on who they name.
+either, only on who they name. An attachment is compared by its host's controller, battlefield position and name, so an
+Aura moved to the wrong one of two creatures fails. `SummonSick` is compared, and dumped, as `Card.IsSick`, the
+summoning sickness that `GameState` writes (`Card.isSick`, `Card.java:3665-3671`). A noncreature permanent, or a creature
+with haste, writes none, so its `expect.state` names none. A transformed card is dumped and compared under its front
+face's name, as `GameState` writes the paper card, then `|Transformed`.
 
 **`Lost`, `Won` and `Over` have their own keys: `lost=`, `won=`, `over=`.** `GameState.java`'s own format has none of
 these — a Java fixture is always a still-being-played snapshot, never one that asserts the game already ended — so this
@@ -398,6 +414,14 @@ same "say nothing when there's nothing to say" discipline `Owner:` already follo
 `Counters:DEFENSE=` high enough to survive `destroyZeroDefense` until the state-based action that assigns a protector
 runs (CR 704.5v's ETB gap means a Battle placed directly on the battlefield starts at zero defense otherwise), and
 `expect.state` naming the result with `Protector:`.
+
+**`Attacking[:<id>]` is Java's own key** (`GameState.java:463-470` writes it, `:1429-1435` reads it): a card in the
+current combat's attackers, with `:<id>` naming the planeswalker or battle it attacks, bare when it attacks a player.
+`Dump` writes it for a battlefield attacker (Java removes a card from combat as it leaves the battlefield,
+`Combat.removeFromCombat`). `Load` reads it into `Loaded.Attacking` and builds no combat, so `TestScenarios` compares an
+`expect.state`'s attackers with the run's (`compareAttacking`: controller, name, what each attacks). `RunActions`
+refuses a `setup.state` that names one: Java's setup puts the card into combat, and a Go setup that did not would play
+a different board (L2, ADR-0060).
 
 `TestScenarios` loads the real corpus once per test binary run (`sync.Once`), not once per scenario — synthetic cards
 would defeat the point of a format meant to run against the Java oracle too, and 33,913 cards is too much to pay for per
@@ -520,7 +544,7 @@ life below (not just at) zero, nine poison counters surviving where ten would no
 ending a three-player game (`life-loss-below-zero-also-loses`, `poison-nine-survives`,
 `life-loss-eliminates-one-player-game-continues`); a second consecutive London mulligan, proving `londonTuckCount`'s
 cost escalates rather than repeating (`mulligan-twice-tucks-cumulative`); and `PlayLand`'s own one-per-turn limit and
-`cleanupStep`'s roll-forward, at the scenario level rather than only `land_test.go`'s unit level
+`endCleanup`'s roll-forward, at the scenario level rather than only `land_test.go`'s unit level
 (`land-play-limit-one-per-turn`, `cleanup-resets-lands-played-for-next-turn`). Two long-stale doc comments came out of
 writing these: `destroyZeroLoyalty`/`destroyZeroDefense` (`action.go`) and two existing fixtures'
 (`battle-protector-assigned-to-opponent`, `battle-zero-defense-destroyed`) own comments still said nothing granted a
@@ -563,6 +587,7 @@ in `Loaded.Unapplied`. Scenarios: `sba-token-dies-and-ceases-to-exist`,
 | `PhaseType.smartValueOf` matches the script name or the enum constant name, case-insensitively, off one list | `phaseByName` tries `engine.PhaseByName` (script name, case-sensitive) first, then a second table of Java's enum constant names, because `engine.PhaseByName`'s contract is specifically the script vocabulary and `GameState.toString`'s own dump (bare `Enum#toString`) writes the other one |
 | `RemoveSummoningSickness` is state `GameState` remembers                                                     | It is a one-time load directive. By the time `Load` returns, every card it applied to already has `SummonSick` false, and `Dump` writes that per card; re-emitting the directive would assert something `Dump` cannot actually know                                                            |
 | `Id:` is arbitrary, chosen by whoever wrote the fixture                                                      | Always the card's own `CardID` (see above)                                                                                                                                                                                                                                                     |
+| A setup `Attacking` puts the card into combat (`cardAttackMap`)                                              | Read into `Loaded.Attacking` and compared in `expect.state`; a `setup.state` naming one is an error, since `Load` builds no combat                                                                                                                                                             |
 
 ## Pinned quirks (PORT-7)
 
@@ -575,14 +600,20 @@ in `Loaded.Unapplied`. Scenarios: `sba-token-dies-and-ceases-to-exist`,
 - **`Tapped` and `SummonSick` match on prefix, no colon required.** `info.startsWith("Tapped")` accepts `Tapped`,
   `Tapped:True`, or in principle `TappedFoo` — reproduced because a fixture written either way has to load the same in
   both engines.
+- **A setup card has no zone entry.** The loader puts cards straight into their zones (`NewCard`), as Java's `GameState`
+  does, so nothing records them as entered this turn: `ThisTurnEntered` and the entered-this-turn valids are false for
+  them until the scenario moves them.
+- **`OnAdventure` is written only for a card actually on an adventure.** Java writes it for every exiled Adventure card
+  (its own TODO, `GameState.java:443-447`); a Crucible dump writes it only where `Card.OnAdventure` holds, so a dump
+  reloads to the same game.
 
 ## Not ported yet
 
 | Missing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Lands                                  |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Java `t:` token snapshots (`TokenInfo`: name, P/T, types, keywords, image key; no abilities) — reported in `Loaded.Unapplied`, not loaded. `T:<script>` is loaded and dumped (see `## Tokens`)                                                                                                                                                                                                                                                                                                                                                       | M5-M6                                  |
-| The rest of the per-card annotation grammar: `Renowned`, `Solved`, `Saddled`, `Suspected`, `Monstrous`, `PhasedOut`, `FaceDown`, `Transformed`/`Modal`/`Flipped`/`Meld`, `OnAdventure`, `IsCommander`, `Ability:`, `ChosenColor:`/`ChosenType:`/`ChosenType2:`, `ChosenCards:`, `MergedCards:`, `NamedCard:`, `ExecuteScript:`, `ExiledWith:`, `Attacking`, `NoETBTrigs`, `Foretold`/`ForetoldThisTurn`, `IsToken`, `ClassLevel:`, `UnlockedRoom:` — each needs a mechanic or a type (`CardState`, `SpellAbility`, combat) this port has not reached | M5-M6, mechanic by mechanic            |
-| Player-level `PersistentMana:`, `Speed:` — `engine.Player` has neither field yet. `NumRingTemptedYou:` is applied (`Game.SetRingTemptedYou`, since `RingTemptsYou`). `Counters:` is applied (`Player.Counters`, since M5's SBA work), `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work), and `LandsPlayed:`/`LandsPlayedLastTurn:` (`Player.LandsPlayed`/`LandsPlayedLastTurn`, since `PlayLand`) are all applied now                                                                                                   | M5-M6, as each field lands on `Player` |
+| The rest of the per-card annotation grammar: `Solved`, `Saddled`, `Suspected`, `Modal`/`Meld`, `FaceDown:Manifested`/`:Cloaked`, `Ability:`, `ChosenColor:`/`ChosenType2:`, `MergedCards:`, `ExecuteScript:`, `Attacking`, `NoETBTrigs`, `Foretold`/`ForetoldThisTurn`, `IsToken`, `ClassLevel:` — each needs a mechanic or a type (`CardState`, `SpellAbility`, combat) this port has not reached; the other keys load (`load.go`)                                                                                                                  | M5-M6, mechanic by mechanic            |
+| Player-level `PersistentMana:` — `engine.Player` has no field yet. `Speed:` is applied (`Player.Speed`, loaded, dumped and compared by `TestScenarios`). `NumRingTemptedYou:` is applied (`Game.SetRingTemptedYou`, since `RingTemptsYou`). `Counters:` is applied (`Player.Counters`, since M5's SBA work), `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work), and `LandsPlayed:` (`Player.LandsPlayed`, since `PlayLand`) are all applied now                                                                         | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                               | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Puzzle mode, if ever                   |
 | `actions.log` verbs for casting anything an instant or sorcery needs — nothing downstream of `ScriptedController` can answer what one resolves into yet. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask), the one mana ability this port has (`tapformana`), playing a land (`playland` — not casting a spell at all, CR 305.1) and casting/resolving a permanent spell including an Aura's own cast-time target (`castspell`/`resolvestack`/`queue enchanttarget`) all have verbs                                 | M5-M6                                  |

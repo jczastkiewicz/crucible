@@ -73,7 +73,7 @@ func TestSacrificeStrictAmountSacrificesNothingWhenShort(t *testing.T) {
 
 	g, p, _ := newTwoPlayerGame(t)
 	one := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
-	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, line); err != nil {
+	if _, err := resolveNow(t, g, p, keepingOrder(), nil, line); err != nil {
 		t.Fatal(err)
 	}
 	if g.Card(one).Zone != engine.Battlefield {
@@ -83,7 +83,7 @@ func TestSacrificeStrictAmountSacrificesNothingWhenShort(t *testing.T) {
 	g2, p2, _ := newTwoPlayerGame(t)
 	a := g2.NewCard(creatureDefPT(t, "1", "1"), p2, engine.Battlefield)
 	b := g2.NewCard(creatureDefPT(t, "1", "1"), p2, engine.Battlefield)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueSacrificeChoice([]engine.CardID{a, b})
 	if _, err := resolveNow(t, g2, p2, c, nil, line); err != nil {
 		t.Fatal(err)

@@ -2,7 +2,11 @@ package engine
 
 //enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+)
 
 // digUntilUnresolvedParams are DigUntilEffect.java's params this port
 // cannot honour yet: a non-library dig site (DigZone$), AttachedTo$, and
@@ -171,6 +175,7 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			pShuffle = shuffle && len(found) == 0
 		}
 
+		var moved []CardID
 		if hasFound {
 			dest := foundDest
 			toMove := found
@@ -197,6 +202,11 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				}
 				melded := g.moveByEffect(controller, id, dest, foundLibPos, newController, tapped && dest == Battlefield)
 				g.changeZoneLeftCombat(id, joined)
+				if dest != Battlefield {
+					// DigUntilEffect.java:266-268: the cards a Cascade
+					// replacement is handed (a battlefield entry is not).
+					moved = append(moved, id)
+				}
 				if dest == Exile {
 					g.markExiledWith(id, a.Source)
 					if melded != NoCard {
@@ -253,8 +263,26 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		if pShuffle {
 			g.shuffleLibrary(controller, p, a)
 		}
+		if isCascadeAbility(a) {
+			// DigUntilEffect.java:321-330: Event$ Cascade, then a revealed card
+			// the replacement took out of the found zone is forgotten.
+			g.cascadeReplaced(controller, p, moved)
+			if _, ok := a.Params.Param("RememberRevealed"); ok {
+				for _, id := range moved {
+					if g.Card(id).Zone != foundDest {
+						source.Memory.Forget(CardEntity(id))
+					}
+				}
+			}
+		}
 	}
 	return nil
+}
+
+// isCascadeAbility reports whether a is the dig Cascade's keyword synthesized
+// (SpellAbility.isKeyword(Keyword.CASCADE)).
+func isCascadeAbility(a *Ability) bool {
+	return a.Params != nil && a.Params.Keyword != "" && keyword.Parse(a.Params.Keyword).Name == "Cascade"
 }
 
 func digUntilZone(a *Ability, key string) (ZoneType, bool, error) {

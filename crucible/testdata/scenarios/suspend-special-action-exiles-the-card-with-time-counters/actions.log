@@ -1,0 +1,8 @@
+# CR 702.62a: suspend is a special action taken any time the card could be
+# cast -- pay the suspend cost ({R} for Rift Bolt) and exile the card from your
+# hand with N time counters (1). It ends up in exile with its counter and the
+# Mountain is tapped.
+startturn human
+advance 3
+tapformana human 2 R
+suspend human 1

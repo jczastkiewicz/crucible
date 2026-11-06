@@ -3,6 +3,7 @@
 # become six.
 startturn human
 advance 3
+queue cardorder 10,11,12,13,14,15
 tapformana human 2 U
 queue targets ai
 castspell human 1

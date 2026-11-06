@@ -1,0 +1,10 @@
+# ADR-0052: an Omen spell is shuffled into its owner's library as it leaves
+# the stack (CardFactoryUtil.java:4102-4116). Signaling Roar ({1}{W} sorcery)
+# makes a 2/2 Soldier, then Riling Dawnbreaker goes into the library.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+castspell human 1 face
+resolvestack

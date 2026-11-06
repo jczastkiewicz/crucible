@@ -1,0 +1,9 @@
+# Mode$ Trains fires when the Training keyword puts its +1/+1 counter
+# (the Training keyword ability's PutCounter). Savior attacks beside Hill
+# Giant (greater power), trains, and its trigger exiles the AI's Bears.
+startturn human
+advance 5
+queue attackers 1,2
+queue targets 3
+declareattackers
+resolvestack

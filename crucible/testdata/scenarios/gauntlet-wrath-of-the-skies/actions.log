@@ -1,0 +1,13 @@
+# R20c gauntlet probe (Wrath of the Skies): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric W
+queue payx 1
+queue numberchoice 1
+queue confirmpaycost true
+tapformana human 100 W
+tapformana human 101 W
+tapformana human 102 W
+castspell human 1
+resolvestack

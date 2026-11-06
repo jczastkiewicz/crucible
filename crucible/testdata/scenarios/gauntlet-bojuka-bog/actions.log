@@ -1,0 +1,8 @@
+# R20c gauntlet probe (Bojuka Bog): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue targets ai
+queue cardorder 72,73
+playland human 1
+resolvestack

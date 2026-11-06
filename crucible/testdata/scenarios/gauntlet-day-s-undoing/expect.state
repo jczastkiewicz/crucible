@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=Cleanup
+humanlife=20
+humanbattlefield=Island|Id:1|Tapped;Island|Id:2|Tapped;Island|Id:3|Tapped
+humanhand=Island|Id:7;Island|Id:11;Island|Id:12;Grizzly Bears|Id:6;Island|Id:8;Lightning Bolt|Id:5;Island|Id:9
+humanlibrary=Island|Id:10
+humanexile=Day's Undoing|Id:4
+ailife=20
+aibattlefield=Grizzly Bears|Id:13;Ornithopter|Id:14;Swamp|Id:15;Pacifism|Id:16|AttachedTo:13
+aihand=Island|Id:24;Grizzly Bears|Id:19;Island|Id:23;Island|Id:17;Island|Id:27;Island|Id:26;Island|Id:22
+ailibrary=Hill Giant|Id:21;Shock|Id:20;Island|Id:25;Lightning Bolt|Id:18

@@ -33,13 +33,13 @@ func TestDamageReplacementChainReadsTheDamageAndItsTarget(t *testing.T) {
 	addN(t, g, b, engine.Library, 10, "Artifact")
 	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
 
-	ac := engine.NewScriptedController()
+	ac := keepingOrder()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
-	bc := engine.NewScriptedController()
+	bc := keepingOrder()
 	bc.QueueBlocks(nil)
 	declareBlockers(t, g, bc)
-	g.DealCombatDamage(engine.NewScriptedController())
+	g.DealCombatDamage(keepingOrder())
 	if err := g.TakePendingError(); err != nil {
 		t.Fatalf("pending error: %v", err)
 	}
@@ -169,6 +169,7 @@ func TestDescendedCountsPermanentCardsAndResetsAtCleanup(t *testing.T) {
 	twoAndExtras(g, p, engine.NoPlayer)
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	g.SetTurnState(2, p, engine.Main1)
 	before := g.Player(p).Life
 	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBMore",

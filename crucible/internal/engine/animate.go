@@ -137,15 +137,22 @@ func liveAnimates(g *Game, fn func(c *Card, r *animateRecord)) {
 	}
 }
 
-// animateTypes is applyAnimateEffects' Layer 4 half.
+// animateTypes is applyAnimateEffects' Layer 4 half. Java writes the change
+// to the card object in whatever zone it is (Card.addChangedCardTypes), so a
+// record made off the battlefield applies there too (Takklemaggot's Animate in
+// the graveyard); the Layer 4 pass clears every off-battlefield card's TypeMod
+// first, so re-adding does not stack.
 func animateTypes(g *Game) {
-	liveAnimates(g, func(c *Card, r *animateRecord) {
-		if r.changesTypes() {
-			te := r.Types
-			te.Timestamp = r.Timestamp
-			c.TypeMod.Add(te)
+	for i := range g.animates {
+		r := &g.animates[i]
+		c := g.Card(r.Card)
+		if !r.changesTypes() || c.IsPhasedOut() || c.Zone == None {
+			continue
 		}
-	})
+		te := r.Types
+		te.Timestamp = r.Timestamp
+		c.TypeMod.Add(te)
+	}
 }
 
 // animateColors is applyAnimateEffects' Layer 5 half.
@@ -166,16 +173,26 @@ func animateColors(g *Game) {
 	}
 }
 
-// animateKeywords is applyAnimateEffects' Layer 6 half.
+// animateKeywords is applyAnimateEffects' Layer 6 half. Java writes the change
+// to the card object in whatever zone it is (Card.addChangedCardKeywords), and
+// a Perpetual record follows the card into every zone (Card.addPerpetual), so a
+// keyword change is read in hand, the graveyard and on the stack too
+// (Prismatic on the cast, Grave Choice, Takklemaggot losing Enchant); the
+// Layer 6 pass clears every off-battlefield card's KeywordMod first.
 func animateKeywords(g *Game) {
-	liveAnimates(g, func(c *Card, r *animateRecord) {
+	for i := range g.animates {
+		r := &g.animates[i]
+		c := g.Card(r.Card)
+		if c.IsPhasedOut() || c.Zone == None {
+			continue
+		}
 		if len(r.AddKeywords) > 0 || len(r.RemoveKeywords) > 0 || r.RemoveAllKW || len(r.CantHave) > 0 {
 			c.KeywordMod.Add(KeywordEffect{
 				Timestamp: r.Timestamp, AddKeywords: r.AddKeywords,
 				RemoveKeywords: r.RemoveKeywords, RemoveAll: r.RemoveAllKW, CantHave: r.CantHave,
 			})
 		}
-	})
+	}
 }
 
 // animateAbilities is applyAnimateEffects' Layer 6 trait half: each record's

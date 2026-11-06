@@ -184,6 +184,10 @@ type Ability struct {
 	// simply never read. Replaced, never written in place: a stack item
 	// copied by value (copySpell, Game.Clone) shares it.
 	divided []dividedShare
+	// firedDelayed is the delayed trigger line that fired this ability,
+	// nil for any other: its conditions are rechecked as it resolves
+	// (interveningIfHolds), as a card trigger's are off Ability.trigger.
+	firedDelayed *compile.Ability
 	// evolve is the creature that entered for a trigger naming Condition$
 	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
 	// ability resolves, against the creatures' values by then. NoCard for
@@ -195,6 +199,9 @@ type Ability struct {
 	// chains -- Java reads it off the root ability. Defined$
 	// DelayTriggerRemembered[LKI] reads it (defined.go).
 	TriggerRemembered []EntityID
+	// rememberedStamps are the delayed trigger's RememberedStamps
+	// (registerDelayedLeave), read by its ChangeZone body.
+	rememberedStamps map[CardID]uint64
 	// triggered is what the trigger that put this ability on the stack
 	// recorded about its event (SpellAbility.setTriggeringObject), carried
 	// onto every sub-ability it chains the way TriggerRemembered is: Java
@@ -209,6 +216,9 @@ type Ability struct {
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
+	// splicedFrom is, for a mode chooseSplices added, the card spliced onto
+	// the spell (splice.go); NoCard for a Charm mode.
+	splicedFrom CardID
 	// charmRoot is the Charm line a mode belongs to, nil elsewhere:
 	// SpellAbility.getRootAbility for a mode (askOf, staticability.go).
 	charmRoot *compile.Ability
@@ -359,6 +369,9 @@ type Ability struct {
 	// recheck is a Mode$ Always trigger's ResolvingCheck$ condition, tested
 	// again as it resolves (alwaystrigger.go); nil for every other ability.
 	recheck *compile.Ability
+	// eventChecked marks a trigger match whose event conditions were read
+	// against its triggering objects (eventConditionsHold, triggerevent.go).
+	eventChecked bool
 }
 
 // chainTarget is the targets chosen for one sub-ability of a chain
@@ -461,6 +474,9 @@ type abilityRefs struct {
 	// replaced is the card a Moved replacement's ReplaceWith$ ability is
 	// replacing the entry of (Defined$ ReplacedCard); NoCard otherwise.
 	replaced CardID
+	// replacedCards is a Cascade replacement's Cards (Defined$ ReplacedCards);
+	// nil otherwise.
+	replacedCards []CardID
 	// replacedPlayer and replacedDefendingPlayer are a DeclareBlocker
 	// replacement's Player and DefendingPlayer (Defined$ ReplacedPlayer,
 	// Defined$ ReplacedDefendingPlayer); NoPlayer otherwise.
@@ -471,7 +487,8 @@ type abilityRefs struct {
 	// Target from Affected; Defined$ ReplacedTarget); NoEntity otherwise.
 	replacedTarget EntityID
 	// replacedSource is that replacement's DamageSource (Defined$
-	// ReplacedSourceController); NoCard otherwise.
+	// ReplacedSourceController), or a Draw replacement's cause's host (Defined$
+	// ReplacedSource, ReplaceDraw.java:79-87); NoCard otherwise.
 	replacedSource CardID
 	// shieldTarget is Ability.shieldTarget (Defined$ ShieldEffectTarget).
 	shieldTarget EntityID
@@ -493,9 +510,9 @@ func (a *Ability) refs() abilityRefs {
 		choosing: a.choosing, hasChoosing: a.hasChoosing}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer
+		r.replacedCards, r.replacedSource = a.replacing.cards, a.replacing.source
 		if a.replacing.amountName == "DamageAmount" {
 			r.replacedTarget = a.replacing.affected
-			r.replacedSource = a.replacing.source
 		}
 	}
 	return r
@@ -728,6 +745,9 @@ type triggeredObjects struct {
 	// triggering object), read by Defined$ TriggeredFighter/
 	// TriggeredFighterLKICopy. NoCard when unset.
 	fighter CardID
+	// crew is AbilityKey.Crew of Mode$ BecomesCrewed, the creatures tapped
+	// to crew the host (Card.becomesCrewed), read by TriggeredCrew.
+	crew []CardID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the
@@ -860,6 +880,10 @@ type paidLists struct {
 	colors [5]int
 	// colorless is the colorless mana the activation spent (xAnnounced.colorless).
 	colorless int
+	// life is the life the cost paid, none when a replacement took the
+	// payment (SpellAbility.getAmountLifePaid, set by Player.payLife,
+	// Player.java:596): an AbilityCast trigger's LifeAmount.
+	life int
 }
 
 // voteCount is one option's vote total, the VoteNum<option> SVar of

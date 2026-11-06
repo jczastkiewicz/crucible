@@ -81,12 +81,11 @@ type State struct {
 type PlayerState struct {
 	Named bool // whether any line addressed this slot
 
-	Life                int
-	Counters            string
-	LandsPlayed         int
-	LandsPlayedLastTurn int
-	NumRingTemptedYou   int
-	Speed               int
+	Life              int
+	Counters          string
+	LandsPlayed       int
+	NumRingTemptedYou int
+	Speed             int
 	// Lost and Won are Player.Lost/Player.Won written down. Crucible-only,
 	// the same reason and for the same scenario-harness need as State.Over.
 	Lost bool
@@ -189,11 +188,11 @@ func Write(w io.Writer, s *State) error {
 		if p.LandsPlayed != 0 {
 			fmt.Fprintf(&b, "%slandsplayed=%d\n", name, p.LandsPlayed)
 		}
-		if p.LandsPlayedLastTurn != 0 {
-			fmt.Fprintf(&b, "%slandsplayedlastturn=%d\n", name, p.LandsPlayedLastTurn)
-		}
 		if p.NumRingTemptedYou != 0 {
 			fmt.Fprintf(&b, "%snumringtemptedyou=%d\n", name, p.NumRingTemptedYou)
+		}
+		if p.Speed != 0 {
+			fmt.Fprintf(&b, "%sspeed=%d\n", name, p.Speed)
 		}
 		if p.Lost {
 			fmt.Fprintf(&b, "%slost=true\n", name)
@@ -375,8 +374,6 @@ func (s *State) applyPlayer(slot int, key, value string) error {
 		p.PutOnStack = value
 	case strings.HasSuffix(key, "counters"):
 		p.Counters = value
-	case strings.HasSuffix(key, "landsplayedlastturn"):
-		return number(&p.LandsPlayedLastTurn)
 	case strings.HasSuffix(key, "landsplayed"):
 		return number(&p.LandsPlayed)
 	case strings.HasSuffix(key, "life"):

@@ -41,6 +41,7 @@ func TestLifeYouGainedThisTurnSumsGainsAndEndsAtCleanup(t *testing.T) {
 		t.Errorf("life gained this turn = %d, want 7", got)
 	}
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := meter(t, g, p, other, "Count$LifeYouGainedThisTurn"); got != 0 {
 		t.Errorf("life gained after cleanup = %d, want 0", got)
 	}
@@ -85,6 +86,7 @@ func TestThisTurnEnteredCountsZoneChangesAsLastKnown(t *testing.T) {
 
 	c := engine.NewScriptedController()
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := meter(t, g, p, other, "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"); got != 0 {
 		t.Errorf("entries after cleanup = %d, want 0", got)
 	}
@@ -202,8 +204,61 @@ func TestCountersAddedThisTurnSumsByTypePutterAndCard(t *testing.T) {
 		}
 	}
 	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := meter(t, g, p, other, "Count$CountersAddedThisTurn Any Player Creature"); got != 0 {
 		t.Errorf("counters after cleanup = %d, want 0", got)
+	}
+}
+
+// TestCountersReceivedThisTurnReadsTheCurrentObject proves the
+// countersReceivedThisTurn_<op><n>_<type>_<players> property through Kid
+// Loki's "each creature you control that you've put one or more +1/+1
+// counters on this turn has hexproof": the counters the matching players put
+// on the card's current object this turn, so an opponent's counter, a
+// counter of another type, a counter put on the object before it changed
+// zones and a counter from an earlier turn give no hexproof.
+func TestCountersReceivedThisTurnReadsTheCurrentObject(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	c := engine.NewScriptedController()
+	g.NewCard(corpusCard(t, "Kid Loki"), p, engine.Battlefield)
+	putter := func(kind string) engine.CardID {
+		return g.NewCard(copyTestDef(t, "Putter", "Creature Elf", "1", "1",
+			"A:AB$ PutCounter | Defined$ Self | CounterType$ "+kind+" | CounterNum$ 1"), p, engine.Battlefield)
+	}
+	mine := putter("P1P1")
+	lore := putter("LORE")
+	flickered := putter("P1P1")
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	gift := g.NewCard(copyTestDef(t, "Gifter", "Artifact", "", "",
+		"A:AB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1"), other, engine.Battlefield)
+	mustActivate(t, g, other, c, gift, theirs)
+	for _, id := range []engine.CardID{mine, lore, flickered} {
+		mustActivate(t, g, p, c, id)
+	}
+	g.Move(flickered, engine.Exile, p)
+	g.Move(flickered, engine.Battlefield, p)
+	sba(g)
+	for _, tc := range []struct {
+		name string
+		id   engine.CardID
+		want bool
+	}{
+		{"your +1/+1 counter", mine, true},
+		{"your LORE counter", lore, false},
+		{"a counter on the object before it was flickered", flickered, false},
+		{"an opponent's +1/+1 counter", theirs, false},
+	} {
+		if got := g.Card(tc.id).HasKeyword("Hexproof"); got != tc.want {
+			t.Errorf("%s: hexproof = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	advanceToCleanup(g, c)
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
+	sba(g)
+	if g.Card(mine).HasKeyword("Hexproof") {
+		t.Error("hexproof after cleanup cleared the turn's counters")
 	}
 }
 

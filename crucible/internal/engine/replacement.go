@@ -103,7 +103,7 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 		}
 	}
 	if movedCard.Def != nil {
-		for _, face := range movedCard.traitFaces() {
+		for _, face := range movedCard.liveTraitFaces() {
 			for _, r := range face.Replacements {
 				consider(movedCard, movedCard.Controller(), r, face.Amounts)
 			}
@@ -125,7 +125,7 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 			if w.Def == nil {
 				continue
 			}
-			for _, face := range w.traitFaces() {
+			for _, face := range w.liveTraitFaces() {
 				for _, r := range face.Replacements {
 					consider(w, w.Controller(), r, face.Amounts)
 				}
@@ -250,7 +250,10 @@ func onlyParamsOf(a *compile.Ability, keys ...string) bool {
 // ReplaceWith$ ability without the stack. controller answers any decision
 // that chain asks.
 func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType, CardID) {
-	dest, post := g.movedGraveyardDestination(id)
+	if g.resolvedFaceSpell(controller, id, false) {
+		return g.Card(id).Zone, NoCard
+	}
+	dest, post := g.movedGraveyardDestination(controller, id)
 	owner := g.Card(id).Owner
 	var melded CardID
 	if dest == Library && (post == nil || post.libPos == 0) {
@@ -279,6 +282,26 @@ func (g *Game) finishMoved(controller PlayerController, id CardID, owner PlayerI
 	}
 }
 
+// redirectMove runs the Moved replacements for a card a raw move (a draw, a
+// Return cost, Buyback) is about to put into dest, the hand or a library, and
+// makes the move a replacement asks for instead. It reports whether one did;
+// the caller makes its own move otherwise.
+func (g *Game) redirectMove(controller PlayerController, id CardID, dest ZoneType) bool {
+	to, post := g.movedDestination(controller, id, dest)
+	if post == nil {
+		return false
+	}
+	owner := g.Card(id).Owner
+	var melded CardID
+	if to == Library && post.libPos == 0 {
+		melded = g.MoveToLibraryTop(id, owner)
+	} else {
+		melded = g.Move(id, to, owner)
+	}
+	g.finishMoved(controller, id, owner, post, melded)
+	return true
+}
+
 // movedPost is what a Moved replacement's ReplaceWith$ ChangeZone adds to
 // the destination zone: where in the library the card goes, whether the
 // library is shuffled, and the ability chain that follows.
@@ -288,6 +311,9 @@ type movedPost struct {
 	host    *Card
 	amounts map[string]expr.Amount
 	chain   *compile.Ability
+	// rule is the Moved line that applied, for a caller that offers it as
+	// one candidate of a CR 616.1 choice (discardReplaced).
+	rule *compile.Ability
 	// exiledWith is the card an exiled card is marked as exiled with
 	// (ExiledWithEffectSource$), NoCard for none.
 	exiledWith CardID
@@ -323,15 +349,18 @@ func (g *Game) runMovedChain(controller PlayerController, post *movedPost) {
 // param is an unmodelled consequence, so the line is not applied and the
 // game's pending error is set (GO-7), never a half-replacement. The first
 // match wins, CR 616's simplification this file already makes.
-func (g *Game) movedGraveyardDestination(id CardID) (ZoneType, *movedPost) {
-	return g.movedDestination(id, Graveyard)
+func (g *Game) movedGraveyardDestination(controller PlayerController, id CardID) (ZoneType, *movedPost) {
+	return g.movedDestination(controller, id, Graveyard)
 }
 
 // movedDestination is movedGraveyardDestination for a card about to go to
 // dest: a line names its Destination$ (or, with an Origin$ and no Destination$,
 // every destination -- "if it would leave the battlefield") less its
-// ExcludeDestination$ zones (the LeaveBattlefield$ effect's own, Exile).
-func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost) {
+// ExcludeDestination$ zones (the LeaveBattlefield$ effect's own, Exile). An
+// Optional$ line (the Commander Effect's, ADR-0053) applies only when its
+// OptionalDecider$ confirms through controller; with a nil controller it does
+// not apply. Its override may send the card to the Command zone.
+func (g *Game) movedDestination(controller PlayerController, id CardID, dest ZoneType) (ZoneType, *movedPost) {
 	c := g.Card(id)
 	result := dest
 	var post *movedPost
@@ -339,6 +368,11 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 		_, hasDest := r.Param("Destination")
 		_, hasOrigin := r.Param("Origin")
 		if !hasDest && !hasOrigin {
+			return false
+		}
+		if _, found := r.Param("FoundSearchingLibrary"); found {
+			// Applies only to a card a library search found, a key this move
+			// does not carry (foundSearchReplaced runs those lines).
 			return false
 		}
 		if hasDest && !replacementZoneMatches(r, "Destination", dest) {
@@ -350,7 +384,7 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 		if !replacementZoneMatches(r, "Origin", c.Zone) {
 			return false
 		}
-		if !onlyParams(r, "destination", "origin", "validcard", "validlki", "excludedestination") {
+		if !onlyParams(r, "destination", "origin", "validcard", "validlki", "excludedestination", "optional", "optionaldecider", "commandermovereplacement") {
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: a param not resolvable yet", h.Def.Name))
 			return false
 		}
@@ -376,11 +410,14 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 		}
 		to, _ := sub.Param("Destination")
 		z, ok := ZoneByName(to)
-		if !ok || (z != Exile && z != Hand && z != Library) {
+		if !ok || (z != Exile && z != Hand && z != Library && z != Command) {
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Destination$ %q not resolvable yet", h.Def.Name, to))
 			return false
 		}
-		p := &movedPost{host: h, amounts: amounts}
+		if !g.confirmOptionalReplacement(controller, h.Controller(), replacementCandidate{host: h, rule: r}) {
+			return false
+		}
+		p := &movedPost{host: h, amounts: amounts, rule: r}
 		if pos, ok := sub.Param("LibraryPosition"); ok {
 			n, err := strconv.Atoi(pos)
 			if err != nil || (n != 0 && n != -1) || z != Library {
@@ -403,6 +440,11 @@ func (g *Game) movedDestination(id CardID, dest ZoneType) (ZoneType, *movedPost)
 				return false
 			}
 			p.exiledWith = h.effectLife.host
+		} else if z == Exile {
+			// ChangeZoneEffect exiles through handleExiledWith with the
+			// replacement's host as the source (SpellAbilityEffect.java:
+			// 1084-1112): Rest in Peace's exiled cards are exiled with it.
+			p.exiledWith = h.ID
 		}
 		for _, s := range sub.Subs {
 			if strings.EqualFold(s.Key, "SubAbility") {
@@ -623,7 +665,7 @@ func (g *Game) untapReplaceBlocked(card *Card, untapper PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if untapReplacementMatches(g, r, card, untapper, h.Controller(), host, z, face.Amounts) {
 							return true
@@ -702,6 +744,9 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int)
 	if g.keywordPreventsDamage(source, targetCard, isCombat) {
 		return true
 	}
+	if g.protectionPreventsDamage(source, targetCard.KeywordLines(), targetCard.Controller(), target) {
+		return true
+	}
 	toughness, hasToughness := targetCard.Toughness()
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
@@ -710,7 +755,7 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int)
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, toughness, hasToughness) {
 							continue
@@ -739,6 +784,9 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 	if g.keywordPreventsDamage(source, nil, isCombat) {
 		return true
 	}
+	if g.protectionPreventsDamage(source, g.Player(target).KeywordLines(), target, NoCard) {
+		return true
+	}
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {
@@ -746,7 +794,7 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, 0, false) {
 							continue
@@ -839,32 +887,15 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // observable against a corpus with no two such permanents combined on one
 // battlefield today.
 //
-// Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, only 27
-// are ever named by a literal top-level `R:Event$ DamageDone` line at all --
-// the same `face.Replacements` walk every other dispatch in this file uses,
-// the removed port log's own "`Event$ DamageDone`" section has the other 12's own
-// accounting (each blocked by an entirely different missing mechanism, not
-// by anything specific to this shape). 16 of those 27 resolve end to end
-// through this and replaceDamageEffect (replaceeffect.go): every real line naming
-// a plain integer Amount$, no SubAbility$ of its own and no DivideShield$ (a
-// shield's own remaining capacity split across more than one simultaneous
-// instance of damage in the same resolution, a fold this dispatch has no
-// state for) -- guardian_seraph.txt's/orbs_of_warding.txt's/the five
-// Sphere-of-*.txt's own real "prevent N of that damage" lines among them. 2
-// more of the 27 resolve their own card-target half only
-// (reidane_god_of_the_worthy_valkmira_protectors_shield.txt's/
-// plated_pegasus.txt's own `ValidTarget$ You,Permanent.YouCtrl`/
-// `Permanent,Player` -- valid.Parse's own comma-as-OR already matches the
-// `Permanent...` alternative through Matches below, but matchesPlayerSpec
-// (damageReplacedPlayer, below), unlike valid.Parse, does not split a
-// ValidTarget$ on comma, so "or dealt to you" itself never resolves -- a
-// general ValidTarget$ comma dispatch across both matchers is not built).
-// The remaining 9 name a named-SVar Amount$ this dispatch cannot resolve
-// (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, each its own further
-// mechanic -- a depleting shield counter, an X spent on the spell, mana
-// paid, ...), one (rock_hydra.txt's) also chaining its own `SubAbility$`
-// (the identical chained-target refusal `applyDrawReplacement` already
-// gives, GO-7).
+// A `DB$ ReplaceDamage` ReplaceWith$ prevents its Amount$ through
+// replaceDamageEffect (replaceeffect.go): a plain integer, a Number$ SVar (a
+// depleting shield the effect card spends, then exiles), or an amount read
+// off the damage (ReplaceCount$DamageAmount, or an SVar naming one: Rock
+// Hydra's SVar$NumDmg/LimitMax.Y). DivideShield$ is spent in dealing order
+// (replaceDamageEffect). A chained SubAbility$ resolves after the
+// head (runReplaceWithChain). ValidTarget$ is comma-OR on both halves:
+// valid.Parse for a card, matchesPlayerSpec for a player, so Reidane's and
+// Plated Pegasus's "you or a permanent you control" shield both.
 //
 // A second real ReplaceWith$ shape resolves here too now: `DB$ ReplaceEffect
 // | VarName$ DamageAmount | VarValue$ ...` (ReplaceEffect.java's own
@@ -1167,15 +1198,10 @@ func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Ca
 // (putcountereffect.go) outright -- RemoveCounter and PutCounter share the
 // identical param. CounterNum$ resolves through resolveReplaceCountAmount
 // (above, against "DamageAmount"), defaulting to 1 the identical way
-// putCounterEffect's own CounterNum$ already does. SubAbility$ refuses
-// outright, the identical chained-target refusal every other hand-run
-// dispatch in this file already gives (5 real lines, underdark_beholder.txt's
-// own "remove counters, then sacrifice if none left" among them).
-//
-// 26 of the corpus's own 31 real DamageDone lines naming DB$ RemoveCounter/
-// PutCounter resolve end to end, jared_carthalion_true_heir.txt's
-// CheckDefinedPlayer$ You.isMonarch among them (checkDefinedPlayerMatches,
-// amountrecords.go). The 5 chaining SubAbility$ above stay unresolved.
+// putCounterEffect's own CounterNum$ already does. A line chaining
+// SubAbility$ is left to damageReplacement's Registry path, which resolves
+// the whole chain (5 real lines, underdark_beholder.txt's own "remove
+// counters, then sacrifice if none left" among them).
 func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a *compile.Ability, amounts map[string]expr.Amount, amount int) bool {
 	remove := strings.EqualFold(a.Name, "RemoveCounter")
 	if !remove && !strings.EqualFold(a.Name, "PutCounter") {
@@ -1269,7 +1295,7 @@ func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a 
 // other 36 real Draw lines name ReplaceWith$ instead of Prevent$ -- a real
 // substitution (DrawTwo/Dig/ExileTop/...), no single shape anywhere near
 // Moved's own 618-line concentration, not resolved.
-func (g *Game) drawPrevented(player PlayerID) bool {
+func (g *Game) drawPrevented(controller PlayerController, player PlayerID) bool {
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {
@@ -1277,7 +1303,7 @@ func (g *Game) drawPrevented(player PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !drawPreventionMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1287,6 +1313,12 @@ func (g *Game) drawPrevented(player PlayerID) bool {
 							if !recognized || !matched {
 								continue
 							}
+						}
+						// Optional$ (Obstinate Familiar): the drawing player is
+						// asked first (ReplacementHandler.java:364-380); declined,
+						// the draw goes ahead.
+						if !g.confirmOptionalReplacement(controller, player, replacementCandidate{host: h, rule: r}) {
+							continue
 						}
 						return true
 					}
@@ -1314,7 +1346,7 @@ func drawPreventionMatches(g *Game, r *compile.Ability, host CardID, hostZone Zo
 	}
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
-		case "event", "prevent", "description", "validplayer", "activezones", "secondary",
+		case "event", "prevent", "description", "validplayer", "activezones", "secondary", "optional", "aichecksvar", "aisvarcompare",
 			"playerturn", "activephases", "checksvar", "svarcompare",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
 		default:
@@ -1348,7 +1380,7 @@ func (g *Game) gainLifePrevented(player PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !gainLifePreventionMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1520,13 +1552,25 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 					return
 				}
 			}
-			if notFirstCardInDrawStepExempts(g, r, player) {
+			if notFirstCardInDrawStepExempts(g, r, player) || !firstExtraCardDrawnMatches(g, r, player) {
+				return
+			}
+			if !drawCauseMatches(g, r, h, amounts) {
 				return
 			}
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
 				sub := replaceWithSub(r)
 				if sub == nil {
 					return replacementNotReplaced
+				}
+				// The substitute's own draws keep the replaced draw's cause
+				// (Player.doDraw unwraps a replacement ability's Cause,
+				// Player.java:1198-1201): a cycling draw Thought Reflection
+				// doubles is still a cycling draw for Unpredictable Cyclone.
+				// ReplacedSource is that cause's host (ReplaceDraw.java:79-87).
+				ev := &replacementEvent{result: replacementReplaced, player: player, cause: g.drawCause}
+				if g.drawCause != nil {
+					ev.source = g.drawCause.Source
 				}
 				if applyDrawReplacement(g, controller, h, sub, amounts) {
 					return replacementReplaced
@@ -1538,7 +1582,7 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 				// ReplacementHandler.executeReplacement plays it. An error stops
 				// the draw: the substitute could not run, so the card is not drawn
 				// as if nothing replaced it (GO-7).
-				if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: replacementReplaced, player: player}); err != nil {
+				if err := g.runReplacementChain(controller, h, amounts, sub, ev); err != nil {
 					g.recordPendingError(err)
 				}
 				return replacementReplaced
@@ -1568,12 +1612,29 @@ func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone Z
 		case "event", "replacewith", "description", "validplayer", "activezones", "secondary",
 			"playerturn", "activephases", "checksvar", "svarcompare", "hellbent",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined",
-			"notfirstcardindrawstep", "optional", "optionaldecider":
+			"notfirstcardindrawstep", "firstextracarddrawnthisturn", "optional", "optionaldecider", "validcause":
 		default:
 			return false
 		}
 	}
 	return hostInActiveZones(g.Card(host), r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// drawCauseMatches is ReplaceDraw.canReplace's ValidCause$ (ReplaceDraw.java:54):
+// the ability whose Draw effect is drawing (Game.drawCause) must match the
+// SpellAbility spec, its card properties read off its host (Unpredictable
+// Cyclone's Activated.Cycling+nonLand). A draw with no cause (the turn's draw)
+// matches no ValidCause$ (CardTraitBase.matchesValid(null) is false).
+func drawCauseMatches(g *Game, r *compile.Ability, h *Card, amounts map[string]expr.Amount) bool {
+	spec, ok := r.Param("ValidCause")
+	if !ok {
+		return true
+	}
+	if g.drawCause == nil {
+		return false
+	}
+	matched, recognized := g.spellAbilityMatches(g.drawCause, spec, h, h.Controller(), amounts)
+	return recognized && matched
 }
 
 // notFirstCardInDrawStepExempts is ReplaceDraw.canReplace's own
@@ -1590,6 +1651,24 @@ func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone Z
 // you draw a card" (ValidPlayer$ Opponent) both carry this param -- the
 // exemption is about player, the event's own affected player, regardless of
 // which ValidPlayer$ token routed the match here.
+// firstExtraCardDrawnMatches is ReplaceDraw.canReplace's
+// FirstExtraCardDrawnThisTurn$ (ReplaceDraw.java:66-69): the extra draws so
+// far this turn, read before this draw counts, must be exactly 1 during the
+// player's own draw step and 0 outside it. Reproduced as written (PORT-7):
+// in the player's own draw step a second draw with no extra draw before it
+// sees 0 and is not replaced, though the card says only the first draw of the
+// draw step is exempt (quirks.md, forge-java-defects.md).
+func firstExtraCardDrawnMatches(g *Game, r *compile.Ability, player PlayerID) bool {
+	if _, ok := r.Param("FirstExtraCardDrawnThisTurn"); !ok {
+		return true
+	}
+	want := 0
+	if g.activePhase == Draw && g.activePlayer == player {
+		want = 1
+	}
+	return g.Player(player).extraDrawnThisTurn == want
+}
+
 func notFirstCardInDrawStepExempts(g *Game, r *compile.Ability, player PlayerID) bool {
 	if v, ok := r.Param("NotFirstCardInDrawStep"); !ok || !strings.EqualFold(v, "True") {
 		return false
@@ -1605,7 +1684,7 @@ func notFirstCardInDrawStepExempts(g *Game, r *compile.Ability, player PlayerID)
 // putCounterEffect is called: both need a *Registry (effect.go) to chain a
 // SubAbility$ once their own body finishes, which drawReplaced's own caller
 // chain (DrawCards, turn.go) has no way to reach -- reusing the underlying
-// primitives (drawEvent/Card.Counters.Add) directly instead sidesteps
+// primitives (drawEvent/addCardCounters) directly instead sidesteps
 // that, at the cost of never chaining a SubAbility$ of its own, which is why
 // a is refused outright when it names one rather than run with the chained
 // half silently dropped (GO-7). Reports whether a recognized shape actually
@@ -1618,7 +1697,7 @@ func applyDrawReplacement(g *Game, controller PlayerController, host *Card, a *c
 	case strings.EqualFold(a.Name, "Draw"):
 		return applyDrawReplacementDraw(g, controller, host, a, amounts)
 	case strings.EqualFold(a.Name, "PutCounter"):
-		return applyDrawReplacementPutCounter(g, host, a, amounts)
+		return applyDrawReplacementPutCounter(g, controller, host, a, amounts)
 	}
 	return false
 }
@@ -1675,7 +1754,7 @@ func applyDrawReplacementDraw(g *Game, controller PlayerController, host *Card, 
 // definedCounterTargets (putcountereffect.go): no real corpus line combines
 // this shape with a player-facing Defined$ value, and "Self" needs no
 // controller or target list to resolve at all.
-func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amounts map[string]expr.Amount) bool {
+func applyDrawReplacementPutCounter(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount) bool {
 	defined, ok := a.Param("Defined")
 	if !ok || !strings.EqualFold(defined, "Self") {
 		return false
@@ -1692,8 +1771,11 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 	if !ok {
 		return false
 	}
-	host.Counters.Add(counterType, amount)
-	emitCounterChanged(g, host.ID, CardEntity(host.ID), counterType, amount)
+	// PutCounterEffect's own placement: the host's controller puts them,
+	// through the AddCounter replacements and triggers.
+	if n := g.countersReplaced(controller, host.Controller(), CardEntity(host.ID), counterType, amount); n > 0 {
+		g.addCardCounters(controller, host.Controller(), host.ID, host.ID, counterType, n)
+	}
 	return true
 }
 
@@ -1950,20 +2032,19 @@ func resolveGainLifeReplacementAmount(g *Game, amounts map[string]expr.Amount, h
 // (replaceeffect.go) -- the code the Registry dispatches to, run on the
 // spot with ev as its replacing object, which is how ReplacementHandler
 // runs a ReplaceWith$ ability. Reports whether it ran and changed the
-// event. A chained SubAbility$ is refused, since ReplacementHandler buffers
-// that chain to run after the event, a step this port does not model; so
-// is any param the effect itself rejects. Either way the line is skipped,
+// event. A chained SubAbility$ resolves once the head has changed the event
+// (runReplaceWithChain). A param the effect itself rejects skips the line,
 // never half applied (GO-7), and ev is left as it was.
 func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) bool {
 	api, ok := APIByName(sub.Name)
 	if !ok {
 		return false
 	}
+	if api == APIGenericChoice {
+		return g.runReplaceWithChoice(controller, h, amounts, sub, ev)
+	}
 	eff, ok := replaceEffectFor(api)
 	if !ok {
-		return false
-	}
-	if _, chained := sub.Param("SubAbility"); chained {
 		return false
 	}
 	a := Ability{API: api, Source: h.ID, Controller: h.Controller(), Params: sub, Amounts: amounts, replacing: ev}
@@ -1972,7 +2053,70 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 		*ev = saved
 		return false
 	}
-	return ev.result != replacementNotReplaced
+	if ev.result == replacementNotReplaced {
+		return false
+	}
+	for _, chain := range sub.Subs {
+		if strings.EqualFold(chain.Key, "SubAbility") {
+			g.runReplaceWithChain(controller, h, amounts, chain.Ability, saved, *ev)
+			break
+		}
+	}
+	return true
+}
+
+// runReplaceWithChain resolves chain, the SubAbility$ a Replace* ReplaceWith$
+// head names (Forcefield's and Aegis of Honor's exile of their own effect,
+// Rock Hydra's counter removal, Melira's reflexive trigger), once the head
+// has changed the event: ReplacementHandler.executeReplacement resolves the
+// whole ability at once (AbilityUtils.resolve, AbilityUtils.java:1302-1330).
+// Its replacing object is the event before the head, except for damage: Java
+// buffers a DamageDone chain and resolves it with DamageAmount set to the
+// damage prevented (ReplacementHandler.java:600-668, :649), so Rock Hydra
+// removes one counter per point it prevented. The chain resolves here, not
+// after every prevention choice (quirks.md). A chain that fails records a
+// pending error (GO-7); the head's change stands.
+func (g *Game) runReplaceWithChain(controller PlayerController, h *Card, amounts map[string]expr.Amount, chain *compile.Ability, before, after replacementEvent) {
+	ev := before
+	if before.amountName == "DamageAmount" {
+		ev.amount = max(before.amount-after.amount, 0)
+	}
+	ev.result = after.result
+	if err := g.runReplacementChain(controller, h, replaceCountAmounts(g, amounts, h, chain, &ev), chain, &ev); err != nil {
+		g.recordPendingError(err)
+	}
+}
+
+// runReplaceWithChoice is a ReplaceWith$ GenericChoice (Jinnie Fay): the
+// host's controller picks one of its Choices$ abilities
+// (ChooseGenericEffect.java, Defined$ You by default), which then runs as
+// the ReplaceWith$ itself, on the same replacing objects (a choice's
+// ReplaceToken reads the root's, ReplaceTokenEffect.java:38-41). A line
+// naming anything else of GenericChoice's is skipped, as runReplaceWith skips
+// what it cannot run.
+func (g *Game) runReplaceWithChoice(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) bool {
+	for _, p := range sub.Params {
+		switch strings.ToLower(p.Key) {
+		case "db", "choices", "spelldescription", "stackdescription":
+		default:
+			return false
+		}
+	}
+	choices := additionalAbilities(sub, "Choices")
+	if len(choices) == 0 || controller == nil {
+		return false
+	}
+	names := make([]string, len(choices))
+	all := make([]int, len(choices))
+	for i, c := range choices {
+		names[i], all[i] = c.SVar, i
+	}
+	picked := controller.ChooseAbilitiesForEffect(g, h.Controller(), h.ID, names, 1)
+	if err := checkChoice(picked, all, 1, 1); err != nil {
+		g.recordPendingError(fmt.Errorf("engine: %q: ReplaceWith$ GenericChoice: %w", h.Def.Name, err))
+		return false
+	}
+	return g.runReplaceWith(controller, h, amounts, choices[picked[0]].Ability, ev)
 }
 
 // runReplaceWithEffect resolves sub, a replacement's ReplaceWith$ ability,
@@ -1987,9 +2131,7 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 // ev.result to learn whether their event changed, and an ordinary DB$ API
 // leaves it at replacementNotReplaced, so routing one through there would
 // run the ability and then let the event happen anyway. A chained
-// SubAbility$ is refused, runReplaceWith's own reason: ReplacementHandler
-// buffers that chain to run after the event, a step this port does not
-// model.
+// SubAbility$ is refused (GO-7).
 func (g *Game) runReplaceWithEffect(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) error {
 	name := h.Def.Name
 	api, ok := APIByName(sub.Name)
@@ -2135,17 +2277,29 @@ func onlyParams(r *compile.Ability, keys ...string) bool {
 // kind ct that placer's effect is about to put on object. Returns how many
 // to put instead -- n when nothing applies. Checks ValidCard$ (a card
 // receiving), ValidPlayer$ (a player receiving), ValidObject$ (either),
-// ValidCounterType$, ValidSource$ (placer) and EffectOnly$ (every caller is
-// an effect). ValidCause$ skips the line: this port does not track what
+// ValidCounterType$, ValidSource$ (placer) and EffectOnly$ (the caller is an
+// effect). ValidCause$ skips the line: this port does not track what
 // caused a placement. A Mode$ CantPutCounter static naming the object and
 // kind (cantPutCounter, staticability.go) puts none at all, before any
 // replacement is asked: Card.canReceiveCounters.
 func (g *Game) countersReplaced(controller PlayerController, placer PlayerID, object EntityID, ct CounterType, n int) int {
+	return g.countersReplacedBy(controller, placer, object, ct, n, true)
+}
+
+// countersReplacedBy is countersReplaced with effect saying whether an effect
+// puts the counters (AbilityKey.EffectOnly, GameEntityCounterTable.java:127):
+// an activation cost's AddCounter part does not, so an EffectOnly$ line
+// (Doubling Season, Selesnya Loft Gardens) leaves a planeswalker's loyalty
+// cost alone (ReplaceAddCounter.java:30-35).
+func (g *Game) countersReplacedBy(controller PlayerController, placer PlayerID, object EntityID, ct CounterType, n int, effect bool) int {
 	if g.cantPutCounter(object, ct) {
 		return 0
 	}
 	g.eachReplacement("AddCounter", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		if !onlyParams(r, "validcard", "validplayer", "validobject", "validcountertype", "validsource", "effectonly") {
+			return false
+		}
+		if _, ok := r.Param("EffectOnly"); ok && !effect {
 			return false
 		}
 		if !replacementObjectMatches(g, r, h, object) {
@@ -2167,7 +2321,7 @@ func (g *Game) countersReplaced(controller PlayerController, placer PlayerID, ob
 		if sub == nil {
 			return false
 		}
-		ev := replacementEvent{amountName: "CounterNum", amount: n, counterType: ct, affected: object}
+		ev := replacementEvent{amountName: "CounterNum", amount: n, counterType: ct, affected: object, placer: placer}
 		if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
 			return false
 		}
@@ -2209,52 +2363,6 @@ func replacementObjectMatches(g *Game, r *compile.Ability, h *Card, object Entit
 		}
 	}
 	return true
-}
-
-// tokensReplaced is ReplaceToken (Event$ CreateToken): n tokens from def
-// that owner is about to create. Returns how many to create instead.
-// ValidToken$ is matched against the token as it would enter -- def,
-// owned and controlled by owner, not yet in any zone (Java matches the
-// prototype in its TokenCreateTable the same way). ValidPlayer$ is the
-// creating player. Optional$ and Layer$ skip the line: the one asks a
-// question this dispatch has no hook for, the other names a copy or
-// control replacement, not an amount.
-func (g *Game) tokensReplaced(controller PlayerController, owner PlayerID, def *compile.Card, n int) int {
-	// proto has no arena slot: ID is the NoCard zero value. Matches must
-	// only read fields off the pointer for this call, never look the card
-	// up by ID (g.Card(proto.ID) panics on NoCard). Every real ValidToken$
-	// line in the corpus is a plain type/owner/control check, so this holds
-	// today; a property that dereferences by ID would need proto allocated
-	// through NewCard instead.
-	proto := Card{Def: def, Owner: owner, controller: owner, IsToken: true, Zone: None}
-	g.eachReplacement("CreateToken", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
-		if !onlyParams(r, "validtoken", "validplayer", "effectonly") {
-			return false
-		}
-		if v, ok := r.Param("ValidToken"); ok && !Matches(g, &proto, valid.Parse(v), h.Controller(), h.ID) {
-			return false
-		}
-		if v, ok := r.Param("ValidPlayer"); ok {
-			matched, recognized := matchesPlayerSpec(g, owner, h.Controller(), h.ID, v)
-			if !recognized || !matched {
-				return false
-			}
-		}
-		if !replacementRequirementsCheck(g, h, amounts, r) {
-			return false
-		}
-		sub := replaceWithSub(r)
-		if sub == nil {
-			return false
-		}
-		ev := replacementEvent{amountName: "TokenNum", amount: n}
-		if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
-			return false
-		}
-		n = ev.amount
-		return true
-	})
-	return n
 }
 
 // manaReplaced is ReplaceProduceMana (Event$ ProduceMana): m is the mana

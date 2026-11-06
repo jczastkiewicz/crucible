@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -41,6 +42,9 @@ type castOption struct {
 	sacAtCleanup bool
 	// limits are the MayPlayLimit$ counters a cast by this option uses up.
 	limits []mayPlayLimitKey
+	// grantor is the MayPlay$ static's host for a grant's option
+	// (SpellAbility.getMayPlay().getHostCard()), NoCard otherwise.
+	grantor CardID
 	// sneak is the Sneak alternative cost (sneak.go): alt is its mana, an
 	// unblocked attacker returns to hand, and the spell has instant speed.
 	sneak bool
@@ -50,17 +54,26 @@ type castOption struct {
 	// its mana, and a permanent of this valid type is sacrificed, its mana
 	// value off the generic part.
 	emerge string
-	// altStatic is the card's own Mode$ AlternativeCost static (altcost.go):
-	// alt is its cost's mana (or {0}), altExtra, when hasAltExtra, the rest
-	// of it, and the cast records OptionalCost.AltCost. altText is the
-	// static's Cost$, the label's.
+	// altStatic is a Mode$ AlternativeCost static (altcost.go): alt is its
+	// cost's mana (or {0}), altExtra, when hasAltExtra, the rest of it.
+	// altOwn says the static is the spell's own, and only then does the cast
+	// record OptionalCost.AltCost. altText is the static's Cost$, the label's.
 	altStatic   bool
+	altOwn      bool
 	altExtra    unlessCost
 	hasAltExtra bool
 	altText     string
-	// altKeyword is "Surge" or "Freerunning" for those keyword casts
-	// (altkeywords.go): alt is the keyword's cost.
+	// altWaterbend is the grant's Waterbend<N> (grantAltExtra): N of alt's
+	// generic the caster may pay by tapping artifacts and creatures.
+	altWaterbend int
+	// altKeyword is "Surge", "Freerunning", "Dash" or "Blitz" for those
+	// keyword casts (altkeywords.go): alt is the keyword's mana, altExtra
+	// (when hasAltExtra) the rest of a Blitz cost.
 	altKeyword string
+	// faceDown is the face-down cast of a Morph, Megamorph or Disguise card
+	// (morph.go): alt is the {3}; faceDownWard gives the face-down spell ward
+	// {2} (Disguise).
+	faceDown, faceDownWard bool
 }
 
 // sameWay reports whether two options differ only in flash and limits, which
@@ -68,7 +81,8 @@ type castOption struct {
 func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
-		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altText == p.altText && o.altKeyword == p.altKeyword
+		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altOwn == p.altOwn && o.altText == p.altText && o.altKeyword == p.altKeyword &&
+		o.hasAltExtra == p.hasAltExtra && o.altWaterbend == p.altWaterbend && o.faceDown == p.faceDown && o.faceDownWard == p.faceDownWard
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -85,10 +99,30 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		if gr.Limit > 0 && g.mayPlayUsedThisTurn(gr.LimitKey) >= gr.Limit {
 			continue
 		}
+		if gr.ValidSA != "" {
+			// The grant allows only that keyword's cast (SpellAbility.
+			// getMayPlaySpellOptions keeps the spells ValidSA$ matches).
+			o, ok := g.validSAOption(pid, c, gr)
+			if !ok {
+				continue
+			}
+			zonePermission = zonePermission || gr.ZonePermission
+			grants = append(grants, o)
+			continue
+		}
 		zonePermission = zonePermission || gr.ZonePermission
 		o := castOption{withoutMana: gr.WithoutManaCost, hasAlt: gr.HasAltCost, alt: gr.AltCost, anyType: gr.AnyType, flash: gr.WithFlash,
 			anyColor: gr.AnyColor && !gr.AnyType, snowAnyColor: gr.SnowAnyColor, raise: gr.RaiseText,
-			replaceExile: gr.ReplaceExile}
+			replaceExile: gr.ReplaceExile, grantor: gr.LimitKey.Host}
+		o.altExtra, o.hasAltExtra, o.altWaterbend = grantAltExtra(gr.AltText)
+		if o.hasAltExtra && !g.unlessPayable(pid, card, o.altExtra) {
+			continue
+		}
+		if o.hasAltExtra || o.altWaterbend > 0 {
+			// The whole cost names the option, and tells it from a mana-only
+			// grant of the same mana (As Foretold's {0} beside Citadel's).
+			o.altText = gr.AltText
+		}
 		if gr.Limit > 0 {
 			o.limits = []mayPlayLimitKey{gr.LimitKey}
 		}
@@ -135,10 +169,15 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		if o, ok := g.emergeOption(pid, c); ok {
 			out = append(out, o)
 		}
-		// The card's own Mode$ AlternativeCost statics (altcost.go).
+		// Mode$ AlternativeCost statics, the card's own and other hosts'
+		// (altcost.go).
 		out = append(out, g.altCostOptions(pid, c)...)
 		out = append(out, g.altKeywordOptions(pid, c)...)
+		if o, ok := faceDownCastOption(c); ok {
+			out = append(out, o)
+		}
 	}
+	grants = append(grants, g.altCostThroughGrants(pid, c, grants)...)
 	for _, o := range grants {
 		merged := false
 		for i := range out {
@@ -161,6 +200,84 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 	return out
 }
 
+// validSAOption is the cast gr allows when its ValidSA$ names a keyword: that
+// keyword's own cast of c, the grant's host as its grantor. A Warp spell is
+// restricted to the hand, so a grant reaches it only from the card's own
+// static (GameActionUtil.java:352, Timeline Culler). ok is false when c has no
+// such cast now, or when the grant also changes the cost (no corpus line).
+func (g *Game) validSAOption(pid PlayerID, c *Card, gr mayPlayGrant) (castOption, bool) {
+	if gr.WithoutManaCost || gr.HasAltCost || gr.RaiseText != "" {
+		return castOption{}, false
+	}
+	var o castOption
+	var ok bool
+	switch gr.ValidSA {
+	case "Mutate":
+		o, ok = g.mutateOption(pid, c)
+	case "Sneak":
+		var mc mana.Cost
+		if mc, ok = g.sneakAvailable(pid, c); ok {
+			o = castOption{hasAlt: true, alt: mc, flash: true, sneak: true}
+		}
+	case "Warp":
+		if gr.LimitKey.Host == c.ID {
+			o, ok = g.keywordCastOption(pid, c, "Warp")
+		}
+	case "Bestow":
+		if c.Type().Has(cardtype.Creature) {
+			o, ok = g.keywordCastOption(pid, c, "Bestow")
+		}
+	default:
+		o, ok = g.keywordCastOption(pid, c, gr.ValidSA)
+	}
+	if !ok {
+		return castOption{}, false
+	}
+	o.grantor, o.flash = gr.LimitKey.Host, o.flash || gr.WithFlash
+	if gr.Limit > 0 {
+		o.limits = []mayPlayLimitKey{gr.LimitKey}
+	}
+	return o, true
+}
+
+// altCostThroughGrants is GameActionUtil.getAlternativeCosts' second step
+// (:117-121): each Mode$ AlternativeCost spell is offered again through every
+// MayPlay option of c (getMayPlaySpellOptions), so another card's line reaches a
+// cast from exile, the library or the Command zone too. The alternative is no
+// longer a basic spell, so a without-mana-cost option skips it (:347-350); an
+// option with its own alternative mana cost replaces the line's mana again
+// (copyWithManaCostReplaced, :361-363), the line's other parts kept: a
+// Borderpost's "{1} and return a basic land" through a {R} grant costs {R}
+// and the land.
+func (g *Game) altCostThroughGrants(pid PlayerID, c *Card, grants []castOption) []castOption {
+	if len(grants) == 0 {
+		return nil
+	}
+	var out []castOption
+	for _, alt := range g.altCostOptions(pid, c) {
+		for _, o := range grants {
+			// A grant's own part past its mana (Bolas's Citadel's life) would
+			// join the line's other parts in Java's copyWithManaCostReplaced;
+			// one unlessCost holds one set of parts, so that pair is not
+			// offered rather than undercharged (game-state.md).
+			if o.withoutMana || o.sacAtCleanup || o.hasAltExtra {
+				continue
+			}
+			combined := alt
+			if o.hasAlt {
+				// A grant's Waterbend is mana too, so it replaces the line's.
+				combined.alt, combined.altWaterbend = o.alt, o.altWaterbend
+				combined.altText = alt.altText + " with its mana replaced by " + o.alt.String()
+			}
+			combined.flash, combined.limits, combined.grantor = o.flash, o.limits, o.grantor
+			combined.anyType, combined.anyColor, combined.snowAnyColor = o.anyType, o.anyColor, o.snowAnyColor
+			combined.raise, combined.replaceExile = o.raise, o.replaceExile
+			out = append(out, combined)
+		}
+	}
+	return out
+}
+
 // describe is the option's label, what ChooseOption shows.
 func (o castOption) describe(name string) string {
 	base := "Cast " + name
@@ -177,8 +294,12 @@ func (o castOption) describe(name string) string {
 		return "Cast " + name + " for its " + strings.ToLower(o.altKeyword) + " cost " + o.alt.String()
 	case o.altStatic:
 		return "Cast " + name + " for its alternative cost " + o.altText
+	case o.faceDown:
+		return "Cast " + name + " face down for " + o.alt.String()
 	case o.withoutMana:
 		base = "Cast " + name + " without paying its mana cost"
+	case o.hasAlt && o.altText != "":
+		base = "Cast " + name + " for " + o.altText
 	case o.hasAlt:
 		base = "Cast " + name + " for " + o.alt.String()
 	case o.anyType:

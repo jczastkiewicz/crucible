@@ -1,0 +1,10 @@
+# Break the Ice: Land.canProduceManaColor Colorless (CardProperty.java:804-811)
+# matches ai's Wastes through its {C} mana ability, so the cast has a legal
+# target and destroys it. L2: same as Java.
+startturn human
+advance 3
+queue targets 54
+tapformana human 100 B
+tapformana human 101 B
+castspell human 1
+resolvestack

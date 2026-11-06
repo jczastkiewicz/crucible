@@ -67,12 +67,10 @@ func (untapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			if !c.Tapped || !Matches(g, c, spec, a.Controller, a.Source) {
 				continue
 			}
-			g.runUntapCommands(controller, cid)
-			c.Tapped = false
+			g.untapCard(controller, cid)
 			if remUntapped {
 				source.Memory.Remember(CardEntity(cid))
 			}
-			g.checkUntapsTriggers(controller, cid)
 		}
 	}
 	return nil

@@ -23,6 +23,8 @@ This repo is a fork of [Card-Forge/forge](https://github.com/Card-Forge/forge). 
 | 3   | [adr/README.md](adr/README.md)                                                 | The 14 accepted decisions, indexed                                            |
 | 4   | [design/](design/)                                                             | How those decisions compose: engine, card compilation, concurrency, telemetry |
 
+[KONTEXT.md](KONTEXT.md) is the session handoff: where the open-plan loop stands and what waits on the owner.
+
 `/CLAUDE.md` at the repo root is the entry point for Claude Code and points at the same rules.
 
 ---

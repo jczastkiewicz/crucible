@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=22
+humanbattlefield=Scheming Aspirant|Id:1;Island|Id:2|Tapped;Island|Id:3|Tapped;Island|Id:4|Tapped
+humanhand=Island
+humangraveyard=Steady Progress
+ailife=18

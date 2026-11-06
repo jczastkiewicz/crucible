@@ -96,9 +96,10 @@ type Op struct {
 	Numeric bool
 	// Expr is Operand read as an amount expression when it is one
 	// (`Minus.Remembered$Amount`, Aclazotz): doXMath's calculateAmount
-	// fallback evaluates a raw `Head$Body` operand. Nil for a number, an SVar
-	// name, and an operand holding a `.`, which Java's `s.length == 2` test
-	// never parses at all (its operand reads 0).
+	// fallback evaluates a raw `Head$Body` operand, `.`s and all: doXMath
+	// splits the operator at its first `.` only (`split("\\.", 2)`), so
+	// Hollow Marauder's `Minus.Remembered$Valid Card.cmcGE4` subtracts the
+	// count. Nil for a number and an SVar name.
 	Expr *Amount
 }
 
@@ -178,7 +179,7 @@ func cutOperator(body string) (string, *Op) {
 	op := &Op{Name: name, Operand: operand}
 	if n, err := strconv.Atoi(operand); err == nil {
 		op.Value, op.Numeric = n, true
-	} else if strings.Index(operand, "$") > 0 && !strings.Contains(operand, ".") {
+	} else if strings.Index(operand, "$") > 0 {
 		inner := Parse(operand)
 		op.Expr = &inner
 	}

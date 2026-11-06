@@ -5,7 +5,7 @@
 startturn human
 # Upkeep first: a queued action is spent on the first priority round that
 # asks its player, so queue only once Main1 is next (turn 1 skips the draw
-# step, CR 103.7a).
+# step, CR 103.8a).
 step
 queue targets ai
 queue action human playland 1

@@ -176,3 +176,69 @@ func TestPassPriorityErrorsOnMultiColorTapForMana(t *testing.T) {
 		t.Fatalf("PassPriority: runtime error %v, want a controller error", err)
 	}
 }
+
+// cleanupAskRecorder passes priority like its ScriptedController, counting
+// the times anyone is asked to act during a Cleanup step.
+type cleanupAskRecorder struct {
+	*engine.ScriptedController
+	asked int
+}
+
+func (r *cleanupAskRecorder) TakeAction(g *engine.Game, pid engine.PlayerID) engine.Action {
+	if g.ActivePhase() == engine.Cleanup {
+		r.asked++
+	}
+	return r.ScriptedController.TakeAction(g, pid)
+}
+
+// TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup is CR 514.3 after an
+// EndTurn spell (Time Stop's shape): its resolution hands nobody priority
+// (MagicStack.java:757-759 skips onStackResolved for EndTurn), and the
+// Cleanup it began found nothing to do, so nobody is asked to act in it.
+func TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	spell := g.NewCard(scriptDef(t, "Test Time Stop", "Instant", "A:SP$ EndTurn"), p, engine.Hand)
+	r := &cleanupAskRecorder{ScriptedController: engine.NewScriptedController()}
+	if !g.CastSpell(p, spell, r) {
+		t.Fatal("CastSpell = false, want true")
+	}
+	if err := g.PassPriority(engine.NewRegistry(), r); err != nil {
+		t.Fatalf("PassPriority: %v", err)
+	}
+	if got := g.ActivePhase(); got != engine.Cleanup {
+		t.Fatalf("phase = %v, want Cleanup", got)
+	}
+	if r.asked != 0 {
+		t.Errorf("players asked to act in Cleanup = %d, want 0 (CR 514.3)", r.asked)
+	}
+}
+
+// TestDeclinedEndTurnKeepsThePriorityRoundGoing is the other half: an
+// Optional$ EndTurn its player declines ended nothing, so priority goes on as
+// after any resolution and the spell under it still resolves.
+func TestDeclinedEndTurnKeepsThePriorityRoundGoing(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	gain := g.NewCard(scriptDef(t, "Test Gain", "Instant", "A:SP$ GainLife | Defined$ You | LifeAmount$ 3"), p, engine.Hand)
+	stop := g.NewCard(scriptDef(t, "Test Maybe Stop", "Instant", "A:SP$ EndTurn | Optional$ True"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueConfirmEffect(false)
+	if !g.CastSpell(p, gain, c) || !g.CastSpell(p, stop, c) {
+		t.Fatal("CastSpell = false, want both on the stack")
+	}
+	before := g.Player(p).Life
+	if err := g.PassPriority(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("PassPriority: %v", err)
+	}
+	if got := g.ActivePhase(); got != engine.Main1 {
+		t.Errorf("phase = %v, want Main1: the turn was not ended", got)
+	}
+	if g.StackLen() != 0 || g.Player(p).Life != before+3 {
+		t.Errorf("stack %d, life %d; want 0 and %d: the GainLife under it resolved", g.StackLen(), g.Player(p).Life, before+3)
+	}
+}

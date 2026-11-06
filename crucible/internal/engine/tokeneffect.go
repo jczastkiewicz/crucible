@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability action animate card condition control defined effecthelpers game id parts player token valid zone changecombatantseffect ateot
+//enginelint:allow ability action animate card condition control defined effecthelpers game id parts player token valid zone changecombatantseffect ateot tokentable
 
 import (
 	"fmt"
@@ -83,7 +83,12 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		return err
 	}
 
-	var specs []tokenSpec
+	// TokenEffectBase.makeTokenTable: the table of what each owner makes, then
+	// the CreateToken replacements over it, then one token per count of each
+	// cell. TokenPower$/TokenToughness$ belong to the prototypes this effect
+	// names; TokenTapped$ and the enter-with counters to every cell, a
+	// replacement's included (TokenEffectBase.java:128-146).
+	var table tokenTable
 	for _, owner := range owners {
 		if g.Player(owner).Lost {
 			continue
@@ -95,10 +100,23 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 			}
 			spec := base
 			spec.Def, spec.Owner = def, owner
-			n := g.tokensReplaced(controller, owner, def, amount)
-			for i := 0; i < n; i++ {
-				specs = append(specs, spec)
-			}
+			table.put(tokenCell{creator: owner, spec: spec, n: amount, original: true})
+		}
+	}
+	g.tokensReplaced(controller, &table)
+	type madeSpec struct {
+		spec     tokenSpec
+		original bool
+	}
+	var specs []madeSpec
+	for _, cell := range table.cells {
+		spec := cell.spec
+		spec.Owner = cell.creator
+		if !cell.original {
+			spec.Tapped, spec.P1P1 = base.Tapped, base.P1P1
+		}
+		for i := 0; i < cell.n; i++ {
+			specs = append(specs, madeSpec{spec: spec, original: cell.original})
 		}
 	}
 	attachTo, attachPlayer := NoCard, NoPlayer
@@ -110,7 +128,8 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		}
 	}
 	var created []CardID
-	for _, spec := range specs {
+	for _, made := range specs {
+		spec := made.spec
 		// CR 303.4i: an Aura token that cannot be attached to its host is not
 		// created (TokenEffectBase.java:136).
 		if hasAttach && attachTo != NoCard && !tokenCanAttach(g, a, spec, attachTo) && isAuraDef(spec.Def) {
@@ -132,7 +151,7 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if hasAttach && attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) && g.Card(id).Zone == Battlefield {
 			g.attachToPlayer(controller, id, attachPlayer)
 		}
-		if chosen != nil {
+		if chosen != nil && made.original {
 			g.timestamp++
 			rec := *chosen
 			rec.Card, rec.Timestamp = id, g.timestamp
@@ -153,10 +172,10 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
 			return fmt.Errorf("engine: Token: %w", err)
 		}
-		// RememberOriginalTokens$ keeps the tokens of the scripts the effect
-		// named, not ones a replacement swapped in; a CreateToken replacement
-		// here only changes the count of the same script (quirks.md).
-		if hasParam(a, "RememberTokens") || hasParam(a, "RememberOriginalTokens") {
+		// RememberOriginalTokens$ keeps only the tokens of the prototypes the
+		// effect named, not ones a replacement put in (TokenEffectBase.java:
+		// 199-202).
+		if hasParam(a, "RememberTokens") || hasParam(a, "RememberOriginalTokens") && made.original {
 			source.Memory.Remember(CardEntity(id))
 		}
 		if hasParam(a, "ImprintTokens") {

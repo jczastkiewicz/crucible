@@ -62,7 +62,15 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		if count.Argument != "" {
 			spec += " " + count.Argument // a valid string with a space in it (ControlledBy Player.Active)
 		}
-		return g.thisTurnCastCount(source, spec)
+		// A "$<def>" after the valid string is handlePaid over the matches
+		// (AbilityUtils.java:1600, :2775-2781, :2870-2871): Call Forth the
+		// Tempest's $CardManaCost sums their mana values.
+		spec, def, paid := strings.Cut(spec, "$")
+		cards, ok := g.thisTurnCastCards(source, spec)
+		if !ok || !paid {
+			return len(cards), ok
+		}
+		return handlePaid(g, nil, g.Card(source).Controller(), source, cards, def, nil, 0)
 	}
 	if spec, ok := strings.CutPrefix(count.Head, "CastSinceBeginningOfYourLastTurn_"); ok {
 		// ParseCount cuts the head at the first `.`; the valid string is the
@@ -158,6 +166,15 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		c := g.Card(source)
+		if c.Zone != Battlefield && c.Counters.Total() == 0 {
+			// A host that left the battlefield since (Engineered Explosives
+			// sacrificed as its own cost): Java's ability keeps the moved-
+			// from Card object, counters and all (GameAction.changeZone
+			// builds a new one for the destination), so the count is the
+			// last-known one. A card given counters where it is now (a
+			// suspended card's time counters in exile) reads them live.
+			c = g.lkiOrLive(source)
+		}
 		if count.Parameters[0] == "ALL" {
 			return c.Counters.Total(), true
 		}
@@ -486,13 +503,17 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	case "LifeYouLostThisTurn":
 		return g.Player(sourceController).LifeLostThisTurn, true
 	case "YourStartingLife":
-		return startingLife, true
+		return g.Player(sourceController).StartingLife, true
 	case "YourSpeed":
 		return g.Player(sourceController).Speed, true
-	case "TotalCommanderCastFromCommandZone", "CommanderCastFromCommandZone":
-		// AbilityUtils.java:2363-2369: the controller's commander casts from
-		// the Command zone, in total or of the host (Opal Palace).
-		return g.commanderCasts(), true
+	case "TotalCommanderCastFromCommandZone":
+		// AbilityUtils.java:2351-2353: the controller's commander casts from
+		// the Command zone, in total.
+		return g.totalCommanderCasts(sourceController), true
+	case "CommanderCastFromCommandZone":
+		// AbilityUtils.java:2347-2350: the controller's casts of the host
+		// (Opal Palace's commander, Liesa herself).
+		return g.commanderCastsOf(sourceController, source), true
 	case "TopOfLibraryCMC":
 		// AbilityUtils.java:2505-2509: the top card's mana value, 0 for an
 		// empty library.
@@ -802,7 +823,7 @@ func devotionMod(g *Game, pid PlayerID) (int, bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.traitFaces() {
+			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "Devotion") {
 						continue

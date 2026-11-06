@@ -10,9 +10,11 @@
 package engine
 
 import (
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // foretellActionCost is the {2} the special action costs.
@@ -32,12 +34,16 @@ func hasForetell(c *Card) bool {
 
 // Foretell is the special action (CR 116.2h, 702.143a): pid, on their own
 // turn, pays {2} and exiles card from their hand, foretold. False when the
-// card is not in pid's hand, has no Foretell, it is not pid's turn, or the
+// card is not in pid's hand, has no Foretell, it is not pid's turn and no
+// ForetellAnyTurn static lets them (CardFactoryUtil.java:2973), or the
 // cost is not paid. The special action needs no timing beyond priority, which
 // the caller holds.
 func (g *Game) Foretell(pid PlayerID, card CardID, controller PlayerController) bool {
 	c := g.Card(card)
-	if c.Zone != Hand || c.Controller() != pid || c.Def == nil || !hasForetell(c) || pid != g.activePlayer {
+	if c.Zone != Hand || c.Controller() != pid || c.Def == nil || !hasForetell(c) {
+		return false
+	}
+	if pid != g.activePlayer && !g.foretellAnyTurn(pid, card) {
 		return false
 	}
 	cost := mana.MustParse(foretellActionCost)
@@ -99,4 +105,25 @@ func (g *Game) foretellCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 		return mc, true
 	}
 	return mana.Cost{}, false
+}
+
+// foretellAnyTurnParams are the Mode$ ForetellAnyTurn params
+// StaticAbilityForetell reads.
+var foretellAnyTurnParams = map[string]bool{"validplayer": true, "validcard": true}
+
+// foretellAnyTurn is StaticAbilityForetell.canForetellAnyTurn: a live Mode$
+// ForetellAnyTurn line whose ValidPlayer$ admits pid and whose ValidCard$
+// admits card lets pid foretell it on any player's turn (Cosmos Charger). An
+// absent param matches everything (matchesValidParam); a ValidPlayer$ this
+// port cannot recognize does not match (GO-7).
+func (g *Game) foretellAnyTurn(pid PlayerID, card CardID) bool {
+	return g.anyStatic("ForetellAnyTurn", foretellAnyTurnParams, func(h *Card, s *compile.Ability) bool {
+		if spec, ok := s.Param("ValidPlayer"); ok {
+			if matched, known := matchesPlayerSpec(g, pid, h.Controller(), h.ID, spec); !known || !matched {
+				return false
+			}
+		}
+		spec, ok := s.Param("ValidCard")
+		return !ok || Matches(g, g.Card(card), valid.Parse(spec), h.Controller(), h.ID)
+	})
 }

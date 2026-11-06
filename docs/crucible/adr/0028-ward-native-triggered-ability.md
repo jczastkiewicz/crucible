@@ -18,16 +18,16 @@ it needed its own decision rather than folding into that pack.
 
 Corpus (`K:Ward:...` printed, `AddKeyword$ Ward:...` granted, both):
 
-| Cost shape                                                                              | Lines  |
-| --------------------------------------------------------------------------------------- | ------ |
-| Mana (`Ward:1`/`2`/`3`/`4`/`8`)                                                         | ~210   |
-| `PayLife<N>`                                                                            | ~26    |
-| `Discard<...>`                                                                          | ~17    |
-| `Sac<...>`                                                                              | ~8     |
-| `Ward:X`, `Waterbend<...>`, `CollectEvidence<...>`, `Blight<...>`, `AddCounterYou<...>` | 1 each |
+| Cost shape (occurrences, printed and granted)                       | Lines  |
+| ------------------------------------------------------------------- | ------ |
+| Mana (`Ward:1`/`2`/`3`/`4`/`8`/`10`)                                | 229    |
+| `PayLife<N>`, `PayLife<X/...>`                                      | 27     |
+| `Discard<...>`                                                      | 17     |
+| `Sac<...>`                                                          | 10     |
+| Mana plus life (`Ward:2 PayLife<2>`, `Ward:3 PayLife<3>`)           | 3      |
+| `Ward:X`, `Waterbend`, `CollectEvidence`, `Blight`, `AddCounterYou` | 1 each |
 
-No multi-cost (`Ward:cost1:cost2`) line exists in the corpus today, so `DB$ GenericChoice`'s own multi-cost synthesis
-never applies.
+One line joins two costs (`Ward:Discard<1/Card>:2`), the payer's choice of one.
 
 This port already has every piece Ward's own resolved shape composes from, built for other reasons:
 
@@ -52,12 +52,13 @@ re-check the same as anything else on the stack.
 - PORT-2: no script text parsed at runtime. Ward's own cost argument is not script text to re-parse into effect behavior
   — it is a value (a mana amount, a cost-part string) plugged into a Go-literal `*compile.Ability`, the identical thing
   `designationTrigger` already does for Monarch's turn-based trigger.
-- CR 702.21a/g: Ward is a real triggered ability. It goes on the stack, resolves through normal priority, and (CR
-  702.21g) a permanent with two or more Ward instances fires each independently — `protectionEach`'s own "check every
-  line, not just the first" precedent (ADR-0027's implementing pack) applies identically.
+- CR 702.21a: Ward is a real triggered ability. It goes on the stack, resolves through normal priority, and a permanent
+  with two or more Ward instances has that many triggered abilities (CR 113.2c), each firing independently —
+  `protectionEach`'s own "check every line, not just the first" precedent (ADR-0027's implementing pack) applies
+  identically.
 - GO-2: no package-level state. Ward triggers are built fresh per firing, not cached on any global.
-- GO-7: a Ward cost shape this port cannot pay for must fail closed (skipped, not guessed), the identical contract
-  `resolveUnlessCost` already gives every other `UnlessCost$` line.
+- GO-7: a Ward cost shape this port cannot pay for must fail closed. Skipping the trigger is not closed: the spell would
+  resolve where CR 702.21a counters it.
 
 ## Considered Options
 
@@ -79,22 +80,23 @@ re-check the same as anything else on the stack.
 
 ## Decision
 
-1. **`checkWardTriggers` (trigger.go) runs alongside `checkBecomesTargetTriggers`**, at the two call sites that name an
-   actual spell card (`castAura`, `castInstantOrSorcery`) — the two places this port casts something with a chosen
-   target today, over `allTargetsOf(a)` (`castspell.go`), which also gathers a Charm's own chosen modes' targets
-   (`Ability.Modes[i].Targets`), so a modal spell aimed at a Warded creature is not missed. For each newly-targeted
-   `CardEntity`, deduped the same way `checkBecomesTargetTriggers` dedupes (a spell naming the same card twice fires
-   each Ward line once, not twice), whose card is on the battlefield and carries one or more `Ward` lines
-   (`KeywordLines`, printed and continuously granted alike — Layer 6 grants Ward the identical way it grants
-   Hexproof/Shroud/Protection, ADR-0027's own pack), each line fires independently (CR 702.21g) when `sourceController`
-   is an opponent of the warded card's controller (`matchesPlayerSpec`, the same "Opponent" check
-   `cardCantBeTargetedBy`'s own Hexproof gate already makes) and TriggerZones$'s own Battlefield restriction holds.
+1. **`checkWardTriggers` (trigger.go) runs alongside `checkBecomesTargetTriggers`** wherever a spell or ability gets a
+   target: casting (`castAura`, `castInstantOrSorcery`) and the sites in Decision point 3, over `allTargetsOf(a)`
+   (`castspell.go`), which also gathers a Charm's own chosen modes' targets (`Ability.Modes[i].Targets`), so a modal
+   spell aimed at a Warded creature is not missed. For each newly-targeted `CardEntity`, deduped the same way
+   `checkBecomesTargetTriggers` dedupes (a spell naming the same card twice fires each Ward line once, not twice), whose
+   card is on the battlefield and carries one or more `Ward` lines (`KeywordLines`, printed and continuously granted
+   alike — Layer 6 grants Ward the identical way it grants Hexproof/Shroud/Protection, ADR-0027's own pack), each line
+   fires independently (CR 113.2c) when `sourceController` is an opponent of the warded card's controller
+   (`matchesPlayerSpec`, the same "Opponent" check `cardCantBeTargetedBy`'s own Hexproof gate already makes) and
+   TriggerZones$'s own Battlefield restriction holds.
 2. **Scope is every cost `parseUnlessCost` reads**, checked again here, before pushing, with the identical pre-check
-   `resolveUnlessCost` runs at resolution (`wardCostResolvable`): a cost this port cannot pay is never pushed rather
-   than pushed and then erroring. Mana, `PayLife`, `Discard`, `Sac`, `Reveal`, `ExileFromGrave`, `tapXType`,
+   `resolveUnlessCost` runs at resolution (`wardCostResolvable`): a cost this port cannot read records a pending error
+   instead of reaching the stack (GO-7). Mana, `PayLife`, `Discard`, `Sac`, `Reveal`, `ExileFromGrave`, `tapXType`,
    `Waterbend`, `CollectEvidence`, `Blight`, `AddCounterYou` and an X named by an SVar of the warded card
    (`Ward:PayLife<X/...>`, `expandUnlessCost`) are read; several costs joined by `:` (`Ward.parse`) are the payer's
-   choice of one (`pickUnlessAlternative`), and none payable counters. A shape past these is skipped (GO-7).
+   choice of one (`pickUnlessAlternative`), and none payable counters. Every corpus shape is read. X is evaluated as the
+   trigger resolves (CR 702.21b).
 3. **Scope is a spell or an ability.** `Ability.wardCounters` names a spell (a card on the stack) and `Ability.wardItem`
    names an activated or triggered ability by its `StackItemID`; `counterEffect` removes just that stack item and moves
    no card for an ability (`CounterEffect.removeFromStack:270-272`). `pushTriggeredAbilities` (every activated and
@@ -127,20 +129,18 @@ re-check the same as anything else on the stack.
 
 ## Consequences
 
-**Good:** the dominant real shape (~252 of ~262 real corpus lines, mana plus mana-granted) resolves through the
-identical pipeline used to build `RingTemptsYou`'s own triggers; a targeted spell against a Warded permanent now goes
-through real priority (a Ward trigger can be responded to, an uncounterable spell still resolves, two Ward instances
-fire twice).
+**Good:** every corpus Ward cost resolves through the identical pipeline used to build `RingTemptsYou`'s own triggers; a
+targeted spell against a Warded permanent now goes through real priority (a Ward trigger can be responded to, an
+uncounterable spell still resolves, two Ward instances fire twice).
 
-**Bad:** an activated or triggered ability targeting a Warded permanent still does not raise it (Not ported yet);
-neither does `ChangeTargets`/`CopySpellAbility` retargeting one onto a Warded permanent.
+**Bad:** Ward is the one keyword whose trigger is built in Go rather than compiled from a template (ADR-0038 Decision
+point 5); a reader looking for it among `Face.Triggers` will not find it.
 
-**Neutral:** the non-mana cost shapes reach the identical `resolveUnlessCost` gate every other `UnlessCost$` line
-already sits behind — the day that gate resolves `PayLife`/`Discard`/`Sac`, Ward's own pre-check (Decision point 2)
-widens for free, no change needed here.
+**Neutral:** Ward's costs go through the same `resolveUnlessCost` gate as every other `UnlessCost$` line, so a cost part
+that gate learns is a Ward cost too.
 
 ## Related
 
 ADR-0018 (stack/casting), ADR-0019 (priority), ADR-0026 (turn driver), ADR-0027 (per-target fizzle check,
-`Protection Each`'s "check every line" precedent this reuses for CR 702.21g), `becomemonarcheffect.go`'s
+`Protection Each`'s "check every line" precedent this reuses for several Ward lines), `becomemonarcheffect.go`'s
 `designationTrigger` (the native-construction precedent), [04-adr-process](../guidelines/04-adr-process.md)

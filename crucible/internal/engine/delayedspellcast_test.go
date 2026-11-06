@@ -75,10 +75,10 @@ func TestDelayedSpellCastRefusesUnresolvedParams(t *testing.T) {
 
 	g, p, _ := newTwoPlayerGame(t)
 	_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
-		"DB$ DelayedTrigger | Mode$ SpellCast | IsSingleTarget$ True | Execute$ DBGain",
+		"DB$ DelayedTrigger | Mode$ SpellCast | SnowSpentForCardsColor$ True | Execute$ DBGain",
 		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3")
 	if err == nil {
-		t.Fatal("IsSingleTarget$ registered, want an error")
+		t.Fatal("SnowSpentForCardsColor$ registered, want an error")
 	}
 }
 

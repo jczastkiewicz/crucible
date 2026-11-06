@@ -47,6 +47,18 @@ func Expand(k Keyword) (Expansion, bool) {
 			return Expansion{}, false
 		}
 		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ " + args[1] + " Discard<1/CARDNAME> | ActivationZone$ Hand | Origin$ Library | Destination$ Hand | ChangeType$ " + args[0]}}, true
+	case "Craft":
+		// Craft:<cost>[:<description>:<reminder object>], CardFactoryUtil.java:
+		// 2734-2743 (Craft.java:28-66): exile this permanent and the craft
+		// materials, then return it transformed at sorcery speed. Defined$
+		// CorrectedSelf is the card now in exile (AbilityUtils.java:84-85).
+		// The other two fields are display only.
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ Exile<1/CARDNAME> " + args[0] +
+			" | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | SorcerySpeed$ True"}}, true
 	case "Crew":
 		// Crew:<power>[:<extra>], CardFactoryUtil.java:3701: tap any number of
 		// other creatures with total power N or more to make it an artifact
@@ -69,6 +81,15 @@ func Expand(k Keyword) (Expansion, bool) {
 			return Expansion{}, false
 		}
 		return Expansion{Abilities: []string{"AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + args[0] + "> | Attributes$ Saddled | Defined$ Self | SorcerySpeed$ True"}}, true
+	case "Station":
+		// Station:<N>, CardFactoryUtil.java:3468-3476: tap another creature to
+		// put charge counters on this permanent equal to its power, as a
+		// sorcery. N is reminder text only; the STATION N+ thresholds are
+		// the card's own S: lines.
+		return Expansion{
+			Abilities: []string{"AB$ PutCounter | Cost$ tapXType<1/Creature.Other> | Defined$ Self | CounterType$ CHARGE | CounterNum$ StationX{n} | SorcerySpeed$ True"},
+			Amounts:   []SVarDef{{"StationX" + Slot, "TappedCards$TapPowerValue"}},
+		}, true
 	case "Affinity":
 		// Affinity:<type>, CardFactoryUtil.java:3753: this spell costs {1} less
 		// for each <type> you control.
@@ -134,6 +155,81 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self+counters_EQ0_" + counter + " | TriggerZones$ Battlefield | Secondary$ True | Execute$ KW" + k.Name + Slot},
 			SVars:    []SVarDef{{"KW" + k.Name + Slot, "DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Battlefield | WithCountersType$ " + counter}},
 		}, true
+	case "Ingest":
+		// CardFactoryUtil.java's Ingest: whenever this deals combat damage to a
+		// player, that player exiles the top card of their library.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Secondary$ True | TriggerZones$ Battlefield | Execute$ KWIngest" + Slot},
+			SVars:    []SVarDef{{"KWIngest" + Slot, "DB$ Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | Defined$ TriggeredTarget"}},
+		}, true
+	case "Provoke":
+		// CardFactoryUtil.java's Provoke: whenever this attacks, you may have
+		// target creature defending player controls untap and block it if able.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | OptionalDecider$ You | Secondary$ True | Execute$ KWProvoke" + Slot},
+			SVars: []SVarDef{
+				{"KWProvoke" + Slot, "DB$ MustBlock | Duration$ UntilEndOfCombat | ValidTgts$ Creature.ControlledBy TriggeredDefendingPlayer | SubAbility$ KWProvokeUntap" + Slot},
+				{"KWProvokeUntap" + Slot, "DB$ Untap | Defined$ Targeted"},
+			},
+		}, true
+	case "Decayed":
+		// CardFactoryUtil.java's two Decayed branches: it can't block, and when
+		// it attacks it is sacrificed at end of combat.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics:  []string{"Mode$ CantBlock | ValidCard$ Creature.Self | Secondary$ True"},
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ KWDecayed" + Slot},
+			SVars: []SVarDef{
+				{"KWDecayed" + Slot, "DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ KWDecayedSac" + Slot},
+				{"KWDecayedSac" + Slot, "DB$ Sacrifice"},
+			},
+		}, true
+	case "Gravestorm":
+		// CardFactoryUtil.java's Gravestorm: when you cast this spell, copy it
+		// for each permanent put into a graveyard this turn.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Execute$ KWGravestorm" + Slot},
+			SVars: []SVarDef{
+				{"KWGravestorm" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ KWGravestormCount" + Slot + " | MayChooseTarget$ True"},
+			},
+			Amounts: []SVarDef{{"KWGravestormCount" + Slot, "Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent"}},
+		}, true
+	case "Undaunted":
+		// CardFactoryUtil.java's Undaunted: this spell costs {1} less for each
+		// opponent (CostAdjustment.java:471-472, the controller's opponents).
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Secondary$ True | Amount$ KWUndaunted" + Slot + " | EffectZone$ All"},
+			Amounts: []SVarDef{{"KWUndaunted" + Slot, "PlayerCountOpponents$Amount"}},
+		}, true
+	case "Ravenous":
+		// CardFactoryUtil.java's two Ravenous branches: it enters with X +1/+1
+		// counters, and draws a card as it enters if X is 5 or more.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWRavenous" + Slot},
+			Triggers:     []string{"Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | CheckSVar$ KWRavenousX" + Slot + " | SVarCompare$ GE5 | Secondary$ True | Execute$ KWRavenousDraw" + Slot},
+			SVars: []SVarDef{
+				{"KWRavenous" + Slot, "DB$ PutCounter | CounterType$ P1P1 | ETB$ True | CounterNum$ KWRavenousX" + Slot},
+				{"KWRavenousDraw" + Slot, "DB$ Draw"},
+			},
+			Amounts: []SVarDef{{"KWRavenousX" + Slot, "Count$xPaid"}},
+		}, true
 	case "Exalted":
 		if k.Details != "" {
 			return Expansion{}, false
@@ -185,6 +281,96 @@ func Expand(k Keyword) (Expansion, bool) {
 		return Expansion{
 			Replacements: []string{line},
 			SVars:        []SVarDef{{"KWEtbCounter" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + args[0] + " | ETB$ True | CounterNum$ " + args[1]}},
+		}, true
+	case "Daybound", "Nightbound":
+		// CardFactoryUtil.java:879-895 and :1522-1533: two state triggers. With
+		// neither day nor night, a daybound permanent makes it day (a
+		// nightbound one night, unless a daybound permanent is out); as it
+		// becomes night a front-face daybound permanent transforms, as it
+		// becomes day a back-face nightbound one does. Each keyword's static
+		// lets only its own ability transform the creature (:3867-3868,
+		// :3950-3951), and Daybound's replacement has it enter transformed at
+		// night (:2201-2208).
+		day, set, side := "Night", "Day", "FrontSide"
+		guard := ""
+		if k.Name == "Nightbound" {
+			day, set, side = "Day", "Night", "BackSide"
+			guard = " | IsPresent$ Card.Daybound | PresentCompare$ EQ0"
+		}
+		exp := Expansion{
+			Triggers: []string{
+				"Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Neither" + guard + " | Secondary$ True | Execute$ KWDayBoundSet" + Slot,
+				"Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ " + day + " | IsPresent$ Card.Self+" + side + " | Secondary$ True | Execute$ KWDayBoundTransform" + Slot,
+			},
+			Statics: []string{"Mode$ CantTransform | ValidCard$ Creature.Self | ExceptCause$ SpellAbility." + k.Name + " | Secondary$ True"},
+			SVars: []SVarDef{
+				{"KWDayBoundSet" + Slot, "DB$ DayTime | Value$ " + set},
+				{"KWDayBoundTransform" + Slot, "DB$ SetState | Mode$ Transform"},
+			},
+		}
+		if k.Name == "Daybound" {
+			exp.Replacements = []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | DayTime$ Night | Secondary$ True | Layer$ Transform | ReplacementResult$ Updated | ReplaceWith$ KWDayBoundETB" + Slot}
+			exp.SVars = append(exp.SVars, SVarDef{"KWDayBoundETB" + Slot, "DB$ SetState | Defined$ ReplacedCard | Mode$ Transform | ETB$ True"})
+		}
+		return exp, true
+	case "Embalm", "Eternalize":
+		// CardFactoryUtil.java:2822-2834 and :2914-2941: exile this card from
+		// your graveyard and pay the cost to create a token copy of it, as a
+		// sorcery, with no mana cost: a white Zombie (Embalm) or a black 4/4
+		// Zombie (Eternalize).
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		line := "AB$ CopyPermanent | Cost$ " + args[0] + " ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | SorcerySpeed$ True | RemoveCost$ True | AddTypes$ Zombie | Defined$ Self"
+		if k.Name == "Embalm" {
+			line += " | SetColor$ White"
+		} else {
+			line += " | SetColor$ Black | SetPower$ 4 | SetToughness$ 4"
+		}
+		return Expansion{Abilities: []string{line}}, true
+	case "Encore":
+		// CardFactoryUtil.java:3478-3508: exile this card from your graveyard
+		// and pay the cost, as a sorcery: for each opponent, a token copy with
+		// haste that remembers that opponent and attacks it this turn if able
+		// (each token's effect remembers it and its opponent), sacrificed at
+		// the beginning of the next end step. Java appends a third field as
+		// more params; no corpus line has one, so it is not expanded (GO-7).
+		cost := costDetail(k)
+		if cost == "" || len(k.Args()) > 1 {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Abilities: []string{"AB$ CopyPermanent | Cost$ " + cost + " ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | SorcerySpeed$ True | Defined$ Self | PumpKeywords$ Haste | RememberTokens$ True | ForEach$ Opponent | AtEOT$ Sacrifice | SubAbility$ KWEncoreRepeat" + Slot},
+			SVars: []SVarDef{
+				{"KWEncoreRepeat" + Slot, "DB$ RepeatEach | DefinedCards$ Remembered | UseImprinted$ True | RepeatSubAbility$ KWEncoreEffect" + Slot},
+				{"KWEncoreEffect" + Slot, "DB$ Effect | RememberObjects$ Imprinted & ImprintedRemembered | ExileOnMoved$ Battlefield | StaticAbilities$ KWEncoreAttack" + Slot + " | SubAbility$ KWEncoreClean" + Slot},
+				{"KWEncoreAttack" + Slot, "Mode$ MustAttack | ValidCreature$ Card.IsRemembered | MustAttack$ RememberedPlayer | Description$ This token copy attacks that opponent this turn if able."},
+				{"KWEncoreClean" + Slot, "DB$ Cleanup | Defined$ Imprinted | ForgetDefined$ Remembered"},
+			},
+		}, true
+	case "Unearth":
+		// CardFactoryUtil.java:3636-3648: return this card from your graveyard
+		// to the battlefield, as a sorcery. The haste, the exile instead of
+		// leaving and the end-step exile are the engine's, keyed on the
+		// ability's keyword (ChangeZoneEffect.java:680-698, unearthReturned).
+		cost := costDetail(k)
+		if cost == "" {
+			return Expansion{}, false
+		}
+		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ " + cost + " | Defined$ Self | Origin$ Graveyard | Destination$ Battlefield | SorcerySpeed$ True | ActivationZone$ Graveyard"}}, true
+	case "Rebound":
+		// CardFactoryUtil.java:2422-2451: a spell cast from your hand that
+		// resolves (Fizzle$ False: a countered spell carries no Fizzle key) is
+		// exiled instead of going to the graveyard, and you may cast it without
+		// paying its mana cost at your next upkeep.
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidLKI$ Card.Self+wasCastFromHand+YouOwn+YouCtrl | Origin$ Stack | Destination$ Graveyard | Fizzle$ False | ReplaceWith$ KWReboundExile" + Slot},
+			SVars: []SVarDef{
+				{"KWReboundExile" + Slot, "DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Stack | Destination$ Exile | RememberChanged$ True | SubAbility$ KWReboundDelay" + Slot},
+				{"KWReboundDelay" + Slot, "DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | OptionalDecider$ You | RememberObjects$ Remembered | Execute$ KWReboundPlay" + Slot},
+				{"KWReboundPlay" + Slot, "DB$ Play | Defined$ DelayTriggerRememberedLKI | WithoutManaCost$ True | Optional$ True"},
+			},
 		}, true
 	case "Fabricate":
 		// CardFactoryUtil.java:1034: when this enters, put N +1/+1 counters on
@@ -253,6 +439,40 @@ func Expand(k Keyword) (Expansion, bool) {
 		return Expansion{
 			Triggers: []string{"Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | Execute$ KWExploit" + Slot},
 			SVars:    []SVarDef{{"KWExploit" + Slot, "DB$ Sacrifice | SacValid$ Creature | Optional$ True"}},
+		}, true
+	case "Visit":
+		// Visit:<SVar>, CardFactoryUtil.java:1932-1945: whenever you visit
+		// this Attraction, the named ability runs.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ VisitAttraction | TriggerZones$ Battlefield | ValidCard$ Card.Self | Execute$ " + k.Details},
+		}, true
+	case "Dash":
+		// CardFactoryUtil.java:3864-3867: a permanent cast for its dash cost
+		// has haste. The cast itself is the engine's (altkeywords.go), which
+		// makes it for a lone cost field only; another shape stays inert, as
+		// its cast is never offered.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{Statics: []string{"Mode$ Continuous | Affected$ Card.Self+dashed+castKeyword | AddKeyword$ Haste"}}, true
+	case "Blitz":
+		// CardFactoryUtil.java:3767-3786: a permanent cast for its blitz cost
+		// has haste and "When this creature dies, draw a card." A third field
+		// (ValidAfterStack$, the CardManaCost grants of Henzie, The Caldaia and
+		// Riveteers Provocateur) is a cast the engine does not offer, so it
+		// stays inert rather than add a second static to a blitzed creature.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ Continuous | Affected$ Card.Self+blitzed+castKeyword | AddKeyword$ Haste | AddTrigger$ KWBlitzDies" + Slot + " | Secondary$ True"},
+			SVars: []SVarDef{
+				{"KWBlitzDies" + Slot, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ KWBlitzDraw" + Slot + " | Secondary$ True"},
+				{"KWBlitzDraw" + Slot, "DB$ Draw"},
+			},
 		}, true
 	case "Echo":
 		// CardFactoryUtil.java:963: at the beginning of your upkeep, if this
@@ -419,7 +639,13 @@ func Expand(k Keyword) (Expansion, bool) {
 		// when it dies you may put a +1/+1 counter on target artifact creature for
 		// each +1/+1 counter on it. Java's decider is the triggered card's
 		// controller, which for this trigger on the dying card itself is "You".
+		// Modular:Sunburst counts the colors spent (Count$Converge, :2386).
 		n, ok := amountDetail(k)
+		amounts := []SVarDef{{"KWModularX" + Slot, "TriggeredCard$CardCounters.P1P1"}}
+		if k.Details == "Sunburst" {
+			n, ok = "KWModularSunburst"+Slot, true
+			amounts = append(amounts, SVarDef{n, "Count$Converge"})
+		}
 		if !ok {
 			return Expansion{}, false
 		}
@@ -430,7 +656,7 @@ func Expand(k Keyword) (Expansion, bool) {
 				{"KWModularEtb" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ " + n},
 				{"KWModular" + Slot, "DB$ PutCounter | ValidTgts$ Artifact.Creature | TgtPrompt$ Select target artifact creature | CounterType$ P1P1 | CounterNum$ KWModularX" + Slot},
 			},
-			Amounts: []SVarDef{{"KWModularX" + Slot, "TriggeredCard$CardCounters.P1P1"}},
+			Amounts: amounts,
 		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
@@ -505,17 +731,338 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | Secondary$ True | OptionalDecider$ You | ValidCard$ Card.Self | Execute$ KWSoulshift" + Slot},
 			SVars:    []SVarDef{{"KWSoulshift" + Slot, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Spirit.YouOwn+cmcLE" + n}},
 		}, true
+	case "Vanishing":
+		// CardFactoryUtil.java:1910-1930 and :2529-2538: Vanishing:N enters
+		// with N time counters (makeEtbCounter); every form removes one at
+		// its controller's upkeep and is sacrificed when the last is removed.
+		// A bare Vanishing (its card counts the counters itself) has only the
+		// two triggers.
+		exp := Expansion{
+			Triggers: []string{
+				"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_GE1_TIME | Secondary$ True | Execute$ KWVanishingRemove" + Slot,
+				"Mode$ CounterRemoved | TriggerZones$ Battlefield | ValidCard$ Card.Self | NewCounterAmount$ 0 | CounterType$ TIME | Secondary$ True | Execute$ KWVanishingSac" + Slot,
+			},
+			SVars: []SVarDef{
+				{"KWVanishingRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"},
+				{"KWVanishingSac" + Slot, "DB$ Sacrifice | SacValid$ Self"},
+			},
+		}
+		if k.Details != "" {
+			n, ok := amountDetail(k)
+			if !ok {
+				return Expansion{}, false
+			}
+			exp.Replacements = []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWVanishingETB" + Slot}
+			exp.SVars = append(exp.SVars, SVarDef{"KWVanishingETB" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ TIME | ETB$ True | CounterNum$ " + n})
+		}
+		return exp, true
+	case "Living Weapon":
+		// CardFactoryUtil.java:1361-1385: when this Equipment enters, create a
+		// 0/0 black Phyrexian Germ token and attach this to it.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ KWLivingWeapon" + Slot},
+			SVars: []SVarDef{
+				{"KWLivingWeapon" + Slot, "DB$ Token | TokenScript$ b_0_0_phyrexian_germ | TokenOwner$ You | RememberTokens$ True | SubAbility$ KWLivingWeaponAttach" + Slot},
+				{"KWLivingWeaponAttach" + Slot, "DB$ Attach | Defined$ Remembered | SubAbility$ KWLivingWeaponCleanup" + Slot},
+				{"KWLivingWeaponCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Myriad":
+		// CardFactoryUtil.java:1508-1521: whenever this attacks, for each
+		// opponent other than the defending player you may create a token copy
+		// tapped and attacking that player or a planeswalker they control,
+		// exiled at end of combat.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ KWMyriad" + Slot},
+			SVars:    []SVarDef{{"KWMyriad" + Slot, "DB$ CopyPermanent | Defined$ Self | TokenTapped$ True | OptionalForEach$ True | TokenAttacking$ RememberedPlayer & Valid Planeswalker.ControlledBy Remembered | ForEach$ OppNonDefendingPlayer | AtEOT$ ExileCombat | CleanupForEach$ True"}},
+		}, true
+	case "Strive":
+		// CardFactoryUtil.java:4019-4025: the spell costs <cost> more for each
+		// target beyond the first (CostAdjustment.java:139-142, Amount$ Strive).
+		cost := costDetail(k)
+		if cost == "" || len(k.Args()) > 1 {
+			return Expansion{}, false
+		}
+		return Expansion{Statics: []string{"Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Amount$ Strive | Cost$ " + cost + " | EffectZone$ All"}}, true
+	case "Firebending":
+		// CardFactoryUtil.java:1075-1094: whenever this attacks, add N {R};
+		// the mana lasts until end of combat (CombatMana$). The third field is
+		// the X description, display only; Amount$ X reads the card's SVar.
+		args := k.Args()
+		if len(args) < 1 || (args[0] != "X" && strings.Trim(args[0], "0123456789") != "") || args[0] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Execute$ KWFirebending" + Slot},
+			SVars:    []SVarDef{{"KWFirebending" + Slot, "DB$ Mana | Defined$ You | CombatMana$ True | Produced$ R | Amount$ " + args[0]}},
+		}, true
+	case "Mobilize":
+		// CardFactoryUtil.java:1476-1489: whenever this attacks, create N 1/1
+		// red Warrior tokens tapped and attacking, sacrificed at the next end
+		// step. Mobilize:X reads the card's own SVar X.
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" || (args[0] != "X" && strings.Trim(args[0], "0123456789") != "") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Execute$ KWMobilize" + Slot},
+			SVars:    []SVarDef{{"KWMobilize" + Slot, "DB$ Token | TokenAmount$ " + args[0] + " | TokenScript$ r_1_1_warrior | TokenTapped$ True | TokenAttacking$ True | AtEOT$ Sacrifice"}},
+		}, true
+	case "For Mirrodin":
+		// CardFactoryUtil.java:1108-1131: when this Equipment enters, create a
+		// 2/2 red Rebel token and attach this to it.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ KWForMirrodin" + Slot},
+			SVars: []SVarDef{
+				{"KWForMirrodin" + Slot, "DB$ Token | TokenScript$ r_2_2_rebel | TokenOwner$ You | RememberTokens$ True | SubAbility$ KWForMirrodinAttach" + Slot},
+				{"KWForMirrodinAttach" + Slot, "DB$ Attach | Defined$ Remembered | SubAbility$ KWForMirrodinCleanup" + Slot},
+				{"KWForMirrodinCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Living metal":
+		// CardFactoryUtil.java:3947-3949: during your turn, this is an
+		// artifact creature.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{Statics: []string{"Mode$ Continuous | Affected$ Card.Self | AddType$ Creature | Condition$ PlayerTurn | Secondary$ True"}}, true
+	case "Fading":
+		// CardFactoryUtil.java:2239-2252 (makeEtbCounter) and :1054-1075: this
+		// enters with N fade counters; at your upkeep remove one, and if you
+		// can't, sacrifice it.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWFadingETB" + Slot},
+			Triggers:     []string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWFadingRemove" + Slot},
+			SVars: []SVarDef{
+				{"KWFadingETB" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ FADE | ETB$ True | CounterNum$ " + n},
+				{"KWFadingRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ FADE | CounterNum$ 1 | RememberRemoved$ True | SubAbility$ KWFadingSac" + Slot},
+				{"KWFadingSac" + Slot, "DB$ Sacrifice | SacValid$ Self | ConditionCheckSVar$ KWFadingCheck" + Slot + " | ConditionSVarCompare$ EQ0 | SubAbility$ KWFadingCleanup" + Slot},
+				{"KWFadingCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+			Amounts: []SVarDef{{"KWFadingCheck" + Slot, "Count$RememberedSize"}},
+		}, true
+	case "Rampage":
+		// CardFactoryUtil.java:1622-1640: whenever this becomes blocked, it
+		// gets +N/+N for each creature blocking it beyond the first.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ AttackerBlocked | ValidCard$ Card.Self | TriggerZones$ Battlefield | ValidBlocker$ Creature | Secondary$ True | Execute$ KWRampage" + Slot},
+			SVars:    []SVarDef{{"KWRampage" + Slot, "DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ KWRampagePump" + Slot + " | NumDef$ KWRampagePump" + Slot}},
+			Amounts: []SVarDef{
+				{"KWRampagePump" + Slot, "SVar$KWRampageCount" + Slot + "/Times." + n},
+				{"KWRampageCount" + Slot, "Count$Valid Creature.blockingTriggeredAttacker/Minus.1"},
+			},
+		}, true
+	case "Graft":
+		// CardFactoryUtil.java:2303-2319 (makeEtbCounter) and :1152-1170: this
+		// enters with N +1/+1 counters; whenever another creature enters, you
+		// may move a +1/+1 counter from this onto it. AILogic$ is the AI's.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWGraftETB" + Slot},
+			Triggers:     []string{"Mode$ ChangesZone | ValidCard$ Creature.Other | Origin$ Any | Destination$ Battlefield | TriggerZones$ Battlefield | OptionalDecider$ You | IsPresent$ Card.Self+counters_GE1_P1P1 | Secondary$ True | Execute$ KWGraftMove" + Slot},
+			SVars: []SVarDef{
+				{"KWGraftETB" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ " + n},
+				{"KWGraftMove" + Slot, "DB$ MoveCounter | Source$ Self | Defined$ TriggeredCardLKICopy | CounterType$ P1P1 | CounterNum$ 1"},
+			},
+		}, true
+	case "Riot":
+		// CardFactoryUtil.java:2470-2476 (createETBReplacement): this enters
+		// with a +1/+1 counter, or else it gains haste.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplacementResult$ Updated | Secondary$ True | ReplaceWith$ KWRiot" + Slot},
+			SVars:        []SVarDef{{"KWRiot" + Slot, "DB$ Animate | Defined$ Self | Keywords$ Haste | Duration$ Permanent | UnlessCost$ AddCounter<1/P1P1> | UnlessPayer$ You"}},
+		}, true
+	case "Unleash":
+		// CardFactoryUtil.java:2523-2528 and :4030-4032: you may have this
+		// enter with a +1/+1 counter; it can't block while it has one.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplacementResult$ Updated | Optional$ True | Secondary$ True | ReplaceWith$ KWUnleash" + Slot},
+			Statics:      []string{"Mode$ CantBlock | ValidCard$ Creature.Self+counters_GE1_P1P1 | Secondary$ True"},
+			SVars:        []SVarDef{{"KWUnleash" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ 1"}},
+		}, true
+	case "Dredge":
+		// CardFactoryUtil.java:2177-2200: if you would draw a card while this
+		// is in your graveyard, you may mill N instead (only with N or more
+		// cards in your library) and return this to your hand.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Draw | ActiveZones$ Graveyard | ValidPlayer$ You | Secondary$ True | Optional$ True | CheckSVar$ KWDredgeCheckLib" + Slot + " | SVarCompare$ GE" + n + " | ReplaceWith$ KWDredgeMill" + Slot},
+			SVars: []SVarDef{
+				{"KWDredgeMill" + Slot, "DB$ Mill | Defined$ You | NumCards$ " + n + " | SubAbility$ KWDredgeReturn" + Slot},
+				{"KWDredgeReturn" + Slot, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | Defined$ Self"},
+			},
+			Amounts: []SVarDef{{"KWDredgeCheckLib" + Slot, "Count$ValidLibrary Card.YouOwn"}},
+		}, true
+	case "Hideaway":
+		// CardFactoryUtil.java:1273-1305: when this enters, look at the top N
+		// cards of your library, exile one face down and put the rest on the
+		// bottom in a random order; an Effect lets you look at the exiled card.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ KWHideaway" + Slot},
+			SVars: []SVarDef{
+				{"KWHideaway" + Slot, "DB$ Dig | Defined$ You | DigNum$ " + n + " | DestinationZone$ Exile | ExileFaceDown$ True | RememberChanged$ True | RestRandomOrder$ True | SubAbility$ KWHideawayEffect" + Slot},
+				{"KWHideawayEffect" + Slot, "DB$ Effect | StaticAbilities$ KWHideawayLook" + Slot + " | ForgetOnMoved$ Exile | RememberObjects$ Remembered | Duration$ Permanent | SubAbility$ KWHideawayCleanup" + Slot},
+				{"KWHideawayLook" + Slot, "Mode$ Continuous | Affected$ Card.IsRemembered | MayLookAt$ EffectSourceController | EffectZone$ Command | AffectedZone$ Exile"},
+				{"KWHideawayCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Double team":
+		// CardFactoryUtil.java:945-962: when this attacks, if it's not a token,
+		// conjure a duplicate of it into your hand; then both lose double team
+		// perpetually.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self+!token | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWDoubleTeam" + Slot},
+			SVars: []SVarDef{
+				{"KWDoubleTeam" + Slot, "DB$ MakeCard | DefinedName$ Self | Zone$ Hand | RememberMade$ True | Conjure$ True | SubAbility$ KWDoubleTeamSelf" + Slot},
+				{"KWDoubleTeamSelf" + Slot, "DB$ Pump | RememberObjects$ Self | SubAbility$ KWDoubleTeamLose" + Slot},
+				{"KWDoubleTeamLose" + Slot, "DB$ Animate | Duration$ Perpetual | Defined$ Remembered | RemoveKeywords$ Double team | SubAbility$ KWDoubleTeamCleanup" + Slot},
+				{"KWDoubleTeamCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"},
+			},
+		}, true
+	case "Reconfigure":
+		// CardFactoryUtil.java:3374-3395: attach to target creature you control
+		// and unattach, each at sorcery speed. A second field is an
+		// AlternateCost$ on both (CardFactoryUtil.java:3381, Razorfield
+		// Ripper's PayEnergy<3>): the activation offers it beside the printed
+		// cost (activationCostChoices).
+		args := k.Args()
+		if len(args) < 1 || len(args) > 2 || args[0] == "" {
+			return Expansion{}, false
+		}
+		both := " | SorcerySpeed$ True | Secondary$ True"
+		if len(args) == 2 && args[1] != "" {
+			both += " | AlternateCost$ " + args[1]
+		}
+		return Expansion{Abilities: []string{
+			"AB$ Attach | ValidTgts$ Creature.YouCtrl+Other | TgtPrompt$ Select target creature you control | AILogic$ Pump | Cost$ " + args[0] + both,
+			"AB$ Unattach | Defined$ Self | IsPresent$ Card.Self+AttachedTo Creature | Cost$ " + args[0] + both,
+		}}, true
+	case "Cipher":
+		// CardFactoryUtil.java:3796-3821: while this card is exiled and
+		// encoded on a creature, that creature has "whenever this deals combat
+		// damage to a player, its controller may cast a copy of the encoded
+		// card without paying its mana cost". The DB$ Encode the spell ends
+		// with (:2714-2720) is appended by the compiler.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Statics: []string{"Mode$ Continuous | EffectZone$ Exile | Affected$ Card.EncodedWithSource | AddTrigger$ KWCipherTrigger" + Slot},
+			SVars: []SVarDef{
+				{"KWCipherTrigger" + Slot, "Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ KWCipherPlay" + Slot + " | CombatDamage$ True | OptionalDecider$ You"},
+				{"KWCipherPlay" + Slot, "DB$ Play | Defined$ OriginalHost | WithoutManaCost$ True | CopyCard$ True"},
+			},
+		}, true
+	case "Umbra armor":
+		// CardFactoryUtil.java:2501-2525: if the enchanted permanent would be
+		// destroyed, instead remove all damage from it and destroy this.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Destroy | ActiveZones$ Battlefield | ValidCard$ Card.EnchantedBy | Secondary$ True | ReplaceWith$ KWUmbraHeal" + Slot},
+			SVars: []SVarDef{
+				{"KWUmbraHeal" + Slot, "DB$ HealDamage | Defined$ ReplacedCard | SubAbility$ KWUmbraDestroy" + Slot},
+				{"KWUmbraDestroy" + Slot, "DB$ Destroy | Defined$ Self"},
+			},
+		}, true
 	}
 	return Expansion{}, false
+}
+
+// ExpandSunburst is CardFactoryUtil.java:2477-2489's Sunburst: the permanent
+// enters with a +1/+1 counter for each color of mana spent to cast it when the
+// card is a creature, a charge counter otherwise. Java picks the counter from
+// the card as the keyword is added (host.isCreature()), so the caller passes
+// the face's printed type; the amount is Count$Converge (:2487).
+func ExpandSunburst(k Keyword, creature bool) (Expansion, bool) {
+	if k.Name != "Sunburst" || k.Details != "" {
+		return Expansion{}, false
+	}
+	counter := "CHARGE"
+	if creature {
+		counter = "P1P1"
+	}
+	return Expansion{
+		Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWSunburst" + Slot},
+		SVars:        []SVarDef{{"KWSunburst" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + counter + " | ETB$ True | CounterNum$ KWSunburstX" + Slot}},
+		Amounts:      []SVarDef{{"KWSunburstX" + Slot, "Count$Converge"}},
+	}, true
+}
+
+// ExpandSuspend is CardFactoryUtil.java:1829-1873's Suspend triggers, for
+// every Suspend line (a granted bare one too): at your upkeep, remove a time
+// counter from it while it is suspended; as the last is removed, you may cast
+// it without paying its mana cost, and a permanent spell's creature gains
+// haste for as long as you control it. Java builds the haste half only when
+// the card is a permanent (:1851), so the caller passes the face's printed
+// type. The special action is the engine's (suspend.go).
+func ExpandSuspend(k Keyword, permanent bool) (Expansion, bool) {
+	if k.Name != "Suspend" {
+		return Expansion{}, false
+	}
+	play := "DB$ Play | Defined$ Self | WithoutManaCost$ True | Optional$ True"
+	svars := []SVarDef{{"KWSuspendRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"}}
+	if permanent {
+		play += " | RememberPlayed$ True | SubAbility$ KWSuspendHaste" + Slot
+		svars = append(svars,
+			SVarDef{"KWSuspendHaste" + Slot, "DB$ Pump | Defined$ Remembered | KW$ Haste | PumpZone$ Stack | ConditionDefined$ Remembered | ConditionPresent$ Creature | Duration$ UntilLoseControlOfHost | SubAbility$ KWSuspendCleanup" + Slot},
+			SVarDef{"KWSuspendCleanup" + Slot, "DB$ Cleanup | ClearRemembered$ True"})
+	}
+	svars = append(svars, SVarDef{"KWSuspendPlay" + Slot, play})
+	return Expansion{
+		Triggers: []string{
+			"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Exile | IsPresent$ Card.Self+suspended | PresentZone$ Exile | Secondary$ True | Execute$ KWSuspendRemove" + Slot,
+			"Mode$ CounterRemoved | TriggerZones$ Exile | ValidCard$ Card.Self | CounterType$ TIME | NewCounterAmount$ 0 | Secondary$ True | Execute$ KWSuspendPlay" + Slot,
+		},
+		SVars: svars,
+	}, true
 }
 
 // expandEquip is CardFactoryUtil.java:2852's Equip branch: "Equip:<cost>
 // [:<valid>[:<description>[:<extra>[:<extra description>]]]]", an Attach
 // ability at sorcery speed aimed at a creature the controller controls (or
-// <valid>). <extra> is appended to the ability as written; the two shapes
-// whose params change what the ability costs (ReduceCost$, AlternateCost$) are
-// not read by any ability this port resolves, so an Equip carrying one is left
-// inert rather than activated at the wrong price.
+// <valid>). <extra> is appended to the ability as written
+// (CardFactoryUtil.java:2871, 2909): a ReduceCost$ is the activation's own
+// reduction (abilityReduceCost, which may read the target: Belt of Giant
+// Strength), an AlternateCost$ a second whole cost the activation offers
+// (activationCostChoices, GameActionUtil.getAdditionalCostSpell).
 func expandEquip(k Keyword) (Expansion, bool) {
 	args := k.Args()
 	if len(args) < 1 || args[0] == "" {
@@ -532,11 +1079,7 @@ func expandEquip(k Keyword) (Expansion, bool) {
 	line := "AB$ Attach | Cost$ " + args[0] + " | ValidTgts$ " + valid +
 		" | TgtPrompt$ Select target " + desc + " you control | SorcerySpeed$ True"
 	if len(args) > 3 && args[3] != "" {
-		extra := args[3]
-		if strings.Contains(extra, "ReduceCost$") || strings.Contains(extra, "AlternateCost$") {
-			return Expansion{}, false
-		}
-		line += " | " + extra
+		line += " | " + args[3]
 	}
 	return Expansion{Abilities: []string{line}}, true
 }

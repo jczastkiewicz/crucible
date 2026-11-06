@@ -1,0 +1,13 @@
+# Mode$ Proliferate (CR 701.27, TriggerProliferate): Steady Progress
+# proliferates (nothing has counters) and draws; "whenever you proliferate,
+# each opponent loses 2 life and you gain 2 life" fires all the same.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+queue paygeneric U
+castspell human 5
+queue entitychoice none
+resolvestack

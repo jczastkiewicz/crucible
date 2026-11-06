@@ -233,6 +233,12 @@ func TestScalarCountHeads(t *testing.T) {
 		{"Count$Converge", nil, 1},
 		{"Count$YourLifeTotal/Minus.Remembered$Amount", nil, 20},
 		{"Number$5/Minus.Remembered$Valid Card.Creature", nil, 5},
+		// doXMath splits the operator at its first `.` only, so an operand
+		// holding one more is still evaluated (Hollow Marauder's shape): two
+		// fillers and the ETB host are three creatures.
+		{"Number$5/Minus.Count$Valid Creature.YouCtrl", func(g *engine.Game, p, _ engine.PlayerID) {
+			addN(t, g, p, engine.Battlefield, 2, "Creature")
+		}, 2},
 		{"Count$RememberedSize", nil, 0},
 		{"Count$ImprintedSize", nil, 0},
 		{"Count$ChosenSize", nil, 0},
@@ -342,7 +348,7 @@ func TestRememberedListAppliesItsOperatorInside(t *testing.T) {
 			g, p, other := newTwoPlayerGame(t)
 			addN(t, g, other, engine.Battlefield, 2, "Creature Elf")
 			before := g.Player(p).Life
-			resolveLine(t, g, p, engine.NewScriptedController(),
+			resolveLine(t, g, p, keepingOrder(),
 				"DB$ DestroyAll | ValidCards$ Creature.OppCtrl | RememberDestroyed$ True | SubAbility$ DBGain",
 				"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X", "X", tc.x)
 			if got := g.Player(p).Life - before; got != tc.want {
@@ -361,7 +367,7 @@ func TestListMeasuresRefuseWhatTheyCannotRead(t *testing.T) {
 	if got := gainedFrom(t, nil, "Remembered$Amount/Plus.4"); got != 4 {
 		t.Errorf("empty Remembered$Amount/Plus.4 gained %d, want 4", got)
 	}
-	for _, x := range []string{"Remembered$Colors/Twice", "Remembered$TapPowerValue", "Remembered$CreatureType", "Remembered$Valid", "Crewed$Amount"} {
+	for _, x := range []string{"Remembered$Colors/Twice", "Remembered$CreatureType", "Remembered$Valid", "Crewed$Amount"} {
 		t.Run(x, func(t *testing.T) {
 			t.Parallel()
 			g, p, other := newTwoPlayerGame(t)
@@ -425,6 +431,7 @@ func TestPlayerCountAppliesItsOperatorPerPlayer(t *testing.T) {
 		{"PlayerCountPropertyYou$LifeLostThisTurn", 0},
 		{"PlayerCountPropertyYou$LifeGainedThisTurn", 0},
 		{"PlayerCountPropertyYou$Speed", 0},
+		{"PlayerCountPropertyYou$LifeStartedThisTurnWith", 20},
 		{"PlayerCountPropertyYou$NonCombatDamageDealtThisTurn", 0},
 		{"PlayerCountPropertyYou$RingTemptedYou", 0},
 		{"PlayerCountPropertyYou$AttractionsVisitedThisTurn", 0},
@@ -437,6 +444,24 @@ func TestPlayerCountAppliesItsOperatorPerPlayer(t *testing.T) {
 				t.Errorf("gained %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+// LifeStartedThisTurnWith is the life total the last cleanup recorded
+// (Player.java:2525), not the current one.
+func TestLifeStartedThisTurnWithIsTheLifeAtTheLastCleanup(t *testing.T) {
+	t.Parallel()
+
+	got := gainedFrom(t, func(g *engine.Game, p, _ engine.PlayerID) {
+		g.Player(p).Life = 13
+		g.SetTurnState(1, p, engine.EndOfTurn)
+		g.AdvancePhase(engine.NewScriptedController())
+		g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
+		g.SetTurnState(2, p, engine.Main1)
+		g.Player(p).Life = 9
+	}, "PlayerCountPropertyYou$LifeStartedThisTurnWith")
+	if got != 13 {
+		t.Errorf("gained %d, want 13", got)
 	}
 }
 
@@ -701,7 +726,7 @@ func TestListChromaSourceNamesAColor(t *testing.T) {
 			g.NewCard(creatureDefManaCost(t, "R G"), other, engine.Battlefield)
 			g.NewCard(creatureDefManaCost(t, "2"), other, engine.Battlefield)
 			before := g.Player(p).Life
-			resolveLine(t, g, p, engine.NewScriptedController(),
+			resolveLine(t, g, p, keepingOrder(),
 				"DB$ DestroyAll | ValidCards$ Creature.OppCtrl | RememberDestroyed$ True | SubAbility$ DBGain",
 				"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X", "X", tc.x)
 			if got := g.Player(p).Life - before; got != tc.want {

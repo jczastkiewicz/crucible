@@ -315,3 +315,50 @@ func TestAttachDefinedHostWinsOverValidTgts(t *testing.T) {
 		t.Errorf("equipment attached to %v (%v), want the source %v", to, ok, host)
 	}
 }
+
+// The LoseControl$ criteria are checked before a Choices$ pick
+// (ControlGainEffect.java:101-111): an untapped Untap host ends the effect
+// without asking anyone to choose (the scripted controller has no answer
+// queued, so a question would fail the test).
+func TestGainControlChecksLoseControlBeforeTheChoice(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	victim := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ GainControl | Choices$ Creature.OppCtrl | LoseControl$ Untap"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(victim).Controller(); got != other {
+		t.Errorf("controller = %v, want the owner %v (the host was untapped)", got, other)
+	}
+}
+
+// Card.untap checks the Untaps triggers before its untap commands run
+// (Card.java:4839-4842): Wake Thrasher, stolen by a LoseControl$ Untap host,
+// sees that host untap while it is still the stealer's, and pumps.
+func TestUntapsTriggersBeforeTheUntapCommandEndsControl(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	thrasher := g.NewCard(corpusCard(t, "Wake Thrasher"), other, engine.Battlefield)
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(thrasher)},
+		"DB$ Tap | Defined$ Self | SubAbility$ DBSteal",
+		"DBSteal", "DB$ GainControl | ValidTgts$ Creature.OppCtrl | LoseControl$ Untap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(host)}, "DB$ Untap | ValidTgts$ Card"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if got := g.Card(thrasher).Controller(); got != other {
+		t.Errorf("controller = %v, want the owner %v", got, other)
+	}
+	if pw, _ := g.Card(thrasher).Power(); pw != 2 {
+		t.Errorf("Wake Thrasher power = %d, want 2 (pumped by the host's untap)", pw)
+	}
+}

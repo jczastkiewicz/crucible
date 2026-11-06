@@ -1,0 +1,11 @@
+# R20c gauntlet probe (Basking Broodscale): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric G
+queue action human activate 1 0
+queue optionaltrigger true
+tapformana human 100 G
+tapformana human 101 G
+passpriority
+resolvestack

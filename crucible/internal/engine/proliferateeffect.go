@@ -2,7 +2,10 @@ package engine
 
 //enginelint:allow id card game player ability condition control amount parts event zone effecthelpers triggerhooks
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // proliferateEffect is CountersProliferateEffect.java: Amount$ times
 // (default 1), the activator chooses any number of players and battlefield
@@ -10,12 +13,13 @@ import "fmt"
 // one gets one more of every kind of counter it already has (CR 701.34a).
 // Players come first, then permanents, as Java's own list.addAll order.
 //
-// Mode$ Proliferate fires after each of the Amount$ passes.
-//
-// Not ported: the Proliferate replacement family (not in replacement.go
-// yet), and the
-// per-counter replacement pass GameEntityCounterTable.replaceCounterEffect
-// runs -- putCounterEffect adds counters the same direct way.
+// Event$ Proliferate is asked once, before the first pass, with the pass
+// count as Num (ReplaceProliferate; Tekuthal's "proliferate twice instead"),
+// through playerAmountReplaced. Each counter goes through the AddCounter
+// replacements and the CounterAdded triggers (GameEntityCounterTable.
+// replaceCounterEffect: Hardened Scales, Winding Constrictor), one kind on one
+// entity at a time, as putCounterEffect places them. Mode$ Proliferate fires
+// after each of the passes.
 type proliferateEffect struct{}
 
 func (proliferateEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -26,14 +30,20 @@ func (proliferateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	if liveReplacementEvent(g, "Proliferate") {
-		return fmt.Errorf("engine: Proliferate: Proliferate replacement effects not resolvable yet")
-	}
 	num := 1
 	if raw, ok := a.Params.Param("Amount"); ok {
 		n, ok := resolveNamedAmount(g, a.Amounts, source, raw)
 		if !ok {
 			return fmt.Errorf("engine: Proliferate: Amount$ %q not resolvable yet", raw)
+		}
+		num = n
+	}
+	if num > 0 {
+		// CountersProliferateEffect.java:40-51; ReplaceProliferate.canReplace
+		// refuses a count of 0.
+		n, replaced := g.playerAmountReplaced(controller, "Proliferate", "Num", a.Controller, num)
+		if replaced {
+			return nil
 		}
 		num = n
 	}
@@ -56,16 +66,17 @@ func (proliferateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			return fmt.Errorf("engine: Proliferate: %w", err)
 		}
 		for _, e := range chosen {
-			var counters *Counters
 			if pid, ok := e.AsPlayer(); ok {
-				counters = &g.Player(pid).Counters
-			} else {
-				cid, _ := e.AsCard()
-				counters = &g.Card(cid).Counters
+				for _, kind := range slices.Clone(g.Player(pid).Counters.Kinds()) {
+					g.putPlayerCounters(controller, a.Controller, a.Source, pid, kind, 1)
+				}
+				continue
 			}
-			for _, kind := range counters.Kinds() {
-				counters.Add(kind, 1)
-				emitCounterChanged(g, a.Source, e, kind, 1)
+			cid, _ := e.AsCard()
+			for _, kind := range slices.Clone(g.Card(cid).Counters.Kinds()) {
+				if n := g.countersReplaced(controller, a.Controller, e, kind, 1); n > 0 {
+					g.addCardCounters(controller, a.Controller, a.Source, cid, kind, n)
+				}
 			}
 		}
 		g.checkProliferateTriggers(controller, a.Controller)

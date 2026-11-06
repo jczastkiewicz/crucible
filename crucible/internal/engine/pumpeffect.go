@@ -160,7 +160,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	if err != nil {
 		return err
 	}
-	if grant.keywords, err = pumpSharedKeywords("Pump", g, source, a.Params, grant.keywords); err != nil {
+	if grant.keywords, err = pumpSharedKeywords("Pump", g, source, a, grant.keywords); err != nil {
 		return err
 	}
 	if err := g.pumpChooseKeyword(controller, a, source, &grant); err != nil {
@@ -291,7 +291,8 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		g.pumps = append(g.pumps, pumpRecord{
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
-			Keywords: grant.keywords, Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
+			Keywords: c.costPlaceholderKeywords(grant.keywords), Hidden: grant.hidden, Switched: grant.switched, Permanent: permanent,
+			Traits: pumpKeywordTraits(a.Params, grant.keywords), TraitAmounts: a.Amounts,
 			HasUntil: untilNextTurn, UntilTurnOf: a.Controller, Perpetual: perpetual,
 			CanBlockAny: canBlockAny, CanBlockMore: canBlockMore,
 			InZone: c.Zone, OffBattlefield: c.Zone != Battlefield,
@@ -566,6 +567,20 @@ func (k pumpGrant) empty() bool {
 	return len(k.keywords) == 0 && len(k.hidden) == 0 && !k.switched
 }
 
+// pumpKeywordTraits is the traits keywords stand for: a's `KW` subs (compile's
+// expandGrantedKeywords) whose keyword line is one of keywords as written. A
+// keyword a placeholder rewrote (DefinedKW$, a KWChoice$ or random pick, a
+// shared keyword) no longer matches its line and keeps the line alone.
+func pumpKeywordTraits(a *compile.Ability, keywords []string) []*compile.Ability {
+	var out []*compile.Ability
+	for _, sub := range a.Subs {
+		if sub.Key == "KW" && slices.Contains(keywords, sub.SVar) {
+			out = append(out, sub.Ability)
+		}
+	}
+	return out
+}
+
 // pumpKeywords reads KW$ -- shared between pumpEffect and pumpAllEffect,
 // PumpEffect.java/PumpAllEffect.java's own identical two-line KW$ handling
 // (split on " & "). effect names the caller (Pump/PumpAll) for the error
@@ -609,23 +624,50 @@ func pumpKeywords(effect string, a *compile.Ability) (pumpGrant, error) {
 // pumpSharedKeywords is PumpEffect.java:312-316 and PumpAllEffect.java:151-157:
 // SharedKeywordsZone$ keeps, of the granted keywords, the ones a card in those
 // zones that SharedRestrictions$ accepts carries (layerSharedKeywords, the
-// static layer's CardFactoryUtil.sharedKeywords). A restriction naming the
-// trigger's card is not resolvable here (GO-7); IsRemembered reads the host's
-// own remembered list (Priest of Possibility's PeekAndReveal), as
-// CardFactoryUtil.sharedKeywords passes the host.
-func pumpSharedKeywords(effect string, g *Game, host *Card, a *compile.Ability, keywords []string) ([]string, error) {
-	zones, ok := a.Param("SharedKeywordsZone")
+// static layer's CardFactoryUtil.sharedKeywords). IsRemembered reads the
+// host's own remembered list (Priest of Possibility's PeekAndReveal), as
+// CardFactoryUtil.sharedKeywords passes the host. Card.TriggeredCard (Mutable
+// Pupa) is the trigger's card when it is in one of the zones
+// (CardProperty's TriggeredCard, the ability's own Defined$ TriggeredCard); any
+// other restriction naming it is not resolvable here (GO-7).
+func pumpSharedKeywords(effect string, g *Game, host *Card, a *Ability, keywords []string) ([]string, error) {
+	zones, ok := a.Params.Param("SharedKeywordsZone")
 	if !ok {
 		return keywords, nil
 	}
-	if r, _ := a.Param("SharedRestrictions"); strings.Contains(r, "TriggeredCard") {
+	if r, _ := a.Params.Param("SharedRestrictions"); r == "Card.TriggeredCard" {
+		return pumpSharedWithTriggered(effect, g, host, a, keywords, zones)
+	} else if strings.Contains(r, "TriggeredCard") {
 		return nil, fmt.Errorf("engine: %s: SharedRestrictions$ %q not resolvable yet", effect, r)
 	}
-	shared, ok := layerSharedKeywords(g, host, a, keywords, zones)
+	shared, ok := layerSharedKeywords(g, host, a.Params, keywords, zones)
 	if !ok {
 		return nil, fmt.Errorf("engine: %s: SharedKeywordsZone$ %q not resolvable yet", effect, zones)
 	}
 	return shared, nil
+}
+
+// pumpSharedWithTriggered is pumpSharedKeywords for SharedRestrictions$
+// Card.TriggeredCard: the keywords the trigger's card carries, if it is in one
+// of the SharedKeywordsZone$ zones.
+func pumpSharedWithTriggered(effect string, g *Game, host *Card, a *Ability, keywords []string, zonesRaw string) ([]string, error) {
+	ids, err := definedCards(host, "TriggeredCard", a.refs())
+	if err != nil {
+		return nil, fmt.Errorf("engine: %s: %w", effect, err)
+	}
+	var cards []*Card
+	for _, name := range strings.Split(zonesRaw, ",") {
+		z, ok := ZoneByName(strings.TrimSpace(name))
+		if !ok {
+			return nil, fmt.Errorf("engine: %s: SharedKeywordsZone$ %q not resolvable yet", effect, zonesRaw)
+		}
+		for _, id := range ids {
+			if c := g.Card(id); c.Zone == z && !slices.Contains(cards, c) {
+				cards = append(cards, c)
+			}
+		}
+	}
+	return sharedKeywordsOf(cards, keywords), nil
 }
 
 // pumpChooseKeyword is PumpEffect.java:296-301: a line with KWChoice$ and no KW$
@@ -726,7 +768,7 @@ func (g *Game) pumpNotes(a *Ability, source *Card) error {
 // pumpRandomKeywords is PumpEffect.java:380-398: RandomKeyword$ (presence
 // only) keeps RandomKWNum$ (default 1) keywords drawn from keywords, once per
 // resolve, so every target gets the same choice. NoRepetition$ first drops
-// each keyword the first target already carries (exact text, the first
+// each keyword the first target card (if any) already carries (exact text, the first
 // occurrence per match). Each draw is Aggregates.random over what is left
 // (no draw for one, nextInt otherwise) and removes the first equal value,
 // not the drawn index (PORT-7).
@@ -745,15 +787,15 @@ func (g *Game) pumpRandomKeywords(a *Ability, source *Card, keywords []string) (
 		if err != nil {
 			return nil, err
 		}
-		if len(cards) == 0 {
-			// PumpEffect.java:387 reads tgtCards.get(0) unguarded; Java throws.
-			return nil, fmt.Errorf("engine: Pump: NoRepetition$ with no target card")
-		}
-		first := g.Card(cards[0])
-		for _, kw := range keywords {
-			if first.hasKeywordText(kw) {
-				if i := slices.Index(total, kw); i >= 0 {
-					total = slices.Delete(total, i, i+1)
+		// PumpEffect.java:385: with no target card there is nothing to
+		// compare against, so every keyword stays in the draw.
+		if len(cards) > 0 {
+			first := g.Card(cards[0])
+			for _, kw := range keywords {
+				if first.hasKeywordText(kw) {
+					if i := slices.Index(total, kw); i >= 0 {
+						total = slices.Delete(total, i, i+1)
+					}
 				}
 			}
 		}

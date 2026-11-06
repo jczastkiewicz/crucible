@@ -2,24 +2,23 @@
 // self-reference shape Sac<1/CARDNAME> already has (ActivateAbility/
 // ActivateManaAbility's own ActivationShape.SelfExile, internal/cost).
 //
-// Unlike sacrifice (CR 701.20, its own dedicated Mode$ Sacrificed trigger)
-// or discard (CR 701.8, its own dedicated Mode$ Discarded trigger), exile has
-// no dedicated corpus-relevant trigger mode of its own: Forge's own
-// TriggerType.Exiled exists, but 3 real corpus T: lines name Mode$ Exiled at
-// all -- not worth a fourth "own cause" trigger dispatch alongside
-// checkSacrificedTriggers/checkDiscardedTriggers/checkTapsTriggers. What
-// exile DOES share with every other way a permanent leaves the battlefield is
-// CR 603.6d's own "leaves the battlefield" trigger family
-// (TriggerChangesZone.java's own performTest, ported here the identical way
-// checkDiesTriggers already ports it for the graveyard-destination case) --
-// checkExiledTriggers, below, is that family's exile-destination sibling.
+// Exile fires two trigger families. CR 603.6d's "leaves the battlefield"
+// family (TriggerChangesZone.java's performTest, ported here the way
+// checkDiesTriggers ports it for the graveyard) is checkExiledTriggers, which
+// also runs when a Moved replacement redirects a move into exile. Mode$
+// Exiled (TriggerExiled.java) is checkModeExiledTriggers: Java runs it only
+// from GameAction.exile (GameAction.java:934-957), which every
+// moveTo(ZoneType.Exile) reaches, and so does a Moved replacement's
+// ReplaceWith$ ChangeZone into exile (Rest in Peace's).
 
 package engine
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -28,14 +27,15 @@ import (
 // sacrificeCards's own shape (sacrificeeffect.go) at the one real corpus
 // need this cost primitive has: no RememberExiled$-equivalent to thread
 // through (0 real Exile<1/CARDNAME> cost lines combine with one), so this
-// takes no *Ability at all, unlike sacrificeCards's own signature. Fires
-// checkExiledTriggers per card (Move, game.go, already freezes g.LKI on any
+// takes only paying, the ability whose cost exiles ids (nil for an effect's
+// exile, Meld), which Mode$ Exiled's WhileKeyword$ reads. Fires
+// checkExiledTriggers and checkModeExiledTriggers per card (Move, game.go, already freezes g.LKI on any
 // battlefield-leaving move, not only a move to the graveyard, so the
 // dying-state lookback checkDiesTriggers relies on works here for free) and
 // checkChangesZoneAllTriggers once for the whole batch, CR 603.6d's own
 // batched trigger, reused wholesale exactly as sacrificeCards's own trailing
 // call already is.
-func exileCards(g *Game, controller PlayerController, ids []CardID) {
+func exileCards(g *Game, controller PlayerController, paying *Ability, ids []CardID) {
 	var exiled []CardID
 	for _, id := range ids {
 		c := g.Card(id)
@@ -44,6 +44,7 @@ func exileCards(g *Game, controller PlayerController, ids []CardID) {
 		}
 		g.Move(id, Exile, c.Owner)
 		g.checkExiledTriggers(controller, id)
+		g.checkModeExiledTriggers(controller, id, Battlefield, paying)
 		exiled = append(exiled, id)
 	}
 	g.checkChangesZoneAllTriggers(controller, exiled, Battlefield, Exile)
@@ -146,4 +147,57 @@ func (g *Game) otherExiledTriggerMatches(left CardID) []Ability {
 		}
 	}
 	return matches
+}
+
+// checkModeExiledTriggers is GameAction.exile's runTrigger(TriggerType.Exiled)
+// (GameAction.java:934-957) for id, which just left origin for exile, matched
+// by TriggerExiled.performTest (TriggerExiled.java:62-96) on every host whose
+// TriggerZones$ admits its zone: Origin$ (a comma list, or Any), ValidCard$
+// against id as it last was (AbilityKey.Card is the pre-move card), and
+// WhileKeyword$ against paying, the ability whose cost is exiling id
+// (Trigger.whileKeywordCheck reads the cost payment stack). A Madness line
+// fires only from its own replacement (checkMadnessTriggers), and ValidCause$
+// (0 corpus lines, a SpellAbility Matches cannot test) is not fired (GO-7).
+// Java runs this from every origin; this port calls it for the battlefield
+// only, the Origin$ every corpus line names.
+func (g *Game) checkModeExiledTriggers(controller PlayerController, id CardID, origin ZoneType, paying *Ability) {
+	left := g.Card(id)
+	if snap := g.LKI(id); snap != nil && origin == Battlefield {
+		left = snap
+	}
+	matches := g.scanTriggers([]string{"Exiled"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if t.Keyword != "" && keyword.Parse(t.Keyword).Name == "Madness" || hasAnyParam(t, "ValidCause") {
+			return triggeredObjects{}, false
+		}
+		if o, ok := t.Param("Origin"); ok && o != "Any" && !slices.ContainsFunc(strings.Split(o, ","), func(name string) bool {
+			z, ok := ZoneByName(name)
+			return ok && z == origin
+		}) {
+			return triggeredObjects{}, false
+		}
+		if !g.triggerCardMatches(h, t, "ValidCard", left) {
+			return triggeredObjects{}, false
+		}
+		if w, ok := t.Param("WhileKeyword"); ok && !whileKeywordMatches(w, paying) {
+			return triggeredObjects{}, false
+		}
+		objs := triggeredObjects{card: id}
+		if origin == Battlefield {
+			objs = objs.withCardLKI(left)
+		}
+		return objs, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// whileKeywordMatches is Trigger.whileKeywordCheck (Trigger.java:644-656) for
+// the one shape the corpus's Mode$ Exiled line names, Ability.<keyword>: the
+// paying ability is an activated ability made from that keyword (Market
+// Gnome's Ability.Craft). Any other shape does not match (GO-7).
+func whileKeywordMatches(spec string, paying *Ability) bool {
+	kw, ok := strings.CutPrefix(spec, "Ability.")
+	if !ok || paying == nil || paying.spell || paying.Params == nil || paying.Params.Keyword == "" {
+		return false
+	}
+	return keyword.Parse(paying.Params.Keyword).Name == kw
 }

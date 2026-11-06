@@ -4,4 +4,4 @@ activephase=Cleanup
 humanlife=20
 humanbattlefield=Magus of the Unseen|Id:1|Tapped;Island|Tapped;Island|Tapped
 ailife=20
-aibattlefield=Short Sword|Id:4|Tapped|SummonSick
+aibattlefield=Short Sword|Id:4|Tapped

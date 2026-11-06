@@ -391,3 +391,87 @@ func TestUnresolvableAttackTaxIsAnError(t *testing.T) {
 		})
 	}
 }
+
+// Exert is chosen before the attack costs and paid inside the attacker's own
+// cost (PhaseHandler.java:568-590, CombatUtil.getAttackCost): an exerter whose
+// tax is declined leaves combat unexerted; one whose tax is paid is exerted.
+func TestExertIsPaidInsideTheAttackCost(t *testing.T) {
+	t.Parallel()
+	for _, pay := range []bool{true, false} {
+		g, a, _ := attackCostGame(t, "Ghostly Prison")
+		brawler := g.NewCard(corpusCard(t, "Hooded Brawler"), a, engine.Battlefield)
+
+		c := engine.NewScriptedController()
+		c.QueueAttackers([]engine.CardID{brawler})
+		c.QueueExertAttackers([]engine.CardID{brawler})
+		c.QueueConfirmPayCost(pay)
+		if pay {
+			payColorless(g, c, a, 2)
+		}
+		got := declareAttackers(t, g, c)
+
+		if attacking := len(got) == 1; attacking != pay {
+			t.Errorf("tax paid %v: attackers = %v", pay, got)
+		}
+		if g.Card(brawler).Exerted != pay {
+			t.Errorf("tax paid %v: exerted = %v", pay, g.Card(brawler).Exerted)
+		}
+	}
+}
+
+// A mana payment outside priority opens CR 605.3a's mana-ability window
+// (ADR-0054): with an empty pool, Propaganda's {2} is paid by tapping two
+// Forests the attacker's controller names in PayManaCost.
+func TestAttackTaxIsPaidByTappingLandsInThePayment(t *testing.T) {
+	t.Parallel()
+	g, a, _ := attackCostGame(t, "Propaganda")
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	f1 := g.NewCard(corpusCard(t, "Forest"), a, engine.Battlefield)
+	f2 := g.NewCard(corpusCard(t, "Forest"), a, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueAttackers([]engine.CardID{bear})
+	c.QueueConfirmPayCost(true)
+	c.QueuePayManaCost([]engine.Action{
+		{Kind: engine.ActionTapForMana, Card: f1, Color: mana.Green},
+		{Kind: engine.ActionTapForMana, Card: f2, Color: mana.Green},
+	})
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	got := declareAttackers(t, g, c)
+
+	if len(got) != 1 || got[0] != bear {
+		t.Fatalf("attackers = %v, want the bear (tax paid from the Forests)", got)
+	}
+	if !g.Card(f1).Tapped || !g.Card(f2).Tapped {
+		t.Error("the Forests named in the payment are not tapped")
+	}
+}
+
+// A mana ability with a mana cost of its own pays it through a nested window
+// (ADR-0054): the outer payment names the filter, whose {G} is paid by a
+// Forest the nested PayManaCost names.
+func TestManaPaymentWindowNestsForAFilterCost(t *testing.T) {
+	t.Parallel()
+	g, a, _ := attackCostGame(t, "Propaganda")
+	g.Player(a).ManaPool.AddColorless(1)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	forest := g.NewCard(corpusCard(t, "Forest"), a, engine.Battlefield)
+	filter := g.NewCard(scriptDef(t, "Test Filter", "Artifact", "A:AB$ Mana | Cost$ G | Produced$ R"), a, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueAttackers([]engine.CardID{bear})
+	c.QueueConfirmPayCost(true)
+	c.QueuePayManaCost([]engine.Action{{Kind: engine.ActionManaAbility, Card: filter, AbilityIndex: 0}})
+	c.QueuePayManaCost([]engine.Action{{Kind: engine.ActionTapForMana, Card: forest, Color: mana.Green}})
+	c.QueuePayGeneric(mana.ShardC)
+	c.QueuePayGeneric(mana.ShardR)
+	got := declareAttackers(t, g, c)
+
+	if len(got) != 1 {
+		t.Fatalf("attackers = %v, want the bear (tax paid with C and the filtered R)", got)
+	}
+	if !g.Card(forest).Tapped {
+		t.Error("the nested payment's Forest is not tapped")
+	}
+}

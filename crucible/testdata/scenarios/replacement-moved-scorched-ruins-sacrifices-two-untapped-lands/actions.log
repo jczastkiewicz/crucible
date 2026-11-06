@@ -4,5 +4,6 @@
 # and Scorched Ruins enters.
 startturn human
 advance 3
+queue cardorder 2,3
 queue sacrificechoice 2,3
 playland human 1

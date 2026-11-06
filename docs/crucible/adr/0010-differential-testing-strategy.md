@@ -18,7 +18,7 @@ So correctness has to come from comparison. Four ADRs already depend on this one
 in-repo for it, ADR-0002 keeps a JDK pinned for it, ADR-0006 builds `javarand` for it, and ADR-0008 leans on it to
 justify sentinel effects during the port.
 
-**The hard problem is the AI.** `PlayerController` has exactly **110 abstract methods**, and the Go AI will not make the
+**The hard problem is the AI.** `PlayerController` has exactly **112 abstract methods**, and the Go AI will not make the
 same choices as Java's during the port. In a full game, AI divergence produces a different game — so every comparison
 would fail, and none of the failures would tell you whether the rules are wrong.
 
@@ -58,7 +58,7 @@ outputs; both engines run it with a scripted controller. **With no AI in the loo
 which is the property that makes the layer worth having. Inventing a second fixture format is explicitly rejected;
 sharing Forge's is what makes the comparison possible at all.
 
-**L3 removes the AI by recording it, not by matching it.** A `RecordingPlayerController` wraps Java's AI across all 110
+**L3 removes the AI by recording it, not by matching it.** A `RecordingPlayerController` wraps Java's AI across all 112
 methods and logs every decision as stable identifiers, **together with the resulting shuffle permutations** (ADR-0006).
 Go replays the log through a `ReplayController` and applies the recorded permutations rather than generating its own, so
 RNG consumption counts may differ freely without desynchronising anything.
@@ -93,7 +93,7 @@ output comparison alone would miss.
 
 **Bad.** The whole strategy depends on a JVM in CI, permanently — deleting the oracle would remove the only mechanism
 that proves rule accuracy, so "no hybrid" is true of the runtime and false of the build. L3 needs a recording harness
-covering all 110 `PlayerController` methods before it produces anything, which is real work with no payoff until it is
+covering all 112 `PlayerController` methods before it produces anything, which is real work with no payoff until it is
 finished. And the normaliser is a silent-failure risk: every rule it applies is a difference it will never report again.
 
 **Neutral.** Nightly-only L3 and L4 means some regressions land and are found the next morning. Acceptable while merges

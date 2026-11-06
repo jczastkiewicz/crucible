@@ -65,9 +65,7 @@ func (tapOrUntapEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			g.checkTapsTriggers(controller, id, a.Controller, false)
 			tapped = append(tapped, id)
 		case !tap && c.Tapped:
-			g.runUntapCommands(controller, id)
-			c.Tapped = false
-			g.checkUntapsTriggers(controller, id)
+			g.untapCard(controller, id)
 		}
 	}
 	g.checkTapAllTriggers(controller, tapped)

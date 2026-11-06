@@ -289,27 +289,51 @@ func TestCamouflageRepairsInsteadOfValidating(t *testing.T) {
 	})
 }
 
-// TestCamouflageFailsClosedOnACreatureThatCannotBlock proves the mitigation
-// for CamouflageEffect.java:78-80's ConcurrentModificationException
-// (forge-java-defects.md): a defender whose creatures include one that
-// cannot block (here tapped) is an error before the declarer is asked
-// anything, and no block is applied.
-func TestCamouflageFailsClosedOnACreatureThatCannotBlock(t *testing.T) {
+// TestCamouflageLeavesOutACreatureThatCannotBlock proves the pool filter
+// (CamouflageEffect.java:77-78): a creature that cannot block (here tapped)
+// is never offered, and the others are piled as usual.
+func TestCamouflageLeavesOutACreatureThatCannotBlock(t *testing.T) {
 	t.Parallel()
 	g, a, b := camouflageGame(t)
 	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
-	g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	ready := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
 	tapped := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
 	g.Card(tapped).Tapped = true
 	declareAttacking(t, g, attacker)
 
 	c := newCamouflageController(t)
-	_, err := g.DeclareCombatBlockers(c)
-	if err == nil || !strings.Contains(err.Error(), "ConcurrentModificationException") {
-		t.Fatalf("err = %v, want the fail-closed pool error", err)
+	c.QueueCardChoice([]engine.CardID{ready})
+	if got := blocksOf(declareBlockers(t, g, c), attacker); !slices.Equal(got, []engine.CardID{ready}) {
+		t.Errorf("blockers = %v, want only the untapped creature", got)
 	}
-	if len(c.offers) != 0 || len(g.Blocks()) != 0 {
-		t.Errorf("offers %v, blocks %v: want nothing asked or applied", c.offers, g.Blocks())
+	if len(c.offers) != 1 || !slices.Equal(c.offers[0], []engine.CardID{ready}) {
+		t.Errorf("offers %v, want the untapped creature only", c.offers)
+	}
+}
+
+// TestCamouflagePilesACreatureThatCanBlockAnyAgain proves the pool keeps a
+// creature that can block more than it has been piled for
+// (CamouflageEffect.java:86-94, "creatures ... that can block additional
+// creatures may likewise be put into additional piles"): a wall that can
+// block any number is offered for the second pile too and blocks both.
+func TestCamouflagePilesACreatureThatCanBlockAnyAgain(t *testing.T) {
+	t.Parallel()
+	g, a, b := camouflageGame(t)
+	first := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	wall := g.NewCard(scriptDef(t, "Test Wall", "Creature Wall", "S:Mode$ Continuous | AffectedDefined$ Self | CanBlockAny$ True"), b, engine.Battlefield)
+	sba(g)
+	declareAttacking(t, g, first, second)
+
+	c := newCamouflageController(t)
+	c.QueueCardChoice([]engine.CardID{wall})
+	c.QueueCardChoice([]engine.CardID{wall})
+	blocks := declareBlockers(t, g, c)
+	if len(c.offers) != 2 || !slices.Equal(c.offers[1], []engine.CardID{wall}) {
+		t.Fatalf("offers %v, want the wall offered for both piles", c.offers)
+	}
+	if !slices.Equal(blocksOf(blocks, first), []engine.CardID{wall}) || !slices.Equal(blocksOf(blocks, second), []engine.CardID{wall}) {
+		t.Errorf("blocks %v, want the wall blocking both attackers", blocks)
 	}
 }
 

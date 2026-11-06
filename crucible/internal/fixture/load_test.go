@@ -1,6 +1,7 @@
 package fixture_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -275,31 +276,41 @@ func TestLoadUnappliedAnnotationsAreRecorded(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t, "Grizzly Bears")
-	l := load(t, db, "humanbattlefield=Grizzly Bears|Renowned\n")
+	l := load(t, db, "humanbattlefield=Grizzly Bears|Solved\n")
 
 	found := false
 	for _, u := range l.Unapplied {
-		if strings.Contains(u, "Renowned") {
+		if strings.Contains(u, "Solved") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("Unapplied %v does not mention the dropped Renowned annotation", l.Unapplied)
+		t.Errorf("Unapplied %v does not mention the dropped Solved annotation", l.Unapplied)
 	}
 }
 
-// TestLoadReportsIsCommanderUnapplied pins what the engine's commander-cast
-// count rests on (engine.Game.commanderCasts): |IsCommander
-// (GameState.java:1377, Player.addCommander) designates no commander here --
-// no Commander setup is ported -- so it is reported, never silently taken.
-// Supporting it means porting the Commander Effect and the cast record with it.
-func TestLoadReportsIsCommanderUnapplied(t *testing.T) {
+// |IsCommander (GameState.java:1377) makes the card its section player's
+// commander through Player.addCommander, which also puts that player's
+// Commander Effect in the Command zone (ADR-0053); the dump writes the option
+// back and leaves the effect card out, as it does every designation card.
+func TestLoadAppliesIsCommander(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t, "Grizzly Bears")
 	l := load(t, db, "humancommand=Grizzly Bears|IsCommander\n")
-	if len(l.Unapplied) != 1 || !strings.Contains(l.Unapplied[0], "IsCommander") {
-		t.Errorf("Unapplied %v, want the one IsCommander annotation", l.Unapplied)
+	if len(l.Unapplied) != 0 {
+		t.Errorf("Unapplied %v, want none", l.Unapplied)
+	}
+	human := l.Game.Players()[0]
+	commanders := l.Game.Commanders(human)
+	if len(commanders) != 1 || !l.Game.IsCommander(commanders[0]) {
+		t.Fatalf("commanders %v, want the Bears", commanders)
+	}
+	if got := l.Game.Zone(engine.Command, human).Len(); got != 2 {
+		t.Errorf("Command zone holds %d cards, want the Bears and the Commander Effect", got)
+	}
+	if got := fixture.Dump(l).Players[0].Command; !strings.Contains(got, "Grizzly Bears|Id:") || !strings.HasSuffix(got, "|IsCommander") || strings.Contains(got, ";") {
+		t.Errorf("dumped command zone %q, want the Bears alone with |IsCommander", got)
 	}
 }
 
@@ -385,15 +396,14 @@ func TestLoadUnknownActivePlayerErrors(t *testing.T) {
 }
 
 // Player-level Counters applies to engine.Player.Counters -- poison chief
-// among them, which is what CR 704.5c reads -- and landsplayed/
-// landsplayedlastturn apply straight to engine.Player.LandsPlayed/
-// LandsPlayedLastTurn (PlayLand's own per-turn limit, land.go), the same as
-// ManaPool since M5's mana-payment work.
+// among them, which is what CR 704.5c reads -- and landsplayed applies
+// straight to engine.Player.LandsPlayed (PlayLand's own per-turn limit,
+// land.go), the same as ManaPool since M5's mana-payment work.
 func TestLoadPlayerCountersAndLandsPlayedApply(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	l := load(t, db, "humanlife=20\nhumancounters=POISON=3\nhumanlandsplayed=1\nhumanlandsplayedlastturn=2\n")
+	l := load(t, db, "humanlife=20\nhumancounters=POISON=3\nhumanlandsplayed=1\n")
 
 	p := l.Game.Player(l.Game.Players()[0])
 	if got := p.Counters.Count(engine.Poison); got != 3 {
@@ -401,9 +411,6 @@ func TestLoadPlayerCountersAndLandsPlayedApply(t *testing.T) {
 	}
 	if got := p.LandsPlayed; got != 1 {
 		t.Errorf("LandsPlayed = %d, want 1", got)
-	}
-	if got := p.LandsPlayedLastTurn; got != 2 {
-		t.Errorf("LandsPlayedLastTurn = %d, want 2", got)
 	}
 }
 
@@ -475,6 +482,7 @@ func TestLoadMalformedCardAnnotationsFail(t *testing.T) {
 		"Grizzly Bears|Owner:nobody",
 		"Grizzly Bears|RememberedCards:x",
 		"Grizzly Bears|Imprinting:x",
+		"Grizzly Bears|ChosenCards:x",
 	}
 	for _, entry := range cases {
 		t.Run(entry, func(t *testing.T) {
@@ -512,6 +520,19 @@ func TestLoadImprintingMissingIDErrors(t *testing.T) {
 	}
 	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
 		t.Error("Imprinting naming a nonexistent id loaded without error")
+	}
+}
+
+func TestLoadChosenCardsMissingIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears")
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=Grizzly Bears|ChosenCards:99\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("ChosenCards naming a nonexistent id loaded without error")
 	}
 }
 
@@ -594,5 +615,24 @@ func TestLoadTokenNotInTheDatabaseFails(t *testing.T) {
 	}
 	if _, err := fixture.Load(st, tokenDB(t, "w_1_1_soldier"), javarand.New(1)); err == nil {
 		t.Error("an unknown token script loaded without error")
+	}
+}
+
+// The load-time state-effects pass sees a setup's zero life, which Java sets
+// before it (GameState.java:1183), but not a negative one, which Java sets
+// after it (GameState.java:695-702).
+func TestApplyStateEffectsLosesAtZeroLifeButNotBelow(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		life     int
+		wantLost bool
+	}{{0, true}, {-5, false}} {
+		l := load(t, testDB(t), "humanlife="+strconv.Itoa(tc.life)+"\nailife=20\n")
+		l.ApplyStateEffects(engine.NewScriptedController())
+		p := l.Game.Player(l.Game.Players()[0])
+		if p.Lost != tc.wantLost || p.Life != tc.life {
+			t.Errorf("life %d: lost = %v, life = %d after the pass, want lost %v", tc.life, p.Lost, p.Life, tc.wantLost)
+		}
 	}
 }

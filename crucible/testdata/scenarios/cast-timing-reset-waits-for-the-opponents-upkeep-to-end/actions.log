@@ -9,7 +9,7 @@ startturn ai
 advance
 tapformana human 2 U
 tapformana human 3 U
-castspell human 1
+expecterror refused castspell human 1
 # Draw: the upkeep has finished, and the unspent mana is gone.
 advance
 tapformana human 4 U

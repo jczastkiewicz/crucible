@@ -10,7 +10,7 @@
 — a `SplitMeld` card's own back face is the melded result (`Brisela, Voice of Nightmares` is Gisela's own back face),
 entered by `MeldEffect.java` exiling both named cards, transforming the primary to its `CardStateName.Meld` state
 (`primary.changeToState`), and marking the secondary as folded into it (`primary.setMeldedWith(secondary)`,
-`PlayerZoneBattlefield.addToMelded(secondary)`) before moving the primary onto the battlefield. CR 712.4c: if the melded
+`PlayerZoneBattlefield.addToMelded(secondary)`) before moving the primary onto the battlefield. CR 712.21: if the melded
 permanent ever leaves the battlefield, it splits back into its two original cards, each going to its owner's appropriate
 zone.
 
@@ -23,7 +23,7 @@ established, repeated pattern for "swap `Card.Def` to a different compiled face,
 
 **What is novel:** a second, distinct `Card` object (the secondary) that stops being its own permanent and instead rides
 along inside the primary's identity while melded, then un-folds back into two cards the moment either leaves the
-battlefield (CR 712.4c). Crucible's `Card` model has no "this card is folded into that other card" relationship at all
+battlefield (CR 712.21). Crucible's `Card` model has no "this card is folded into that other card" relationship at all
 today.
 
 ## Decision Drivers
@@ -32,7 +32,7 @@ today.
 - Reuse over invention: the face-swap uses the existing `Def`-swap precedent exactly as `SetState`/`Clone` do; only the
   two-card pairing is new state.
 - PORT-2: no new card-state is parsed at runtime — the meld face is already a compiled `Faces[1]`, resolved at load.
-- CR 712.4c parity: splitting back on any zone change away from the battlefield is not optional cleanup, it is the rule
+- CR 712.21 parity: splitting back on any zone change away from the battlefield is not optional cleanup, it is the rule
   — both halves must return to real zones, not vanish or leave one half stranded.
 
 ## Considered Options
@@ -47,7 +47,7 @@ today.
    nothing needs a `Melded` flag checked at each enumeration site the way `IsDesignationCard` needs one for
    `BecomeMonarch`'s synthetic card.
 
-**Splitting back apart (CR 712.4c):**
+**Splitting back apart (CR 712.21):**
 
 1. A duration-tracked effect (like `Game.pumps`), checked at cleanup.
 2. A zone-move hook: whichever of `Game.Move`'s call sites already handles a card leaving `Battlefield` also checks
@@ -68,15 +68,19 @@ they read, the identical "invisible without a per-site skip" property `IsDesigna
 check at each site. The primary gets `MeldedWith CardID` (`NoCard` = not melded) naming the secondary.
 
 **Face swap: reuses `SetState`'s existing precedent**, no new mechanism. The primary's `Def` swaps to its own `Faces[1]`
-(the meld face), `frontDef` holding the original for the revert.
+(the meld face), `frontDef` holding the original for the revert. The meld face has no mana cost, but the melded
+permanent's mana value is the sum of its front faces' (CR 712.8g, `Card.java:7409-7415`): the primary keeps the other
+card's mana value beside `MeldedWith` and `CMC` adds it to its own front face's.
 
 **Splitting apart: Option 2.** Reverting is not duration-tracked — it is triggered by the same zone-move code paths that
 already exist for a card leaving `Battlefield` (both `Game.Move` and `Game.MoveToLibraryTop`, not `Move` alone), at the
 point a melded primary's `Zone` changes away from `Battlefield`. That code checks `MeldedWith`; if set, it un-swaps the
 primary's `Def` (`frontDef` restore) and moves the secondary (currently `Melded`, in no zone's own collection) to its
-owner's zone matching wherever the primary is now headed (CR 712.4c: both components go to the zone the event would have
+owner's zone matching wherever the primary is now headed (CR 712.21: both components go to the zone the event would have
 sent a single permanent to — e.g. both to their owners' graveyards on a destroy, or the secondary follows the primary on
-top of the library). The secondary's own `Melded` flag clears in the same step.
+top of the library). The secondary's own `Melded` flag clears in the same step. Java puts the secondary directly above
+the primary in a library without asking, where CR 401.4 lets the owner order them; reproduced, a `quirks.md` and a
+`forge-java-defects.md` row.
 
 **Corpus scope.** `MeldEffect.java`'s own `Tapped$` param and its exile-then-check-both-still-there gate (tokens and
 copies are explicitly excluded, `c.isToken() || c.getCloneOrigin() != null`) are the dominant real shape; anything past

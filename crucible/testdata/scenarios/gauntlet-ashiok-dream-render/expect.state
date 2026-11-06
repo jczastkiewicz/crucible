@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Ashiok, Dream Render|Id:1|Counters:LOYALTY=4
+humangraveyard=Lightning Bolt|Id:2;Grizzly Bears|Id:3
+humanlibrary=Island|Id:4;Island|Id:5;Island|Id:6;Island|Id:7;Island|Id:8;Island|Id:9
+ailife=20
+aibattlefield=Grizzly Bears|Id:10;Ornithopter|Id:11;Swamp|Id:12;Pacifism|Id:13|AttachedTo:10
+aihand=Island|Id:14;Lightning Bolt|Id:15;Grizzly Bears|Id:16
+ailibrary=Island|Id:23;Island|Id:24
+aiexile=Shock|Id:17|ExiledWith:1;Hill Giant|Id:18|ExiledWith:1;Island|Id:19|ExiledWith:1;Island|Id:20|ExiledWith:1;Island|Id:21|ExiledWith:1;Island|Id:22|ExiledWith:1

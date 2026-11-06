@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Mountain|Tapped|SummonSick
+humanbattlefield=Mountain|Tapped
 humangraveyard=Lightning Bolt
 ailife=17

@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow control game ability effecthelpers card condition defined zone id discardeffect token
+//enginelint:allow control game ability effecthelpers card condition defined zone id discardeffect token tokentable
 
 import (
 	"fmt"
@@ -40,7 +40,7 @@ func (recruitEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			return fmt.Errorf("engine: Recruit: %w", err)
 		}
 		nonland := !g.Card(chosen[0]).Type().Has(cardtype.Land)
-		discardCards(g, controller, chosen, p)
+		discardCards(g, controller, chosen, p, effectDiscardCause(a))
 		if !nonland {
 			continue
 		}
@@ -48,8 +48,8 @@ func (recruitEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if err != nil {
 			return fmt.Errorf("engine: Recruit: %w", err)
 		}
-		id := g.createToken(controller, tokenSpec{Def: def, Owner: p})
-		g.checkChangesZoneAllTriggers(controller, []CardID{id}, None, Battlefield)
+		ids := g.makeTokens(controller, tokenCell{creator: p, spec: tokenSpec{Def: def, Owner: p}, n: 1})
+		g.checkChangesZoneAllTriggers(controller, ids, None, Battlefield)
 	}
 	return nil
 }

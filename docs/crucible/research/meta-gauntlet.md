@@ -4,6 +4,7 @@
 - **Applies to:** the card corpus, and therefore the scope of M6
 - **First format:** Modern
 - **Measured:** 2026-09-07
+- **Modern snapshot:** 2026-11-06, `crucible/gauntlets/modern/`
 
 Defines what Crucible plays against. [ADR-0011](../adr/0011-card-corpus-scoping.md) scopes the card corpus to the target
 deck plus this gauntlet, so this document is what makes "done" checkable.
@@ -17,7 +18,7 @@ adding a format adds a directory and changes no code.
 
 ```text
 docs/crucible/research/meta-gauntlet.md      this document — policy and structure
-gauntlets/
+crucible/gauntlets/
   modern/
     gauntlet.toml                            format, source, snapshot date, deck weights
     <archetype>.dck                          one file per deck
@@ -83,9 +84,15 @@ format's full 22,107-card pool.
 
 ## Sourcing
 
-**Not yet supplied.** The decklists themselves require an external source, and this document deliberately does not
-invent them — a fabricated metagame would produce confident, wrong recommendations, which is the failure mode
-[ADR-0011](../adr/0011-card-corpus-scoping.md) exists to prevent.
+The decklists come from an external source and are never invented: a fabricated metagame would produce confident, wrong
+recommendations, which is the failure mode [ADR-0011](../adr/0011-card-corpus-scoping.md) exists to prevent.
+
+The Modern snapshot of 2026-11-06 reads MTGGoldfish's paper Modern metagame
+(`https://www.mtggoldfish.com/metagame/modern/full#paper`). It takes the 14 archetypes at 2.5% of the field or more,
+70.7% of it together, inside the 8-15 of [Sizing](#sizing). Each `.dck` is the archetype page's featured list, a
+melee.gg tournament result (Regional Championships and RCQs of October 2026), 60 cards and a 15-card sideboard; its
+`Description` names the event, the finish and the deck's URL. `gauntlet.toml` gives each deck its published share as
+`weight`. One name is rewritten to the corpus spelling: MTGGoldfish's `Troll of Khazad-dum` is `Troll of Khazad-dûm`.
 
 Requirements for whatever source is chosen:
 
@@ -126,13 +133,14 @@ The order formats are added is a scheduling decision, made with that report in h
 
 ## Open questions
 
-- **Decklists are not chosen yet.** Everything else here is structure. They need an external source: the `.dck` files in
-  this repository are quest, adventure and AI-generated decks, not a competitive metagame. What they gate is M6's
-  backlog — `crucible corpus-coverage --decks gauntlets/modern/` is what defines "done" for card support — not M1-M5,
-  which need no gauntlet.
-- `crucible card-smoke -decks gauntlets/modern/` then gives the share of the gauntlet's cards the engine plays
-  ([`smoke-probe.md`](../porting/port-log/smoke-probe.md)); until the lists exist it was measured on the quest precons,
-  a proxy.
+- `deck.ParseGauntlet` reads `gauntlet.toml`, a strict TOML subset (quoted strings, numbers, `[[deck]]`, comments;
+  anything else is an error, since GO-14 rules out a TOML library). `crucible run -vs gauntlets/modern` plays the decks
+  it lists in its order and fails on a listed file that is missing or a `.dck` it leaves out; `manifest.json` records
+  each opponent's `weight` and the manifest's snapshot. No report weights results by them yet (R24a).
+- `crucible card-smoke -decks gauntlets/modern` gives the share of the gauntlet's cards the engine plays
+  ([`smoke-probe.md`](../porting/port-log/smoke-probe.md)): 232 of 233 distinct cards judged, all of them play, one
+  inconclusive. A split card is named by both halves (`Wear // Tear`), as Forge's `.dck` files write it;
+  `compile.DB.Resolve` reads that spelling, case and accents ignored.
 - Weights need a source too, and an unweighted first gauntlet is acceptable provided reports say so.
 - Whether sideboards are simulated at all in M6, or deferred. Sideboarding needs `PlayerController` support for
   between-game decisions and is not in the plan's milestone list.

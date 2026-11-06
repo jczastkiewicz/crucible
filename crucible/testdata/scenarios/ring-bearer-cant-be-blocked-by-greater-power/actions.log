@@ -5,7 +5,8 @@
 # blocks with its own Grizzly Bears (2/2), the equal-power creature CanBlock
 # accepts. Hill Giant (3/3) stays home: declaring it as a blocker would be
 # an illegal declaration (CR 509.1b, ADR-0024), an error rather than a
-# dropped pairing. Each Bears takes 2 damage, the Hill Giant none.
+# dropped pairing. Each Bears takes 2 damage, the Hill Giant none, and both
+# Bears die to the state-based check End of Combat's priority runs (CR 704.5g).
 startturn human
 advance 5
 queue attackers 1
@@ -16,3 +17,4 @@ declareblockers
 advance
 advance
 combatdamage
+advance

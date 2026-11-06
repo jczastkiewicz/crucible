@@ -94,11 +94,9 @@ func TestDrawNotPreventedWhenIsPresentConditionNotMet(t *testing.T) {
 	}
 }
 
-// TestDrawNotPreventedByUnresolvedOptional proves obstinate_familiar.txt's
-// own real Optional$ True | Prevent$ True shape skips the whole line rather
-// than preventing unconditionally (PORT-8/GO-7): this port's own
-// PlayerController has no "may" hook for it.
-func TestDrawNotPreventedByUnresolvedOptional(t *testing.T) {
+// An Optional$ Prevent$ draw line asks the drawing player; declined, the card
+// is drawn (ReplacementHandler.java:364-380).
+func TestDrawNotPreventedWhenTheOptionalLineIsDeclined(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
@@ -107,10 +105,12 @@ func TestDrawNotPreventedByUnresolvedOptional(t *testing.T) {
 	g.NewCard(replacementEnchantmentDef(t, "Test Optional Draw Lock",
 		"Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | Optional$ True | Prevent$ True | Description$ optional lock."), p, engine.Battlefield)
 
-	g.DrawCards(p, 1, engine.NewScriptedController())
+	c := engine.NewScriptedController()
+	c.QueueConfirmReplacementEffect(false)
+	g.DrawCards(p, 1, c)
 
 	if g.Card(top).Zone != engine.Hand {
-		t.Errorf("card zone = %v, want Hand -- Optional$ is unresolved and must skip the whole line", g.Card(top).Zone)
+		t.Errorf("card zone = %v, want Hand: the optional skip was declined", g.Card(top).Zone)
 	}
 }
 

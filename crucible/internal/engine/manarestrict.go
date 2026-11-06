@@ -26,10 +26,13 @@ type payContext struct {
 	// resolving is a payment made while item resolves (an unless-cost):
 	// AbilityManaPart.java:443-445 meets no ordinary restriction then.
 	resolving bool
-	// special names the special action a payment is for: "Foretelling" or
-	// "Unlock" (RestrictValid$ Static.Foretelling, Static.Unlock); "" for a
-	// spell, ability or effect.
+	// special names the special action a payment is for: "Foretelling",
+	// "Unlock" or a turn-face-up way (RestrictValid$ Static.Foretelling,
+	// Static.Unlock, Static.MorphUp); "" for a spell, ability or effect.
 	special string
+	// turnFaceUp marks a payment to turn a permanent face up
+	// (Static.isTurnFaceUp, SpellAbility.isTurnFaceUp).
+	turnFaceUp bool
 	// cumulative is a payment for a cumulative upkeep cost
 	// (SpellAbility.isCumulativeUpkeep).
 	cumulative bool
@@ -52,9 +55,8 @@ var manaRestrictionSpecials = map[string]bool{
 }
 
 // staticSpecials are the special actions a Static.<name> alternative can
-// name. The turn-face-up ones (isTurnFaceUp, MorphUp, ManifestUp) are judged
-// but never paid for: this port has no turn-face-up special action, so mana
-// restricted to it pays only its other alternatives.
+// name: isTurnFaceUp is any turn-face-up payment, MorphUp and ManifestUp the
+// way's own flag (morph.go).
 var staticSpecials = map[string]bool{
 	"Foretelling": true, "Plotting": true, "Unlock": true, "isTurnFaceUp": true, "MorphUp": true, "ManifestUp": true,
 }
@@ -192,6 +194,7 @@ func (g *Game) staticRestrictionMet(ctx *payContext, host *Card, props string) b
 	for _, prop := range strings.Split(props, "+") {
 		switch {
 		case prop == ctx.special && ctx.special != "":
+		case prop == "isTurnFaceUp" && ctx.turnFaceUp:
 		case staticSpecials[prop]:
 			return false
 		case !Matches(g, host, valid.Parse("Card."+prop), host.Controller(), host.ID):

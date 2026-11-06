@@ -56,7 +56,12 @@ func (g *Game) entryReplaced(controller PlayerController, moved CardID, origin Z
 		// the copy, as ReplacementHandler.run's later layers do.
 		g.refreshLayers()
 		g.applyCopyReplacements(controller, moved, origin, entering)
-		replaced = g.runEntryLayer(controller, card, origin, entering, "Other")
+		// The Transform layer (ReplacementLayer's order): Daybound's "enters
+		// transformed at night" turns the card over before the move.
+		replaced = g.runEntryLayer(controller, card, origin, entering, "Transform")
+		if !replaced {
+			replaced = g.runEntryLayer(controller, card, origin, entering, "Other")
+		}
 	}
 	if replaced && card.Zone != Battlefield {
 		// The entry did not land: a copy effect and the counters it was to
@@ -120,7 +125,7 @@ func (g *Game) entryCandidates(controller PlayerController, moved *Card, origin 
 			return result
 		}})
 	}
-	for _, face := range moved.traitFaces() {
+	for _, face := range moved.liveTraitFaces() {
 		for _, r := range face.Replacements {
 			consider(moved, moved.Zone, true, face.Amounts, r)
 		}
@@ -354,6 +359,15 @@ var entryChainAPIs = [...]string{
 	"RollDice", "ChangeZoneAll", "RemoveCounter",
 }
 
+// entersTransformed reports a SetState that turns the entering card over
+// before it moves (Mode$ Transform, ETB$ True: Daybound's replacement,
+// CardFactoryUtil.java:2201-2203).
+func entersTransformed(a *compile.Ability) bool {
+	mode, _ := a.Param("Mode")
+	_, etb := a.Param("ETB")
+	return strings.EqualFold(a.Name, "SetState") && etb && strings.EqualFold(mode, "Transform")
+}
+
 // entryChainRunsBeforeMove reports whether every ability reachable from a
 // (its SubAbility$ chain and any other sub, a GenericChoice's choices) is an
 // entryChainAPIs entry, a PutCounter into the entry's counter table (ETB$) or
@@ -365,7 +379,7 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 		return false
 	}
 	delayed := strings.EqualFold(a.Name, "DelayedTrigger")
-	ok := delayed || entersPrepared(a) || modeOnlyPump(a)
+	ok := delayed || entersPrepared(a) || modeOnlyPump(a) || entersTransformed(a)
 	if strings.EqualFold(a.Name, "PutCounter") {
 		_, etb := a.Param("ETB")
 		defined, hasDefined := a.Param("Defined")

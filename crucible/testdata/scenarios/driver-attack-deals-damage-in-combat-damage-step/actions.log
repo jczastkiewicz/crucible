@@ -4,7 +4,7 @@
 # first-strike damage step deals nothing and grants no priority
 # (PhaseHandler.java:321-332). The combat damage step deals 2 (CR 510.2).
 # Seven steps from Untap: Upkeep, Main1 (turn 1 skips the draw step, CR
-# 103.7a), BeginCombat, Declare Attackers, Declare Blockers, First Strike
+# 103.8a), BeginCombat, Declare Attackers, Declare Blockers, First Strike
 # Damage, Combat Damage.
 startturn human
 queue attackers 1

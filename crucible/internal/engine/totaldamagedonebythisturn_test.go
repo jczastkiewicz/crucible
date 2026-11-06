@@ -20,7 +20,7 @@ func TestTotalDamageDoneByThisTurnCountsEveryRecipient(t *testing.T) {
 	flame := g.NewCard(corpusCard(t, "Brightflame"), p, engine.Hand)
 	g.Player(p).ManaPool.Add(mana.Red, 4)
 	g.Player(p).ManaPool.Add(mana.White, 2)
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	c.QueueConfirmPayCost(false)
 	c.QueuePayX(2)
 	c.QueuePayGeneric(mana.ShardR)

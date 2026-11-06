@@ -5,6 +5,7 @@
 # exiled with a croak counter, then draws the Plains.
 startturn human
 advance 3
+queue cardorder 4,5
 tapformana human 2 U
 queue targets human
 castspell human 1

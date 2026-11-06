@@ -79,3 +79,50 @@ func TestSetStateFaceDownStats(t *testing.T) {
 		t.Errorf("type = %v, want Artifact Creature Cyberman", c.Type())
 	}
 }
+
+// TestDigPutsCardsFaceDownUnderTheActivatorsControl runs Cybership's Dig
+// line (DigEffect.java:367-396): the activator orders the opponent's top two
+// cards, which enter face down as 2/2 Cyberman artifact creatures under the
+// activator's control.
+func TestDigPutsCardsFaceDownUnderTheActivatorsControl(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGame(t)
+	inst := g.NewCard(scriptDef(t, "Test Hidden Instant", "Instant"), opp, engine.Library)
+	bear := g.NewCard(creatureDefPT(t, "5", "5"), opp, engine.Library)
+	top := g.Zone(engine.Library, opp).Cards()[:2]
+	c := engine.NewScriptedController()
+	c.QueueCardOrder([]engine.CardID{top[1], top[0]})
+	resolveLine(t, g, p, c,
+		"DB$ Dig | Defined$ Opponent | DigNum$ 2 | GainControl$ True | ChangeNum$ All | DestinationZone$ Battlefield | FaceDown$ True | FaceDownPower$ 2 | FaceDownToughness$ 2 | FaceDownSetType$ Artifact & Creature & Cyberman")
+	for _, id := range []engine.CardID{inst, bear} {
+		card := g.Card(id)
+		if card.Zone != engine.Battlefield || card.Controller() != p || card.Owner != opp {
+			t.Fatalf("%v: zone %v controller %v owner %v, want battlefield under %v, owned by %v",
+				id, card.Zone, card.Controller(), card.Owner, p, opp)
+		}
+		if !card.IsFaceDown() {
+			t.Errorf("%v not face down", id)
+		}
+		pw, _ := card.Power()
+		tg, _ := card.Toughness()
+		if pw != 2 || tg != 2 || !card.Type().HasSubtype("Cyberman") || !card.Type().Has(cardtype.Artifact) {
+			t.Errorf("%v = %d/%d %v, want 2/2 Artifact Creature Cyberman", id, pw, tg, card.Type())
+		}
+	}
+}
+
+// TestDigFaceDownTurnsADoubleFacedCard proves Dig's turnFaceDown(true)
+// (DigEffect.java:390): the override skips the double-faced check, so a
+// transform card enters face down too.
+func TestDigFaceDownTurnsADoubleFacedCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	dfc := g.NewCard(corpusCard(t, "Delver of Secrets"), p, engine.Library)
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Battlefield | FaceDown$ True")
+	if card := g.Card(dfc); card.Zone != engine.Battlefield || !card.IsFaceDown() {
+		t.Errorf("Delver: zone %v, face down %v; want face down on the battlefield", card.Zone, card.IsFaceDown())
+	}
+}

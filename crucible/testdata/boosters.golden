@@ -1,6 +1,6 @@
 Language 'en-US' loaded successfully.
 (ThreadUtil first call): Running with priority 5
-Read cards: 34132 files in 1 ms (25 parts) using thread pool
+Read cards: 34134 files in 3 ms (25 parts) using thread pool
 Read cards: 858 files in 0 ms (8 parts) using thread pool
 T	10E
 T	2ED
@@ -149,6 +149,7 @@ T	S99
 T	SCG
 T	SHM
 T	SIR
+T	SLZ
 T	SNC
 T	SOI
 T	SOK
@@ -166,6 +167,7 @@ T	TMP
 T	TMT
 T	TOR
 T	TPR
+T	TRK
 T	TSP
 T	TSR
 T	UDS
@@ -3179,6 +3181,24 @@ C	Manic Scribe|SIR|80|1|false
 C	Flameblade Angel|SIR|155|1|false
 C	Mountain|SIR|287|2|false
 C	Sever the Bloodline|SIS|33|1|false
+3 of type Common
+Parsing from main code: fromSheet("SLZ photocopy")
+Attempting to lookup: SLZ photocopy
+2 of type Uncommon
+Parsing from main code: fromSheet("SLZ photocopy")
+Attempting to lookup: SLZ photocopy
+1 of type Wildcard
+1 of type RareMythic
+Parsing from main code: fromSheet("SLZ photocopy")
+Attempting to lookup: SLZ photocopy
+TPACK	147	SLZ
+C	High Tide|SLZ|18|1|false
+C	Savannah Lions|SLZ|9|1|false
+C	Ornithopter|SLZ|109|1|false
+C	Sol Ring|SLZ|114|1|false
+C	Yargle, Glutton of Urborg|SLZ|53|1|false
+C	Merfolk of the Pearl Trident|SLZ|24|1|false
+C	Dueling Grounds|SLZ|89|1|false
 Parsing from main code: fromsheet("SNC cards")
 Attempting to lookup: SNC cards
 Parsing from main code: fromSheet("SNC cards")
@@ -3187,71 +3207,70 @@ Parsing from main code: fromSheet("SNC cards")
 Attempting to lookup: SNC cards
 Parsing from main code: fromSheet("SNC lands")
 Attempting to lookup: SNC lands
-TPACK	147	SNC
+TPACK	148	SNC
+C	Strangle|SNC|125|1|false
+C	Gilded Pinions|SNC|238|1|false
 C	Buy Your Silence|SNC|6|1|false
-C	Extract the Truth|SNC|78|1|false
-C	Witness Protection|SNC|66|1|false
-C	Psionic Snoop|SNC|53|1|false
-C	Tramway Station|SNC|258|1|false
-C	Crooked Custodian|SNC|71|1|false
-C	Sewer Crocodile|SNC|60|1|false
-C	Jetmir's Fixer|SNC|194|1|false
-C	Civil Servant|SNC|176|1|false
-C	Caldaia Strongarm|SNC|138|1|false
-C	Unlucky Witness|SNC|128|1|false
-C	Citizen's Crowbar|SNC|8|1|false
+C	Warm Welcome|SNC|164|1|false
+C	Girder Goons|SNC|80|1|false
+C	Backstreet Bruiser|SNC|35|1|false
+C	Wrecking Crew|SNC|132|1|false
+C	Kill Shot|SNC|19|1|false
+C	Halo Scarab|SNC|239|1|false
 C	Brass Knuckles|SNC|234|1|false
-C	Wiretapping|SNC|65|1|false
-C	Forest|SNC|281|4|false
-Common was replaced with something from the replace sheet...
-TPACK	148	SOI
-C	Hanweir Militia Captain|SOI|21|1|false
-C	Dead Weight|SOI|106|1|false
-C	Vessel of Nascency|SOI|237|1|false
-C	Nagging Thoughts|SOI|74|1|false
+C	Exotic Pets|SNC|185|1|false
+C	Voice of the Vermin|SNC|163|1|false
+C	Evolving Door|SNC|144|1|false
+C	Swamp|SNC|277|4|false
+C	Sewer Crocodile|SNC|60|1|true
+TPACK	149	SOI
+C	Stromkirk Mentor|SOI|137|1|false
+C	Aim High|SOI|193|1|false
+C	Cathar's Companion|SOI|9|1|false
+C	Angelic Purge|SOI|3|1|false
+C	Vessel of Volatility|SOI|189|1|false
+C	Dual Shot|SOI|153|1|false
 C	Moldgraf Scavenger|SOI|218|1|false
-C	Gone Missing|SOI|67|1|false
-C	Confront the Unknown|SOI|198|1|false
-C	Rabid Bite|SOI|223|1|false
-C	Gryff's Boon|SOI|20|1|false
-C	Cult of the Waxing Moon|SOI|201|1|false
-C	Indulgent Aristocrat|SOI|118|1|false
-C	Rattlechains|SOI|81|1|false
-C	Harvest Hand|SOI|256|1|false
-C	Island|SOI|286|1|false
-C	Unruly Mob|SOI|47|1|true
-TPACK	149	SOK
-C	Barrel Down Sokenzan|SOK|94|1|false
-C	Path of Anger's Flame|SOK|109|1|false
-C	Curtain of Light|SOK|6|1|false
-C	Elder Pine of Jukai|SOK|128|1|false
-C	Death Denied|SOK|63|1|false
-C	Plow Through Reito|SOK|22|1|false
-C	Spiraling Embers|SOK|116|1|false
+C	Reduce to Ashes|SOI|176|1|false
+C	Silburlind Snapper|SOI|85|1|false
+C	Dance with Devils|SOI|150|1|false
+C	Stensia Masquerade|SOI|184|1|false
+C	Silverstrike|SOI|37|1|false
+C	Forgotten Creation|SOI|63|1|false
+C	Avacynian Missionaries|SOI|6|1|false
+C	Plains|SOI|284|2|false
+TPACK	150	SOK
+C	Kami of Empty Graves|SOK|75|1|false
+C	Kitsune Dawnblade|SOK|16|1|false
+C	Inner Fire|SOK|105|1|false
 C	Sakura-Tribe Scout|SOK|144|1|false
-C	Ronin Cavekeeper|SOK|111|1|false
-C	Sink into Takenuma|SOK|89|1|false
-C	Sokenzan Spellblade|SOK|115|1|false
-C	Kiri-Onna|SOK|43|1|false
-C	Razorjaw Oni|SOK|87|1|false
-C	Nikko-Onna|SOK|21|1|false
-C	Undying Flames|SOK|119|1|false
-TPACK	150	SOM
-C	Screeching Silcaw|SOM|42|1|false
-C	Echo Circlet|SOM|153|1|false
-C	Origin Spellbomb|SOM|189|1|false
-C	Leaden Myr|SOM|170|1|false
+C	Barrel Down Sokenzan|SOK|94|1|false
+C	Into the Fray|SOK|106|1|false
+C	Cowed by Wisdom|SOK|5|1|false
+C	Moonbow Illusionist|SOK|46|1|false
+C	Akki Drillmaster|SOK|92|1|false
+C	Okina Nightwatch|SOK|140|1|false
+C	Kagemaro's Clutch|SOK|74|1|false
+C	Sokenzan Renegade|SOK|114|1|false
+C	Locust Miser|SOK|80|1|false
+C	Hand of Honor|SOK|12|1|false
+C	Oboro, Palace in the Clouds|SOK|164|1|false
+TPACK	151	SOM
+C	Tainted Strike|SOM|80|1|false
+C	Seize the Initiative|SOM|20|1|false
+C	Auriok Replica|SOM|138|1|false
+C	Wall of Tanglecord|SOM|222|1|false
+C	Copper Myr|SOM|146|1|false
+C	Vault Skyward|SOM|51|1|false
+C	Razorfield Thresher|SOM|197|1|false
+C	Sylvok Lifestaff|SOM|209|1|false
 C	Plague Stinger|SOM|75|1|false
-C	Iron Myr|SOM|168|1|false
-C	Scrapdiver Serpent|SOM|41|1|false
-C	Sunspear Shikari|SOM|23|1|false
-C	Glint Hawk Idol|SOM|156|1|false
-C	Dross Hopper|SOM|60|1|false
-C	Riddlesmith|SOM|40|1|false
-C	Contagion Clasp|SOM|144|1|false
-C	Painsmith|SOM|74|1|false
-C	Tunnel Ignus|SOM|105|1|false
-C	Swamp|SOM|241|4|false
+C	Turn Aside|SOM|49|1|false
+C	Glimmerpoint Stag|SOM|9|1|false
+C	Necropede|SOM|185|1|false
+C	Liquimetal Coating|SOM|171|1|false
+C	Ratchet Bomb|SOM|196|1|false
+C	Plains|SOM|232|3|false
 5 of type Common
 Parsing from main code: fromSheet("SOS cards")
 Attempting to lookup: SOS cards
@@ -3260,7 +3279,6 @@ Attempting to lookup: SOS cards
 Parsing from main code: fromSheet("SOS cards")
 Attempting to lookup: SOS cards
 1 of type Wildcard
-Replaced a base slot! Wildcard -> Uncommon:fromSheet("SOS cards")
 1 of type RareMythic
 Parsing from main code: fromSheet("SOS cards")
 Attempting to lookup: SOS cards
@@ -3268,26 +3286,28 @@ Attempting to lookup: SOS cards
 Parsing from main code: fromSheet("SOS mystical archive")
 Attempting to lookup: SOS mystical archive
 1 of type Foil
-Replaced a base slot! Foil -> Uncommon:fromSheet("SOS cards")+
+Replaced a base slot! Foil -> Uncommon:fromSheet("SOA cards")+
+Parsing from main code: fromSheet("SOA cards")
+Attempting to lookup: SOA cards
 1 of type Land
 Replaced a base slot! Land -> fromSheet("SOS common duals")
 Parsing from main code: fromSheet("SOS common duals")
 Attempting to lookup: SOS common duals
-TPACK	151	SOS
-C	Wander Off|SOS|104|1|false
-C	Landscape Painter|SOS|56|1|false
-C	Ascendant Dustspeaker|SOS|8|1|false
-C	Interjection|SOS|22|1|false
+TPACK	152	SOS
+C	Stadium Tidalmage|SOS|232|1|false
 C	Burrog Banemaker|SOS|75|1|false
-C	Biblioplex Tomekeeper|SOS|247|1|false
-C	Mind Roots|SOS|203|1|false
-C	Blazing Firesinger|SOS|109|1|false
-C	Inkshape Demonstrator|SOS|21|1|false
-C	Lorehold Charm|SOS|200|1|false
-C	Ark of Hunger|SOS|173|1|false
-C	Repel Calamity|SOA|8|1|false
-C	Vibrant Outburst|SOS|240|1|true
-C	Paradox Gardens|SOS|258|1|false
+C	Melancholic Poet|SOS|90|1|false
+C	Wilt in the Heat|SOS|243|1|false
+C	Rearing Embermare|SOS|127|1|false
+C	Wander Off|SOS|104|1|false
+C	Graduation Day|SOS|16|1|false
+C	Thunderdrum Soloist|SOS|134|1|false
+C	Archaic's Agony|SOS|107|1|false
+C	Tenured Concocter|SOS|163|1|false
+C	Postmortem Professor|SOS|93|1|false
+C	Helping Hand|SOA|5|1|false
+C	Stargaze|SOA|34|1|true
+C	Fields of Strife|SOS|255|1|false
 6 of type Common
 Parsing from main code: fromSheet("SPM cards")
 Attempting to lookup: SPM cards
@@ -3300,41 +3320,42 @@ Parsing from main code: fromSheet("SPM cards")
 Attempting to lookup: SPM cards
 1 of type Wildcard
 1 of type WildcardFoil+
+Replaced a base slot! WildcardFoil -> Uncommon:fromSheet("SPM cards")
 1 of type Land
 Replaced a base slot! Land -> BasicLand:fromSheet("SPM cards"):!fromSheet("SPM allied lands")
 Parsing from main code: fromSheet("SPM cards")
 Attempting to lookup: SPM cards
-TPACK	152	SPM
-C	Whoosh!|SPM|48|1|false
-C	Spider-Man, Brooklyn Visionary|SPM|115|1|false
-C	Venom's Hunger|SPM|73|1|false
-C	Spider-Rex, Daring Dino|SPM|116|1|false
+TPACK	153	SPM
 C	Masked Meower|SPM|82|1|false
-C	Selfless Police Captain|SPM|12|1|false
-C	Stegron the Dinosaur Man|SPM|95|1|false
-C	Robotics Mastery|SPM|41|1|false
+C	Spider-Rex, Daring Dino|SPM|116|1|false
+C	News Helicopter|SPM|169|1|false
+C	Web Up|SPM|21|1|false
+C	Gallant Citizen|SPM|129|1|false
+C	Thwip!|SPM|20|1|false
+C	Doc Ock's Henchmen|SPM|30|1|false
+C	Wisecrack|SPM|98|1|false
 C	Sun-Spider, Nimble Webber|SPM|154|1|false
-C	Morbius the Living Vampire|SPM|137|1|false
-C	Silk, Web Weaver|SPM|145|1|false
-C	Spider Manifestation|SPM|148|1|false
-C	Inner Demons Gangsters|SPM|57|1|true
-C	Island|SPM|195|2|false
-TPACK	153	STH
-C	Nomads en-Kor|STH|9|1|false
-C	Change of Heart|STH|3|1|false
-C	Sift|STH|42|1|false
-C	Serpent Warrior|STH|69|1|false
-C	Endangered Armodon|STH|107|1|false
-C	Mind Games|STH|38|1|false
-C	Fling|STH|82|1|false
-C	Dungeon Shade|STH|58|1|false
-C	Smite|STH|17|1|false
-C	Cloud Spirit|STH|26|1|false
+C	Web-Warriors|SPM|159|1|false
+C	Hydro-Man, Fluid Felon|SPM|33|1|false
+C	Unstable Experiment|SPM|47|1|false
+C	Wisecrack|SPM|98|1|true
+C	Swamp|SPM|196|2|false
+TPACK	154	STH
+C	Tortured Existence|STH|74|1|false
 C	Overgrowth|STH|111|1|false
-C	Shifting Wall|STH|140|1|false
-C	Hesitation|STH|33|1|false
-C	Bottomless Pit|STH|51|1|false
-C	Revenant|STH|68|1|false
+C	Tidal Warrior|STH|47|1|false
+C	Youthful Knight|STH|25|1|false
+C	Nomads en-Kor|STH|9|1|false
+C	Rabid Rats|STH|67|1|false
+C	Provoke|STH|113|1|false
+C	Bandage|STH|1|1|false
+C	Death Stroke|STH|57|1|false
+C	Smite|STH|17|1|false
+C	Shock|STH|98|1|false
+C	Constant Mists|STH|104|1|false
+C	Spined Sliver|STH|130|1|false
+C	Corrupting Licid|STH|54|1|false
+C	Hidden Retreat|STH|6|1|false
 Parsing from main code: fromSheet("STX lesson")
 Attempting to lookup: STX lesson
 Parsing from main code: fromSheet("STX cards")
@@ -3343,44 +3364,44 @@ Parsing from main code: fromSheet("STX cards")
 Attempting to lookup: STX cards
 Parsing from main code: fromSheet("STX cards")
 Attempting to lookup: STX cards
-TPACK	154	STX
-C	Reduce to Memory|STX|25|1|false
-C	Biomathematician|STX|164|1|false
-C	Springmane Cervin|STX|144|1|false
-C	Environmental Sciences|STX|1|1|false
-C	Elemental Summoning|STX|183|1|false
-C	Resculpt|STX|51|1|false
-C	Needlethorn Drake|STX|208|1|false
-C	Blood Age General|STX|93|1|false
-C	Vortex Runner|STX|60|1|false
+TPACK	155	STX
+C	Fractal Summoning|STX|187|1|false
+C	Cogwork Archivist|STX|254|1|false
 C	Silverquill Pledgemage|STX|233|1|false
-C	Go Blank|STX|72|1|false
+C	Moldering Karok|STX|206|1|false
+C	Pop Quiz|STX|49|1|false
+C	Needlethorn Drake|STX|208|1|false
+C	Rise of Extus|STX|226|1|false
+C	Pest Summoning|STX|211|1|false
+C	Unwilling Ingredient|STX|90|1|false
+C	Arcane Subtraction|STX|36|1|false
+C	Mage Hunter|STX|76|1|false
+C	Expressive Iteration|STX|186|1|false
 C	Fracture|STX|188|1|false
-C	Stonebinder's Familiar|STX|31|1|false
-C	Rushed Rebirth|STX|228|1|false
-C	Harmonize|STA|115|2|false
+C	Vanishing Verse|STX|244|1|false
+C	Whirlwind Denial|STA|86|2|false
 Parsing from main code: fromSheet("STA cards")
 Attempting to lookup: STA cards
 Parsing from main code: fromSheet("STA cards")
 Attempting to lookup: STA cards
 Parsing from main code: fromSheet("STX extended art")
 Attempting to lookup: STX extended art
-TPACK	155	STX
-C	Divine Gambit|STA|67|2|true
-C	Shock|STA|107|2|true
-C	Grapeshot|STA|102|2|true
-C	Harmonize|STA|52|1|true
-C	Verdant Mastery|STX|320|2|false
-C	Well of Lost Dreams|C21|275|1|false
-C	Expanded Anatomy|STX|2|1|true
-C	Daemogoth Titan|STX|174|1|true
-C	A-Dueling Coach|STX|A-15|1|true
-C	Mortality Spear|STX|207|1|true
-C	Field Trip|STX|131|1|true
-C	Soothsayer Adept|STX|55|1|true
-C	Stonebound Mentor|STX|239|1|true
-C	Quandrix Campus|STX|271|1|true
-C	Defend the Campus|STX|12|1|true
+TPACK	156	STX
+C	Strategic Planning|STA|20|1|true
+C	Cultivate|STA|114|2|true
+C	Crux of Fate|STA|25|1|true
+C	Lightning Helix|STA|125|2|true
+C	Daemogoth Titan|STX|339|2|false
+C	Bloodtracker|C21|137|1|false
+C	Illuminate History|STX|108|1|true
+C	Valentin, Dean of the Vein|STX|161|1|true
+C	Humiliate|STX|193|1|true
+C	Fracture|STX|378|2|true
+C	Biomathematician|STX|164|1|true
+C	Silverquill Pledgemage|STX|233|1|true
+C	Fuming Effigy|STX|103|1|true
+C	Environmental Sciences|STX|1|1|true
+C	Lorehold Campus|STX|268|1|true
 6 of type Common
 Parsing from main code: fromSheet("TDM cards")
 Attempting to lookup: TDM cards
@@ -3395,64 +3416,62 @@ Attempting to lookup: TDM cards
 Parsing from main code: fromSheet("TDM gain lands")
 Attempting to lookup: TDM gain lands
 1 of type Wildcard
-Replaced a base slot! Wildcard -> Common:fromSheet("TDM cards")
+1 of type FoilWildcard
 Parsing from main code: fromSheet("TDM cards")
 Attempting to lookup: TDM cards
-1 of type FoilWildcard
-Replaced a base slot! FoilWildcard -> Uncommon:fromSheet("TDM cards")
-TPACK	156	TDM
-C	Trade Route Envoy|TDM|163|1|false
-C	Nightblade Brigade|TDM|85|1|false
-C	Twin Bolt|TDM|128|1|false
-C	Fire-Rim Form|TDM|107|1|false
-C	Feral Deathgorger|TDM|80|1|false
-C	Underfoot Underdogs|TDM|129|1|false
-C	Nightblade Brigade|TDM|85|1|false
-C	Loxodon Battle Priest|TDM|15|1|false
-C	Sonic Shrieker|TDM|226|1|false
-C	Auroral Procession|TDM|169|1|false
-C	Revival of the Ancestors|TDM|218|1|false
-C	Dismal Backwater|TDM|254|1|false
-C	Seize Opportunity|TDM|119|1|false
-C	Shocking Sharpshooter|TDM|121|1|false
+TPACK	157	TDM
+C	Ainok Wayfarer|TDM|134|1|false
+C	Abzan Devotee|TDM|68|1|false
+C	Roamer's Routine|TDM|154|1|false
+C	Wingspan Stride|TDM|66|1|false
+C	Osseous Exhale|TDM|17|1|false
+C	Wild Ride|TDM|132|1|false
+C	Meticulous Artisan|TDM|112|1|false
+C	Venerated Stormsinger|TDM|97|1|false
+C	Overwhelming Surge|TDM|115|1|false
+C	Starry-Eyed Skyrider|TDM|25|1|false
+C	Stillness in Motion|TDM|59|1|false
+C	Bloodfell Caves|TDM|250|1|false
+C	Jeskai Shrinekeeper|TDM|197|1|false
+C	Sagu Wildling|TDM|157|1|true
 Parsing from main code: fromSheet("THB Commons")
 Attempting to lookup: THB Commons
 Parsing from main code: fromSheet("THB Uncommons")
 Attempting to lookup: THB Uncommons
 Parsing from main code: fromSheet("THB RareMythics")
 Attempting to lookup: THB RareMythics
-TPACK	157	THB
-C	Satyr's Cunning|THB|152|1|false
-C	Hero of the Pride|THB|22|1|false
-C	Thrill of Possibility|THB|159|1|false
+TPACK	158	THB
+C	Arena Trickster|THB|126|1|false
+C	Indomitable Will|THB|25|1|false
+C	Starlit Mantle|THB|67|1|false
+C	Blight-Breath Catoblepas|THB|86|1|false
+C	Daybreak Chimera|THB|10|1|false
+C	Mire's Grasp|THB|106|1|false
+C	Underworld Rage-Hound|THB|163|1|false
 C	Oread of Mountain's Blaze|THB|146|1|false
-C	Inspire Awe|THB|175|1|false
-C	Scavenging Harpy|THB|114|1|false
-C	Altar of the Pantheon|THB|231|1|false
-C	Deny the Divine|THB|47|1|false
-C	Nylea's Forerunner|THB|186|1|false
-C	Eidolon of Philosophy|THB|48|1|false
-C	Inevitable End|THB|102|1|false
-C	Heroes of the Revel|THB|138|1|false
-C	Nessian Hornbeetle|THB|182|1|false
-C	Setessan Champion|THB|198|1|false
-C	Island|THB|251|1|false
-TPACK	158	THS
-C	Satyr Rambler|THS|139|1|false
-C	Akroan Crusader|THS|111|1|false
-C	Agent of Horizons|THS|148|1|false
-C	Triton Shorethief|THS|70|1|false
-C	Battlewise Valor|THS|1|1|false
-C	Gray Merchant of Asphodel|THS|89|1|false
-C	Traveler's Amulet|THS|221|1|false
-C	Annul|THS|38|1|false
-C	Stymied Hopes|THS|64|1|false
-C	Unknown Shores|THS|229|1|false
-C	Satyr Piper|THS|175|1|false
-C	Decorated Griffin|THS|7|1|false
-C	Arena Athlete|THS|113|1|false
-C	Abhorrent Overlord|THS|75|1|false
-C	Plains|THS|231|2|false
+C	Plummet|THB|194|1|false
+C	Nyxborn Courser|THB|29|1|false
+C	Anax, Hardened in the Forge|THB|125|1|false
+C	Stinging Lionfish|THB|69|1|false
+C	Reverent Hoplite|THB|33|1|false
+C	Nylea, Keen-Eyed|THB|266|2|false
+C	Forest|THB|286|2|false
+TPACK	159	THS
+C	Ill-Tempered Cyclops|THS|125|1|false
+C	Felhide Minotaur|THS|87|1|false
+C	Vulpine Goliath|THS|183|1|false
+C	Borderland Minotaur|THS|114|1|false
+C	Fleetfeather Sandals|THS|216|1|false
+C	Deathbellow Raider|THS|117|1|false
+C	Aqueous Form|THS|39|1|false
+C	Titan's Strength|THS|145|1|false
+C	Baleful Eidolon|THS|78|1|false
+C	Rescue from the Underworld|THS|102|1|false
+C	Anvilwrought Raptor|THS|211|1|false
+C	Witches' Eye|THS|222|1|false
+C	Agent of the Fates|THS|76|1|false
+C	Forest|THS|248|3|false
+C	Griptide|THS|50|1|true
 6 of type Common
 Parsing from main code: fromSheet("TLA cards")
 Attempting to lookup: TLA cards
@@ -3460,61 +3479,59 @@ Attempting to lookup: TLA cards
 Parsing from main code: fromSheet("TLA cards")
 Attempting to lookup: TLA cards
 3 of type Uncommon
-Replaced a base slot! Uncommon -> Uncommon:fromSheet("TLA scene cards")
-Parsing from main code: fromSheet("TLA scene cards")
-Attempting to lookup: TLA scene cards
 Parsing from main code: fromSheet("TLA cards")
 Attempting to lookup: TLA cards
 1 of type RareMythic
 Parsing from main code: fromSheet("TLA cards")
 Attempting to lookup: TLA cards
 1 of type Wildcard
-Replaced a base slot! Wildcard -> Rare:fromSheet("TLA cards")
 1 of type WildcardFoil+
-Replaced a base slot! WildcardFoil -> Rare:fromSheet("TLA cards")
 1 of type Land
-Replaced a base slot! Land -> BasicLand:fromSheet("TLA avatar journey basic")
-Parsing from main code: fromSheet("TLA avatar journey basic")
-Attempting to lookup: TLA avatar journey basic
-TPACK	159	TLA
-C	Deserter's Disciple|TLA|131|1|false
-C	Fire Nation Raider|TLA|135|1|false
-C	Ostrich-Horse|TLA|188|1|false
-C	Glider Kids|TLA|21|1|false
-C	Foggy Swamp Hunters|TLA|101|1|false
-C	Walltop Sentries|TLA|202|1|false
-C	Deserter's Disciple|TLA|131|1|false
-C	Dai Li Agents|TLA|306|2|false
-C	Hei Bai, Spirit of Balance|TLA|225|1|false
-C	Hama, the Bloodbender|TLA|224|1|false
-C	Mai, Scornful Striker|TLA|109|1|false
-C	Zuko, Conflicted|TLA|253|1|false
-C	Iroh, Grand Lotus|TLA|227|1|true
-C	Island|TLA|293|3|false
-TPACK	160	TMP
-C	Circle of Protection: Shadow|TMP|12|1|false
+Replaced a base slot! Land -> BasicLand:fromSheet("TLA default basic")
+Parsing from main code: fromSheet("TLA default basic")
+Attempting to lookup: TLA default basic
+TPACK	160	TLA
+C	Avatar Enthusiasts|TLA|11|1|false
+C	Dai Li Indoctrination|TLA|93|1|false
+C	Mongoose Lizard|TLA|148|1|false
+C	Earth Kingdom Soldier|TLA|216|1|false
+C	Deadly Precision|TLA|95|1|false
+C	Azula Always Lies|TLA|84|1|false
+C	Watery Grasp|TLA|82|1|false
+C	Kyoshi Island Plaza|TLA|184|1|false
+C	White Lotus Hideout|TLA|281|1|false
+C	Trusty Boomerang|TLA|260|1|false
+C	Katara, the Fearless|TLA|230|1|false
+C	Meteor Sword|TLA|258|1|false
+C	Badgermole|TLA|166|1|true
+C	Swamp|TLA|284|1|false
+TPACK	161	TMP
+C	Giant Strength|TMP|178|1|false
+C	Power Sink|TMP|78|1|false
 C	Marsh Lurker|TMP|144|1|false
-C	Heart Sliver|TMP|182|1|false
-C	Gaseous Form|TMP|65|1|false
-C	Blood Frenzy|TMP|164|1|false
-C	Soltari Foot Soldier|TMP|43|1|false
-C	Sea Monster|TMP|85|1|false
-C	Gravedigger|TMP|137|1|false
-C	Frog Tongue|TMP|228|1|false
-C	Blood Pet|TMP|109|1|false
-C	Clot Sliver|TMP|112|1|false
-C	Perish|TMP|147|1|false
-C	Searing Touch|TMP|201|1|false
-C	Soltari Crusader|TMP|41|1|false
-C	Tooth and Claw|TMP|210|1|false
+C	Thalakos Seer|TMP|94|1|false
+C	Thalakos Sentry|TMP|95|1|false
+C	Master Decoy|TMP|29|1|false
+C	Twitch|TMP|99|1|false
+C	Skyshroud Elf|TMP|255|1|false
+C	Stone Rain|TMP|206|1|false
+C	Rootwalla|TMP|252|1|false
+C	Thalakos Mistfolk|TMP|93|1|false
+C	Mogg Hollows|TMP|320|1|false
+C	Thalakos Lowlands|TMP|328|1|false
+C	Sky Spirit|TMP|271|1|false
+C	Fevered Convulsions|TMP|136|1|false
 5 of type Common
 Parsing from main code: fromSheet("TMT cards")
 Attempting to lookup: TMT cards
 1 of type Common-SourceMaterial
 1 of type Common-Scene
 2 of type Uncommon
+Replaced a base slot! Uncommon -> Uncommon:fromSheet("TMT scene cards"):!fromSheet("TMT legendary scene turtles")
 Parsing from main code: fromSheet("TMT cards")
 Attempting to lookup: TMT cards
+Parsing from main code: fromSheet("TMT scene cards")
+Attempting to lookup: TMT scene cards
 1 of type LegendaryTurtle
 Parsing from main code: fromSheet("TMT legendary turtles")
 Attempting to lookup: TMT legendary turtles
@@ -3522,152 +3539,185 @@ Attempting to lookup: TMT legendary turtles
 Parsing from main code: fromSheet("TMT cards")
 Attempting to lookup: TMT cards
 1 of type Wildcard
-Replaced a base slot! Wildcard -> Common:fromSheet("TMT cards"):!fromSheet("TMT legendary turtles")
 1 of type WildcardFoil+
 Parsing from main code: fromSheet("TMT cards")
 Attempting to lookup: TMT cards
 1 of type Land
-Replaced a base slot! Land -> BasicLand:fromSheet("TMT cards")+
-Parsing from main code: fromSheet("TMT cards")
-Attempting to lookup: TMT cards
-TPACK	161	TMT
-C	Return to the Sewers|TMT|52|1|false
-C	Mouser Mark III|TMT|159|1|false
-C	Cowabunga!|TMT|113|1|false
-C	Crustacean Commando|TMT|33|1|false
-C	Slithering Cryptid|TMT|168|1|false
-C	Sewer-veillance Cam|TMT|53|1|false
+Replaced a base slot! Land -> fromSheet("TMT rooftop lands")
+Parsing from main code: fromSheet("TMT rooftop lands")
+Attempting to lookup: TMT rooftop lands
+TPACK	162	TMT
+C	Shredder's Revenge|TMT|76|1|false
+C	Primordial Pachyderm|TMT|129|1|false
+C	April O'Neil, Kunoichi Trainee|TMT|3|1|false
+C	East Wind Avatar|TMT|5|1|false
+C	Retro-Mutation|TMT|51|1|false
+C	Nobody|TMT|161|1|false
 C	Action News Crew|TMT|1|1|false
-C	Bespoke Bō|TMT|31|1|false
-C	The Neutrinos|TMT|160|1|false
-C	Leonardo, Big Brother|TMT|14|1|false
-C	Weather Maker|TMT|182|1|false
-C	Squirrelanoids|TMT|81|1|false
-C	Uneasy Alliance|TMT|28|1|true
-C	TCRI Building|TMT|189|1|true
-TPACK	162	TOR
-C	Hydromorph Guardian|TOR|39|1|false
+C	April, Reporter of the Weird|TMT|30|1|false
+C	Casey Jones, Jury-Rig Justiciar|TMT|207|2|false
+C	Raphael, Tough Turtle|TMT|104|1|false
+C	Raph & Leo, Sibling Rivals|TMT|166|1|false
+C	West Wind Avatar|TMT|137|1|false
+C	Buzz Bots|TMT|32|1|true
+C	Island|TMT|192|1|false
+TPACK	163	TOR
+C	Aven Trooper|TOR|2|1|false
+C	Rancid Earth|TOR|78|1|false
 C	Churning Eddy|TOR|32|1|false
-C	Waste Away|TOR|88|1|false
-C	Crackling Club|TOR|93|1|false
-C	Basking Rootwalla|TOR|121|1|false
-C	Krosan Constrictor|TOR|129|1|false
+C	Cabal Surgeon|TOR|52|1|false
+C	Pay No Heed|TOR|12|1|false
 C	Coral Net|TOR|35|1|false
-C	Floating Shield|TOR|5|1|false
-C	Psychotic Haze|TOR|76|1|false
-C	Accelerate|TOR|90|1|false
-C	Crippling Fatigue|TOR|58|1|false
-C	Pardic Arsonist|TOR|105|1|false
-C	Mortiphobia|TOR|72|1|false
-C	Strength of Lunacy|TOR|86|1|false
-C	Llawan, Cephalid Empress|TOR|42|1|false
-TPACK	163	TPR
-C	Bottle Gnomes|TPR|217|1|false
-C	Rootwalla|TPR|191|1|false
-C	Spinal Graft|TPR|119|1|false
-C	Coiled Tinviper|TPR|219|1|false
-C	Horned Turtle|TPR|53|1|false
-C	Stun|TPR|163|1|false
-C	Elven Rite|TPR|169|1|false
-C	Maniacal Rage|TPR|142|1|false
-C	Disenchant|TPR|11|1|false
-C	Rootwater Hunter|TPR|63|1|false
-C	Evincar's Justice|TPR|104|1|false
-C	Dauthi Slayer|TPR|97|1|false
-C	Mindless Automaton|TPR|227|1|false
-C	Mountain|TPR|264|3|false
-C	Emmessi Tome|TPR|221|1|true
-TPACK	164	TSP
-C	Sidewinder Sliver|TSP|41|1|false
-C	Bonesplitter Sliver|TSP|149|1|false
-C	Bogardan Rager|TSP|148|1|false
-C	Aetherflame Wall|TSP|142|1|false
-C	Gaze of Justice|TSP|20|1|false
-C	Rift Bolt|TSP|176|1|false
-C	Strangling Soot|TSP|132|1|false
-C	Herd Gnarr|TSP|200|1|false
-C	Snapback|TSP|78|1|false
-C	Smallpox|TSP|131|1|false
-C	Duskrider Peregrine|TSP|14|1|false
-C	Thick-Skinned Goblin|TSP|182|1|false
-C	Sengir Nosferatu|TSP|128|1|false
-C	Void|TSB|105|1|false
-C	Snapback|TSP|78|1|true
-TPACK	165	TSR
-C	Benalish Cavalry|TSR|7|1|false
-C	Errant Ephemeron|TSR|66|1|false
-C	Lymph Sliver|TSR|25|1|false
-C	Whitemane Lion|TSR|50|1|false
-C	Utopia Vow|TSR|245|1|false
-C	Momentary Blink|TSR|28|1|false
+C	Longhorn Firebeast|TOR|103|1|false
+C	Cephalid Aristocrat|TOR|27|1|false
+C	Flash of Defiance|TOR|99|1|false
+C	Organ Grinder|TOR|75|1|false
+C	Mesmeric Fiend|TOR|69|1|false
+C	Hypochondria|TOR|7|1|false
+C	Pyromania|TOR|112|1|false
+C	Zombie Trailblazer|TOR|89|1|false
+C	Ambassador Laquatus|TOR|23|1|false
+TPACK	164	TPR
+C	Mulch|TPR|181|1|false
+C	Reality Anchor|TPR|188|1|false
+C	Thalakos Seer|TPR|72|1|false
+C	Verdigris|TPR|204|1|false
+C	Cursed Flesh|TPR|91|1|false
+C	Sift|TPR|67|1|false
+C	Elvish Fury|TPR|170|1|false
+C	Barbed Sliver|TPR|126|1|false
+C	Lowland Giant|TPR|139|1|false
+C	Crystalline Sliver|TPR|207|1|false
+C	Soltari Monk|TPR|31|1|false
+C	Thalakos Drifters|TPR|70|1|false
+C	Vhati il-Dal|TPR|214|1|false
+C	Plains|TPR|253|4|false
+C	Reality Anchor|TPR|188|1|true
+5 of type Common
+Parsing from main code: fromSheet("TRK cards")
+Attempting to lookup: TRK cards
+1 of type Common-SDS
+1 of type Common-Klingon
+3 of type Uncommon
+Parsing from main code: fromSheet("TRK cards")
+Attempting to lookup: TRK cards
+1 of type RareMythic
+Parsing from main code: fromSheet("TRK cards")
+Attempting to lookup: TRK cards
+1 of type Wildcard
+Replaced a base slot! Wildcard -> Uncommon:fromSheet("TRK cards")
+1 of type WildcardFoil+
+Replaced a base slot! WildcardFoil -> Uncommon:fromSheet("TRK cards")
+1 of type Land
+Replaced a base slot! Land -> fromSheet("TRK holodeck basic")
+Parsing from main code: fromSheet("TRK holodeck basic")
+Attempting to lookup: TRK holodeck basic
+TPACK	165	TRK
+C	Cold-Blooded Crew|TRK|189|1|false
+C	Battle-Scarred Survivalist|TRK|95|1|false
+C	He's Dead, Jim|TRK|114|1|false
+C	Consider the Prime Directive|TRK|51|1|false
+C	Plasma Cascade|TRK|164|1|false
+C	Plasma Cascade|TRK|164|1|false
+C	Moopsy|TRK|207|1|false
+C	Gray and Adira, Forever Joined|TRK|238|1|false
+C	In the Pale Moonlight|TRK|117|1|false
+C	The Duras Sisters|TRK|235|1|false
+C	General Chang, Cold Warrior|TRK|109|1|false
+C	Collective Drone|TRK|99|1|false
+C	Seven of Nine|TRK|252|1|true
+C	Forest|TRK|316|2|false
+TPACK	166	TSP
+C	Pit Keeper|TSP|123|1|false
+C	Nantuko Shaman|TSP|208|1|false
+C	Mana Skimmer|TSP|117|1|false
+C	Search for Tomorrow|TSP|216|1|false
+C	Thallid Shell-Dweller|TSP|226|1|false
+C	Skulking Knight|TSP|130|1|false
+C	Benalish Cavalry|TSP|4|1|false
+C	Aether Web|TSP|189|1|false
+C	Icatian Crier|TSP|23|1|false
+C	Mystical Teachings|TSP|69|1|false
+C	Krosan Grip|TSP|202|1|false
+C	Tromp the Domains|TSP|230|1|false
+C	Harmonic Sliver|TSP|240|1|false
+C	Verdant Embrace|TSP|232|1|false
+C	Desolation Giant|TSB|57|1|false
+TPACK	167	TSR
+C	Kavu Primarch|TSR|212|1|false
+C	Mindstab|TSR|123|1|false
+C	Uktabi Drake|TSR|243|1|false
+C	Sunlance|TSR|47|1|false
+C	Skirk Shaman|TSR|191|1|false
+C	Greenseeker|TSR|207|1|false
 C	Watcher Sliver|TSR|49|1|false
-C	Pit Keeper|TSR|130|1|false
-C	Stingscourger|TSR|192|1|false
-C	Thrill of the Hunt|TSR|241|1|false
-C	Outrider en-Kor|TSR|30|1|false
-C	Llanowar Mentor|TSR|216|1|false
-C	Mystical Teachings|TSR|76|1|false
-C	Slaughter Pact|TSR|138|1|false
-C	Flickerwisp|TSR|294|1|false
-TPACK	166	UDS
-C	Plated Spider|UDS|116|1|false
-C	Twisted Experiment|UDS|74|1|false
-C	Solidarity|UDS|20|1|false
-C	Multani's Decree|UDS|114|1|false
+C	Urborg Syphon-Mage|TSR|148|1|false
+C	Amrou Scout|TSR|1|1|false
+C	Shade of Trokair|TSR|42|1|false
+C	Firemaw Kavu|TSR|163|1|false
+C	Faceless Devourer|TSR|115|1|false
+C	Nightshade Assassin|TSR|128|1|false
+C	Sliver Legion|TSR|261|1|false
+C	True-Name Nemesis|TSR|321|1|false
+TPACK	168	UDS
+C	Rofellos's Gift|UDS|119|1|false
+C	Bubbling Muck|UDS|54|1|false
 C	Hulking Ogre|UDS|87|1|false
-C	Goblin Masons|UDS|86|1|false
-C	Reliquary Monk|UDS|14|1|false
-C	Marker Beetles|UDS|112|1|false
-C	Ravenous Rats|UDS|68|1|false
-C	Kingfisher|UDS|36|1|false
 C	Yavimaya Elder|UDS|124|1|false
-C	Yavimaya Enchantress|UDS|125|1|false
-C	Extruder|UDS|130|1|false
-C	Voice of Reason|UDS|24|1|false
-C	Bloodshot Cyclops|UDS|77|1|false
-TPACK	167	UGL
-C	Temp of the Damned|UGL|38|1|false
+C	Kingfisher|UDS|36|1|false
+C	Goliath Beetle|UDS|107|1|false
+C	Scent of Ivy|UDS|120|1|false
+C	Mark of Fury|UDS|93|1|false
+C	Ravenous Rats|UDS|68|1|false
+C	Heart Warden|UDS|108|1|false
+C	Dying Wail|UDS|58|1|false
+C	Nightshade Seer|UDS|63|1|false
+C	Fodder Cannon|UDS|131|1|false
+C	Fodder Cannon|UDS|131|1|true
+C	Academy Rector|UDS|1|1|false
+TPACK	169	UGL
 C	Denied!|UGL|22|1|false
-C	Poultrygeist|UGL|37|1|false
-C	Scissors Lizard|UGL|80|1|false
-C	Organ Harvest|UGL|35|1|false
+C	Krazy Kow|UGL|48|1|false
+C	Elvish Impersonators|UGL|56|1|false
+C	Temp of the Damned|UGL|38|1|false
 C	Goblin Bowling Team|UGL|44|1|false
-C	Goblin Tutor|UGL|45|1|false
-C	Jack-in-the-Mox|UGL|75|1|false
-C	Plains|UGL|84|1|false
-TPACK	168	ULG
-C	Yavimaya Scion|ULG|119|1|false
-C	Weatherseed Elf|ULG|115|1|false
-C	Tragic Poet|ULG|24|1|false
-C	Ghitu Slinger|ULG|77|1|false
-C	Lava Axe|ULG|84|1|false
+C	Fowl Play|UGL|24|1|false
+C	Jumbo Imp|UGL|34|1|false
+C	Free-for-All|UGL|25|1|false
+C	Mountain|UGL|87|1|false
+TPACK	170	ULG
+C	Frantic Search|ULG|32|1|false
+C	Opal Champion|ULG|16|1|false
+C	Crop Rotation|ULG|98|1|false
+C	Sick and Tired|ULG|66|1|false
+C	Unearth|ULG|72|1|false
+C	Weatherseed Faeries|ULG|48|1|false
+C	Sleeper's Guile|ULG|67|1|false
+C	Intervene|ULG|33|1|false
+C	Simian Grunts|ULG|113|1|false
 C	Thornwind Faeries|ULG|44|1|false
-C	Defender of Chaos|ULG|75|1|false
-C	Treefolk Mystic|ULG|114|1|false
-C	Repopulate|ULG|111|1|false
-C	Aura Flux|ULG|27|1|false
-C	Iron Will|ULG|10|1|false
-C	Lone Wolf|ULG|105|1|false
-C	Wing Snare|ULG|117|1|false
-C	Wing Snare|ULG|117|1|true
-C	Karmic Guide|ULG|11|1|false
-TPACK	169	UMA
-C	Safehold Elite|UMA|220|1|false
-C	Archaeomancer|UMA|45|1|false
-C	Unholy Hunger|UMA|120|1|false
-C	Canker Abomination|UMA|212|1|false
-C	Offalsnout|UMA|108|1|false
-C	Martyr of Sands|UMA|25|1|false
-C	Stitcher's Apprentice|UMA|73|1|false
-C	Wild Mongrel|UMA|194|1|false
-C	Myr Servitor|UMA|230|1|false
-C	Lotus-Eye Mystics|UMA|23|1|false
-C	Unburial Rites|UMA|119|1|false
-C	Swift Reckoning|UMA|39|1|false
-C	Penumbra Wurm|UMA|177|1|false
-C	Eldrazi Conscription|UMA|3|1|false
-C	Hyena Umbra|UMA|21|1|true
-TPACK	170	UNH
+C	Miscalculation|ULG|36|1|false
+C	Forbidding Watchtower|ULG|140|1|false
+C	Peace and Quiet|ULG|17|1|false
+C	Levitation|ULG|35|1|false
+C	Blessed Reversal|ULG|2|1|false
+TPACK	171	UMA
+C	Dimir Guildmage|UMA|213|1|false
+C	Mark of the Vampire|UMA|105|1|false
+C	Thermo-Alchemist|UMA|151|1|false
+C	Flight of Fancy|UMA|54|1|false
+C	Generator Servant|UMA|133|1|false
+C	Prey Upon|UMA|178|1|false
+C	Reckless Charge|UMA|143|1|false
+C	Raid Bombardment|UMA|142|1|false
+C	Crow of Dark Tidings|UMA|90|1|false
+C	Just the Wind|UMA|60|1|false
+C	Mistveil Plains|UMA|247|1|false
+C	Buried Alive|UMA|88|1|false
+C	Iridescent Drake|UMA|59|1|false
+C	Lavaclaw Reaches|UMA|245|1|false
+C	Dimir Guildmage|UMA|213|1|true
+TPACK	172	UNH
 C	Shoe Tree|UNH|109|1|false
 C	Goblin Secret Agent|UNH|79|1|false
 C	AWOL|UNH|2|1|false
@@ -3678,119 +3728,119 @@ C	Shoe Tree|UNH|109|1|false
 C	Goblin Secret Agent|UNH|79|1|false
 C	AWOL|UNH|2|1|false
 C	Shoe Tree|UNH|109|1|false
+C	Face to Face|UNH|76|1|false
 C	Mise|UNH|38|1|false
-C	Booster Tutor|UNH|51|1|false
 C	Mana Screw|UNH|123|1|false
-C	Mountain|UNH|139|1|false
-C	Blast from the Past|UNH|72|1|false
-TPACK	171	USG
-C	Tolarian Winds|USG|104|1|false
-C	Breach|USG|120|1|false
-C	Brilliant Halo|USG|5|1|false
+C	Forest|UNH|140|1|false
+C	Johnny, Combo Player|UNH|35|1|false
+TPACK	173	USG
+C	Winding Wurm|USG|285|1|false
+C	Hermetic Study|USG|78|1|false
+C	Power Taint|USG|90|1|false
+C	Wizard Mentor|USG|112|1|false
+C	Horseshoe Crab|USG|80|1|false
+C	Pestilence|USG|147|1|false
+C	Pegasus Charger|USG|30|1|false
 C	Falter|USG|184|1|false
-C	Ravenous Skirge|USG|152|1|false
-C	Pendrell Flux|USG|87|1|false
-C	Scrap|USG|213|1|false
-C	Bravado|USG|177|1|false
-C	Rewind|USG|93|1|false
-C	Blanchwood Treefolk|USG|238|1|false
-C	Viashino Runner|USG|224|1|false
-C	Vile Requiem|USG|167|1|false
-C	Worn Powerstone|USG|318|1|false
+C	Viashino Weaponsmith|USG|226|1|false
+C	Dark Ritual|USG|127|1|false
+C	Hush|USG|266|1|false
+C	Douse|USG|70|1|false
 C	Fire Ants|USG|187|1|false
-C	Time Spiral|USG|103|1|false
-TPACK	172	UST
-C	Time Out|UST|48|1|false
+C	Anaconda|USG|232|1|false
+C	Shivan Gorge|USG|326|1|false
+TPACK	174	UST
+C	Dirty Rat|UST|53|1|false
+C	Enraged Killbot|UST|145d|1|false
+C	Mad Science Fair Project|UST|154|1|false
+C	Work a Double|UST|100|1|false
+C	Curious Killbot|UST|145a|1|false
+C	Beast in Show|UST|103b|2|false
+C	Eager Beaver|UST|107|1|false
+C	Box of Free-Range Goblins|UST|77|1|false
 C	Spell Suck|UST|45|1|false
-C	Novellamental|UST|41b|2|false
-C	Beast in Show|UST|103c|3|false
-C	Common Iguana|UST|79|1|false
-C	Target Minotaur|UST|98a|1|false
-C	Finders, Keepers|UST|55|1|false
-C	Willing Test Subject|UST|126|1|false
-C	Novellamental|UST|41d|4|false
-C	Gnome-Made Engine|UST|148|1|false
-C	Numbing Jellyfish|UST|42|1|false
-C	Steamflogger Temp|UST|95|1|false
-C	Midlife Upgrade|UST|14|1|false
-C	Contraption Cannon|UST|144|1|false
-C	As Luck Would Have It|UST|102|1|false
-TPACK	173	VIS
-C	Jamuraan Lion|VIS|10|1|false
-C	Crypt Rats|VIS|55|1|false
-C	Freewind Falcon|VIS|5|1|false
-C	Remedy|VIS|17|1|false
-C	Fireblast|VIS|79|1|false
-C	Emerald Charm|VIS|106|1|false
-C	Phyrexian Walker|VIS|152|1|false
-C	Coercion|VIS|54|1|false
-C	Tremor|VIS|99|1|false
+C	Target Minotaur|UST|98b|2|false
+C	Beast in Show|UST|103a|1|false
+C	Hammer Jammer|UST|86|1|false
+C	Garbage Elemental|UST|82d|3|false
+C	Garbage Elemental|UST|82c|2|false
+C	Angelic Rocket|UST|139|1|false
+TPACK	175	VIS
+C	Cloud Elemental|VIS|29|1|false
+C	Giant Caterpillar|VIS|108|1|false
 C	Song of Blood|VIS|94|1|false
-C	Mystic Veil|VIS|38|1|false
-C	Lead-Belly Chimera|VIS|148|1|false
-C	Longbow Archer|VIS|12|1|false
-C	Juju Bubble|VIS|147|1|false
-C	Viashivan Dragon|VIS|140|1|false
-TPACK	174	VMA
-C	Fyndhorn Elves|VMA|210|1|false
-C	Putrid Imp|VMA|135|1|false
-C	Tranquil Thicket|VMA|320|1|false
-C	Repel|VMA|89|1|false
-C	Predatory Nightstalker|VMA|134|1|false
-C	Shelter|VMA|44|1|false
+C	Mortal Wound|VIS|113|1|false
+C	Impulse|VIS|34|1|false
+C	Hope Charm|VIS|8|1|false
+C	Keeper of Kookus|VIS|85|1|false
+C	Sisay's Ring|VIS|154|1|false
+C	Parapet|VIS|14|1|false
+C	Phyrexian Walker|VIS|152|1|false
+C	Knight of Valor|VIS|11|1|false
+C	Hulking Cyclops|VIS|84|1|false
+C	Jungle Basin|VIS|164|1|false
+C	Helm of Awakening|VIS|145|1|false
+C	Kookus|VIS|86|1|false
+TPACK	176	VMA
+C	Skywing Aven|VMA|94|1|false
+C	Simian Grunts|VMA|232|1|false
+C	Keeneye Aven|VMA|75|1|false
+C	Afterlife|VMA|10|1|false
+C	Goblin General|VMA|165|1|false
+C	Spinal Graft|VMA|141|1|false
 C	Provoke|VMA|225|1|false
-C	Aftershock|VMA|149|1|false
-C	Tangle|VMA|237|1|false
-C	Choking Sands|VMA|109|1|false
-C	Psychatog|VMA|258|1|false
-C	Hymn to Tourach|VMA|122|1|false
-C	Death Grasp|VMA|249|1|false
-C	Gamble|VMA|162|1|false
-C	Thopter Squadron|VMA|286|1|true
+C	Gustcloak Harrier|VMA|30|1|false
+C	Solar Blast|VMA|187|1|false
+C	Temporal Fissure|VMA|96|1|false
+C	Ivory Tower|VMA|269|1|false
+C	Goblin Ringleader|VMA|171|1|false
+C	Serendib Efreet|VMA|93|1|false
+C	Armageddon|VMA|12|1|false
+C	Tropical Island|VMA|321|1|true
 Parsing from main code: fromSheet("VOW cards")
 Attempting to lookup: VOW cards
 Parsing from main code: fromSheet("VOW cards")
 Attempting to lookup: VOW cards
 Parsing from main code: fromSheet("VOW cards")
 Attempting to lookup: VOW cards
-TPACK	175	VOW
-C	Steelclad Spirit|VOW|80|1|false
+TPACK	177	VOW
+C	Hookhand Mariner|VOW|203|1|false
+C	Toxic Scorpion|VOW|224|1|false
+C	Mulch|VOW|210|1|false
+C	Adamant Will|VOW|1|1|false
+C	Sheltering Boughs|VOW|218|1|false
+C	Heron-Blessed Geist|VOW|19|1|false
+C	Militia Rallier|VOW|24|1|false
 C	Lacerate Flesh|VOW|166|1|false
-C	Cruel Witness|VOW|55|1|false
-C	Heron of Hope|VOW|18|1|false
-C	Selhoff Entomber|VOW|76|1|false
-C	Dawnhart Disciple|VOW|196|1|false
-C	Gryff Rider|VOW|15|1|false
-C	Wolf Strike|VOW|228|1|false
-C	Pointed Discussion|VOW|126|1|false
-C	Bleed Dry|VOW|94|1|false
-C	Voltaic Visionary|VOW|183|1|false
-C	Arm the Cathars|VOW|3|1|false
-C	Innocent Traveler|VOW|121|1|false
-C	Splendid Reclamation|VOW|221|1|false
-C	Island|VOW|271|2|false
+C	Bloodcrazed Socialite|VOW|96|1|false
+C	Binding Geist|VOW|48|1|false
+C	Ollenbock Escort|VOW|27|1|false
+C	Mischievous Catgeist|VOW|69|1|false
+C	Spiked Ripsaw|VOW|220|1|false
+C	Winged Portent|VOW|89|1|false
+C	Forest|VOW|276|1|false
 Parsing from main code: fromSheet("WAR cards")
 Attempting to lookup: WAR cards
 Parsing from main code: fromSheet("WAR cards")
 Attempting to lookup: WAR cards
 Parsing from main code: fromSheet("WAR cards")
 Attempting to lookup: WAR cards
-TPACK	176	WAR
-C	Toll of the Invasion|WAR|108|1|false
-C	Rising Populace|WAR|29|1|false
-C	Wanderer's Strike|WAR|38|1|false
-C	Martyr for the Cause|WAR|23|1|false
-C	Steady Aim|WAR|177|1|false
-C	Kronch Wrangler|WAR|166|1|false
-C	Grim Initiate|WAR|130|1|false
-C	Goblin Assailant|WAR|128|1|false
-C	Makeshift Battalion|WAR|22|1|false
-C	No Escape|WAR|63|1|false
-C	Bond of Flourishing|WAR|155|1|false
-C	Teyo, the Shieldmage|WAR|32|1|false
-C	Huatli, the Sun's Heart|WAR|230|1|false
-C	Vivien, Champion of the Wilds|WAR|180|1|false
-C	Island|WAR|255|3|false
+TPACK	178	WAR
+C	Centaur Nurturer|WAR|156|1|false
+C	Goblin Assault Team|WAR|129|1|false
+C	Burning Prophet|WAR|117|1|false
+C	Band Together|WAR|153|1|false
+C	Herald of the Dreadhorde|WAR|93|1|false
+C	Spellkeeper Weird|WAR|69|1|false
+C	Honor the God-Pharaoh|WAR|132|1|false
+C	Shriekdiver|WAR|103|1|false
+C	Prismite|WAR|242|1|false
+C	Despark|WAR|190|1|false
+C	Prison Realm|WAR|26|1|false
+C	Elite Guardmage|WAR|195|1|false
+C	Parhelion II|WAR|24|1|false
+C	Mountain|WAR|261|3|false
+C	Gideon Blackblade|WAR|13|1|true
 Parsing from main code: fromsheet("WOE cards")
 Attempting to lookup: WOE cards
 Parsing from main code: fromSheet("WOE cards")
@@ -3801,76 +3851,76 @@ Parsing from main code: fromSheet("WOE cards")
 Attempting to lookup: WOE cards
 Parsing from main code: fromSheet("WOE cards")
 Attempting to lookup: WOE cards
-TPACK	177	WOE
-C	Warehouse Tabby|WOE|117|1|false
-C	Ice Out|WOE|54|1|false
-C	Evolving Wilds|WOE|256|1|false
-C	Stingblade Assassin|WOE|109|1|false
-C	Obyra's Attendants|WOE|63|1|false
-C	Merry Bards|WOE|140|1|false
-C	Bestial Bloodline|WOE|162|1|false
-C	Witch's Mark|WOE|158|1|false
-C	Rowan's Grim Search|WOE|104|1|false
-C	High Fae Negotiator|WOE|94|1|false
-C	Tanglespan Lookout|WOE|188|1|false
-C	Ego Drain|WOE|86|1|false
-C	Hatching Plans|WOT|20|1|false
-C	Gumdrop Poisoner|WOE|93|1|false
-C	Forest|WOE|276|3|false
-TPACK	178	WTH
-C	Rogue Elephant|WTH|139|1|false
-C	Soul Shepherd|WTH|26|1|false
-C	Tendrils of Despair|WTH|83|1|false
-C	Nature's Kiss|WTH|136|1|false
-C	Striped Bears|WTH|140|1|false
-C	Dwarven Berserker|WTH|97|1|false
-C	Fog Elemental|WTH|40|1|false
-C	Mana Chains|WTH|41|1|false
-C	Fire Whip|WTH|100|1|false
-C	Choking Vines|WTH|123|1|false
+TPACK	179	WOE
+C	Hollow Scavenger|WOE|174|1|false
+C	Ratcatcher Trainee|WOE|144|1|false
+C	Candy Trail|WOE|243|1|false
+C	Johann's Stopgap|WOE|58|1|false
+C	Grand Ball Guest|WOE|134|1|false
+C	Sugar Rush|WOE|110|1|false
+C	Verdant Outrider|WOE|196|1|false
+C	Kellan's Lightblades|WOE|18|1|false
+C	Eriette's Whisper|WOE|88|1|false
+C	Stormkeld Vanguard|WOE|187|1|false
+C	Redtooth Vanguard|WOE|180|1|false
+C	Ruby, Daring Tracker|WOE|212|1|false
+C	Spreading Seas|WOT|26|1|false
+C	Asinine Antics|WOE|42|1|false
+C	Island|WOE|270|3|false
+TPACK	180	WTH
+C	Lava Storm|WTH|110|1|false
+C	Shattered Crypt|WTH|80|1|false
+C	Harvest Wurm|WTH|130|1|false
+C	Ophidian|WTH|45|1|false
 C	Duskrider Falcon|WTH|12|1|false
-C	Gaea's Blessing|WTH|129|1|false
-C	Mischievous Poltergeist|WTH|74|1|false
-C	Goblin Grenadiers|WTH|104|1|false
-C	Thran Tome|WTH|160|1|false
-TPACK	179	WWK
-C	Searing Blaze|WWK|90|1|false
-C	Groundswell|WWK|104|1|false
-C	Crusher Zendikon|WWK|78|1|false
-C	Battle Hurda|WWK|4|1|false
-C	Goblin Roughrider|WWK|82|1|false
-C	Twitch|WWK|43|1|false
-C	Aether Tradewinds|WWK|24|1|false
-C	Hedron Rover|WWK|125|1|false
-C	Dead Reckoning|WWK|56|1|false
+C	Coils of the Medusa|WTH|65|1|false
+C	Manta Ray|WTH|42|1|false
+C	Abyssal Gatekeeper|WTH|59|1|false
+C	Razortooth Rats|WTH|78|1|false
+C	Spinning Darkness|WTH|81|1|false
+C	Nature's Kiss|WTH|136|1|false
+C	Odylic Wraith|WTH|77|1|false
+C	Volunteer Reserves|WTH|29|1|false
+C	Cloud Djinn|WTH|36|1|false
+C	Tolarian Serpent|WTH|57|1|false
+TPACK	181	WWK
 C	Khalni Garden|WWK|138|1|false
-C	Everflowing Chalice|WWK|123|1|false
-C	Perimeter Captain|WWK|16|1|false
-C	Sejiri Merfolk|WWK|36|1|false
-C	Kalastria Highborn|WWK|59|1|false
-C	Forest|ZEN|246a|2|false
+C	Kitesail|WWK|126|1|false
+C	Ruthless Cullblade|WWK|65|1|false
+C	Battle Hurda|WWK|4|1|false
+C	Hedron Rover|WWK|125|1|false
+C	Wind Zendikon|WWK|46|1|false
+C	Quag Vampires|WWK|63|1|false
+C	Iona's Judgment|WWK|8|1|false
+C	Graypelt Hunter|WWK|103|1|false
+C	Bloodhusk Ritualist|WWK|50|1|false
+C	Voyager Drake|WWK|45|1|false
+C	Tideforce Elemental|WWK|41|1|false
+C	Novablast Wurm|WWK|119|1|false
+C	Island|ZEN|234a|2|false
+C	Joraga Warcaller|WWK|106|1|true
 Parsing from main code: fromSheet("XLN cards")
 Attempting to lookup: XLN cards
 Parsing from main code: fromSheet("XLN cards")
 Attempting to lookup: XLN cards
 Parsing from main code: fromSheet("XLN cards")
 Attempting to lookup: XLN cards
-TPACK	180	XLN
-C	Spreading Rot|XLN|125|1|false
-C	Blossom Dryad|XLN|178|1|false
-C	New Horizons|XLN|198|1|false
-C	Skulduggery|XLN|123|1|false
-C	Commune with Dinosaurs|XLN|181|1|false
-C	Pounce|XLN|200|1|false
-C	Pirate's Prize|XLN|68|1|false
-C	Cancel|XLN|47|1|false
-C	Demolish|XLN|139|1|false
-C	Prosperous Pirates|XLN|69|1|false
-C	Deadeye Plunderers|XLN|220|1|false
-C	Call to the Feast|XLN|219|1|false
-C	Siren Stormtamer|XLN|79|1|false
-C	Dowsing Dagger|XLN|235|1|false
-C	Island|XLN|267|4|false
+TPACK	182	XLN
+C	Sun-Crowned Hunters|XLN|164|1|false
+C	Rile|XLN|158|1|false
+C	Slash of Talons|XLN|38|1|false
+C	Wind Strider|XLN|88|1|false
+C	Dual Shot|XLN|141|1|false
+C	Tishana's Wayfinder|XLN|211|1|false
+C	Nest Robber|XLN|152|1|false
+C	Ixalli's Keeper|XLN|193|1|false
+C	Pirate's Cutlass|XLN|242|1|false
+C	Vanquish the Weak|XLN|127|1|false
+C	Sky Terror|XLN|229|1|false
+C	Wildgrowth Walker|XLN|216|1|false
+C	Dire Fleet Captain|XLN|221|1|false
+C	Jace, Cunning Castaway|XLN|60|1|false
+C	Forest|XLN|279|4|false
 Parsing from main code: fromsheet("YBLB cards")
 Attempting to lookup: YBLB cards
 Parsing from main code: fromsheet("BLB cards")
@@ -3883,22 +3933,22 @@ Parsing from main code: fromSheet("BLB cards")
 Attempting to lookup: BLB cards
 Parsing from main code: fromSheet("BLB cards")
 Attempting to lookup: BLB cards
-TPACK	181	YBLB
+TPACK	183	YBLB
 C	Cottontail Caretaker|YBLB|2|1|false
-C	Steampath Charger|BLB|153|1|false
-C	Conduct Electricity|BLB|130|1|false
-C	Treetop Sentries|BLB|201|1|false
-C	Waterspout Warden|BLB|80|1|false
-C	Intrepid Rabbit|BLB|17|1|false
-C	Thought Shucker|BLB|77|1|false
-C	Nettle Guard|BLB|23|1|false
-C	Stargaze|BLB|114|1|false
-C	Hop to It|BLB|16|1|false
-C	Mudflat Village|BLB|257|1|false
-C	Otterball Antics|BLB|63|1|false
-C	Lunar Convocation|BLB|223|1|false
-C	Island|BLB|266|1|false
-C	Dour Port-Mage|BLB|47|1|true
+C	Hidden Grotto|BLB|254|1|false
+C	Psychic Whorl|BLB|105|1|false
+C	Banishing Light|BLB|1|1|false
+C	Take Out the Trash|BLB|156|1|false
+C	Bellowing Crier|BLB|42|1|false
+C	Uncharted Haven|BLB|261|1|false
+C	Cache Grab|BLB|167|1|false
+C	Finch Formation|BLB|50|1|false
+C	Splash Portal|BLB|74|1|false
+C	Starseer Mentor|BLB|233|1|false
+C	Pawpatch Formation|BLB|186|1|false
+C	Coruscation Mage|BLB|131|1|false
+C	The Infamous Cruelclaw|BLB|219|1|false
+C	Mountain|BLB|274|1|false
 Parsing from main code: fromsheet("YBRO cards")
 Attempting to lookup: YBRO cards
 Parsing from main code: fromsheet("BRO cards")
@@ -3911,22 +3961,22 @@ Parsing from main code: fromSheet("BRO lands")
 Attempting to lookup: BRO lands
 Parsing from main code: fromSheet("BRR cards")
 Attempting to lookup: BRR cards
-TPACK	182	YBRO
-C	Tawnos Endures|YBRO|3|1|false
-C	Depth Charge Colossus|BRO|78|1|false
-C	Scatter Ray|BRO|61|1|false
-C	Aeronaut's Wings|BRO|231|1|false
-C	Aeronaut Cavalry|BRO|1|1|false
-C	Gixian Infiltrator|BRO|98|1|false
+TPACK	184	YBRO
+C	Lonely End|YBRO|6|1|false
+C	Deadly Riposte|BRO|5|1|false
+C	Sibling Rivalry|BRO|152|1|false
+C	Argothian Sprite|BRO|168|1|false
+C	Perimeter Patrol|BRO|188|1|false
+C	Burrowing Razormaw|BRO|173|1|false
+C	Gaea's Gift|BRO|182|1|false
 C	Tocasia's Onulet|BRO|39|1|false
-C	Yotian Medic|BRO|33|1|false
-C	Loran's Escape|BRO|14|1|false
-C	Static Net|BRO|27|1|false
-C	Thopter Mechanic|BRO|68|1|false
-C	Thran Power Suit|BRO|253|1|false
-C	Terisian Mindbreaker|BRO|83|1|false
-C	Plains|BRO|268|1|false
-C	Mishra's Bauble|BRR|97|2|false
+C	Moment of Defiance|BRO|108|1|false
+C	Thopter Architect|BRO|29|1|false
+C	Monastery Swiftspear|BRO|144|1|false
+C	Yotian Tactician|BRO|228|1|false
+C	Battlefield Forge|BRO|257|1|false
+C	Mountain|BRO|275|2|false
+C	Mox Amber|BRR|98|2|false
 Parsing from main code: fromsheet("YDFT cards")
 Attempting to lookup: YDFT cards
 Parsing from main code: fromsheet("DFT cards")
@@ -3939,22 +3989,22 @@ Parsing from main code: fromSheet("DFT cards")
 Attempting to lookup: DFT cards
 Parsing from main code: fromSheet("DFT cards")
 Attempting to lookup: DFT cards
-TPACK	183	YDFT
-C	Turbocharged Escape|YDFT|3|1|false
-C	Crash and Burn|DFT|119|1|false
-C	Spin Out|DFT|106|1|false
-C	Skybox Ferry|DFT|243|1|false
-C	Flood the Engine|DFT|42|1|false
-C	Ride's End|DFT|25|1|false
-C	Night Market|DFT|258|1|false
-C	Leonin Surveyor|DFT|18|1|false
-C	Scrap Compactor|DFT|242|1|false
-C	Dracosaur Auxiliary|DFT|122|1|false
-C	Terrian, World Tyrant|DFT|182|1|false
+TPACK	185	YDFT
+C	Surge of Acclaim|YDFT|5|1|false
+C	Bestow Greatness|DFT|155|1|false
+C	Keen Buccaneer|DFT|48|1|false
+C	Brightfield Mustang|DFT|5|1|false
+C	Wreckage Wickerfolk|DFT|110|1|false
+C	Dynamite Diver|DFT|123|1|false
+C	Pothole Mole|DFT|176|1|false
+C	Loxodon Surveyor|DFT|167|1|false
+C	Fuel the Flames|DFT|126|1|false
 C	Wickerfolk Indomitable|DFT|109|1|false
-C	Muraganda Raceway|DFT|257|1|false
-C	Wastewood Verge|DFT|268|1|false
-C	Wind-Scarred Crag|DFT|271|1|false
+C	Guidelight Synergist|DFT|16|1|false
+C	Sabotage Strategist|DFT|59|1|false
+C	Lifecraft Engine|DFT|234|1|false
+C	Swiftwater Cliffs|DFT|265|1|false
+C	Full Throttle|DFT|127|1|true
 Parsing from main code: fromsheet("YDMU cards")
 Attempting to lookup: YDMU cards
 Parsing from main code: fromsheet("DMU cards")
@@ -3965,22 +4015,22 @@ Parsing from main code: fromSheet("DMU cards")
 Attempting to lookup: DMU cards
 Parsing from main code: fromSheet("DMU lands")
 Attempting to lookup: DMU lands
-TPACK	184	YDMU
-C	Vodalian Tide Mage|YDMU|29|1|false
-C	Tattered Apparition|DMU|111|1|false
-C	Sunbathing Rootwalla|DMU|181|1|false
-C	Meria's Outrider|DMU|138|1|false
-C	Argivian Cavalier|DMU|4|1|false
-C	Shadow Prophecy|DMU|105|1|false
-C	Aggressive Sabotage|DMU|78|1|false
-C	Tolarian Geyser|DMU|71|1|false
-C	Flowstone Infusion|DMU|124|1|false
-C	Meteorite|DMU|235|1|false
-C	Fires of Victory|DMU|123|1|false
-C	Walking Bulwark|DMU|241|1|false
-C	Protect the Negotiators|DMU|62|1|false
-C	Silver Scrutiny|DMU|65|1|false
-C	Swamp|DMU|270|3|false
+TPACK	186	YDMU
+C	Nantuko Slicer|YDMU|17|1|false
+C	Tribute to Urborg|DMU|113|1|false
+C	Talas Lookout|DMU|68|1|false
+C	Jaya's Firenado|DMU|134|1|false
+C	Geothermal Bog|DMU|247|1|false
+C	Impulse|DMU|55|1|false
+C	Tidepool Turtle|DMU|69|1|false
+C	Idyllic Beachfront|DMU|249|1|false
+C	Hammerhand|DMU|129|1|false
+C	Vineshaper Prodigy|DMU|187|1|false
+C	Elvish Hydromancer|DMU|162|1|false
+C	Mossbeard Ancient|DMU|173|1|false
+C	Join Forces|DMU|21|1|false
+C	Radha's Firebrand|DMU|141|1|false
+C	Forest|DMU|276|3|false
 Parsing from main code: fromsheet("YDSK cards")
 Attempting to lookup: YDSK cards
 Parsing from main code: fromsheet("DSK cards")
@@ -3993,22 +4043,22 @@ Parsing from main code: fromSheet("DSK cards")
 Attempting to lookup: DSK cards
 Parsing from main code: fromSheet("DSK cards")
 Attempting to lookup: DSK cards
-TPACK	185	YDSK
-C	Solitary Study // Endless Corridor|YDSK|4|1|false
-C	Cautious Survivor|DSK|172|1|false
-C	Cracked Skull|DSK|88|1|false
-C	Derelict Attic // Widow's Walk|DSK|93|1|false
-C	Living Phone|DSK|20|1|false
-C	Impossible Inferno|DSK|140|1|false
-C	Trapped in the Screen|DSK|36|1|false
-C	Flesh Burrower|DSK|178|1|false
-C	Cathartic Parting|DSK|171|1|false
-C	Vile Mutilator|DSK|122|1|false
-C	Wildfire Wickerfolk|DSK|239|1|false
-C	Fear of Isolation|DSK|58|1|false
-C	Nashi, Searcher in the Dark|DSK|223|1|false
-C	Mountain|DSK|275|1|false
-C	Dazzling Theater // Prop Room|DSK|3|1|true
+TPACK	187	YDSK
+C	Eager Flameguide|YDSK|14|1|false
+C	Hand That Feeds|DSK|139|1|false
+C	Appendage Amalgam|DSK|83|1|false
+C	Acrobatic Cheerleader|DSK|1|1|false
+C	Grand Entryway // Elegant Rotunda|DSK|15|1|false
+C	Daggermaw Megalodon|DSK|48|1|false
+C	Manifest Dread|DSK|189|1|false
+C	Don't Make a Sound|DSK|49|1|false
+C	Shepherding Spirits|DSK|31|1|false
+C	Glimmer Seeker|DSK|14|1|false
+C	Veteran Survivor|DSK|40|1|false
+C	Popular Egotist|DSK|114|1|false
+C	Zimone, All-Questioning|DSK|241|1|false
+C	Overlord of the Hauntwoods|DSK|194|1|false
+C	Razortrap Gorge|DSK|267|1|false
 Parsing from main code: fromsheet("YECL cards")
 Attempting to lookup: YECL cards
 Parsing from main code: fromsheet("ECL cards")
@@ -4021,22 +4071,22 @@ Parsing from main code: fromSheet("ECL cards")
 Attempting to lookup: ECL cards
 Parsing from main code: fromSheet("ECL cards")
 Attempting to lookup: ECL cards
-TPACK	186	YECL
-C	Providence of Night|YECL|25|1|false
-C	Stoic Grove-Guide|ECL|243|1|false
-C	Tweeze|ECL|162|1|false
-C	Glamermite|ECL|50|1|false
-C	Dawn's Light Archer|ECL|174|1|false
-C	Scarblade Scout|ECL|118|1|false
-C	Heirloom Auntie|ECL|107|1|false
-C	Unforgiving Aim|ECL|200|1|false
-C	Assert Perfection|ECL|164|1|false
-C	Swat Away|ECL|75|1|false
-C	Burdened Stoneback|ECL|8|1|false
-C	Moonlit Lamenter|ECL|26|1|false
-C	Oko, Lorwyn Liege|ECL|61|1|false
-C	Champions of the Shoal|ECL|46|1|false
-C	Mountain|ECL|272|1|false
+TPACK	188	YECL
+C	Perennial Gravewarden|YECL|24|1|false
+C	Timid Shieldbearer|ECL|39|1|false
+C	Gangly Stompling|ECL|226|1|false
+C	Barbed Bloodletter|ECL|86|1|false
+C	Great Forest Druid|ECL|178|1|false
+C	Feed the Flames|ECL|137|1|false
+C	Enraged Flamecaster|ECL|135|1|false
+C	Tend the Sprigs|ECL|197|1|false
+C	Stalactite Dagger|ECL|261|1|false
+C	Eclipsed Merrow|ECL|221|1|false
+C	Boulder Dash|ECL|127|1|false
+C	Twinflame Travelers|ECL|248|1|false
+C	Overgrown Tomb|ECL|266|1|false
+C	Flitterwing Nuisance|ECL|48|1|false
+C	Forest|ECL|273|1|false
 Parsing from main code: fromsheet("YEOE cards")
 Attempting to lookup: YEOE cards
 Parsing from main code: fromsheet("EOE cards")
@@ -4049,22 +4099,22 @@ Parsing from main code: fromSheet("EOE cards")
 Attempting to lookup: EOE cards
 Parsing from main code: fromSheet("EOE cards")
 Attempting to lookup: EOE cards
-TPACK	187	YEOE
-C	Drowned Catacomb|YEOE|33|1|false
-C	Banishing Light|EOE|6|1|false
-C	Auxiliary Boosters|EOE|5|1|false
-C	Lost in Space|EOE|62|1|false
-C	Red Tiger Mechan|EOE|154|1|false
-C	Blooming Stinger|EOE|174|1|false
-C	Nutrient Block|EOE|243|1|false
-C	Swarm Culler|EOE|119|1|false
+TPACK	189	YEOE
+C	Ambassador of Evendo|YEOE|22|1|false
+C	Kavaron Turbodrone|EOE|141|1|false
+C	Pinnacle Kill-Ship|EOE|244|1|false
+C	Starbreach Whale|EOE|77|1|false
 C	Mechanozoa|EOE|66|1|false
-C	Mechan Navigator|EOE|64|1|false
-C	Seedship Broodtender|EOE|227|1|false
-C	Broodguard Elite|EOE|175|1|false
-C	Atomic Microsizer|EOE|47|1|false
-C	Sacred Foundry|EOE|256|1|false
-C	Swamp|EOE|272|3|false
+C	Bombard|EOE|129|1|false
+C	Lost in Space|EOE|62|1|false
+C	Chrome Companion|EOE|236|1|false
+C	Reroute Systems|EOE|31|1|false
+C	Alpharael, Dreaming Acolyte|EOE|212|1|false
+C	Ruinous Rampage|EOE|158|1|false
+C	Lightless Evangel|EOE|109|1|false
+C	Exalted Sunborn|EOE|15|1|false
+C	Island|EOE|263|1|false
+C	Sami, Ship's Engineer|EOE|225|1|true
 Parsing from main code: fromSheet("YLCI cards")
 Attempting to lookup: YLCI cards
 Parsing from main code: fromsheet("LCI cards")
@@ -4077,22 +4127,22 @@ Parsing from main code: fromSheet("LCI cards")
 Attempting to lookup: LCI cards
 Parsing from main code: fromSheet("LCI lands")
 Attempting to lookup: LCI lands
-TPACK	188	YLCI
-C	Wingbane Vantasaur|YLCI|22|1|false
-C	Hunter's Blowgun|LCI|255|1|false
-C	Skullcap Snail|LCI|119|1|false
-C	Out of Air|LCI|69|1|false
-C	Oaken Siren|LCI|66|1|false
-C	Glorifier of Suffering|LCI|15|1|false
-C	Waterwind Scout|LCI|84|1|false
-C	Disturbed Slumber|LCI|182|1|false
-C	Deep Goblin Skulltaker|LCI|101|1|false
-C	Confounding Riddle|LCI|50|1|false
-C	Itzquinth, Firstborn of Gishath|LCI|230|1|false
-C	Sorcerous Spyglass|LCI|261|1|false
-C	Kaslem's Stonetree|LCI|197|1|false
-C	Restless Ridgeline|LCI|283|1|false
-C	Captivating Cave|LCI|268|1|false
+TPACK	190	YLCI
+C	Reflection Net|YLCI|27|1|false
+C	Vito's Inquisitor|LCI|130|1|false
+C	Thousand Moons Crackshot|LCI|37|1|false
+C	Rampaging Spiketail|LCI|116|1|false
+C	Armored Kincaller|LCI|174|1|false
+C	Acrobatic Leap|LCI|2|1|false
+C	River Herald Guide|LCI|209|1|false
+C	Echo of Dusk|LCI|104|1|false
+C	Cosmium Blast|LCI|7|1|false
+C	Dreadmaw's Ire|LCI|147|1|false
+C	Dusk Rose Reliquary|LCI|10|1|false
+C	Digsite Conservator|LCI|252|1|false
+C	Tithing Blade|LCI|128|1|false
+C	Wail of the Forgotten|LCI|244|1|false
+C	Hidden Cataract|LCI|273|1|false
 Parsing from main code: fromsheet("YMID cards")
 Attempting to lookup: YMID cards
 Parsing from main code: fromsheet("MID cards")
@@ -4105,22 +4155,22 @@ Parsing from main code: fromSheet("MID cards")
 Attempting to lookup: MID cards
 Parsing from main code: fromSheet("MID cards")
 Attempting to lookup: MID cards
-TPACK	189	YMID
-C	Conductive Current|YMID|38|1|false
-C	Silver Bolt|MID|258|1|false
-C	Crawl from the Cellar|MID|93|1|false
-C	Component Collector|MID|43|1|false
-C	Cathar Commando|MID|10|1|false
-C	Siege Zombie|MID|121|1|false
-C	Hedgewitch's Mask|MID|23|1|false
-C	Shipwreck Sifters|MID|74|1|false
-C	Thermo-Alchemist|MID|164|1|false
-C	Dreadhound|MID|97|1|false
-C	Mysterious Tome|MID|63|1|false
-C	Dawnhart Mentor|MID|179|1|false
-C	Smoldering Egg|MID|159|1|false
-C	Forest|MID|277|2|false
-C	Overwhelmed Archivist|MID|68|1|true
+TPACK	191	YMID
+C	Rimewall Protector|YMID|21|1|false
+C	Novice Occultist|MID|117|1|false
+C	Gavony Trapper|MID|22|1|false
+C	Falkenrath Perforator|MID|136|1|false
+C	Candlelit Cavalry|MID|175|1|false
+C	Duress|MID|98|1|false
+C	Falcon Abomination|MID|52|1|false
+C	Tireless Hauler|MID|203|1|false
+C	Eccentric Farmer|MID|185|1|false
+C	Ambitious Farmhand|MID|2|1|false
+C	Hound Tamer|MID|187|1|false
+C	Skaab Wrangler|MID|75|1|false
+C	Curse of Silence|MID|15|1|false
+C	Tainted Adversary|MID|124|1|false
+C	Plains|MID|268|1|false
 Parsing from main code: fromsheet("YMKM cards")
 Attempting to lookup: YMKM cards
 Parsing from main code: fromsheet("MKM cards")
@@ -4133,22 +4183,22 @@ Parsing from main code: fromSheet("MKM cards")
 Attempting to lookup: MKM cards
 Parsing from main code: fromSheet("MKM cards")
 Attempting to lookup: MKM cards
-TPACK	190	YMKM
-C	Mapping the Maze|YMKM|7|1|false
-C	Macabre Reconstruction|MKM|93|1|false
-C	Topiary Panther|MKM|179|1|false
-C	Rakish Scoundrel|MKM|225|1|false
-C	Bubble Smuggler|MKM|41|1|false
-C	Offender at Large|MKM|138|1|false
-C	They Went This Way|MKM|178|1|false
-C	Bite Down on Crime|MKM|154|1|false
-C	Sanguine Savior|MKM|230|1|false
-C	Case of the Trampled Garden|MKM|156|1|false
-C	Glint Weaver|MKM|162|1|false
-C	Not on My Watch|MKM|28|1|false
-C	Cease // Desist|MKM|246|1|false
-C	Proft's Eidetic Memory|MKM|67|1|false
-C	Forest|MKM|276|1|false
+TPACK	192	YMKM
+C	Emporium Thopterist|YMKM|5|1|false
+C	Goblin Maskmaker|MKM|130|1|false
+C	Snarling Gorehound|MKM|105|1|false
+C	Defenestrated Phantom|MKM|11|1|false
+C	Auspicious Arrival|MKM|5|1|false
+C	Murder|MKM|95|1|false
+C	Haazda Vigilante|MKM|18|1|false
+C	Magnifying Glass|MKM|255|1|false
+C	Basilica Stalker|MKM|78|1|false
+C	Push // Pull|MKM|250|1|false
+C	Lumbering Laundry|MKM|253|1|false
+C	Repulsive Mutation|MKM|227|1|false
+C	Buried in the Garden|MKM|191|1|false
+C	Case of the Uneaten Feast|MKM|10|1|false
+C	Plains|MKM|277|2|false
 Parsing from main code: fromSheet("YNEO cards")
 Attempting to lookup: YNEO cards
 Parsing from main code: fromSheet("NEO cards")
@@ -4161,22 +4211,22 @@ Parsing from main code: fromSheet("NEO cards")
 Attempting to lookup: NEO cards
 Parsing from main code: fromSheet("NEO lands")
 Attempting to lookup: NEO lands
-TPACK	191	YNEO
-C	Chronicler of Worship|YNEO|25|1|false
-C	Crackling Emergence|NEO|136|1|false
-C	Lucky Offering|NEO|27|1|false
+TPACK	193	YNEO
+C	Bellowsbreath Ogre|YNEO|21|1|false
 C	Papercraft Decoy|NEO|253|1|false
-C	Tamiyo's Compleation|NEO|83|1|false
-C	Virus Beetle|NEO|128|1|false
-C	Fang of Shigeki|NEO|183|1|false
-C	Geothermal Kami|NEO|186|1|false
-C	Seven-Tail Mentor|NEO|36|1|false
-C	Bronzeplate Boar|NEO|135|1|false
-C	Okiba Salvage|NEO|118|1|false
-C	Walking Skyscraper|NEO|263|1|false
-C	Boseiju Reaches Skyward|NEO|177|1|false
-C	Eiganjo Uprising|NEO|217|1|false
-C	Rugged Highlands|NEO|273|1|false
+C	Towashi Songshaper|NEO|167|1|false
+C	Guardians of Oboro|NEO|56|1|false
+C	Lethal Exploit|NEO|107|1|false
+C	Skyswimmer Koi|NEO|79|1|false
+C	Heir of the Ancient Fang|NEO|191|1|false
+C	Intercessor's Arrest|NEO|20|1|false
+C	Saiba Trespassers|NEO|77|1|false
+C	Kappa Tech-Wrecker|NEO|198|1|false
+C	Unforgiving One|NEO|127|1|false
+C	Born to Drive|NEO|6|1|false
+C	The Shattered States Era|NEO|162|1|false
+C	Fable of the Mirror-Breaker|NEO|141|1|false
+C	Forest|NEO|301|3|false
 Parsing from main code: fromsheet("YONE cards")
 Attempting to lookup: YONE cards
 Parsing from main code: fromsheet("ONE cards")
@@ -4187,22 +4237,22 @@ Parsing from main code: fromSheet("ONE cards")
 Attempting to lookup: ONE cards
 Parsing from main code: fromSheet("ONE cards")
 Attempting to lookup: ONE cards
-TPACK	192	YONE
-C	Gyox, Brutal Carnivora|YONE|22|1|false
-C	Orthodoxy Enforcer|ONE|25|1|false
-C	Glistener Seer|ONE|54|1|false
-C	Blazing Crescendo|ONE|123|1|false
-C	Oil-Gorger Troll|ONE|177|1|false
-C	Mesmerizing Dose|ONE|62|1|false
-C	Basilica Skullbomb|ONE|224|1|false
+TPACK	194	YONE
+C	Rothga, Bonded Engulfer|YONE|14|1|false
+C	Testament Bearer|ONE|111|1|false
+C	Incisor Glider|ONE|15|1|false
+C	Basilica Shepherd|ONE|4|1|false
+C	Axiom Engraver|ONE|120|1|false
+C	Aspirant's Ascent|ONE|40|1|false
+C	Ichorspit Basilisk|ONE|170|1|false
 C	Meldweb Curator|ONE|59|1|false
-C	Copper Longlegs|ONE|165|1|false
-C	The Surgical Bay|ONE|260|1|false
-C	Font of Progress|ONE|51|1|false
-C	Churning Reservoir|ONE|127|1|false
-C	Minor Misstep|ONE|64|1|false
-C	Black Sun's Twilight|ONE|84|1|false
-C	Mountain|ONE|270|2|false
+C	Vanish into Eternity|ONE|36|1|false
+C	Evolving Adaptive|ONE|167|1|false
+C	Swooping Lookout|ONE|35|1|false
+C	Chittering Skitterling|ONE|87|1|false
+C	Migloz, Maze Crusher|ONE|210|1|false
+C	Mountain|ONE|265|1|false
+C	Churning Reservoir|ONE|127|1|true
 Parsing from main code: fromsheet("YOTJ cards")
 Attempting to lookup: YOTJ cards
 Parsing from main code: fromsheet("OTJ cards")
@@ -4215,22 +4265,22 @@ Parsing from main code: fromSheet("OTJ cards")
 Attempting to lookup: OTJ cards
 Parsing from main code: fromSheet("OTJ cards")
 Attempting to lookup: OTJ cards
-TPACK	193	YOTJ
-C	Grave Expectations|YOTJ|9|1|false
-C	Tumbleweed Rising|OTJ|187|1|false
+TPACK	195	YOTJ
+C	Impetuous Lootmonger|YOTJ|12|1|false
+C	Bridled Bighorn|OTJ|7|1|false
+C	Quick Draw|OTJ|138|1|false
 C	Irascible Wolverine|OTJ|130|1|false
-C	Jagged Barrens|OTJ|259|1|false
-C	Phantom Interference|OTJ|61|1|false
-C	Rooftop Assassin|OTJ|103|1|false
-C	Mirage Mesa|OTJ|262|1|false
-C	Silver Deputy|OTJ|248|1|false
-C	Mine Raider|OTJ|135|1|false
+C	Harrier Strix|OTJ|52|1|false
+C	Razzle-Dazzler|OTJ|63|1|false
+C	Forlorn Flats|OTJ|258|1|false
+C	Patient Naturalist|OTJ|174|1|false
+C	Mourner's Surprise|OTJ|94|1|false
+C	Miriam, Herd Whisperer|OTJ|221|1|false
+C	Nurturing Pixie|OTJ|20|1|false
 C	Doc Aurlock, Grizzled Genius|OTJ|201|1|false
-C	Intrepid Stablemaster|OTJ|169|1|false
-C	Boom Box|OTJ|241|1|false
-C	Resilient Roadrunner|OTJ|141|1|false
-C	Laughing Jasper Flint|OTJ|215|1|false
-C	Island|OTJ|280|3|false
+C	At Knifepoint|OTJ|193|1|false
+C	Kambal, Profiteering Mayor|OTJ|211|1|false
+C	Forest|OTJ|286|3|false
 Parsing from main code: fromsheet("YSNC cards")
 Attempting to lookup: YSNC cards
 Parsing from main code: fromsheet("SNC cards")
@@ -4241,22 +4291,22 @@ Parsing from main code: fromSheet("SNC cards")
 Attempting to lookup: SNC cards
 Parsing from main code: fromSheet("SNC lands")
 Attempting to lookup: SNC lands
-TPACK	194	YSNC
-C	Herald of Vengeance|YSNC|2|1|false
-C	Daring Escape|SNC|104|1|false
-C	Riveteers Initiate|SNC|120|1|false
+TPACK	196	YSNC
+C	Xander's Wake|YSNC|9|1|false
+C	Demon's Due|SNC|75|1|false
+C	Social Climber|SNC|157|1|false
 C	Expendable Lackey|SNC|43|1|false
-C	Big Score|SNC|102|1|false
-C	Witness Protection|SNC|66|1|false
-C	Strangle|SNC|125|1|false
-C	Revel Ruiner|SNC|91|1|false
-C	Brokers Veteran|SNC|36|1|false
-C	Sizzling Soloist|SNC|123|1|false
-C	Illicit Shipment|SNC|83|1|false
-C	Ballroom Brawlers|SNC|3|1|false
-C	Unleash the Inferno|SNC|229|1|false
-C	Forest|SNC|280|3|false
-C	Whack|SNC|99|1|true
+C	Tramway Station|SNC|258|1|false
+C	Attended Socialite|SNC|133|1|false
+C	Broken Wings|SNC|136|1|false
+C	Raffine's Informant|SNC|26|1|false
+C	Jetmir's Fixer|SNC|194|1|false
+C	Capenna Express|SNC|139|1|false
+C	Take to the Streets|SNC|158|1|false
+C	Voice of the Vermin|SNC|163|1|false
+C	Cement Shoes|SNC|235|1|false
+C	Mysterious Limousine|SNC|22|1|false
+C	Mountain|SNC|268|1|false
 Parsing from main code: fromsheet("YSOS cards")
 Attempting to lookup: YSOS cards
 Parsing from main code: fromsheet("SOS cards")
@@ -4269,22 +4319,22 @@ Parsing from main code: fromSheet("SOS cards")
 Attempting to lookup: SOS cards
 Parsing from main code: fromSheet("SOS cards")
 Attempting to lookup: SOS cards
-TPACK	195	YSOS
-C	Crescendo Conductor|YSOS|9|1|false
-C	Eager Glyphmage|SOS|11|1|false
-C	Stadium Tidalmage|SOS|232|1|false
+TPACK	197	YSOS
+C	Expansive Reapplication|YSOS|18|1|false
+C	Landscape Painter|SOS|56|1|false
+C	Cheerful Osteomancer|SOS|76|1|false
 C	Wild Hypothesis|SOS|167|1|false
-C	Grapple with Death|SOS|192|1|false
-C	Bogwater Lumaret|SOS|177|1|false
-C	Imperious Inkmage|SOS|195|1|false
-C	Rapier Wit|SOS|28|1|false
-C	Mage Tower Referee|SOS|249|1|false
-C	Campus Composer|SOS|40|1|false
-C	Sundering Archaic|SOS|3|1|false
-C	Infirmary Healer|SOS|152|1|false
-C	Garrison Excavator|SOS|116|1|false
-C	Silverquill, the Disputant|SOS|226|1|false
-C	Forest|SOS|280|2|false
+C	Burrog Barrage|SOS|141|1|false
+C	Rubble Rouser|SOS|128|1|false
+C	Seize the Spoils|SOS|129|1|false
+C	Dig Site Inventory|SOS|10|1|false
+C	Ajani's Response|SOS|6|1|false
+C	Archaic's Agony|SOS|107|1|false
+C	Thornfist Striker|SOS|164|1|false
+C	Sanar, Unfinished Genius|SOS|223|1|false
+C	Essenceknit Scholar|SOS|187|1|false
+C	Mind into Matter|SOS|202|1|false
+C	Plains|SOS|273|3|false
 Parsing from main code: fromsheet("YTDM cards")
 Attempting to lookup: YTDM cards
 Parsing from main code: fromsheet("TDM cards")
@@ -4297,22 +4347,22 @@ Parsing from main code: fromSheet("TDM cards")
 Attempting to lookup: TDM cards
 Parsing from main code: fromSheet("TDM cards")
 Attempting to lookup: TDM cards
-TPACK	196	YTDM
-C	Oasis of Renewal|YTDM|24|1|false
-C	Sandskitter Outrider|TDM|89|1|false
-C	Stormplain Detainment|TDM|28|1|false
-C	Watcher of the Wayside|TDM|249|1|false
-C	Delta Bloodflies|TDM|77|1|false
-C	Sarkhan's Resolve|TDM|158|1|false
-C	Coordinated Maneuver|TDM|6|1|false
-C	Ringing Strike Mastery|TDM|53|1|false
+TPACK	198	YTDM
+C	Amber-Plate Ainok|YTDM|15|1|false
+C	Osseous Exhale|TDM|17|1|false
+C	Humbling Elder|TDM|48|1|false
 C	Tempest Hawk|TDM|31|1|false
-C	Knockout Maneuver|TDM|147|1|false
-C	Essence Anchor|TDM|44|1|false
-C	Loxodon Battle Priest|TDM|15|1|false
-C	Krumar Initiate|TDM|84|1|false
-C	Awaken the Honored Dead|TDM|170|1|false
-C	Plains|TDM|277|2|false
+C	Unburied Earthcarver|TDM|95|1|false
+C	Sibsig Appraiser|TDM|56|1|false
+C	Worthy Cost|TDM|99|1|false
+C	Underfoot Underdogs|TDM|129|1|false
+C	Unrooted Ancestor|TDM|96|1|false
+C	Sunset Strikemaster|TDM|126|1|false
+C	Rainveil Rejuvenator|TDM|152|1|false
+C	Sultai Monument|TDM|247|1|false
+C	Fangkeeper's Familiar|TDM|183|1|false
+C	Island|TDM|273|1|false
+C	Qarsi Revenant|TDM|86|1|true
 Parsing from main code: fromsheet("YWOE cards")
 Attempting to lookup: YWOE cards
 Parsing from main code: fromsheet("WOE cards")
@@ -4325,60 +4375,60 @@ Parsing from main code: fromSheet("WOE cards")
 Attempting to lookup: WOE cards
 Parsing from main code: fromSheet("WOE cards")
 Attempting to lookup: WOE cards
-TPACK	197	YWOE
-C	Hex, Kellan's Companion|YWOE|14|1|false
-C	Quick Study|WOE|65|1|false
-C	Minecart Daredevil|WOE|141|1|false
-C	Stormkeld Prowler|WOE|71|1|false
-C	Redtooth Genealogist|WOE|179|1|false
-C	Troublemaker Ouphe|WOE|194|1|false
-C	Stockpiling Celebrant|WOE|32|1|false
-C	Living Lectern|WOE|59|1|false
+TPACK	199	YWOE
+C	Dunbarrow Revivalist|YWOE|7|1|false
+C	Verdant Outrider|WOE|196|1|false
 C	Vantress Transmuter|WOE|75|1|false
-C	Graceful Takedown|WOE|171|1|false
-C	Welcome to Sweettooth|WOE|198|1|false
-C	Howling Galefang|WOE|175|1|false
-C	Leyline of Sanctity|WOT|10|1|false
-C	Beseech the Mirror|WOE|82|1|false
-C	Mountain|WOE|265|1|false
-TPACK	198	ZEN
-C	Spreading Seas|ZEN|70|1|false
-C	Burst Lightning|ZEN|119|1|false
-C	Spell Pierce|ZEN|67|1|false
-C	Spidersilk Net|ZEN|206|1|false
-C	Turntimber Grove|ZEN|227|1|false
-C	Expedition Map|ZEN|201|1|false
+C	Freeze in Place|WOE|50|1|false
+C	Toadstool Admirer|WOE|192|1|false
+C	Cut In|WOE|125|1|false
+C	Witch's Mark|WOE|158|1|false
+C	Grabby Giant|WOE|133|1|false
+C	Not Dead After All|WOE|101|1|false
+C	Night of the Sweets' Revenge|WOE|178|1|false
+C	Glass Casket|WOE|16|1|false
+C	Gingerbread Hunter|WOE|227|1|false
+C	Griffin Aerie|WOT|5|1|false
+C	Elvish Archivist|WOE|168|1|false
+C	Forest|WOE|275|2|false
+TPACK	200	ZEN
+C	Goblin War Paint|ZEN|129|1|false
+C	Territorial Baloth|ZEN|188|1|false
+C	Kabira Crossroads|ZEN|216|1|false
+C	Cancel|ZEN|44|1|false
+C	Nimana Sell-Sword|ZEN|106|1|false
 C	Demolish|ZEN|121|1|false
-C	Goblin Shortcutter|ZEN|128|1|false
-C	Savage Silhouette|ZEN|181|1|false
-C	Trapmaker's Snare|ZEN|74|1|false
-C	Kazandu Blademaster|ZEN|16|1|false
-C	Frontier Guide|ZEN|161|1|false
-C	Luminarch Ascension|ZEN|25|1|false
-C	Swamp|ZEN|238a|2|false
-C	Emeria, the Sky Ruin|ZEN|213|1|true
+C	Goblin Bushwhacker|ZEN|125|1|false
+C	Nimbus Wings|ZEN|28|1|false
+C	Joraga Bard|ZEN|166|1|false
+C	Disfigure|ZEN|87|1|false
+C	Runeflare Trap|ZEN|146|1|false
+C	Gatekeeper of Malakir|ZEN|89|1|false
+C	Seascape Aerialist|ZEN|64|1|false
+C	Kazuul Warlord|ZEN|134|1|false
+C	Swamp|ZEN|240|5|false
 Parsing from main code: fromSheet("ZNR cards")
 Attempting to lookup: ZNR cards
 Parsing from main code: fromSheet("ZNR cards")
 Attempting to lookup: ZNR cards
 Parsing from main code: fromSheet("ZNR cards")
 Attempting to lookup: ZNR cards
-TPACK	199	ZNR
-C	Roil Eruption|ZNR|155|1|false
-C	Cunning Geysermage|ZNR|55|1|false
-C	Molten Blast|ZNR|149|1|false
-C	Synchronized Spellcraft|ZNR|168|1|false
-C	Scavenged Blade|ZNR|157|1|false
-C	Marauding Blight-Priest|ZNR|112|1|false
-C	Smite the Monstrous|ZNR|42|1|false
-C	Blood Beckoning|ZNR|92|1|false
-C	Bubble Snare|ZNR|47|1|false
-C	Chilling Trap|ZNR|50|1|false
-C	Roost of Drakes|ZNR|74|1|false
-C	Mind Carver|ZNR|113|1|false
-C	Cragplate Baloth|ZNR|183|1|false
-C	Plains|ZNR|267|2|false
-C	Makindi Stampede|ZNR|26|1|false
+TPACK	201	ZNR
+C	Murasa Brute|ZNR|195|1|false
+C	Prowling Felidar|ZNR|34|1|false
+C	Akoum Hellhound|ZNR|133|1|false
+C	Anticognition|ZNR|45|1|false
+C	Makindi Ox|ZNR|25|1|false
+C	Gnarlid Colony|ZNR|185|1|false
+C	Grotag Bug-Catcher|ZNR|142|1|false
+C	Nimana Skydancer|ZNR|117|1|false
+C	Cascade Seer|ZNR|48|1|false
+C	Brushfire Elemental|ZNR|221|1|false
+C	Merfolk Windrobber|ZNR|70|1|false
+C	Nimble Trapfinder|ZNR|72|1|false
+C	Mountain|ZNR|275|1|false
+C	Mind Carver|ZNR|113|1|true
+C	Zof Consumption|ZNR|132|1|false
 PICK	1	MH3
 5 of type Common
 1 of type Common-Guest
@@ -4390,40 +4440,42 @@ Attempting to lookup: MH3 new to modern
 1 of type Common-Land
 1 of type Wildcard
 1 of type Wildcard+
+Replaced a base slot! Wildcard -> RareMythic:fromSheet("MH3 cards")
 PACK	1	MH3
-C	Voidpouncer|MH3|143|1|false
-C	Cranial Ram|MH3|180|1|false
 C	Tranquil Landscape|MH3|231|1|false
 C	Colossal Dreadmask|MH3|148|1|false
 C	Tune the Narrative|MH3|75|1|false
+C	Utter Insignificance|MH3|78|1|false
 C	Skoa, Embermage|MH3|138|1|false
-C	Lion Umbra|MH3|160|1|false
-C	Quest for the Necropolis|MH3|104|1|false
+C	Aerie Auxiliary|MH3|18|1|false
 C	Wastescape Battlemage|MH3|17|1|false
-C	Cursed Mirror|MH3|279|1|false
-C	Distinguished Conjurer|MH3|264|1|false
-C	Infernal Captor|MH3|125|1|false
+C	Mogg Mob|MH3|127|1|false
+C	Decree of Justice|MH3|263|1|false
+C	Deserted Temple|MH3|301|1|false
+C	Junk Diver|MH3|293|1|false
 C	Writhing Chrysalis|MH3|208|1|false
-C	Fetid Gargantua|MH3|94|1|true
-PICK	2	YDFT
-PACK	2	YDFT
-C	Sala, Deck Boss|YDFT|25|1|false
-C	Venomsac Lagac|DFT|185|1|false
-C	Lightshield Parry|DFT|19|1|false
-C	Lightning Strike|DFT|136|1|false
-C	Voyager Quickwelder|DFT|37|1|false
-C	Pedal to the Metal|DFT|141|1|false
-C	Engine Rat|DFT|84|1|false
-C	Gilded Ghoda|DFT|130|1|false
-C	Syphon Fuel|DFT|108|1|false
-C	Country Roads|DFT|253|1|false
-C	Wretched Doll|DFT|111|1|false
-C	Amonkhet Raceway|DFT|248|1|false
-C	Chandra, Spark Hunter|DFT|116|1|false
-C	Gas Guzzler|DFT|85|1|false
-C	Tranquil Cove|DFT|267|1|false
+C	Fetid Gargantua|MH3|94|1|false
+C	Guide of Souls|MH3|29|1|true
+PICK	2	YBLB
+PACK	2	YBLB
+C	Euru, Acorn Scrounger|YBLB|24|1|false
+C	Lifecreed Duo|BLB|20|1|false
+C	Skyskipper Duo|BLB|71|1|false
+C	Glidedive Duo|BLB|96|1|false
+C	Bakersbane Duo|BLB|163|1|false
+C	Kindlespark Duo|BLB|142|1|false
+C	Waterspout Warden|BLB|80|1|false
+C	Mind Spiral|BLB|59|1|false
+C	Sazacap's Brew|BLB|151|1|false
+C	Rabid Gnaw|BLB|147|1|false
+C	Bark-Knuckle Boxer|BLB|164|1|false
+C	Bandit's Talent|BLB|83|1|false
+C	Rockface Village|BLB|259|1|false
+C	Camellia, the Seedmiser|BLB|207|1|false
+C	Island|BLB|267|2|false
 PICK	3	JOU
 PACK	3	JOU
+C	Cloaked Siren|JOU|32|1|false
 C	Oppressive Rays|JOU|19|1|false
 C	Rouse the Mob|JOU|109|1|false
 C	Rotted Hulk|JOU|81|1|false
@@ -4433,49 +4485,47 @@ C	Golden Hind|JOU|124|1|false
 C	Rise of Eagles|JOU|49|1|false
 C	Font of Vigor|JOU|11|1|false
 C	Aspect of Gorgon|JOU|60|1|false
+C	Blinding Flare|JOU|91|1|false
 C	Knowledge and Power|JOU|101|1|false
 C	Stormchaser Chimera|JOU|156|1|false
-C	Rollick of Abandon|JOU|108|1|false
-C	Eidolon of Blossoms|JOU|122|1|false
-C	Forest|THS|247|2|false
-C	Bladetusk Boar|JOU|90|1|true
+C	Deicide|JOU|7|1|false
+C	Forest|THS|248|3|false
 PICK	4	ME1
 PACK	4	ME1
-C	Order of Leitbur|ME1|22|1|false
-C	Telekinesis|ME1|52|1|false
 C	Dragon Engine|ME1|156|1|false
 C	Cuombajj Witches|ME1|65|1|false
-C	Shield Sphere|ME1|166|1|false
+C	Order of Leitbur|ME1|22|1|false
 C	Ashnod's Transmogrant|ME1|152|1|false
 C	Word of Undoing|ME1|56|1|false
 C	Giant Tortoise|ME1|34|1|false
 C	Righteous Avengers|ME1|25|1|false
 C	Brothers of Fire|ME1|89|1|false
-C	Tivadar's Crusade|ME1|28|1|false
-C	Fire Covenant|ME1|145|1|false
+C	Dust to Dust|ME1|10|1|false
+C	Urza's Chalice|ME1|171|1|false
 C	High Tide|ME1|35|1|false
-C	Juzám Djinn|ME1|74|1|false
-C	Plains|ME1|181|1|false
-PICK	5	YBRO
-PACK	5	YBRO
-C	Tawnos Endures|YBRO|3|1|false
-C	Combat Courier|BRO|77|1|false
-C	Epic Confrontation|BRO|176|1|false
-C	Roc Hunter|BRO|150|1|false
-C	Argothian Sprite|BRO|168|1|false
-C	Loran's Escape|BRO|14|1|false
-C	Scrapwork Cohort|BRO|37|1|false
-C	Conscripted Infantry|BRO|129|1|false
-C	Rust Goliath|BRO|204|1|false
-C	Fallaji Vanguard|BRO|210|1|false
-C	Reconstructed Thopter|BRO|242|1|false
-C	Spotter Thopter|BRO|80|1|false
-C	Deathbloom Ritualist|BRO|208|1|false
-C	Island|BRO|281|4|false
-C	Aetherflux Reservoir|BRR|65|2|false
+C	Spectral Bears|ME1|131|1|false
+C	Hymn of Rebirth|ME1|146|1|false
+C	Winter Orb|ME1|173|1|false
+C	Swamp|ME1|189|3|false
+PICK	5	XLN
+PACK	5	XLN
+C	Duress|XLN|105|1|false
+C	Sunrise Seeker|XLN|40|1|false
+C	Hijack|XLN|148|1|false
+C	Pirate's Cutlass|XLN|242|1|false
+C	Frenzied Raptor|XLN|146|1|false
+C	Watertrap Weaver|XLN|87|1|false
+C	Commune with Dinosaurs|XLN|181|1|false
+C	Encampment Keeper|XLN|11|1|false
+C	Ravenous Daggertooth|XLN|202|1|false
+C	Unfriendly Fire|XLN|172|1|false
+C	Wildgrowth Walker|XLN|216|1|false
+C	Dusk Legion Dreadnought|XLN|236|1|false
+C	Steadfast Armasaur|XLN|39|1|false
+C	Entrancing Melody|XLN|55|1|false
+C	Island|XLN|266|3|false
 PICK	6	CNS
 PACK	6	CNS
-C	Liliana's Specter|CNS|116|1|false
 C	Silverchase Fox|CNS|81|1|false
 C	Copperhorn Scout|CNS|160|1|false
 C	Minamo Scrollkeeper|CNS|101|1|false
@@ -4485,11 +4535,12 @@ C	Power of Fire|CNS|150|1|false
 C	Dream Fracture|CNS|95|1|false
 C	Trumpet Blast|CNS|154|1|false
 C	Respite|CNS|176|1|false
-C	Uncontrollable Anger|CNS|155|1|false
 C	Council Guardian|CNS|15|1|false
 C	Mirrodin's Core|CNS|208|1|false
-C	Heartless Hidetsugu|CNS|144|1|false
-C	Cogwork Tracker|CNS|60|1|false
+C	Treasonous Ogre|CNS|36|1|false
+C	Ill-Gotten Gains|CNS|114|1|false
+C	Agent of Acquisitions|CNS|54|1|false
+C	Orcish Cannonade|CNS|148|1|true
 PICK	7	INV
 PACK	7	INV
 C	Llanowar Knight|INV|254|1|false
@@ -4506,73 +4557,80 @@ C	Nomadic Elf|INV|200|1|false
 C	Sparring Golem|INV|312|1|false
 C	Zanam Djinn|INV|90|1|false
 C	Canopy Surge|INV|184|1|false
-C	Juntu Stakes|INV|304|1|true
-PICK	8	SPM
+C	Juntu Stakes|INV|304|1|false
+PICK	8	SOS
+5 of type Common
+1 of type Common-Guest
+3 of type Uncommon
+1 of type Wildcard
+Replaced a base slot! Wildcard -> Rare:fromSheet("SOS cards")
+1 of type RareMythic
+1 of type MysticalArchive
+1 of type Foil
+Replaced a base slot! Foil -> Rare:fromSheet("SOS cards")+
+1 of type Land
+Replaced a base slot! Land -> fromSheet("SOS full art")+
+Parsing from main code: fromSheet("SOS full art")
+Attempting to lookup: SOS full art
+PACK	8	SOS
+C	Imperious Inkmage|SOS|195|1|false
+C	Interjection|SOS|22|1|false
+C	Fractal Mascot|SOS|189|1|false
+C	Wild Hypothesis|SOS|167|1|false
+C	Potioner's Trove|SOS|251|1|false
+C	Essence Scatter|SOS|47|1|false
+C	Emil, Vastlands Roamer|SOS|146|1|false
+C	Teacher's Pest|SOS|238|1|false
+C	Chelonian Tackle|SOS|142|1|false
+C	Pox Plague|SOS|94|1|false
+C	Traumatic Critique|SOS|239|1|false
+C	Bitter Triumph|SOA|26|1|false
+C	Steal the Show|SOS|130|1|true
+C	Island|SOS|268|1|true
+PICK	9	YTDM
+PACK	9	YTDM
+C	Song of Seasons|YTDM|25|1|false
+C	Poised Practitioner|TDM|18|1|false
+C	Stormshriek Feral|TDM|124|1|false
+C	Alesha's Legacy|TDM|72|1|false
+C	Seize Opportunity|TDM|119|1|false
+C	Temur Devotee|TDM|61|1|false
+C	Jeskai Devotee|TDM|110|1|false
+C	Worthy Cost|TDM|99|1|false
+C	Humbling Elder|TDM|48|1|false
+C	Karakyk Guardian|TDM|198|1|false
+C	Zurgo's Vanguard|TDM|133|1|false
+C	Duty Beyond Death|TDM|10|1|false
+C	Severance Priest|TDM|222|1|false
+C	Clarion Conqueror|TDM|5|1|false
+C	Island|TDM|280|3|false
+PICK	10	TLA
 6 of type Common
 1 of type Common-Borderless
 3 of type Uncommon
 1 of type RareMythic
 1 of type Wildcard
 1 of type WildcardFoil+
-Replaced a base slot! WildcardFoil -> Uncommon:fromSheet("SPM cards")
 1 of type Land
-Replaced a base slot! Land -> BasicLand:fromSheet("SPM full art")+
-Parsing from main code: fromSheet("SPM full art")
-Attempting to lookup: SPM full art
-PACK	8	SPM
-C	Risky Research|SPM|62|1|false
-C	Stegron the Dinosaur Man|SPM|95|1|false
-C	Electro's Bolt|SPM|77|1|false
-C	Vibrant Cityscape|SPM|188|1|false
-C	Doc Ock's Henchmen|SPM|30|1|false
-C	Web Up|SPM|21|1|false
-C	Kapow!|SPM|103|1|false
-C	Rhino's Rampage|SPM|141|1|false
-C	Morbius the Living Vampire|SPM|137|1|false
-C	Ezekiel Sims, Spider-Totem|SPM|100|1|false
-C	Origin of Spider-Man|SPM|9|1|false
-C	Daily Bugle Reporters|SPM|6|1|false
-C	Damage Control Crew|SPM|99|1|true
-C	Forest|SPM|193|1|true
-PICK	9	ZEN
-PACK	9	ZEN
-C	Nimana Sell-Sword|ZEN|106|1|false
-C	Highland Berserker|ZEN|132|1|false
-C	Nimbus Wings|ZEN|28|1|false
-C	Kabira Crossroads|ZEN|216|1|false
-C	Hedron Scrabbler|ZEN|204|1|false
-C	Tuktuk Grunts|ZEN|152|1|false
-C	Spidersilk Net|ZEN|206|1|false
-C	Mindless Null|ZEN|103|1|false
-C	Noble Vestige|ZEN|29|1|false
-C	Steppe Lynx|ZEN|36|1|false
-C	Baloth Cage Trap|ZEN|156|1|false
-C	Pitfall Trap|ZEN|32|1|false
-C	Mind Sludge|ZEN|102|1|false
-C	Rite of Replication|ZEN|61|1|false
-C	Island|ZEN|236|5|false
-PICK	10	TMP
-PACK	10	TMP
-C	Thalakos Sentry|TMP|95|1|false
-C	Heartwood Dryad|TMP|231|1|false
-C	Dark Banishing|TMP|117|1|false
-C	Darkling Stalker|TMP|119|1|false
-C	Mogg Conscripts|TMP|189|1|false
-C	Tranquility|TMP|261|1|false
-C	Volrath's Curse|TMP|101|1|false
-C	Master Decoy|TMP|29|1|false
-C	Skyshroud Elf|TMP|255|1|false
-C	Coiled Tinviper|TMP|279|1|false
-C	Circle of Protection: Red|TMP|11|1|false
-C	Segmented Wurm|TMP|269|1|false
-C	Sky Spirit|TMP|271|1|false
-C	Interdict|TMP|69|1|false
-C	Recycle|TMP|248|1|false
+Parsing from main code: fromSheet("TLA allied lands")
+Attempting to lookup: TLA allied lands
+PACK	10	TLA
+C	Foggy Swamp Hunters|TLA|101|1|false
+C	Earth Kingdom Soldier|TLA|216|1|false
+C	Vindictive Warden|TLA|249|1|false
+C	Messenger Hawk|TLA|234|1|false
+C	Saber-Tooth Moose-Lion|TLA|194|1|false
+C	Pretending Poxbearers|TLA|237|1|false
+C	Rough Rhino Cavalry|TLA|152|1|false
+C	Meteor Sword|TLA|258|1|false
+C	Master Piandao|TLA|28|1|false
+C	Cruel Administrator|TLA|213|1|false
+C	Mai, Scornful Striker|TLA|109|1|false
+C	Vengeful Villagers|TLA|40|1|false
+C	Earth Rumble Wrestlers|TLA|218|1|true
+C	Meditation Pools|TLA|272|1|false
 PICK	11	ARB
 PACK	11	ARB
-C	Glassdust Hulk|ARB|7|1|false
-C	Naya Hushblade|ARB|141|1|false
-C	Deny Reality|ARB|19|1|false
 C	Magefire Wings|ARB|88|1|false
 C	Sewn-Eye Drake|ARB|135|1|false
 C	Bant Sureblade|ARB|143|1|false
@@ -4580,28 +4638,31 @@ C	Vectis Dominator|ARB|84|1|false
 C	Jund Hackblade|ARB|138|1|false
 C	Rhox Brute|ARB|59|1|false
 C	Qasali Pridemage|ARB|75|1|false
-C	Sanity Gnawers|ARB|44|1|false
-C	Behemoth Sledge|ARB|65|1|false
+C	Godtracker of Jund|ARB|55|1|false
+C	Violent Outburst|ARB|63|1|false
 C	Tainted Sigil|ARB|83|1|false
-C	Retaliator Griffin|ARB|123|1|false
-C	Plains|ALA|233|4|false
+C	Enlisted Wurm|ARB|68|1|false
+C	Drastic Revelation|ARB|111|1|false
+C	Maelstrom Nexus|ARB|130|1|false
+C	Forest|ALA|248|3|false
+C	Nemesis of Reason|ARB|28|1|true
 PICK	12	ROE
 PACK	12	ROE
-C	Wildheart Invoker|ROE|213|1|false
-C	Spider Umbra|ROE|208|1|false
-C	Ogre Sentry|ROE|159|1|false
-C	Aura Finesse|ROE|54|1|false
 C	Frostwind Invoker|ROE|68|1|false
 C	Perish the Thought|ROE|123|1|false
 C	Snake Umbra|ROE|207|1|false
 C	Jwari Scuttler|ROE|73|1|false
 C	Hand of Emrakul|ROE|5|1|false
-C	Vent Sentinel|ROE|171|1|false
-C	Dreamstone Hedron|ROE|216|1|false
-C	Unified Will|ROE|92|1|false
-C	Explosive Revelation|ROE|143|1|false
-C	Bear Umbra|ROE|177|1|false
+C	Aura Finesse|ROE|54|1|false
+C	Staggershock|ROE|166|1|false
+C	Last Kiss|ROE|116|1|false
+C	Dawnglare Invoker|ROE|16|1|false
+C	Oust|ROE|40|1|false
+C	Merfolk Skyscout|ROE|77|1|false
+C	Virulent Swipe|ROE|131|1|false
+C	Drana, Kalastria Bloodchief|ROE|107|1|false
 C	Plains|ROE|232|4|false
+C	Ogre's Cleaver|ROE|220|1|true
 SHEET	!BasicLand:fromSheet("30A retro frame") 30A	282
 S	Twiddle|30A|382|2|false	1
 S	Guardian Angel|30A|318|2|false	1
@@ -7738,12 +7799,6 @@ S	Plains|SPM|194|2|false	1
 S	Mountain|SPM|197|2|false	1
 S	Swamp|SPM|196|2|false	1
 S	Island|SPM|195|2|false	1
-SHEET	BasicLand:fromSheet("SPM full art") SPM	5
-S	Swamp|SPM|191|1|false	1
-S	Mountain|SPM|192|1|false	1
-S	Plains|SPM|189|1|false	1
-S	Island|SPM|190|1|false	1
-S	Forest|SPM|193|1|false	1
 SHEET	BasicLand:fromSheet("TDM cards") YTDM	25
 S	Mountain|TDM|275|1|false	1
 S	Forest|TDM|276|1|false	1
@@ -7770,19 +7825,12 @@ S	Island|TDM|279|2|false	1
 S	Swamp|TDM|281|2|false	1
 S	Island|TDM|273|1|false	1
 S	Forest|TDM|286|3|false	1
-SHEET	BasicLand:fromSheet("TLA avatar journey basic") TLA	5
-S	Plains|TLA|292|3|false	1
-S	Island|TLA|293|3|false	1
-S	Forest|TLA|296|3|false	1
-S	Swamp|TLA|294|3|false	1
-S	Mountain|TLA|295|3|false	1
-SHEET	BasicLand:fromSheet("TMT cards") TMT	6
-S	Mutant Town|TMT|187|1|false	1
-S	Illegitimate Business|TMT|186|1|false	1
-S	Dimension X|TMT|183|1|false	1
-S	Escape Tunnel|TMT|184|1|false	1
-S	TCRI Building|TMT|189|1|false	1
-S	Foot Headquarters|TMT|185|1|false	1
+SHEET	BasicLand:fromSheet("TLA default basic") TLA	5
+S	Mountain|TLA|285|1|false	1
+S	Swamp|TLA|284|1|false	1
+S	Island|TLA|283|1|false	1
+S	Forest|TLA|286|1|false	1
+S	Plains|TLA|282|1|false	1
 SHEET	BasicLand:fromSheet("WOE cards") WOE	15
 S	Swamp|WOE|271|2|false	1
 S	Swamp|WOE|272|3|false	1
@@ -24259,6 +24307,59 @@ S	Confront the Unknown|SIR|190|1|false	1
 S	Borrowed Hostility|SIR|146|1|false	1
 S	Guardian of Pilgrims|SIR|32|1|false	1
 S	Strength of Arms|SIR|47|1|false	1
+SHEET	Common:fromSheet("SLZ photocopy") SLZ	52
+S	Go for the Throat|SLZ|42|1|false	1
+S	Lightning Bolt|SLZ|63|1|false	1
+S	Generous Gift|SLZ|4|1|false	1
+S	Cultivate|SLZ|74|1|false	1
+S	Serra Angel|SLZ|10|1|false	1
+S	An Offer You Can't Refuse|SLZ|27|1|false	1
+S	Ghostly Flicker|SLZ|17|1|false	1
+S	Brainstorm|SLZ|13|1|false	1
+S	Return to Dust|SLZ|8|1|false	1
+S	Baleful Strix|SLZ|88|1|false	1
+S	Guttersnipe|SLZ|60|1|false	1
+S	Disintegrate|SLZ|56|1|false	1
+S	Price of Progress|SLZ|65|1|false	1
+S	Wild Growth|SLZ|86|1|false	1
+S	Thought Scour|SLZ|31|1|false	1
+S	Simian Spirit Guide|SLZ|68|1|false	1
+S	Cathartic Reunion|SLZ|55|1|false	1
+S	Invigorate|SLZ|79|1|false	1
+S	Llanowar Elves|SLZ|81|1|false	1
+S	Wild Nacatl|SLZ|87|1|false	1
+S	Nature's Claim|SLZ|82|1|false	1
+S	Merfolk of the Pearl Trident|SLZ|24|1|false	1
+S	Thought Vessel|SLZ|116|1|false	1
+S	Command Tower|SLZ|118|1|false	1
+S	Soul-Guide Lantern|SLZ|115|1|false	1
+S	Arcane Signet|SLZ|94|1|false	1
+S	Sengir Vampire|SLZ|49|1|false	1
+S	Unearth|SLZ|51|1|false	1
+S	Grizzly Bears|SLZ|77|1|false	1
+S	Night's Whisper|SLZ|48|1|false	1
+S	High Tide|SLZ|18|1|false	1
+S	Fireball|SLZ|57|1|false	1
+S	Cut Down|SLZ|37|1|false	1
+S	Vandalblast|SLZ|69|1|false	1
+S	Spell Pierce|SLZ|30|1|false	1
+S	Feed the Swarm|SLZ|41|1|false	1
+S	Cauldron Familiar|SLZ|35|1|false	1
+S	Tragic Slip|SLZ|50|1|false	1
+S	Mulldrifter|SLZ|25|1|false	1
+S	Gigantosaurus|SLZ|76|1|false	1
+S	Power Sink|SLZ|28|1|false	1
+S	Duress|SLZ|40|1|false	1
+S	Gray Merchant of Asphodel|SLZ|43|1|false	1
+S	All That Glitters|SLZ|1|1|false	1
+S	Gut Shot|SLZ|59|1|false	1
+S	Savannah Lions|SLZ|9|1|false	1
+S	Giant Spider|SLZ|75|1|false	1
+S	Chatterstorm|SLZ|72|1|false	1
+S	Colossal Dreadmaw|SLZ|73|1|false	1
+S	Ornithopter|SLZ|109|1|false	1
+S	Narcomoeba|SLZ|26|1|false	1
+S	Dispatch|SLZ|2|1|false	1
 SHEET	Common:fromsheet("SNC cards") SNC	101
 S	Jewel Thief|SNC|151|1|false	1
 S	Halo Scarab|SNC|239|1|false	1
@@ -25267,6 +25368,53 @@ S	Michelangelo, Game Master|TMT|118|1|false	1
 S	Donatello, Turtle Techie|TMT|37|1|false	1
 S	Leonardo, Big Brother|TMT|14|1|false	1
 S	Jennika, Bad Apple Big Sister|TMT|10|1|false	1
+SHEET	Common:fromSheet("TRK cards") TRK	46
+S	Xindi Surveyors|TRK|225|1|false	1
+S	Shields Up!|TRK|35|1|false	1
+S	Command Decision|TRK|8|1|false	1
+S	Open Communications|TRK|76|1|false	1
+S	Cha'DIch Investigator|TRK|97|1|false	1
+S	Silicate Surveyor|TRK|172|1|false	1
+S	Marooned|TRK|72|1|false	1
+S	Emergency Medical Hologram|TRK|15|1|false	1
+S	Relentless Drednok|TRK|124|1|false	1
+S	Xenobotanist|TRK|224|1|false	1
+S	Reckless Impulse|TRK|168|1|false	1
+S	Rogue Artificial Intelligence|TRK|126|1|false	1
+S	Saurian Explorer|TRK|213|1|false	1
+S	Horta|TRK|152|1|false	1
+S	First Contact|TRK|199|1|false	1
+S	Tactical Officer|TRK|38|1|false	1
+S	A Good Day to Die|TRK|111|1|false	1
+S	Federation Field Medic|TRK|17|1|false	1
+S	Cantankerous Captain|TRK|141|1|false	1
+S	Battle-Scarred Survivalist|TRK|95|1|false	1
+S	Consider the Prime Directive|TRK|51|1|false	1
+S	Plasma Cascade|TRK|164|1|false	1
+S	Dathon and Picard at El-Adrel|TRK|192|1|false	1
+S	Moopsy|TRK|207|1|false	1
+S	DOT-7 Repair Squad|TRK|12|1|false	1
+S	Cybernetic Specialist|TRK|262|1|false	1
+S	Cloistered Telepath|TRK|50|1|false	1
+S	Guidance Failure|TRK|60|1|false	1
+S	Tricorder|TRK|270|1|false	1
+S	Shuttle Ace|TRK|36|1|false	1
+S	Dominion Supervisor|TRK|195|1|false	1
+S	Set Phasers to . . .|TRK|34|1|false	1
+S	Automated Warfare System|TRK|93|1|false	1
+S	Cold-Blooded Crew|TRK|189|1|false	1
+S	Malfunctioning Holodeck|TRK|22|1|false	1
+S	Free Borg Revolutionaries|TRK|19|1|false	1
+S	Humpback Whales|TRK|65|1|false	1
+S	He's Dead, Jim|TRK|114|1|false	1
+S	Eject the Warp Core|TRK|105|1|false	1
+S	Perils of the Past|TRK|161|1|false	1
+S	Assault Drone|TRK|92|1|false	1
+S	Federation Probe|TRK|59|1|false	1
+S	Common Goal|TRK|190|1|false	1
+S	Captain's Tutelage|TRK|144|1|false	1
+S	I'm a Doctor, Not a . . .|TRK|203|1|false	1
+S	Planetary Patrol|TRK|163|1|false	1
 SHEET	Common:fromSheet("VOW cards") VOW	100
 S	Gluttonous Guest|VOW|114|1|false	1
 S	Voldaren Epicure|VOW|182|1|false	1
@@ -25881,16 +26029,6 @@ S	Era of Enlightenment|NEO|11|1|false	1
 S	Azusa's Many Journeys|NEO|172|1|false	1
 S	Tales of Master Seshiro|NEO|210|1|false	1
 S	Okiba Reckoner Raid|NEO|117|1|false	1
-SHEET	dfc:RareMythic SOI	9
-S	Archangel Avacyn|SOI|5|1|false	1
-S	Arlinn Kord|SOI|243|1|false	1
-S	Thing in the Ice|SOI|92|1|false	2
-S	Westvale Abbey|SOI|281|1|false	2
-S	Geier Reach Bandit|SOI|159|1|false	2
-S	Hanweir Militia Captain|SOI|21|1|false	2
-S	Sage of Ancient Lore|SOI|225|1|false	2
-S	Elusive Tormentor|SOI|108|1|false	2
-S	Startled Awake|SOI|88|1|false	1
 SHEET	fromSheet("2X2 foils") 2X2	332
 S	Knightly Valor|2X2|14|1|true	21
 S	Pull from Tomorrow|2X2|62|1|true	2
@@ -30377,6 +30515,12 @@ S	Paradox Gardens|SOS|258|1|false	1
 S	Spectacle Summit|SOS|262|1|false	1
 S	Titan's Grave|SOS|266|1|false	1
 S	Fields of Strife|SOS|255|1|false	1
+SHEET	fromSheet("SOS full art") SOS	5
+S	Mountain|SOS|270|1|false	1
+S	Plains|SOS|267|1|false	1
+S	Island|SOS|268|1|false	1
+S	Swamp|SOS|269|1|false	1
+S	Forest|SOS|271|1|false	1
 SHEET	fromSheet("STX lesson") STX	20
 S	Pest Summoning|STX|211|1|false	2
 S	Academic Probation|STX|7|1|false	1
@@ -30409,6 +30553,29 @@ S	Dismal Backwater|TDM|254|1|false	1
 S	Bloodfell Caves|TDM|250|1|false	1
 S	Scoured Barrens|TDM|267|1|false	1
 S	Jungle Hollow|TDM|258|1|false	1
+SHEET	fromSheet("TLA allied lands") TLA	10
+S	Airship Engine Room|TLA|265|1|false	1
+S	Kyoshi Village|TLA|271|1|false	1
+S	Boiling Rock Prison|TLA|267|1|false	1
+S	Misty Palms Oasis|TLA|273|1|false	1
+S	Omashu City|TLA|275|1|false	1
+S	Foggy Bottom Swamp|TLA|269|1|false	1
+S	Meditation Pools|TLA|272|1|false	1
+S	Sun-Blessed Peak|TLA|280|1|false	1
+S	North Pole Gates|TLA|274|1|false	1
+S	Serpent's Pass|TLA|279|1|false	1
+SHEET	fromSheet("TMT rooftop lands") TMT	5
+S	Swamp|TMT|193|1|false	1
+S	Plains|TMT|191|1|false	1
+S	Island|TMT|192|1|false	1
+S	Forest|TMT|195|1|false	1
+S	Mountain|TMT|194|1|false	1
+SHEET	fromSheet("TRK holodeck basic") TRK	5
+S	Mountain|TRK|315|2|false	1
+S	Swamp|TRK|314|2|false	1
+S	Plains|TRK|312|2|false	1
+S	Island|TRK|313|2|false	1
+S	Forest|TRK|316|2|false	1
 SHEET	Land:fromSheet("BLB fullart") BLB	20
 S	Island|BLB|268|3|false	2
 S	Island|BLB|267|2|false	3
@@ -35701,6 +35868,27 @@ S	Daredevil, Man Without Fear|MSH|372|3|false	1
 S	Storm, Windrider|MSH|375|2|false	1
 S	Wolverine, Fierce Fighter|MSH|378|2|false	1
 S	Winter Soldier, Icy Assassin|MSH|377|2|false	1
+SHEET	Rare:fromSheet("SLZ photocopy") SLZ	20
+S	Mycosynth Golem|SLZ|108|1|false	1
+S	Split Up|SLZ|11|1|false	1
+S	Darksteel Monolith|SLZ|102|1|false	1
+S	Eternity Vessel|SLZ|103|1|false	1
+S	Birds of Paradise|SLZ|71|1|false	1
+S	Chromatic Lantern|SLZ|96|1|false	1
+S	Skullclamp|SLZ|113|1|false	1
+S	Ward of Bones|SLZ|117|1|false	1
+S	Imp's Mischief|SLZ|45|1|false	1
+S	Ashnod's Altar|SLZ|95|1|false	1
+S	Life from the Loam|SLZ|80|1|false	1
+S	Hullbreaker Horror|SLZ|19|1|false	1
+S	Imperial Recruiter|SLZ|61|1|false	1
+S	Vito, Thorn of the Dusk Rose|SLZ|52|1|false	1
+S	Eerie Interlude|SLZ|3|1|false	1
+S	Scute Swarm|SLZ|84|1|false	1
+S	Dueling Grounds|SLZ|89|1|false	1
+S	Land Tax|SLZ|5|1|false	1
+S	Oboro, Palace in the Clouds|SLZ|119|1|false	1
+S	Sensei's Divining Top|SLZ|112|1|false	1
 SHEET	Rare:fromSheet("SOS cards") SOS	60
 S	Molten-Core Maestro|SOS|125|1|false	1
 S	Planar Engineering|SOS|158|1|false	1
@@ -35927,6 +36115,33 @@ S	Prehistoric Pet|TMT|22|1|false	1
 S	Turncoat Kunoichi|TMT|26|1|false	1
 S	Don & Raph, Hard Science|TMT|144|1|false	1
 S	Raphael's Technique|TMT|105|1|false	1
+SHEET	Rare:fromSheet("TRK cards") TRK	26
+S	Troubling Tribbles|TRK|41|1|false	1
+S	Quark's Bar|TRK|292|1|false	1
+S	Sacred Foundry|TRK|295|1|false	1
+S	Peace in Our Time|TRK|27|1|false	1
+S	The Caretaker|TRK|47|1|false	1
+S	The Wrath of Khan|TRK|181|1|false	1
+S	Breeding Pool|TRK|279|1|false	1
+S	All Good Things . . .|TRK|226|1|false	1
+S	Engineered Explosives|TRK|264|1|false	1
+S	Steam Vents|TRK|298|1|false	1
+S	Captain Benjamin Sisko|TRK|6|1|false	1
+S	Blood Crypt|TRK|278|1|false	1
+S	Romulan Bird-of-Prey|TRK|77|1|false	1
+S	Overgrown Tomb|TRK|289|1|false	1
+S	The City on the Edge of Forever|TRK|228|1|false	1
+S	General Chang, Cold Warrior|TRK|109|1|false	1
+S	Temple Garden|TRK|301|1|false	1
+S	Captain Pike, Fullness of Time|TRK|188|1|false	1
+S	Watery Grave|TRK|306|1|false	1
+S	Stomping Ground|TRK|299|1|false	1
+S	Federation Outpost|TRK|282|1|false	1
+S	Salt Vampire|TRK|127|1|false	1
+S	Godless Shrine|TRK|285|1|false	1
+S	Lt. Cmdr. Geordi La Forge|TRK|70|1|false	1
+S	U.S.S. Enterprise-D, Galaxy-Class|TRK|273|1|false	1
+S	Hallowed Fountain|TRK|286|1|false	1
 SHEET	RareMythic A25	68
 S	Fortune Thief|A25|130|1|false	2
 S	Hell's Caretaker|A25|92|1|false	2
@@ -59591,6 +59806,46 @@ S	Topplegeist|SIR|52|1|false	1
 S	Neglected Heirloom|SIR|256|1|false	1
 S	Kindly Stranger|SIR|107|1|false	1
 S	Ironclad Slayer|SIR|35|1|false	1
+SHEET	Uncommon:fromSheet("SLZ photocopy") SLZ	39
+S	Kazuul, Tyrant of the Cliffs|SLZ|62|1|false	1
+S	Hornet Queen|SLZ|78|1|false	1
+S	Pyroblast|SLZ|66|1|false	1
+S	Ruxa, Patient Professor|SLZ|83|1|false	1
+S	Lord Skitter, Sewer King|SLZ|46|1|false	1
+S	Anger|SLZ|54|1|false	1
+S	Doomsday|SLZ|39|1|false	1
+S	Sol Ring|SLZ|114|1|false	1
+S	Mental Misstep|SLZ|22|1|false	1
+S	Reliquary Tower|SLZ|120|1|false	1
+S	Imprisoned in the Moon|SLZ|20|1|false	1
+S	Windfall|SLZ|33|1|false	1
+S	Thrummingbird|SLZ|32|1|false	1
+S	Hypnotic Specter|SLZ|44|1|false	1
+S	White Sun's Zenith|SLZ|12|1|false	1
+S	Obeka, Brute Chronologist|SLZ|92|1|false	1
+S	Dark Ritual|SLZ|38|1|false	1
+S	Foundry Inspector|SLZ|104|1|false	1
+S	Manifold Key|SLZ|106|1|false	1
+S	Laboratory Maniac|SLZ|21|1|false	1
+S	Wheel of Misfortune|SLZ|70|1|false	1
+S	Cloud Key|SLZ|99|1|false	1
+S	Clown Car|SLZ|100|1|false	1
+S	Animate Dead|SLZ|34|1|false	1
+S	Glimpse the Impossible|SLZ|58|1|false	1
+S	Path to Exile|SLZ|7|1|false	1
+S	Pyrokinesis|SLZ|67|1|false	1
+S	Merchant Scroll|SLZ|23|1|false	1
+S	Cruel Reality|SLZ|36|1|false	1
+S	Dig Through Time|SLZ|16|1|false	1
+S	Chain of Vapor|SLZ|14|1|false	1
+S	Rogue's Gloves|SLZ|111|1|false	1
+S	Raffine, Scheming Seer|SLZ|93|1|false	1
+S	The Jolly Balloon Man|SLZ|91|1|false	1
+S	Yargle, Glutton of Urborg|SLZ|53|1|false	1
+S	Garth One-Eye|SLZ|90|1|false	1
+S	Mother of Runes|SLZ|6|1|false	1
+S	Jester's Cap|SLZ|105|1|false	1
+S	Clone|SLZ|15|1|false	1
 SHEET	Uncommon:fromSheet("SNC cards") SNC	80
 S	Exotic Pets|SNC|185|1|false	1
 S	Graveyard Shift|SNC|81|1|false	1
@@ -59753,6 +60008,82 @@ S	Faerie Vandal|SNC|44|1|false	1
 S	Maestros Charm|SNC|199|1|false	1
 S	Night Clubber|SNC|89|1|false	1
 S	Ballroom Brawlers|SNC|3|1|false	1
+SHEET	Uncommon:fromSheet("SOA cards") SOS	75
+S	Giant Growth|SOA|117|2|false	1
+S	Disdainful Stroke|SOA|147|3|false	1
+S	Return the Favor|SOA|47|1|false	1
+S	Hop to It|SOA|71|2|false	1
+S	Duty Beyond Death|SOA|4|1|false	1
+S	Giant Growth|SOA|182|3|false	1
+S	Bitter Triumph|SOA|91|2|false	1
+S	Requisition Raid|SOA|10|1|false	1
+S	Spell Pierce|SOA|153|3|false	1
+S	Monstrous Rage|SOA|175|3|false	1
+S	Burst Lightning|SOA|41|1|false	1
+S	Repel Calamity|SOA|138|3|false	1
+S	Monstrous Rage|SOA|45|1|false	1
+S	Hop to It|SOA|136|3|false	1
+S	Stock Up|SOA|89|2|false	1
+S	Helping Hand|SOA|5|1|false	1
+S	Giant Growth|SOA|52|1|false	1
+S	Hop to It|SOA|6|1|false	1
+S	Sleight of Hand|SOA|152|3|false	1
+S	Disdainful Stroke|SOA|82|2|false	1
+S	Abrade|SOA|167|3|false	1
+S	Stargaze|SOA|34|1|false	1
+S	Shared Roots|SOA|188|3|false	1
+S	Helping Hand|SOA|135|3|false	1
+S	Abrade|SOA|102|2|false	1
+S	Shared Roots|SOA|123|2|false	1
+S	Bulk Up|SOA|170|3|false	1
+S	Locust Spray|SOA|161|3|false	1
+S	Burst Lightning|SOA|106|2|false	1
+S	Royal Treatment|SOA|121|2|false	1
+S	Stargaze|SOA|99|2|false	1
+S	Helping Hand|SOA|70|2|false	1
+S	Bitter Triumph|SOA|26|1|false	1
+S	Pick Your Poison|SOA|55|1|false	1
+S	Sleight of Hand|SOA|87|2|false	1
+S	Locust Spray|SOA|31|1|false	1
+S	Feed the Swarm|SOA|29|1|false	1
+S	Deduce|SOA|81|2|false	1
+S	Repel Calamity|SOA|8|1|false	1
+S	Royal Treatment|SOA|186|3|false	1
+S	Abrade|SOA|37|1|false	1
+S	Zombify|SOA|36|1|false	1
+S	Deduce|SOA|16|1|false	1
+S	Knockout Maneuver|SOA|54|1|false	1
+S	Repel Calamity|SOA|73|2|false	1
+S	Disdainful Stroke|SOA|17|1|false	1
+S	Spell Pierce|SOA|88|2|false	1
+S	Knockout Maneuver|SOA|119|2|false	1
+S	Monstrous Rage|SOA|110|2|false	1
+S	Knockout Maneuver|SOA|184|3|false	1
+S	Duty Beyond Death|SOA|134|3|false	1
+S	Stock Up|SOA|154|3|false	1
+S	Requisition Raid|SOA|75|2|false	1
+S	Duty Beyond Death|SOA|69|2|false	1
+S	Requisition Raid|SOA|140|3|false	1
+S	Stock Up|SOA|24|1|false	1
+S	Spell Pierce|SOA|23|1|false	1
+S	Deduce|SOA|146|3|false	1
+S	Zombify|SOA|166|3|false	1
+S	Return the Favor|SOA|112|2|false	1
+S	Royal Treatment|SOA|56|1|false	1
+S	Zombify|SOA|101|2|false	1
+S	Burst Lightning|SOA|171|3|false	1
+S	Bulk Up|SOA|105|2|false	1
+S	Return the Favor|SOA|177|3|false	1
+S	Feed the Swarm|SOA|159|3|false	1
+S	Shared Roots|SOA|58|1|false	1
+S	Pick Your Poison|SOA|185|3|false	1
+S	Locust Spray|SOA|96|2|false	1
+S	Bitter Triumph|SOA|156|3|false	1
+S	Pick Your Poison|SOA|120|2|false	1
+S	Stargaze|SOA|164|3|false	1
+S	Bulk Up|SOA|40|1|false	1
+S	Feed the Swarm|SOA|94|2|false	1
+S	Sleight of Hand|SOA|22|1|false	1
 SHEET	Uncommon:fromSheet("SOS cards") SOS	100
 S	Additive Evolution|SOS|139|1|false	1
 S	Lumaret's Favor|SOS|153|1|false	1
@@ -60554,11 +60885,6 @@ S	Tiger-Dillo|TLA|155|1|false	1
 S	Mai, Jaded Edge|TLA|147|1|false	1
 S	Bitter Work|TLA|210|1|false	1
 S	Dragonfly Swarm|TLA|215|1|false	1
-SHEET	Uncommon:fromSheet("TLA scene cards") TLA	4
-S	Crashing Wave|TLA|300|2|false	1
-S	Dai Li Agents|TLA|306|2|false	1
-S	Fire Nation Attacks|TLA|299|2|false	1
-S	Combustion Technique|TLA|301|2|false	1
 SHEET	Uncommon:fromSheet("TMT cards"):!fromSheet("TMT legendary turtles") TMT	51
 S	Wingnut, Bat on the Belfry|TMT|110|1|false	1
 S	Featherbrained Filcher|TMT|6|1|false	1
@@ -60611,6 +60937,45 @@ S	Pizza Face, Gastromancer|TMT|163|1|false	1
 S	April, Reporter of the Weird|TMT|30|1|false	1
 S	Go Ninja Go|TMT|149|1|false	1
 S	Baxter Stockman|TMT|139|1|false	1
+SHEET	Uncommon:fromSheet("TMT scene cards"):!fromSheet("TMT legendary scene turtles") TMT	3
+S	Shredder, Unrelenting|TMT|210|2|false	1
+S	April, Reporter of the Weird|TMT|206|2|false	1
+S	Casey Jones, Jury-Rig Justiciar|TMT|207|2|false	1
+SHEET	Uncommon:fromSheet("TRK cards") TRK	34
+S	In the Pale Moonlight|TRK|117|1|false	1
+S	Lore, Positronic Provocateur|TRK|246|1|false	1
+S	V'Ger, the Intruder|TRK|87|1|false	1
+S	Constable Odo|TRK|230|1|false	1
+S	Dominion Saboteur|TRK|54|1|false	1
+S	Kirk, Commanding Officer|TRK|243|1|false	1
+S	The Duras Sisters|TRK|235|1|false	1
+S	Seven of Nine|TRK|252|1|false	1
+S	Collective Drone|TRK|99|1|false	1
+S	Khaaaaaaaaaaaannn!|TRK|154|1|false	1
+S	Captain Michael Burnham|TRK|143|1|false	1
+S	Highly Illogical|TRK|62|1|false	1
+S	Support Mission|TRK|216|1|false	1
+S	Beckett Mariner, Impetuous Ensign|TRK|138|1|false	1
+S	Locutus, the One Who Speaks|TRK|245|1|false	1
+S	D'Vana Tendi, Optimistic Ensign|TRK|236|1|false	1
+S	Amok Time|TRK|183|1|false	1
+S	Organic Avulsion Unit|TRK|121|1|false	1
+S	Hive Mind Coprocessor|TRK|115|1|false	1
+S	Saavik, Stoic Student|TRK|33|1|false	1
+S	70,000 Light-Years from Home|TRK|1|1|false	1
+S	Gray and Adira, Forever Joined|TRK|238|1|false	1
+S	Hoshi Sato, Exolinguist|TRK|64|1|false	1
+S	Hemmer, Fixing What Is Broken|TRK|239|1|false	1
+S	Bat'leth|TRK|94|1|false	1
+S	Syndicate Liquidators|TRK|218|1|false	1
+S	Resistance Is Futile|TRK|125|1|false	1
+S	Brad Boimler, Eager Ensign|TRK|5|1|false	1
+S	Dal R'El, Augment Orphan|TRK|231|1|false	1
+S	La'An Noonien-Singh, Security|TRK|156|1|false	1
+S	Munitions Enthusiast|TRK|158|1|false	1
+S	Vash, Freelance Archaeologist|TRK|255|1|false	1
+S	Mugato|TRK|208|1|false	1
+S	Picard, Leading by Example|TRK|29|1|false	1
 SHEET	Uncommon:fromSheet("VOW cards") VOW	83
 S	Ballista Watcher|VOW|143|1|false	1
 S	Angelic Quartermaster|VOW|2|1|false	1

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
@@ -139,4 +140,64 @@ func (g *Game) leaveCurrentPlanes(c PlayerController) error {
 		}
 	}
 	return nil
+}
+
+// SeatPlanarDeck is Player.initVariantsZones's Planechase step
+// (Player.java:3006-3012) without its shuffle: the planes go to owner's
+// planar deck in list order. DealOpeningHands shuffles it just before the
+// owner's library, where Match.prepareAllZones does (Match.java:351-353).
+func (g *Game) SeatPlanarDeck(owner PlayerID, defs []*compile.Card) {
+	for _, def := range defs {
+		g.NewCard(def, owner, PlanarDeck)
+	}
+}
+
+// InitPlanechase is GameAction.startGame's Planechase step
+// (GameAction.java:2377-2381), after the mulligans: first turns the top plane
+// of their planar deck face up (Player.initPlane, a phenomenon going to the
+// bottom first, no trigger), then every player gets their Planar Dice card
+// (Player.createPlanechaseEffects). Nothing happens outside a Planechase
+// game. A planar deck of phenomena only is an error: Java loops forever
+// there (Player.java:2736-2745, forge-java-defects.md).
+func (g *Game) InitPlanechase(first PlayerID) error {
+	if !g.planechaseActive {
+		return nil
+	}
+	deck := g.Zone(PlanarDeck, first)
+	for range deck.Len() {
+		top := deck.Cards()[0]
+		// Direct zone writes, as Java's PlayerZone.remove/add: no zone-change
+		// event and no trigger for this reveal.
+		deck.cards.Remove(top)
+		if !g.Card(top).Type().Has(cardtype.Phenomenon) {
+			g.put(top, Command, first)
+			g.activePlane = top
+			break
+		}
+		g.put(top, PlanarDeck, first)
+	}
+	if g.activePlane == NoCard && deck.Len() > 0 {
+		return fmt.Errorf("engine: InitPlanechase: the planar deck holds only phenomena")
+	}
+	for _, pid := range g.Players() {
+		pl := g.Player(pid)
+		pl.planarDie = g.putDesignationCard(pl.planarDie, pid, g.db.PlanarDiceEffect)
+	}
+	return nil
+}
+
+// handActivePlaneTo is PhaseHandler.java:858-862: under the Planechase
+// variant, each turn change makes the turn's player the active plane's
+// controller, and controllerChangeZoneCorrection moves it into their Command
+// zone, with no zone-change event.
+func (g *Game) handActivePlaneTo(pid PlayerID) {
+	if !g.HasVariant(VariantPlanechase) || g.activePlane == NoCard {
+		return
+	}
+	c := g.Card(g.activePlane)
+	c.controller = pid
+	if c.Zone == Command && c.ZoneOwner != pid {
+		g.Zone(Command, c.ZoneOwner).cards.Remove(c.ID)
+		g.put(c.ID, Command, pid)
+	}
 }

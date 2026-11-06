@@ -7,7 +7,6 @@ tapformana human 4 B
 tapformana human 5 B
 queue targets 2
 queue action human activate 1 1
-queue confirmpaycost true
 queue paygeneric B
 queue paygeneric B
 queue paygeneric B

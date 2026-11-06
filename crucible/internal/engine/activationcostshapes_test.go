@@ -706,3 +706,32 @@ func TestActivationUnattachesEquipmentOfTheAnnouncedValue(t *testing.T) {
 		t.Errorf("Captain America still carries %v", got)
 	}
 }
+
+// Fishing Pole's granted "{1}, {T}, Tap CARDNAME" (tapXType<1/OriginalHost>):
+// the Equipment that granted the ability taps beside the creature, and a
+// tapped Equipment cannot pay it.
+func TestActivationTapsTheGrantingEquipment(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	pole := g.NewCard(corpusCard(t, "Fishing Pole"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Card(bears).SummonSick = false
+	g.Attach(pole, bears)
+	sba(g)
+	g.Card(pole).Tapped = true
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueueTapChoice([]engine.CardID{pole})
+	if g.ActivateAbility(p, bears, 0, c) {
+		t.Fatal("activated with the Fishing Pole tapped")
+	}
+	g.Card(pole).Tapped = false
+	if !g.ActivateAbility(p, bears, 0, c) {
+		t.Fatalf("activation failed: %v", g.TakePendingError())
+	}
+	if !g.Card(pole).Tapped || !g.Card(bears).Tapped {
+		t.Errorf("tapped pole %v, bears %v, want both", g.Card(pole).Tapped, g.Card(bears).Tapped)
+	}
+}

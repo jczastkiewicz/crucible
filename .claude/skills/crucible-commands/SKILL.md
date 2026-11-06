@@ -17,7 +17,12 @@ npx markdownlint-cli2 "CLAUDE.md" "docs/crucible/**/*.md"   # semantic lint
 cd crucible && gofmt -l . && go vet ./...
 cd crucible && go test -race ./...
 cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/covergate -profile cover.out   # TEST-12 floors
+# The floor is per package (90% for internal/* and pkg/*): new code in a package, a new fixture verb, a new keyword
+# template, needs its own test in that package, or the commit hook stops on covergate.
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json   # new engine file → new group + allow-list
+# A new internal/engine file either gets a group in enginelint.json or carries its own `//enginelint:allow <groups>` line
+# under `package engine`; enginelint names the groups it references that are missing. A package-level identifier that
+# shares a name with a local elsewhere (`need`) is read as a reference to it: give new types distinct names.
 cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible            # DOC-12 docs land with code
 cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
 # R19 worklist: params a Java effect reads, cards write, and the Go effect never names (absent rows first)
@@ -33,8 +38,18 @@ crucible/scripts/gates.sh fast|full
 # What to port next: unregistered APIs by corpus line count, deferred ones marked (port-effect step 0)
 crucible/scripts/unported-apis.sh 30
 
+# P4 trigger-mode measure (R17): modes with no card in any scenario setup.state; -missing lists them
+crucible/scripts/trigger-mode-coverage.sh -missing
+
 # How many cards the engine plays, and why the rest are refused (smoke-probe.md); ~2 min for the whole corpus
 cd crucible && go run ./cmd/crucible card-smoke -all -workers 8     # or -decks <dir> / -cards "A,B"
+
+# Games: a deck against opponent decks (files or dirs), stored under -out, then summarized; report re-reads a run.
+# The controller is the smoke default-answer one until M7, so results measure the pipeline, not the decks.
+cd crucible && go run ./cmd/crucible run -target a.dck -vs b.dck,decks/ -games 100 -seed 1 -turns 60 -workers 8 -out runs/x
+cd crucible && go run ./cmd/crucible report -run runs/x
+# -variant commander,vanguard,planechase (any subset): Commander rules (ADR-0055) and each deck's [Commander], [Avatar] and
+# [Planes] section seated under its variant (ADR-0056); the probe controller never rolls the planar die.
 # -top 80 shows the long tail (default 25). Many refusals are probe-controller artifacts (internal/smoke/controller.go:
 # repeated Charm modes, forced blocks), not engine gaps: check those first, they flip many cards at once.
 

@@ -1,0 +1,14 @@
+# Engineered Explosives with two charge counters, sacrificed as its own
+# cost: Count$CardCounters.CHARGE reads the host Java's ability kept, the
+# moved-from object with its counters (GameAction.changeZone makes a new
+# Card for the graveyard), so it destroys the mana value 2 Bears and
+# Pacifism, not the mana value 0 Ornithopter. L2: same as Java.
+startturn human
+advance 3
+queue paygeneric U
+queue paygeneric U
+queue action human activate 1 0
+queue cardorder 50,53
+tapformana human 100 U
+tapformana human 101 U
+passpriority

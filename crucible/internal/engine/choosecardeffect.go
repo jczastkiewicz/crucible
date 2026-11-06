@@ -12,14 +12,13 @@ import (
 )
 
 // chooseCardUnresolvedParams are ChooseCardEffect.java's params this port
-// cannot honour yet: the alternative selection loops (WithDifferentPowers$/EachDifferentPower$/
-// ControlAndNot$; ChooseEach$, EachBasicType$ and WithTotalPower$ resolve, chooseEachCards,
-// chooseWithTotalPower), the non-default choice pools (AllCards$,
-// IncludeSpellsOnStack$; TargetControls$ resolves, chooseCardPool) and ChosenMap$'s per-player map.
-// 399 real (AB|DB)$ lines; the default chooseCardsForEffect shape covers
-// most of them. AtRandom$ is Aggregates.random(pChoices, Amount) over the pool in its scan
-// order (ChooseCardEffect.java:225-228); Secretly$ only moves Reveal$'s
-// display to after every chooser (:275-288), no state.
+// cannot honour yet. The alternative selection loops resolve
+// (chooseCardPowerLoops, chooseEachCards, chooseWithTotalPower), as do the
+// non-default choice pools (AllCards$; chooseCardPool). TargetControls$ is
+// not read since upstream replaced it with ControlledByPlayer$ Chooser
+// (#12563). AtRandom$ is Aggregates.random(pChoices, Amount) over the pool in
+// its scan order (ChooseCardEffect.java:225-228); Secretly$ only moves
+// Reveal$'s display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
 	"IncludeSpellsOnStack",
 	"UnlessResolveSubs",
@@ -68,18 +67,6 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if err != nil {
 		return err
 	}
-	if hasParam(a, "TargetControls") && !hasParam(a, "DefinedCards") {
-		// CardLists.filterControlledBy(choices, tgtPlayers), before DefinedCards$
-		// replaces the pool (ChooseCardEffect.java:73-78); the players are the
-		// choosers.
-		kept := choices[:0:0]
-		for _, cid := range choices {
-			if slices.Contains(choosers, g.Card(cid).Controller()) {
-				kept = append(kept, cid)
-			}
-		}
-		choices = kept
-	}
 
 	amountValue, ok := a.Params.Param("Amount")
 	if !ok {
@@ -98,6 +85,10 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		minAmount = n
 	}
 	if maxAmount <= 0 {
+		// Choosing nothing clears any prior choice, so a RepeatEach over
+		// ChosenCard cannot reuse a stale card (ChooseCardEffect.java:95-99,
+		// upstream 2026-11: Magnetic Mountain, Dream Tides).
+		source.Memory.ClearChosen()
 		return nil
 	}
 	rawMin := minAmount
@@ -409,10 +400,11 @@ func chooseCardPool(g *Game, a *Ability, source *Card) ([]CardID, error) {
 	return pool, nil
 }
 
-// chooseCardPowerLoops is ChooseCardEffect.java:171-224's three alternative
+// chooseCardPowerLoops is ChooseCardEffect.java:171-224's four alternative
 // selection loops, handled false for any other shape. WithDifferentPowers$
-// asks for one creature at a time, optional once MinAmount$ are chosen, and
-// drops every creature of a chosen power from the pool; EachDifferentPower$
+// and WithDifferentManaValues$ ask for one card at a time, optional once
+// MinAmount$ are chosen, and drop every card of the chosen power or mana
+// value from the pool; EachDifferentPower$
 // asks for one creature of each power in the pool, lowest power first;
 // ControlAndNot$ takes Amount$ of the chooser's creatures and Amount$ of the
 // others. The chosen collections are sets (FCollection), so a card picked
@@ -431,8 +423,18 @@ func chooseCardPowerLoops(g *Game, a *Ability, controller PlayerController, pid 
 		}
 		return chosen, nil
 	}
+	// distinct reads the card value WithDifferentPowers$ and
+	// WithDifferentManaValues$ (alias WithDifferentCMC$, :192-209) keep
+	// apart; nil for the other shapes.
+	var distinct func(*Card) int
 	switch {
 	case hasParam(a, "WithDifferentPowers"):
+		distinct = netPower
+	case hasParam(a, "WithDifferentManaValues"), hasParam(a, "WithDifferentCMC"):
+		distinct = (*Card).CMC
+	}
+	switch {
+	case distinct != nil:
 		var chosen []CardID
 		for len(pool) > 0 && len(chosen) < hi {
 			least := 1
@@ -447,10 +449,10 @@ func chooseCardPowerLoops(g *Game, a *Ability, controller PlayerController, pid 
 				break
 			}
 			chosen = append(chosen, got[0])
-			power := netPower(g.Card(got[0]))
+			value := distinct(g.Card(got[0]))
 			var rest []CardID
 			for _, id := range pool {
-				if netPower(g.Card(id)) != power {
+				if distinct(g.Card(id)) != value {
 					rest = append(rest, id)
 				}
 			}

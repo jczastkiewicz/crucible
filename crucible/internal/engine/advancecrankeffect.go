@@ -78,6 +78,29 @@ func (g *Game) advanceCrankCounter(controller PlayerController, pid PlayerID, so
 	}
 }
 
+// SeatContraptionDeck is Player.initVariantsZones' Contraptions step
+// (Player.java:3081-3089), after the sticker sheets: the deck's Contraptions
+// section goes into pid's Contraption deck, shuffled when it is not empty.
+func (g *Game) SeatContraptionDeck(pid PlayerID, defs []*compile.Card) {
+	for _, def := range defs {
+		g.NewCard(def, pid, ContraptionDeck)
+	}
+	if len(defs) > 0 {
+		g.Shuffle(ContraptionDeck, pid)
+	}
+}
+
+// controlsContraption is Java's getCardsIn(Battlefield).anyMatch(
+// Card::isContraption) for pid (PhaseHandler.java:263).
+func (g *Game) controlsContraption(pid PlayerID) bool {
+	for _, id := range g.Zone(Battlefield, pid).Cards() {
+		if g.Card(id).Type().HasSubtype("Contraption") {
+			return true
+		}
+	}
+	return false
+}
+
 // isCrankContraptionTrigger reports whether t is CR's own Mode$
 // CrankContraption shape (TriggerCrankContraption.java). Every real corpus
 // T:Mode$ CrankContraption line names only ValidCard$ Card.Self, so no

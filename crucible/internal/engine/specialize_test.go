@@ -131,3 +131,30 @@ func TestSpecializeIsSorcerySpeed(t *testing.T) {
 		t.Fatal("Specialize activated on the opponent's turn")
 	}
 }
+
+// Lukamina's specialized faces unspecialize as they die and return tapped
+// (Mode$ Unspecialize, Card.java:778-779, in the graveyard as
+// SetStateEffect.java:91-92 allows).
+func TestUnspecializeReturnsLukaminaTapped(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	luka := g.NewCard(corpusCard(t, "Lukamina, Moon Druid"), p, engine.Battlefield)
+	host := pushPlayLine(t, g, p, []engine.EntityID{engine.CardEntity(luka)}, "DB$ SetState | Mode$ Specialize | Defined$ Targeted")
+	g.Card(host).Memory.SetChosenColors(mana.White)
+	c := engine.NewScriptedController()
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("Specialize: %v", err)
+	}
+	if got := g.Card(luka).Name(); got != "Lukamina, Hawk Form" {
+		t.Fatalf("specialized name = %q, want the white face", got)
+	}
+	pushPlayLine(t, g, p, []engine.EntityID{engine.CardEntity(luka)}, "DB$ Destroy | Defined$ Targeted")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("Destroy and the dies trigger: %v", err)
+	}
+	l := g.Card(luka)
+	if l.Name() != "Lukamina, Moon Druid" || l.Zone != engine.Battlefield || !l.Tapped {
+		t.Errorf("Lukamina %q in %v tapped %v, want the unspecialized card back tapped", l.Name(), l.Zone, l.Tapped)
+	}
+}

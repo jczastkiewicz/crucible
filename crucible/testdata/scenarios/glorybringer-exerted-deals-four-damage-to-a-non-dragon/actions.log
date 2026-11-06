@@ -1,0 +1,10 @@
+# CR 701.43: human exerts Glorybringer as it attacks (Mode$ OptionalAttackCost,
+# Cost$ Exert); the reflexive trigger it names deals 4 damage to the
+# opponent's Hill Giant, which dies.
+startturn human
+advance 5
+queue attackers 1
+queue exertattackers 1
+queue targets 2
+declareattackers
+resolvestack

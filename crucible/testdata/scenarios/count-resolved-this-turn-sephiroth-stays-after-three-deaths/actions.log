@@ -3,6 +3,7 @@
 queue targets ai
 queue targets ai
 queue targets ai
+queue cardorder 2,3,4
 startturn human
 resolvestack
 resolvestack

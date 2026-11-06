@@ -11,11 +11,10 @@ import (
 )
 
 // rollDiceUnresolvedParams are RollDiceEffect params this port does not
-// model; none is left. ToVisitYourAttractions$ only flags the roll as made to visit
+// model; none is left. ToVisitYourAttractions$ flags the roll as made to visit
 // Attractions (RolledDie triggers naming RolledToVisitAttractions$ read it,
-// RollDiceEffect.java:325, :334); the effect itself visits nothing -- the visit is
-// Player.visitAttractions (Player.java:4016-4023), reached from rollToVisitAttractions,
-// which this port does not run (Line Cutter, Command Performance).
+// RollDiceEffect.java:325, :334) and visits the roller's Attractions with the
+// total (visitAttractions; Line Cutter, Command Performance).
 var rollDiceUnresolvedParams = [...]string{}
 
 // rollDiceEffect is RollDiceEffect.java (CR 706): each target or Defined$
@@ -89,6 +88,11 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			return err
 		}
 		totals = append(totals, total)
+		if hasParam(a, "ToVisitYourAttractions") {
+			// RollDiceEffect.java:557-559: each player visits with their own
+			// total before the next player rolls.
+			g.visitAttractions(controller, pid, total)
+		}
 	}
 	if hasParam(a, "RememberHighestPlayer") {
 		highest := 0
@@ -109,6 +113,13 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 // rollDiceFor is one player's rollDice: the rolls, the bound SVars, the
 // result sub-ability. It answers the total.
 func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID, amount, sides, ignore, modifier int) (int, error) {
+	return g.rollDice(a, controller, pid, amount, sides, ignore, modifier, hasParam(a, "ToVisitYourAttractions"))
+}
+
+// rollDice is rollDiceFor with the roll's toVisitAttractions flag
+// (RollDiceEffect.java:134) given: true for ToVisitYourAttractions$ and for
+// the turn-based roll (rollToVisitAttractions), which has no ability.
+func (g *Game) rollDice(a *Ability, controller PlayerController, pid PlayerID, amount, sides, ignore, modifier int, visit bool) (int, error) {
 	if amount <= 0 {
 		return 0, nil
 	}
@@ -167,7 +178,7 @@ func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID
 		// RollDiceEffect.java:495-497: the kept natural results, on the host.
 		g.Card(a.Source).addStoredRolls(natural)
 	}
-	g.checkRolledDieTriggers(controller, pid, sides, amount, natural, final, hasParam(a, "ToVisitYourAttractions"))
+	g.checkRolledDieTriggers(controller, pid, sides, amount, natural, final, visit)
 	bind := func(name string, v int) { a.Amounts = withAmount(a.Amounts, name, v) }
 	if hasParam(a, "EvenOddResults") {
 		bind("EvenResults", even)
@@ -288,7 +299,7 @@ func diceModifierInPlay(g *Game) bool {
 				if c.Def == nil {
 					continue
 				}
-				for _, face := range c.traitFaces() {
+				for _, face := range c.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						// A line rollReplaced runs (Pixie Guide's extra die) is not a
 						// modifier this check refuses; Vedalken's exchange is.

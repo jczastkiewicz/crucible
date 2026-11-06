@@ -253,6 +253,7 @@ func TestCleanupRotatesAndClearsTheTurnsRecords(t *testing.T) {
 
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController()) // Cleanup
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	for _, tc := range []struct {
 		x    string
 		who  engine.PlayerID
@@ -307,6 +308,7 @@ func TestSacrificedThisTurnCountsTheTurnsSacrifices(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := measure(t, g, p, "PlayerCountPropertyYou$SacrificedThisTurn"); got != 0 {
 		t.Errorf("SacrificedThisTurn after cleanup = %d, want 0", got)
 	}
@@ -404,6 +406,7 @@ func TestTurnRecordProperties(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := measure(t, g, p, "PlayerCountPlayers$HasPropertyCardsInHandAtBeginningOfTurn"); got != 1 {
 		t.Errorf("CardsInHandAtBeginningOfTurn after cleanup = %d, want 1 (only p held cards)", got)
 	}
@@ -497,5 +500,39 @@ func TestCloneKeepsItsOwnTurnRecords(t *testing.T) {
 		if got := measure(t, g, p, x); got != 0 {
 			t.Errorf("original %s = %d, want 0", x, got)
 		}
+	}
+}
+
+// Visions of Phyrexia's "lands you played from exile this turn": each played
+// land is kept as last known before it moved, so its origin zone still
+// matches once it is on the battlefield; the list empties as the turn ends.
+func TestLandsPlayedFiltersByTheZoneItWasPlayedFrom(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	land := g.NewCard(scriptDef(t, "Test Land", "Land"), p, engine.Hand)
+	if !g.PlayLand(p, land, engine.NewScriptedController()) {
+		t.Fatal("PlayLand failed")
+	}
+	for _, tc := range []struct {
+		x    string
+		who  engine.PlayerID
+		want int
+	}{
+		{"PlayerCountPropertyYou$LandsPlayed", p, 1},
+		{"PlayerCountPropertyYou$LandsPlayed Card.inRealZoneHand", p, 1},
+		{"PlayerCountPropertyYou$LandsPlayed Card.inRealZoneExile", p, 0},
+		{"PlayerCountPropertyYou$LandsPlayed Card.!inRealZoneHand,Card.YouDontOwn", p, 0},
+		{"PlayerCountPropertyYou$LandsPlayed Card.inRealZoneHand", other, 0},
+	} {
+		if got := measure(t, g, tc.who, tc.x); got != tc.want {
+			t.Errorf("%s for %v = %d, want %d", tc.x, tc.who, got, tc.want)
+		}
+	}
+	g.SetTurnState(1, p, engine.EndOfTurn)
+	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
+	if got := measure(t, g, p, "PlayerCountPropertyYou$LandsPlayed Card.inRealZoneHand"); got != 0 {
+		t.Errorf("after cleanup = %d, want 0", got)
 	}
 }

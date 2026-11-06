@@ -165,6 +165,7 @@ func TestVentureWalksLostMineToCompletion(t *testing.T) {
 		t.Errorf("VenturedThisTurn = %d, want 4", n)
 	}
 	endTurn(g, 1, p)
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if n := g.Player(p).VenturedThisTurn; n != 0 {
 		t.Errorf("VenturedThisTurn after cleanup = %d, want 0", n)
 	}

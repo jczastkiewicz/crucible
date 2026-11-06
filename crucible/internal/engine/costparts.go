@@ -253,8 +253,14 @@ func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) boo
 	if uc.forage && len(g.Zone(Graveyard, pid).Cards()) < forageExileN && len(g.forageFoods(pid)) == 0 {
 		return false
 	}
-	if uc.exileEitherN > 0 && len(g.exileEitherCandidates(pid, source, uc.exileEitherSpec)) < uc.exileEitherN {
+	if uc.exileEitherN > 0 && !g.exileEitherPayable(pid, source, uc.exileEitherN, uc.exileEitherSpec) {
 		return false
+	}
+	// Each part is checked on its own (CostPart.canPay), as Java does.
+	for _, m := range uc.moreExileEither {
+		if !g.exileEitherPayable(pid, source, m.n, m.spec) {
+			return false
+		}
 	}
 	if uc.exileTopN > 0 && g.Zone(Library, pid).Len() < uc.exileTopN {
 		return false
@@ -297,9 +303,73 @@ func (g *Game) forageFoods(pid PlayerID) []CardID {
 }
 
 // exileEitherCandidates is ExileCtrlOrGrave's list (Cost.java:487-492):
-// permanents pid controls, then cards in pid's graveyard, matching spec.
+// permanents pid controls, then cards in pid's graveyard, matching spec
+// without its +withSharedCardType flag (CostExile.java:209-213).
 func (g *Game) exileEitherCandidates(pid PlayerID, source CardID, spec string) []CardID {
+	spec, _ = sharedCardTypeSpec(spec)
 	return append(g.costCandidates(pid, source, false, Battlefield, spec), g.costCandidates(pid, source, false, Graveyard, spec)...)
+}
+
+// sharedCardTypeSpec strips Craft's +withSharedCardType (Eye of Ojer Taq):
+// the cards exiled must share a card type.
+func sharedCardTypeSpec(spec string) (string, bool) {
+	base, found := strings.CutSuffix(spec, "+withSharedCardType")
+	if !found && strings.Contains(spec, "+withSharedCardType") {
+		return strings.Replace(spec, "+withSharedCardType", "", 1), true
+	}
+	return base, found
+}
+
+// exileEitherPayable is one ExileCtrlOrGrave part's canPay: n candidates, and
+// under +withSharedCardType n of them of one core type (CostExile.java:
+// 240-257, a test of the whole set).
+func (g *Game) exileEitherPayable(pid PlayerID, source CardID, n int, spec string) bool {
+	options := g.exileEitherCandidates(pid, source, spec)
+	if len(options) < n {
+		return false
+	}
+	if _, shared := sharedCardTypeSpec(spec); shared {
+		return len(sharedTypeGroup(g, options, n)) == n
+	}
+	return true
+}
+
+// sharedTypeGroup is the first n options of the first core type (CoreType
+// order) that n of them have, nil when none has n.
+func sharedTypeGroup(g *Game, options []CardID, n int) []CardID {
+	var all cardtype.Line
+	for _, id := range options {
+		all = all.Union(g.Card(id).Type())
+	}
+	for _, t := range all.CoreTypes() {
+		var group []CardID
+		for _, id := range options {
+			if g.Card(id).Type().Has(t) {
+				if group = append(group, id); len(group) == n {
+					return group
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// exileEitherPicks is the payer's pick for one ExileCtrlOrGrave part. Under
+// +withSharedCardType Java's picker accepts a card that shares a card type
+// with the first one picked (HumanCostDecision.java:501-506); a pick that
+// breaks that is replaced by sharedTypeGroup, which exileEitherPayable said
+// exists.
+func (g *Game) exileEitherPicks(controller PlayerController, pid PlayerID, source CardID, n int, spec string) []CardID {
+	options := g.exileEitherCandidates(pid, source, spec)
+	picks := g.chosenUnlessCards(controller, pid, source, options, n, n)
+	if _, shared := sharedCardTypeSpec(spec); shared {
+		for _, id := range picks[1:] {
+			if !sharesCardType(g.Card(picks[0]), g.Card(id)) {
+				return sharedTypeGroup(g, options, n)
+			}
+		}
+	}
+	return picks
 }
 
 // payExtraParts pays the parts this file owns, after unlessPayable said they
@@ -330,7 +400,7 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 	}
 	if uc.discardLast {
 		last := g.Player(pid).lastDrawn
-		discardCards(g, controller, []CardID{last}, pid)
+		discardCards(g, controller, []CardID{last}, pid, costDiscardCause(a))
 		if rec != nil {
 			rec.discarded = append(rec.discarded, last)
 		}
@@ -341,7 +411,7 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 		if !isSubset(chosen, options) || len(chosen) != uc.discardTypeN {
 			chosen = options[:uc.discardTypeN]
 		}
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, costDiscardCause(a))
 		if rec != nil {
 			rec.discarded = append(rec.discarded, chosen...)
 		}
@@ -355,15 +425,21 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 	}
 	if uc.exileHandAll {
 		hand := handWithout(g.Zone(Hand, pid).Cards(), a.Source)
-		exiled := g.exileCostCards(controller, a.Source, hand)
+		exiled := g.exileCostCards(controller, a, a.Source, hand)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
 	}
 	if uc.exileEitherN > 0 {
-		options := g.exileEitherCandidates(pid, a.Source, uc.exileEitherSpec)
-		picks := g.chosenUnlessCards(controller, pid, a.Source, options, uc.exileEitherN, uc.exileEitherN)
-		exiled := g.exileCostCards(controller, a.Source, picks)
+		picks := g.exileEitherPicks(controller, pid, a.Source, uc.exileEitherN, uc.exileEitherSpec)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
+		if rec != nil {
+			rec.exiled = append(rec.exiled, exiled...)
+		}
+	}
+	for _, m := range uc.moreExileEither {
+		picks := g.exileEitherPicks(controller, pid, a.Source, m.n, m.spec)
+		exiled := g.exileCostCards(controller, a, a.Source, picks)
 		if rec != nil {
 			rec.exiled = append(rec.exiled, exiled...)
 		}
@@ -443,7 +519,7 @@ func (g *Game) payChoiceParts(controller PlayerController, a *Ability, pid Playe
 		// marked exiled with the spell once it is on the stack
 		// (putSpellOnStack), which the permanent it becomes keeps
 		// (relinkExiledWith).
-		rec.exiled = append(rec.exiled, g.exileCostCards(controller, a.Source, revealed)...)
+		rec.exiled = append(rec.exiled, g.exileCostCards(controller, a, a.Source, revealed)...)
 	}
 	return true
 }
@@ -451,7 +527,7 @@ func (g *Game) payChoiceParts(controller PlayerController, a *Ability, pid Playe
 // exileCostCards exiles ids for a cost of source, from whatever zone each is
 // in, and marks each as exiled with source (CostExile.doPayment, :290-296). It
 // returns the cards it exiled.
-func (g *Game) exileCostCards(controller PlayerController, source CardID, ids []CardID) []CardID {
+func (g *Game) exileCostCards(controller PlayerController, paying *Ability, source CardID, ids []CardID) []CardID {
 	var out []CardID
 	for _, id := range ids {
 		// Every cost part picks from the graveyard, the hand or the
@@ -462,7 +538,7 @@ func (g *Game) exileCostCards(controller PlayerController, source CardID, ids []
 		case Hand:
 			exileFromHand(g, id)
 		default:
-			exileCards(g, controller, []CardID{id})
+			exileCards(g, controller, paying, []CardID{id})
 		}
 		if g.Card(id).Zone == Exile {
 			g.markExiledWith(id, source)
@@ -491,7 +567,7 @@ func (g *Game) payForage(controller PlayerController, a *Ability, pid PlayerID) 
 		sacrificeCardsFor(g, controller, a, food, false)
 	} else {
 		picks := g.chosenUnlessCards(controller, pid, a.Source, append([]CardID(nil), grave...), forageExileN, forageExileN)
-		g.exileCostCards(controller, a.Source, picks)
+		g.exileCostCards(controller, a, a.Source, picks)
 	}
 	g.pushTriggeredAbilities(controller, g.playerEventMatches("Forage", forageTriggerParams, pid))
 }

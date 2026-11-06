@@ -1,0 +1,23 @@
+# K:Rebound expands (CardFactoryUtil.java:2422-2451) to a Moved replacement
+# for the spell going Stack -> Graveyard on resolution (Fizzle$ False, cast
+# from its owner's hand): Staggershock is exiled instead, ready for the
+# next-upkeep cast. The 2 damage kills the Bears first.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+queue paygeneric R
+queue paygeneric R
+queue targets 5
+castspell human 1
+resolvestack
+# The delayed trigger (Phase$ Upkeep, ValidPlayer$ You) fires at human's next
+# upkeep: human casts Staggershock from exile for free, at the AI's face.
+startturn human
+advance
+queue optionaltrigger true
+queue confirmeffect true
+queue targets ai
+resolvestack
+resolvestack

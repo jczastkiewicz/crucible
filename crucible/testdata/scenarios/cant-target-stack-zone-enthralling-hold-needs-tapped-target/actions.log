@@ -6,4 +6,4 @@
 # Aura is not cast: it stays in hand (CR 601.2c).
 startturn ai
 advance 3
-castspell ai 7
+expecterror refused castspell ai 7

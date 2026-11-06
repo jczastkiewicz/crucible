@@ -90,7 +90,7 @@ var abilityCastModes = []string{"AbilityCast", "SpellAbilityCast"}
 var abilityCastParams = map[string]bool{
 	"mode": true, "execute": true, "triggerdescription": true, "triggerzones": true, "optionaldecider": true,
 	"secondary": true, "activationlimit": true, "resolvedlimit": true, "validcard": true,
-	"validactivatingplayer": true, "validsa": true,
+	"validactivatingplayer": true, "validsa": true, "checksvar": true, "svarcompare": true,
 }
 
 // abilityCastMatches is MagicStack.addAbility's AbilityCast and
@@ -114,7 +114,9 @@ func (g *Game) abilityCastMatches(a *Ability) []Ability {
 				return triggeredObjects{}, false
 			}
 		}
-		return triggeredObjects{card: a.Source, activator: a.Controller}, true
+		// TriggerSpellAbilityCastOrCopy.java:240: LifeAmount is the life the
+		// activation's cost paid (Verrak, Warped Sengir's CheckSVar$).
+		return triggeredObjects{card: a.Source, activator: a.Controller, counts: triggerCounts{life: a.paid.life, set: countLife}}, true
 	})
 	// Delayed triggers run after every collected card trigger, on the item
 	// pushTriggeredAbilities just put on top.

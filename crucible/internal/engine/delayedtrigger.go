@@ -26,6 +26,10 @@ type delayedTrigger struct {
 	Controller PlayerID
 	Amounts    map[string]expr.Amount
 	Remembered []EntityID
+	// RememberedStamps are the zone stamps of the Remembered cards as
+	// registerDelayedLeave made the trigger, nil for any other: its ChangeZone
+	// body skips a card that has since become a new object.
+	RememberedStamps map[CardID]uint64
 	// ThisTurn drops the trigger when the next turn begins
 	// (clearThisTurnDelayedTrigger) if it has not fired.
 	ThisTurn bool
@@ -98,17 +102,18 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 				continue
 			}
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		// TriggerPhase's AbilityKey.Player, the turn's player
+		// (PhaseHandler.java:438), as for a card's own Mode$ Phase line.
+		objs := triggeredObjects{player: g.activePlayer}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
 		}
-		// TriggerPhase's AbilityKey.Player, the turn's player
-		// (PhaseHandler.java:438), as for a card's own Mode$ Phase line.
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
-			triggered:      triggeredObjects{player: g.activePlayer},
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -136,15 +141,16 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		objs := triggeredObjects{card: card, originalController: original}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
-			triggered:      triggeredObjects{card: card, originalController: original},
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -156,8 +162,9 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 // delayedSpellCastMatches collects every live delayed Mode$ SpellCast trigger
 // the cast of c by activator satisfies, removing each one it collects (a
 // delayed trigger fires once, "when you next cast"). The checks are
-// appendSpellCastMatches': ValidCard$ against the spell, ValidActivatingPlayer$
-// and ValidSA$ read with the trigger's controller as "You". The spell is
+// appendSpellCastMatches': ValidCard$ against the spell, ValidActivatingPlayer$,
+// ValidSA$ and the target and mana tests (spellCastTargetsAndManaOK) read
+// with the trigger's controller as "You". The spell is
 // recorded as TriggeredSpellAbility, which CopySpellAbility reads.
 func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID StackItemID) []Ability {
 	var matches []Ability
@@ -168,16 +175,16 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		objs := triggeredObjects{spellAbility: spellID, counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
-			triggered: triggeredObjects{spellAbility: spellID,
-				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -201,15 +208,16 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		objs := triggeredObjects{spellAbility: spellID}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 		if !ok {
 			kept = append(kept, d)
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
-			triggered:      triggeredObjects{spellAbility: spellID},
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
+			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})
@@ -227,6 +235,9 @@ func (g *Game) delayedSpellCastSatisfied(d delayedTrigger, c *Card, activator Pl
 	if !matchesActivatingPlayer(g, t, activator, d.Controller, d.Host) {
 		return false
 	}
+	if !g.activatorCastCountOK(t, c, activator, d.Controller, d.Host) {
+		return false
+	}
 	if spec, ok := t.Param("ValidSA"); ok {
 		spell, found := g.stackItem(spellID)
 		if !found {
@@ -235,6 +246,9 @@ func (g *Game) delayedSpellCastSatisfied(d delayedTrigger, c *Card, activator Pl
 		if m, known := g.spellAbilityMatches(spell, spec, g.Card(d.Host), d.Controller, d.Amounts); !known || !m {
 			return false
 		}
+	}
+	if !g.spellCastTargetsAndManaOK(t, g.Card(d.Host), d.Controller, c, spellID, d.Amounts) {
+		return false
 	}
 	return g.delayedPresentMatches(d)
 }
@@ -311,11 +325,6 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 			kept = append(kept, d)
 			continue
 		}
-		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
-		if !ok {
-			kept = append(kept, d)
-			continue
-		}
 		// TriggerChangesZone.java:192-196 (Origin$ Battlefield: Card is the
 		// pre-move LKI) and TriggerExiled.java:103 (the pre-move object,
 		// GameAction.java:933-942) record AbilityKey.Card, the card that moved
@@ -330,9 +339,14 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 		if strings.EqualFold(d.Trigger.Name, "Exiled") {
 			objs = objs.withCardLKI(lki)
 		}
+		sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -391,17 +405,32 @@ func (g *Game) delayedWatchesLeaving(d delayedTrigger, left CardID, dest ZoneTyp
 	return false
 }
 
+// delayedTriggerAPI is triggerEffectAPI for d, its conditions read against
+// the triggering objects objs the event gives it (Trigger.checkWith): a
+// delayed trigger's scan has them in hand before its check.
+func (g *Game) delayedTriggerAPI(d delayedTrigger, objs triggeredObjects) (*compile.Ability, APIType, bool, bool) {
+	var sub *compile.Ability
+	var api APIType
+	var optional bool
+	ok := g.withTriggerEvent(d.Host, d.Controller, objs, func() bool {
+		var found bool
+		sub, api, optional, found = triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		return found
+	})
+	return sub, api, optional, ok
+}
+
 // delayedFire is the Ability a satisfied delayed trigger d puts on the stack
 // with the triggering objects objs, or false when its Execute$ does not
 // resolve.
 func (g *Game) delayedFire(d delayedTrigger, objs triggeredObjects) (Ability, bool) {
-	sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+	sub, api, optional, ok := g.delayedTriggerAPI(d, objs)
 	if !ok {
 		return Ability{}, false
 	}
 	return Ability{
-		API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+		API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
+		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps,
 		triggered: objs, spawnerTriggered: d.spawner(),
 		hostTransforms: d.HostTransforms, hasHostTransforms: true,
 		staticTrigger: isStaticTrigger(d.Trigger),

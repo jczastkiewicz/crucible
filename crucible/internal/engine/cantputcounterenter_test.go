@@ -106,17 +106,20 @@ func TestCantPutCounterStopsPrintedLoyaltyAndDefense(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			g, p, _ := newTwoPlayerGame(t)
+			g, p, other := newTwoPlayerGame(t)
+			g.SetTurnState(1, p, engine.Main1)
 			if tc.static {
 				g.NewCard(scriptDef(t, "Test Solemnity", "Enchantment", solemnityLine), p, engine.Battlefield)
 			}
 			pw := g.NewCard(planeswalkerDefLoyalty(t, "4"), p, engine.Hand)
-			g.Move(pw, engine.Battlefield, p)
+			battle := g.NewCard(battleDefDefense(t, "5"), p, engine.Hand)
+			c := engine.NewScriptedController()
+			c.QueueCardOrder([]engine.CardID{pw, battle})
+			c.QueueBattleProtector(other)
+			resolveLine(t, g, p, c, "DB$ ChangeZoneAll | ChangeType$ Planeswalker.YouOwn,Battle.YouOwn | Origin$ Hand | Destination$ Battlefield")
 			if n := g.Card(pw).Counters.Count(engine.Loyalty); n != tc.want {
 				t.Errorf("loyalty counters = %d, want %d", n, tc.want)
 			}
-			battle := g.NewCard(battleDefDefense(t, "5"), p, engine.Hand)
-			g.Move(battle, engine.Battlefield, p)
 			wantDefense := 5
 			if tc.static {
 				wantDefense = 0

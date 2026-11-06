@@ -1,0 +1,8 @@
+# ADR-0060 phase 2: the scenarios whose Go and Java post-states may differ,
+# each with the row that explains it. `l2diff diff -baseline` fails when the
+# differs and Java error lists are not exactly these. Format: <scenario><TAB><row>.
+life-loss-eliminates-one-player-game-continues	forge-java-defects.md: GameState.java:697-701 (life set by Game.getPlayers index)
+world-rule-keeps-newest	quirks.md: a fixture's battlefield cards take timestamps in declaration order (GameState sets no worldTimestamp)
+mayplay-kess-exiles-the-spell-cast-from-the-graveyard	quirks.md: a ReplaceGraveyard$ Exile grant exiles with no ExiledWith (Java links an effect card that is itself exiled)
+world-rule-three-copies-keeps-newest	quirks.md: a fixture's battlefield cards take timestamps in declaration order (GameState sets no worldTimestamp)
+copy-before-containment-priest-metamorph-copies-a-creature-and-is-exiled	quirks.md: a fixture's battlefield cards enter with no replacement (GameState setup runs moveToPlay; Containment Priest exiles Hill Giant)

@@ -6,4 +6,4 @@ advance 3
 tapformana human 2 U
 tapformana human 3 U
 tapformana human 4 U
-castspell human 1
+expecterror refused castspell human 1

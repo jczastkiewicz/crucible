@@ -581,3 +581,69 @@ func TestCopySpellAbilitySetColorRecolorsTheCopy(t *testing.T) {
 		t.Errorf("colors at the two resolutions = %v, want [red (the copy) white (the original)]", c.seen)
 	}
 }
+
+// confirmEffectSpy records which player each ConfirmEffect question goes to.
+type confirmEffectSpy struct {
+	*engine.ScriptedController
+	asked []engine.PlayerID
+}
+
+func (s *confirmEffectSpy) ConfirmEffect(g *engine.Game, p engine.PlayerID, source engine.CardID) bool {
+	s.asked = append(s.asked, p)
+	return s.ScriptedController.ConfirmEffect(g, p, source)
+}
+
+// TestSuddenSubstitutionSpellControllerChoosesNewTargets proves the real
+// card against its 2019-08-23 rulings: the player who controls the spell once
+// the exchange is done may choose new targets, and "if the exchange doesn't
+// happen but the spell is still a legal target, its controller may choose new
+// targets for it". The script names that player with Chooser$
+// ImprintedController (the targeted spell's card), carried from upstream.
+func TestSuddenSubstitutionSpellControllerChoosesNewTargets(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name         string
+		creatureGone bool
+		wantCaster   bool
+	}{
+		{name: "exchange", creatureGone: false, wantCaster: false},
+		{name: "creature gone, no exchange", creatureGone: true, wantCaster: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, thief := newTwoPlayerGameOn(t, scenarioDB(t))
+			bears := g.NewCard(corpusCard(t, "Grizzly Bears"), thief, engine.Battlefield)
+			bolt := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+			subst := g.NewCard(corpusCard(t, "Sudden Substitution"), thief, engine.Hand)
+			c := &confirmEffectSpy{ScriptedController: engine.NewScriptedController()}
+			g.Player(p).ManaPool.Add(mana.Red, 1)
+			c.QueueTargets([]engine.EntityID{engine.PlayerEntity(thief)})
+			if !g.CastSpell(p, bolt, c) {
+				t.Fatal("CastSpell(Lightning Bolt) failed")
+			}
+			g.Player(thief).ManaPool.Add(mana.Blue, 4)
+			for range 2 {
+				c.QueuePayGeneric(mana.ShardU)
+			}
+			c.QueueTargets([]engine.EntityID{engine.CardEntity(bolt)})
+			c.QueueTargets([]engine.EntityID{engine.CardEntity(bears)})
+			if !g.CastSpell(thief, subst, c) {
+				t.Fatal("CastSpell(Sudden Substitution) failed")
+			}
+			if tc.creatureGone {
+				g.Move(bears, engine.Graveyard, thief)
+			}
+			c.QueueConfirmEffect(false)
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatal(err)
+			}
+			want := thief
+			if tc.wantCaster {
+				want = p
+			}
+			if !slices.Equal(c.asked, []engine.PlayerID{want}) {
+				t.Errorf("asked %v, want only %d", c.asked, want)
+			}
+		})
+	}
+}

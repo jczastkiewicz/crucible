@@ -45,7 +45,7 @@ func (g *Game) triggerDisabledFor(mode string, host *Card, t *compile.Ability, m
 	for _, pid := range g.Players() {
 		for _, sid := range g.traitHosts(pid) {
 			sh := g.Card(sid)
-			for _, face := range sh.traitFaces() {
+			for _, face := range sh.liveTraitFaces() {
 				for _, s := range face.Statics {
 					if m, _ := s.Param("Mode"); m != "DisableTriggers" {
 						continue

@@ -17,6 +17,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 )
 
 // activateGeneral is ActivateAbility for a cost the shape reader refused, from
@@ -36,7 +37,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 	}
 	// {T} and {Q}: the host is tapped or untapped as part of the cost, and a
 	// summoning-sick creature pays neither (CR 302.6).
-	if (parsed.Tap || parsed.Untap) && c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity) {
+	if (parsed.Tap || parsed.Untap) && c.IsSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity) {
 		return false
 	}
 	if parsed.Tap && c.Tapped || parsed.Untap && !c.Tapped {
@@ -51,6 +52,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
 		activationIndex: index + 1,
 	}
+	activated.crew = keyword.Parse(ability.Keyword).Name == "Crew"
 	rest := withoutTapSymbols(costText)
 	uc := unlessCost{}
 	if xMin > 0 && costNamesX(rest) && g.nonManaXMax(pid, card, rest) < xMin {
@@ -105,7 +107,7 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 	if uc.hasMana {
 		savedResolving := g.resolving
 		g.resolving = &activated
-		uc.mana, ok = g.costStatics(pid, card, ability, uc.mana, true, false)
+		uc.mana, ok = g.costStatics(pid, card, ability, uc.mana, true, false, "")
 		g.resolving = savedResolving
 		if !ok {
 			return false
@@ -133,7 +135,13 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 		g.checkTapAllTriggers(controller, []CardID{card})
 	}
 	if parsed.Untap {
+		// CostUntap.payAsDecided (CostUntap.java:88-95): Card.untap's triggers
+		// and untap commands, then UntapAll for the activator. The flag
+		// cleared before the other parts were paid, so the Untaps check sees
+		// it untapped (quirks.md).
 		g.checkUntapsTriggers(controller, card)
+		g.runUntapCommands(controller, card)
+		g.pushTriggeredAbilities(controller, g.untapAllMatches(pid, []CardID{card}))
 	}
 	return g.finishActivation(controller, pid, card, index, ability, &activated, &before, isLoyaltyAbility, false, outerHold, outerExits)
 }
@@ -143,11 +151,13 @@ func (g *Game) activateGeneral(controller PlayerController, pid PlayerID, card C
 // may pay it), then its other parts, each recorded in the ability's paid
 // lists.
 func (g *Game) payActivatedUnlessCost(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost) bool {
+	uc.activation = true
 	mc, taps := uc.mana, []CardID(nil)
 	if uc.waterbendN > 0 {
 		mc, taps = g.waterbendReduce(controller, pid, a.Source, uc)
 	}
 	if uc.hasMana {
+		mc = g.manaConvertForActivation(pid, a.Source, a, mc)
 		restore := g.payingFor(&payContext{item: a, cost: mc})
 		x, paid := g.payManaCostX(pid, mc, controller)
 		restore()

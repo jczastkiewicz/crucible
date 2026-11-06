@@ -77,15 +77,15 @@ func TestChangeZoneAllEffectRandomOrderAndLibraryBottom(t *testing.T) {
 	}
 }
 
-// TestChangeZoneAllEffectRejectsUnresolvedParam proves TypeLimit$ fails closed.
+// TestChangeZoneAllEffectRejectsUnresolvedParam proves Random$ fails closed.
 func TestChangeZoneAllEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test Limit", "DB$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Hand | TypeLimit$ 1")
+	def := etbChainDef(t, "Test Limit", "DB$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Hand | Random$ True")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved TypeLimit$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Random$")
 	}
 }
 

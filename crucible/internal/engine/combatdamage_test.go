@@ -586,3 +586,33 @@ func TestDealCombatDamageTrampleWithNoLiveBlockersHitsThePlayer(t *testing.T) {
 		t.Errorf("defender life = %d, want 15 (20 - 5, the regular step's trample with no blocker left at all)", g.Player(b).Life)
 	}
 }
+
+// A blocker blocking two attackers divides its combat damage between them
+// as its controller assigns it (CR 510.1d, Combat.java:743-797): Night
+// Market Guard's 3 damage is 2 to one Grizzly Bears and 1 to the other, not
+// 3 to each.
+func TestDealCombatDamageBlockerOnTwoAttackersDividesItsDamage(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, a, engine.Main1)
+	x := g.NewCard(corpusCard(t, "Grizzly Bears"), a, engine.Battlefield)
+	y := g.NewCard(corpusCard(t, "Grizzly Bears"), a, engine.Battlefield)
+	guard := g.NewCard(corpusCard(t, "Night Market Guard"), b, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{x, y})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: guard, Attacker: x}, {Blocker: guard, Attacker: y}})
+	declareBlockers(t, g, bc)
+
+	dc := engine.NewScriptedController()
+	dc.QueueDamageAssignment([]engine.DamageAssignment{{Blocker: x, Amount: 2}, {Blocker: y, Amount: 1}})
+	g.DealCombatDamage(dc)
+
+	if got := [2]int{g.Card(x).Damage.Marked, g.Card(y).Damage.Marked}; got != [2]int{2, 1} {
+		t.Errorf("attacker damage %v, want [2 1]", got)
+	}
+}

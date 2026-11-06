@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability card condition control defined effecthelpers game id parts token zone
+//enginelint:allow ability card condition control defined effecthelpers game id parts token zone tokentable
 
 // incubateEffect is IncubateEffect.java: Times$ (default 1) times per
 // target or Defined$ player (default You), an Incubator token
@@ -37,8 +37,8 @@ func (incubateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	for _, p := range g.inAPNAPOrder(players) {
 		for i := 0; i < times; i++ {
-			id := g.createToken(controller, tokenSpec{Def: def, Owner: p, P1P1: amount})
-			g.checkChangesZoneAllTriggers(controller, []CardID{id}, None, Battlefield)
+			ids := g.makeTokens(controller, tokenCell{creator: p, spec: tokenSpec{Def: def, Owner: p, P1P1: amount}, n: 1})
+			g.checkChangesZoneAllTriggers(controller, ids, None, Battlefield)
 		}
 	}
 	return nil

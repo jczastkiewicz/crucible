@@ -18,7 +18,7 @@
 // ActivationZone$ Graveyard or Hand activates from that zone rather than the
 // battlefield -- CR 602.2's own generalization past a permanent already on
 // the battlefield, ported past its own two dominant real destinations (230
-// real lines name Graveyard, 97 name Hand; Command's 57 stays unbuilt): the
+// real lines name Graveyard, 97 name Hand; Command is an effect card's, avatar's or plane's): the
 // source's own owner, not controller (CR 109.5, a card outside the
 // battlefield has no controller), may activate it while it sits in that
 // zone rather than Battlefield, and only that zone's own self-reference
@@ -85,7 +85,7 @@ import (
 // XMin token, each its own further payment primitive this port does not
 // have, PORT-8/GO-7's "skip the whole line" applied to the cost itself
 // rather than to the ability's own other params, an ActivationZone$ this
-// port does not build (Command/Exile/Stack -- Graveyard and Hand are the
+// port does not build (Exile/Stack -- Graveyard, Hand and Command are the
 // only non-Battlefield zones supported), a Graveyard-zone ability naming
 // any primitive but ExileFromGrave, a Hand-zone ability naming any
 // primitive but Discard's or ExileFromHand's own self-reference shape, or a
@@ -168,8 +168,8 @@ import (
 // candidates already found feasible and returns them to hand (returnCards,
 // returncost.go, reused wholesale the identical way the self-return branch
 // above already reuses it), then an AddCounter component puts AddCounterN
-// counters of AddCounterType on the source (Card.Counters, counters.go) and
-// emits the identical CounterChanged event putCounterEffect's own does, then
+// counters of AddCounterType on the source through the AddCounter
+// replacements and triggers, as a cost (payCounterCost, counteradded.go), then
 // a SubCounter component removes SubCounterN counters the identical way with
 // a negative delta, then a SelfExileFromGrave component exiles the source
 // from the graveyard (exileFromGraveyard, exilefromgrave.go), then a
@@ -229,6 +229,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if (ability.Record != compile.Activated && ability.Record != compile.Static) || ability.Name == "Mana" || ability.Name == "ManaReflected" {
 		return false
 	}
+	// Split second (AbilityActivated.java:85): no activated ability but a
+	// mana ability while such a spell is on the stack. An ST$ line is an
+	// AbilityStatic, whose canPlay does not ask.
+	if ability.Record == compile.Activated && g.splitSecondOnStack() {
+		return false
+	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")
 	if g.cantBeActivated(pid, c, false, isLoyaltyAbility) {
 		return false
@@ -274,9 +280,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		}
 		fromHand = true
 	case "Command":
-		// An effect card's own ability (an emblem's): its controller activates
-		// it from the Command zone.
-		if !c.IsEffect || c.Zone != Command || c.Controller() != pid {
+		// An effect card's own ability (an emblem's, the Planar Dice special
+		// action), or a Vanguard avatar's or plane's (ADR-0056,
+		// SpellAbilityRestriction.java:99-100): activated from the Command
+		// zone by whoever Activator$ admits, its controller by default.
+		if c.Zone != Command || !g.activatorValid(pid, c, ability) {
 			return false
 		}
 	default:
@@ -290,6 +298,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	costText, ok := ability.Param("Cost")
 	if !ok {
+		return false
+	}
+	if costText, ok = g.chooseActivationCost(pid, card, ability, costText, controller); !ok {
 		return false
 	}
 	parsed := cost.Parse(costText)
@@ -323,7 +334,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
-	if shape.Tap && (c.Tapped || c.isSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
+	if shape.Tap && (c.Tapped || c.IsSick() && !g.asIfHaste("ActivateAbilityAsIfHaste", c, NoEntity)) {
 		return false
 	}
 	hand := g.Zone(Hand, pid).Cards()
@@ -348,10 +359,14 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	var tapCandidates, tapChosen []CardID
 	if shape.TapTypeN > 0 {
-		if !tapTypeResolvable(shape.TapTypeSpec) {
+		if !tapTypeActivatable(shape.TapTypeSpec) {
 			return false
 		}
-		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		if shape.TapTypeSpec == "OriginalHost" {
+			tapCandidates = originalHostCandidates(g, card, c.grantOrigin(ability))
+		} else {
+			tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		}
 		if len(tapCandidates) < shape.TapTypeN {
 			return false
 		}
@@ -431,11 +446,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// a raise with a non-mana Cost$, refuses the activation (GO-7).
 	savedResolving := g.resolving
 	g.resolving = &activated
-	manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false)
+	manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false, "")
 	g.resolving = savedResolving
 	if !ok {
 		return false
 	}
+	manaCost = g.manaConvertForActivation(pid, card, &activated, manaCost)
 	// The host before any cost moves it, for the activation record.
 	before := *c
 	restore := g.payingFor(&payContext{item: &activated, cost: manaCost})
@@ -486,7 +502,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		if g.Card(card).Zone == Battlefield {
 			activated.paid.exiled = append(activated.paid.exiled, card)
 		}
-		exileCards(g, controller, []CardID{card})
+		exileCards(g, controller, &activated, []CardID{card})
 	}
 	if shape.SelfReturn {
 		activated.paid.returned = append(activated.paid.returned, card)
@@ -494,15 +510,19 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.SelfExert {
 		c.Exerted = true
+		c.exertedThisTurn++
 		g.checkExertedTriggers(controller, card)
 	}
 	if shape.DiscardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, shape.DiscardN)
 		activated.paid.discarded = append(activated.paid.discarded, chosen...)
-		discardCards(g, controller, chosen, pid)
+		discardCards(g, controller, chosen, pid, discardCause{known: true, controller: pid})
 	}
-	if shape.PayLifeN > 0 {
+	// Player.payLife (Player.java:578-591): Event$ PayLife (Ashiok) may
+	// replace the payment, and then no life is lost and no PayLife trigger runs.
+	if shape.PayLifeN > 0 && !g.lifePaymentReplaced(controller, pid, shape.PayLifeN) {
 		g.Player(pid).Life -= shape.PayLifeN
+		activated.paid.life += shape.PayLifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})
 		g.noteLifeLost(controller, pid, shape.PayLifeN)
 		g.checkPayLifeTriggers(controller, pid, shape.PayLifeN)
@@ -515,7 +535,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		tapChosenPermanents(g, controller, tapChosen)
 		activated.paid.tapped = append(activated.paid.tapped, tapChosen...)
 	} else if shape.TapTypeN > 0 {
-		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
+		chosen := chooseTapType(g, controller, pid, tapCandidates, shape.TapTypeN, shape.TapTypeSpec)
 		tapChosenPermanents(g, controller, chosen)
 		activated.paid.tapped = append(activated.paid.tapped, chosen...)
 	}
@@ -526,9 +546,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	g.payCostCards(controller, pid, chosen, &activated)
 	if shape.AddCounterType != "" {
-		ct := CounterType(strings.ToUpper(shape.AddCounterType))
-		c.Counters.Add(ct, shape.AddCounterN)
-		emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
+		g.payCounterCost(controller, pid, card, CounterType(strings.ToUpper(shape.AddCounterType)), shape.AddCounterN)
 	}
 	if shape.SubCounterType != "" {
 		ct := CounterType(strings.ToUpper(shape.SubCounterType))
@@ -541,7 +559,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.SelfDiscard {
 		activated.paid.discarded = append(activated.paid.discarded, card)
-		discardCards(g, controller, []CardID{card}, pid)
+		discardCards(g, controller, []CardID{card}, pid, discardCause{known: true, controller: pid})
 	}
 	if shape.SelfExileFromHand {
 		activated.paid.exiled = append(activated.paid.exiled, card)
@@ -773,11 +791,31 @@ func (g *Game) finishActivation(controller PlayerController, pid PlayerID, card 
 		g.pushTriggeredAbilities(controller, held)
 		return true
 	}
+	if ability.Record == compile.Static {
+		// MagicStack.java:289-293: an ST$ line is an AbilityStatic, resolved
+		// at once by AbilityUtils.resolve, never put on the stack and
+		// without the AbilityCast and cost triggers below (Dakkon's
+		// PlayLandVariant, the planar die's special action, ADR-0056).
+		a := *activated
+		a.stackRoot = true
+		root := a
+		a.rootAbility = &root
+		if err := g.registry.Resolve(g, &a, controller); err != nil {
+			g.recordPendingError(err)
+		}
+		g.pushTriggeredAbilities(controller, held)
+		return true
+	}
 	g.pushTriggeredAbilities(controller, []Ability{*activated})
 	// One batch, as unfreezeStack runs every waiting trigger at once: the
 	// costs' triggers in firing order, then AbilityCast, then Cycled
 	// (MagicStack.java:354-365).
 	held = append(held, g.abilityCastMatches(activated)...)
+	if text, ok := ability.Param("Cost"); ok && strings.Contains(text, "Waterbend<") {
+		// An ability with a Waterbend cost is a waterbend (MagicStack.java:
+		// 397-399).
+		held = append(held, g.elementalBendMatches(pid, "Waterbend")...)
+	}
 	if isCycling(ability) {
 		pl := g.Player(pid)
 		pl.CyclingThisTurn++

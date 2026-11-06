@@ -109,21 +109,35 @@ func (g *Game) endGoads(p PlayerID) {
 
 // goadTargets narrows an attacker's eligible attack targets to the ones it can
 // attack at all (attackableTargets: CantAttack statics, Defender), then to players who
-// did not goad it, when it is goaded and any such player can be attacked.
-func (g *Game) goadTargets(attacker CardID, eligible []EntityID) []EntityID {
+// did not goad it, when it is goaded and one such player can be attacked
+// without an attack cost (CombatUtil.java:216-228): nobody is required to pay
+// one (CR 508.1d), so a goaded creature facing only taxed non-goaders may
+// still attack the goader. A taxed non-goader stays allowed either way.
+func (g *Game) goadTargets(attacker CardID, eligible []EntityID) ([]EntityID, error) {
 	eligible = g.attackableTargets(attacker, eligible)
 	c := g.Card(attacker)
 	if !c.IsGoaded() {
-		return eligible
+		return eligible, nil
 	}
 	var others []EntityID
+	free := false
 	for _, e := range eligible {
-		if p, ok := e.AsPlayer(); ok && !c.isGoadedBy(p) {
-			others = append(others, e)
+		p, ok := e.AsPlayer()
+		if !ok || c.isGoadedBy(p) {
+			continue
 		}
+		others = append(others, e)
+		if free {
+			continue
+		}
+		_, costed, err := g.attackCost(attacker, e)
+		if err != nil {
+			return nil, err
+		}
+		free = !costed
 	}
-	if len(others) == 0 {
-		return eligible
+	if !free {
+		return eligible, nil
 	}
-	return others
+	return others, nil
 }

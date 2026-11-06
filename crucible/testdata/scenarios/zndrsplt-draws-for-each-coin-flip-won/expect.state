@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=BeginCombat
+humanlife=20
+humanbattlefield=Zndrsplt, Eye of Wisdom|Id:1
+humanhand=Island|Id:2
+humanlibrary=Island|Id:3;Island|Id:4;Island|Id:5;Island|Id:6;Island|Id:7
+ailife=20

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Wandertale Mentor|Id:1|Counters:P1P1=1;Mountain|Id:2|Tapped;Mountain|Id:3|Tapped;Mountain|Id:4|Tapped;Mountain|Id:5|Tapped;Hill Giant|Id:6|SummonSick
+ailife=20

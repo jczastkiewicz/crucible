@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=Declare Blockers
 humanlife=20
-humanbattlefield=Big Spender|Tapped;Grizzly Bears|Tapped;T:c_a_treasure_sac|SummonSick
+humanbattlefield=Big Spender|Tapped|Attacking;Grizzly Bears|Tapped|Attacking;T:c_a_treasure_sac
 ailife=20
 aibattlefield=Hill Giant;Silvercoat Lion

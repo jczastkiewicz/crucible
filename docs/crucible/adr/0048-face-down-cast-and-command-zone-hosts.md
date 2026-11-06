@@ -35,7 +35,7 @@ leaves when the creature leaves the battlefield or is countered.
 
 ## Decision
 
-Option 1.
+Option 2.
 
 **Cast.** `castOpts.faceDown` makes `castSpell` turn the card face down in its zone before anything else
 (`turnFaceDownForCast`): its definition becomes `faceDownDef(false)` (colorless 2/2, no name, no text, no mana cost, so

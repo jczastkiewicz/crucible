@@ -413,7 +413,7 @@ func TestAdvancePhaseSkipsPhaseTriggerWhenNotDescendedThisTurn(t *testing.T) {
 	}
 }
 
-// TestCleanupStepResetsDescendedThisTurn proves cleanupStep's own reset
+// TestCleanupStepResetsDescendedThisTurn proves endCleanup's own reset
 // (turn.go): DescendedThisTurn does not persist into the next turn, the
 // identical per-turn-counter shape LandsPlayed/CardsDrawnThisTurn already
 // have.
@@ -428,9 +428,10 @@ func TestCleanupStepResetsDescendedThisTurn(t *testing.T) {
 	g.SetTurnState(1, p, engine.EndOfTurn)
 
 	g.AdvancePhase(engine.NewScriptedController())
+	g.AdvancePhase(engine.NewScriptedController()) // leaves Cleanup: Game.onCleanupPhase resets the turn
 
 	if g.Player(p).DescendedThisTurn {
-		t.Error("DescendedThisTurn = true, want false -- cleanupStep must reset it for the next turn")
+		t.Error("DescendedThisTurn = true, want false -- endCleanup must reset it for the next turn")
 	}
 }
 

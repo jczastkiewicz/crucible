@@ -12,10 +12,8 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/TapAllEffect.java's
-// resolve. Not ported: TriggerType.TapAll (the batch trigger, not the
-// per-card one) -- tapEffect.go's own identical reasoning, checkTapsTriggers
-// already firing per card below covers every real corpus T: line that
-// exists.
+// resolve. Mode$ Taps fires per card and Mode$ TapAll once for the batch
+// (checkTapAllTriggers), as tapEffect's.
 
 package engine
 
@@ -62,6 +60,11 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	if !ok {
 		return fmt.Errorf("engine: TapAll: ValidCards$ missing")
 	}
+	// TapAllEffect.java:45: AbilityUtils.filterListByType.
+	validCards, src, found, err := listTypeSource(g, a, validCards)
+	if err != nil {
+		return fmt.Errorf("engine: TapAll: %w", err)
+	}
 	spec := valid.Parse(validCards)
 
 	_, hasValidTgts := a.Params.Param("ValidTgts")
@@ -84,7 +87,7 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	for _, pid := range players {
 		for _, cid := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(cid)
-			if c.Tapped || !Matches(g, c, spec, a.Controller, a.Source) {
+			if c.Tapped || !found || !Matches(g, c, spec, a.Controller, src) {
 				continue
 			}
 			c.Tapped = true

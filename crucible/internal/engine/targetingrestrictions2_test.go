@@ -168,12 +168,31 @@ func TestTargetingPlayerChoosesAmongTheirOwnPermanents(t *testing.T) {
 	}
 }
 
-// A TargetingPlayer$ naming no player leaves nobody to choose: the spell goes
-// on the stack with no targets and fails loudly when it resolves, never a pick
-// by the activator and never a silent "no legal target" (GO-7). Java has no
-// answer either: chooseSingleEntityForEffect returns null for an empty list
-// and setupTargets dereferences it (SpellAbility.java:2153-2161).
-func TestTargetingPlayerNamingNobodyFailsWhenItResolves(t *testing.T) {
+// A TargetingPlayer$ naming no player leaves nobody to choose the targets, so
+// they cannot be chosen and the spell is not cast (SpellAbility.java:2162-2165,
+// setupTargets returns false): the card stays in hand.
+func TestTargetingPlayerNamingNobodyIsNotCast(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := restrictionGame(t)
+	mine := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	spell := g.NewCard(scriptDef(t, "Nobody Picks", "Sorcery",
+		"A:SP$ Pump | ValidTgts$ Creature | TargetingPlayer$ Remembered | NumAtt$ 1"), p, engine.Hand)
+	if g.CastSpell(p, spell, engine.NewScriptedController()) {
+		t.Fatal("CastSpell = true, want false: nobody can choose the targets")
+	}
+	if z := g.Card(spell).Zone; z != engine.Hand {
+		t.Errorf("spell zone = %v, want Hand", z)
+	}
+	if got, _ := g.Card(mine).Power(); got != 1 {
+		t.Errorf("power = %d, want 1: nothing was pumped", got)
+	}
+}
+
+// A TargetingPlayer$ this port cannot evaluate (an unknown player property)
+// is not "nobody": the spell goes on the stack with no targets and fails
+// loudly when it resolves, never a silent "no legal target" (GO-7).
+func TestTargetingPlayerItCannotEvaluateFailsWhenItResolves(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := restrictionGame(t)

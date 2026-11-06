@@ -187,29 +187,42 @@ func TestUnrecordedAttackersStayUnresolved(t *testing.T) {
 	}
 }
 
-// A trigger's CheckSVar$ is evaluated off the Trigger, not a SpellAbility, so
-// PlayerCountDefinedTriggeredAttackedTargetAndYou reads every player
-// (AbilityUtils.java:1013, :1191-1193; Undercellar Sweep).
-func TestTriggerCheckSVarTriggeredAttackedTargetAndYouReadsEveryPlayer(t *testing.T) {
+// A trigger's CheckSVar$ reads the event's triggering objects
+// (Trigger.checkWith, Trigger.java:428-446), so
+// PlayerCountDefinedTriggeredAttackedTargetAndYou is you and the attacked
+// player only (AbilityUtils.java:1011-1015; Undercellar Sweep): a third
+// player with the initiative does not satisfy it.
+func TestTriggerCheckSVarReadsTheAttackedPlayerAndYou(t *testing.T) {
 	t.Parallel()
 
-	for _, hasInitiative := range []bool{true, false} {
-		g, p, other := newTwoPlayerGame(t)
-		a1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-		g.NewCard(triggerWatcherDef(t, "Test Initiative Watcher",
-			"Mode$ AttackersDeclared | AttackingPlayer$ You | CheckSVar$ X | TriggerZones$ Battlefield | Execute$ TrigGain",
-			"TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 5",
-			"X", "PlayerCountDefinedTriggeredAttackedTargetAndYou$HasPropertyhasInitiative"), p, engine.Battlefield)
-		if hasInitiative {
-			g.SetInitiative(other)
-		}
-		attackAndResolve(t, g, a1)
-		want := 20
-		if hasInitiative {
-			want = 25
-		}
-		if got := g.Player(p).Life; got != want {
-			t.Errorf("initiative=%v: life = %d, want %d", hasInitiative, got, want)
-		}
+	for _, tc := range []struct {
+		name   string
+		holder func(p, attacked, bystander engine.PlayerID) engine.PlayerID
+		want   int
+	}{
+		{"attacked player", func(_, attacked, _ engine.PlayerID) engine.PlayerID { return attacked }, 25},
+		{"you", func(p, _, _ engine.PlayerID) engine.PlayerID { return p }, 25},
+		{"bystander", func(_, _, bystander engine.PlayerID) engine.PlayerID { return bystander }, 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, attacked, bystander := newThreePlayerGame(t)
+			a1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+			g.NewCard(triggerWatcherDef(t, "Test Initiative Watcher",
+				"Mode$ AttackersDeclared | AttackingPlayer$ You | CheckSVar$ X | TriggerZones$ Battlefield | Execute$ TrigGain",
+				"TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 5",
+				"X", "PlayerCountDefinedTriggeredAttackedTargetAndYou$HasPropertyhasInitiative"), p, engine.Battlefield)
+			g.SetInitiative(tc.holder(p, attacked, bystander))
+			c := engine.NewScriptedController()
+			c.QueueAttackers([]engine.CardID{a1})
+			c.QueueAttackTarget(engine.PlayerEntity(attacked))
+			declareAttackers(t, g, c)
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Player(p).Life; got != tc.want {
+				t.Errorf("life = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }

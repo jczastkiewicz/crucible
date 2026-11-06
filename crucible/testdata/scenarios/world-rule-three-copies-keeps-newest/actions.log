@@ -2,4 +2,5 @@
 # resolveWorldRule's own loop destroys every one but the single newest by
 # Card.Timestamp, not just "the other one" of a pair -- the same step
 # legend-rule-three-copies-keeps-one already took for the legend rule.
+queue cardorder 1,2
 startturn human

@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=The Wandering Minstrel;Meandering River|SummonSick|Tapped
+humanbattlefield=The Wandering Minstrel;Meandering River|Tapped
 ailife=20

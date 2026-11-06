@@ -350,7 +350,6 @@ func TestAmountOperatorsMatchDoXMath(t *testing.T) {
 		{"Number$7/LimitMax.5", 5},
 		{"Number$7/LimitMin.9", 9},
 		{"Number$7/Wibble", 7},
-		{"Number$7/Plus.1.2", 7},
 		{"-Number$7/Plus.1", -8},
 		{"SVar$Z/Twice", 4},
 	} {
@@ -370,7 +369,7 @@ func TestAmountOperatorsMatchDoXMath(t *testing.T) {
 }
 
 // Shapes that must stay unresolved rather than produce a number: Mod by zero
-// (Java throws), a head no evaluator exists for, a player property the
+// (Java throws), an operator operand naming no SVar, a head no evaluator exists for, a player property the
 // engine keeps no state for, a context prefix, a Mode$
 // Devotion line carrying a condition this does not evaluate, and an
 // unrecognized distinct property.
@@ -383,6 +382,9 @@ func TestAmountUnresolvableShapesStaySkipped(t *testing.T) {
 		static string
 	}{
 		{name: "Mod by zero", body: "Number$7/Mod.0"},
+		// doXMath splits at the first `.` only, so `1.2` is an SVar name;
+		// none is defined (Java prints to stderr and reads 0).
+		{name: "operand naming no SVar", body: "Number$7/Plus.1.2"},
 		{name: "context prefix", body: "CastSA>Count$YourLifeTotal"},
 		{name: "player property with no state", body: "PlayerCountPlayers$StartingLibrarySize"},
 		{name: "Greatest CardPower", body: "Count$Valid Creature$GreatestCardPower"},

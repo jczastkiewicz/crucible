@@ -1,0 +1,12 @@
+# Surgical Extraction's search reads ChangeType$ Remembered.sameName the way
+# AbilityUtils.filterListByType does (:853-868): the first remembered card
+# (the target Pump remembered) is the source, and sameName matches cards
+# sharing its name (CardProperty.java:814-817), so Shock is found and
+# exiled. L2: same as Java.
+startturn human
+advance 3
+queue payphyrexian false
+queue targets 72
+queue cardchoice 72
+castspell human 1
+resolvestack

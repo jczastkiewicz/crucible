@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control effecthelpers token counters zone parts event
+//enginelint:allow id card game ability defined condition control effecthelpers token counters zone parts event tokentable
 
 import (
 	"fmt"
@@ -50,8 +50,8 @@ func (empowerEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if err != nil {
 			return err
 		}
-		id := g.createToken(controller, tokenSpec{Def: def, Owner: p})
-		g.checkChangesZoneAllTriggers(controller, []CardID{id}, None, Battlefield)
+		ids := g.makeTokens(controller, tokenCell{creator: p, spec: tokenSpec{Def: def, Owner: p}, n: 1})
+		g.checkChangesZoneAllTriggers(controller, ids, None, Battlefield)
 	}
 
 	tokens := empowerTokens(g, p, typ)
@@ -62,11 +62,9 @@ func (empowerEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if err := checkChoice(picked, tokens, 1, 1); err != nil {
 		return fmt.Errorf("engine: Empower: %w", err)
 	}
-	if g.cantPutCounter(CardEntity(picked[0]), Loyalty) {
-		return nil
-	}
-	g.Card(picked[0]).Counters.Add(Loyalty, amount)
-	emitCounterChanged(g, a.Source, CardEntity(picked[0]), Loyalty, amount)
+	// EmpowerEffect.java:95-97: p puts them, through the AddCounter
+	// replacements and triggers.
+	g.putOneKind(controller, p, a, picked[0], Loyalty, amount)
 	return nil
 }
 

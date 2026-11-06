@@ -13,6 +13,7 @@
 # first draw step" is two-player-only (drawStep, turn.go), so in this
 # three-player game human draws for real during the Draw step "advance 5"
 # passes through, same as ai or p2 would on their own first turn here.
+queue cardorder 1,2
 startturn human
 advance 5
 queue attackers 1,2

@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Kindly Stranger|Id:1|Transformed;Swamp|Id:2|Tapped;Swamp|Id:3|Tapped;Swamp|Id:4|Tapped
+humangraveyard=Forest;Grizzly Bears;Lightning Bolt;Divination
+ailife=20
+aigraveyard=Serra Angel

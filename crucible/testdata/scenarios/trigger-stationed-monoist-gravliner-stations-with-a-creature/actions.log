@@ -1,0 +1,10 @@
+# K:Station expands (CardFactoryUtil.java:3468-3476) to a sorcery-speed
+# PutCounter that taps another creature and adds CHARGE counters equal to its
+# total power (TappedCards$TapPowerValue). Hill Giant (power 3) stations the
+# Spacecraft, and MagicStack.java:426-434 fires Mode$ Stationed once per tapped
+# creature, so the Pump gives Hill Giant deathtouch and lifelink perpetually.
+startturn human
+advance 3
+queue tapchoice 2
+queue action human activate 1 0
+passpriority

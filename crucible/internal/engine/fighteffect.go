@@ -85,7 +85,9 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		}
 		g.dealPermanentDamage(controller, fighterA.ID, fighterB.ID, powerA, fighterA.HasKeyword("Deathtouch"), false, &table)
 		g.dealPermanentDamage(controller, fighterB.ID, fighterA.ID, powerB, fighterB.HasKeyword("Deathtouch"), false, &table)
+		fighterB.foughtThisTurn = true
 	}
+	fighterA.foughtThisTurn = true
 	bindExcessSVar(g, a, table)
 	g.checkDamageTableTriggers(controller, table, false)
 	err = g.replaceDying(a, "Fight")

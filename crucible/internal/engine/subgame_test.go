@@ -305,17 +305,14 @@ func TestSubgameRejectsUnresolvableShapes(t *testing.T) {
 	}
 }
 
-// A scheme or planar deck needs the game-start actions Archenemy and
-// Planechase add (archenemy first, a plane face up), which this port's game
-// start does not have.
-func TestSubgameRejectsSchemeAndPlanarDecks(t *testing.T) {
+// A scheme deck needs Archenemy's game start (the archenemy first), which
+// this port does not have.
+func TestSubgameRejectsSchemeDecks(t *testing.T) {
 	t.Parallel()
 
-	for _, kind := range []engine.ZoneType{engine.SchemeDeck, engine.PlanarDeck} {
-		g, p, other := newTwoPlayerGame(t)
-		g.NewCard(flowCardDef(t, "Deck Card", "Artifact", ""), other, kind)
-		wantSubgameError(t, subgameCast(t, g, p, engine.NewScriptedController(), "DB$ Subgame"), kind.String()+" not resolvable yet")
-	}
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(flowCardDef(t, "Deck Card", "Artifact", ""), other, engine.SchemeDeck)
+	wantSubgameError(t, subgameCast(t, g, p, engine.NewScriptedController(), "DB$ Subgame"), "SchemeDeck not resolvable yet")
 }
 
 // A Companion among a player's outside-the-game cards would be offered as
@@ -397,4 +394,25 @@ func TestSubgameTurnCapIsAnError(t *testing.T) {
 	subgameLands(t, g, other, 510)
 	c := discardingController{subgameController(p)}
 	wantSubgameError(t, subgameCast(t, g, p, c, "DB$ Subgame"), "subgame did not end within 1000 turns")
+}
+
+// A commander in the Command zone crosses into the subgame as a commander
+// there (CR 720.4, initVariantsZonesSubgame) and, still in the subgame's
+// Command zone at the end, stays in the main game's (CR 720.5c).
+func TestSubgameCommanderStaysInTheCommandZone(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	subgameLands(t, g, p, 3)
+	subgameLands(t, g, other, 3)
+	cmd := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Command)
+	g.AddCommander(p, cmd)
+
+	resolveLine(t, g, p, subgameController(p), "DB$ Subgame")
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if got := g.Card(cmd).Zone; got != engine.Command || !g.IsCommander(cmd) {
+		t.Errorf("commander in %v (commander %v), want Command", got, g.IsCommander(cmd))
+	}
 }

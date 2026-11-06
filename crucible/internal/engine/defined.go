@@ -78,6 +78,22 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		}
 		return all, nil
 	}
+	// AbilityUtils.java:1011-1015: Triggered<Key>AndYou is the player the
+	// Defined$ is read for, then the triggering object's players, each once
+	// (Undercellar Sweep's "you or the attacked player").
+	if rest, ok := strings.CutSuffix(defined, "AndYou"); ok && strings.HasPrefix(rest, "Triggered") {
+		ps, err := definedPlayers(g, controller, host, rest, refs)
+		if err != nil {
+			return nil, err
+		}
+		out := []PlayerID{controller}
+		for _, p := range ps {
+			if !slices.Contains(out, p) {
+				out = append(out, p)
+			}
+		}
+		return out, nil
+	}
 	if base, filter, ok := strings.Cut(defined, "."); ok && strings.HasPrefix(base, "Triggered") {
 		return triggeredPlayersFiltered(g, controller, host, base, filter, refs)
 	}
@@ -374,12 +390,17 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		}
 	case "Remembered", "RememberedController", "RememberedOwner":
 		candidates = rememberedPlayers(g, defined, g.Card(host).Memory.Remembered(), true, g.Card(host))
-	case "ImprintedController", "ImprintedOwner":
+	case "ImprintedController", "ImprintedOwner", "ImprintedRemembered":
 		// AbilityUtils.java:996-997: addPlayer over the imprinted cards, the
-		// Remembered branch's own reading of each card.
+		// Remembered branch's own reading of each card; ImprintedRemembered
+		// is each card's remembered players (Encore's token, its opponent).
 		var imprinted []EntityID
 		for _, id := range g.Card(host).Memory.Imprinted() {
 			imprinted = append(imprinted, CardEntity(id))
+		}
+		if defined == "ImprintedRemembered" {
+			candidates = rememberedPlayers(g, "Remembered", imprinted, true, nil)
+			break
 		}
 		candidates = rememberedPlayers(g, "Remembered"+strings.TrimPrefix(defined, "Imprinted"), imprinted, false, nil)
 	case "DelayTriggerRemembered":
@@ -1045,6 +1066,10 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q outside a replacement of a card's entry", defined)
 		}
 		return []CardID{refs.replaced}, nil
+	case "ReplacedCards":
+		// AbilityUtils.java's "Replaced" branch over AbilityKey.Cards: the cards
+		// a cascade moved (Averna, the Chaos Bloom's ReplacedCards.Land).
+		return append([]CardID(nil), refs.replacedCards...), nil
 	case "Convoked":
 		// AbilityUtils.java:303-304: the creatures that convoked the host.
 		return append([]CardID(nil), host.convoked...), nil
@@ -1401,4 +1426,78 @@ func spawnerContext(defined string, refs abilityRefs) (string, abilityRefs, erro
 	refs.triggered = *refs.spawnerTriggered
 	refs.spawnerTriggered = nil
 	return rest, refs, nil
+}
+
+// listTypeSource is AbilityUtils.filterListByType's prefix step
+// (AbilityUtils.java:790-875): a type naming the triggering, the first
+// targeted or the first remembered card reads that card as the source and
+// "Card" in its place (Surgical Extraction's Remembered.sameName, Maelstrom
+// Pulse's TargetedCard.Self); none such, ok is false and no card matches.
+// Imprinted only reads "Card"; any other type keeps the host as the source.
+func listTypeSource(g *Game, a *Ability, spec string) (string, CardID, bool, error) {
+	host := g.Card(a.Source)
+	src := a.Source
+	switch {
+	case strings.HasPrefix(spec, "Triggered"):
+		// :792-812: the Card (Object), Attacker or Blocker run param; one
+		// that is not a card, no cards.
+		trig := a.refs().triggered
+		src = trig.card
+		if !strings.Contains(spec, "Card") && !strings.Contains(spec, "Object") {
+			if strings.Contains(spec, "Attacker") {
+				src = trig.attacker
+			} else if strings.Contains(spec, "Blocker") {
+				src = trig.blocker
+			}
+		}
+		if src == NoCard {
+			return "", NoCard, false, nil
+		}
+		switch spec {
+		case "Triggered", "TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker":
+			spec = "Card.Self"
+		default:
+			replaced := false
+			for _, kind := range [...]string{"TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker"} {
+				if strings.Contains(spec, kind) {
+					spec, replaced = strings.ReplaceAll(spec, kind, "Card"), true
+					break
+				}
+			}
+			if !replaced {
+				spec = strings.ReplaceAll(spec, "Triggered", "Card")
+			}
+		}
+	case strings.HasPrefix(spec, "Targeted"):
+		// :836-852: SpellAbility.findTargetedCards' first card.
+		got, err := definedCards(host, "Targeted", a.refs())
+		if err != nil {
+			return "", NoCard, false, err
+		}
+		if len(got) == 0 {
+			return "", NoCard, false, nil
+		}
+		src = got[0]
+		if strings.HasPrefix(spec, "TargetedCard") {
+			spec = strings.ReplaceAll(spec, "TargetedCard", "Card")
+		} else {
+			spec = strings.ReplaceAll(spec, "Targeted", "Card")
+		}
+	case strings.HasPrefix(spec, "Remembered"):
+		// :853-868: the first remembered card.
+		found := false
+		for _, e := range host.Memory.Remembered() {
+			if id, ok := e.AsCard(); ok {
+				src, found = id, true
+				break
+			}
+		}
+		if !found {
+			return "", NoCard, false, nil
+		}
+		spec = strings.ReplaceAll(spec, "Remembered", "Card")
+	case strings.HasPrefix(spec, "Imprinted"):
+		spec = strings.ReplaceAll(spec, "Imprinted", "Card")
+	}
+	return spec, src, true, nil
 }

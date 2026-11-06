@@ -111,3 +111,106 @@ func TestSpellsAndAbilitiesCannotCauseYouToSearchKeyword(t *testing.T) {
 	}
 	_ = theirs
 }
+
+// Damping Engine (Mode$ Continuous,CantPlayLand,CantBeCast): the player with
+// the most permanents cannot cast an artifact, creature or enchantment spell
+// until they sacrifice a permanent to ignore the effect for the turn
+// (StaticAbilityCantBeCast.java:107, StaticAbilityContinuous.java:988-1025).
+func TestDampingEngineIgnoredBySacrificingAPermanent(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engineCard := g.NewCard(corpusCard(t, "Damping Engine"), other, engine.Battlefield)
+	var lands []engine.CardID
+	for i := 0; i < 3; i++ {
+		lands = append(lands, g.NewCard(corpusCard(t, "Forest"), p, engine.Battlefield))
+	}
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	probe := func() engine.CastProbe {
+		for _, pr := range g.CastabilityProbe(p) {
+			if pr.Card == bears {
+				return pr
+			}
+		}
+		t.Fatal("Bears not probed")
+		return engine.CastProbe{}
+	}
+	if got := probe(); got.Blocked&engine.BlockOpponentLock == 0 {
+		t.Fatalf("Bears under Damping Engine: %+v, want an opponent lock", got)
+	}
+	c.QueueSacrificeChoice([]engine.CardID{lands[0]})
+	if !g.ActivateAbility(p, engineCard, 0, c) {
+		t.Fatal("the player with the most permanents could not activate the ignore ability")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if got := probe(); got.Blocked&engine.BlockOpponentLock != 0 {
+		t.Errorf("Bears after ignoring the effect: %+v, want no opponent lock", got)
+	}
+	if g.Card(lands[0]).Zone != engine.Graveyard {
+		t.Error("the sacrificed Forest is not in the graveyard")
+	}
+}
+
+// Lost in Thought (Mode$ Continuous,CantAttack,CantBlock,CantBeActivated,
+// Affected$ Creature): the enchanted creature's controller exiles three cards
+// from their graveyard and the creature may attack this turn
+// (StaticAbilityCantAttackBlock.java:77, StaticAbilityContinuous.java:991-999).
+func TestLostInThoughtIgnoredByItsCreaturesController(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Card(bears).SummonSick = false
+	aura := g.NewCard(corpusCard(t, "Lost in Thought"), p, engine.Battlefield)
+	g.Attach(aura, bears)
+	var grave []engine.CardID
+	for i := 0; i < 3; i++ {
+		grave = append(grave, g.NewCard(corpusCard(t, "Forest"), p, engine.Graveyard))
+	}
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	c.QueueCardChoice(grave)
+	if !g.ActivateAbility(p, aura, 0, c) {
+		t.Fatal("the enchanted creature's controller could not activate the ignore ability")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	for _, id := range grave {
+		if g.Card(id).Zone != engine.Exile {
+			t.Errorf("graveyard card %v not exiled", id)
+		}
+	}
+	g.SetTurnState(1, p, engine.DeclareAttackers)
+	c.QueueAttackers([]engine.CardID{bears})
+	attackers, err := g.DeclareCombatAttackers(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(attackers) != 1 || attackers[0] != bears {
+		t.Errorf("attackers %v, want the Bears now that the effect is ignored", attackers)
+	}
+}
+
+// Without the ignore, Lost in Thought's CantAttack piece keeps the creature home.
+func TestLostInThoughtStopsTheAttackUnlessIgnored(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Card(bears).SummonSick = false
+	aura := g.NewCard(corpusCard(t, "Lost in Thought"), p, engine.Battlefield)
+	g.Attach(aura, bears)
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	g.SetTurnState(1, p, engine.DeclareAttackers)
+	c.QueueAttackers([]engine.CardID{bears})
+	attackers, _ := g.DeclareCombatAttackers(c)
+	if len(attackers) != 0 {
+		t.Errorf("attackers %v, want none: the enchanted creature cannot attack", attackers)
+	}
+}

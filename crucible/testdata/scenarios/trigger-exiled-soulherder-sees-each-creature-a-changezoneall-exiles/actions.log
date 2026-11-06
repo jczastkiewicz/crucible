@@ -1,0 +1,13 @@
+# ChangeZoneAll exiles through GameAction.moveTo(ZoneType.Exile), which is
+# GameAction.exile: Mode$ Exiled fires once per creature, so the AI's
+# Soulherder gets a +1/+1 counter for each of the two Ghostway exiles.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+tapformana human 4 W
+queue paygeneric W
+queue paygeneric W
+queue cardorder 5,6
+castspell human 1
+resolvestack

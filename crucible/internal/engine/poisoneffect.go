@@ -35,7 +35,7 @@ var poisonUnresolvedParams = [...]string{
 // other M6 effect's own does.
 type poisonEffect struct{}
 
-func (poisonEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (poisonEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
@@ -67,12 +67,14 @@ func (poisonEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	for _, pid := range players {
-		p := g.Player(pid)
-		// Player.addCounter: GameEntity.addCounter refuses a placement a
-		// Mode$ CantPutCounter static forbids (Player.canReceiveCounters).
-		if amount > 0 && g.cantPutCounter(PlayerEntity(pid), Poison) {
+		if amount > 0 {
+			// Player.addPoisonCounters into the effect's counter table, then
+			// table.replaceCounterEffect: Mode$ CantPutCounter, the AddCounter
+			// replacements (Melira) and the CounterAdded triggers.
+			g.putPlayerCounters(controller, a.Controller, a.Source, pid, Poison, amount)
 			continue
 		}
+		p := g.Player(pid)
 		p.Counters.Add(Poison, amount)
 		emitCounterChanged(g, a.Source, PlayerEntity(pid), Poison, amount)
 	}

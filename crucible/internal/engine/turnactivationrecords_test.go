@@ -63,6 +63,7 @@ func TestCountersRemovedThisTurnCountsCardsAndPlayers(t *testing.T) {
 	clone := g.Clone()
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(c) // Cleanup
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if got := measure(t, g, p, "Count$CountersRemovedThisTurn OIL Card"); got != 0 {
 		t.Errorf("after cleanup = %d, want 0", got)
 	}
@@ -249,6 +250,7 @@ func TestRegeneratedThisTurnCountsTheHostsRegenerations(t *testing.T) {
 	}
 	g.SetTurnState(1, p, engine.EndOfTurn)
 	g.AdvancePhase(c) // Cleanup
+	g.AdvancePhase(c) // leaves Cleanup: Game.onCleanupPhase resets the turn
 	if n := gained(); n != 0 {
 		t.Errorf("after cleanup: %d, want 0", n)
 	}

@@ -41,7 +41,7 @@ resolvestack
 resolvestack
 resolvestack
 `
-	if err := fixture.RunActions(bytes.NewReader([]byte(actions)), setup, engine.NewScriptedController()); err != nil {
+	if err := fixture.RunActions(bytes.NewReader([]byte(actions)), setup, keepingOrder()); err != nil {
 		t.Fatalf("run actions: %v", err)
 	}
 	g := setup.Game

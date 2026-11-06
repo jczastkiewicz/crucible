@@ -1,0 +1,10 @@
+# Mode$ SearchedLibrary (CR 701.19, TriggerSearchedLibrary): the human's
+# Evolving Wilds searches its own library for a basic land; the
+# opponent's Archivist of Oghma ("whenever an opponent searches their
+# library, you gain 1 life and draw a card") fires for its controller.
+startturn human
+advance 3
+queue action human activate 1 0
+queue cardchoice 2
+passpriority
+passpriority

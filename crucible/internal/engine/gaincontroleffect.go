@@ -23,6 +23,24 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
+	var lose []string
+	if raw, ok := a.Params.Param("LoseControl"); ok {
+		var err error
+		if lose, err = parseLoseControl(a, raw); err != nil {
+			return err
+		}
+		// "Check for lose control criteria right away"
+		// (ControlGainEffect.java:101-111), before the Choices$ pick.
+		if hasToken(lose, "LeavesPlay") && source.Zone != Battlefield {
+			return nil
+		}
+		if hasToken(lose, "LoseControl") && source.Controller() != a.Controller {
+			return nil
+		}
+		if hasToken(lose, "Untap") && !source.Tapped {
+			return nil
+		}
+	}
 	newController := a.Controller
 	if spec, ok := a.Params.Param("NewController"); ok {
 		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
@@ -77,24 +95,6 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			return fmt.Errorf("engine: GainControl: AddKWs$ not resolvable yet")
 		}
 	}
-	var lose []string
-	if raw, ok := a.Params.Param("LoseControl"); ok {
-		var err error
-		if lose, err = parseLoseControl(a, raw); err != nil {
-			return err
-		}
-		// "Check for lose control criteria right away"
-		// (ControlGainEffect.java:127-135).
-		if hasToken(lose, "LeavesPlay") && source.Zone != Battlefield {
-			return nil
-		}
-		if hasToken(lose, "LoseControl") && source.Controller() != a.Controller {
-			return nil
-		}
-		if hasToken(lose, "Untap") && !source.Tapped {
-			return nil
-		}
-	}
 	for _, id := range cards {
 		c := g.Card(id)
 		// canBeControlledBy's isInGame half; the CantGainControl static
@@ -109,9 +109,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		ts := g.timestamp
 		c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: ts, Controller: newController})
 		if untap && c.Tapped {
-			g.runUntapCommands(controller, id)
-			c.Tapped = false
-			g.checkUntapsTriggers(controller, id)
+			g.untapCard(controller, id)
 		}
 		if len(keywords) > 0 {
 			// addChangedCardKeywords at ts, removed by a command at end of

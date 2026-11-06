@@ -1,0 +1,13 @@
+# ADR-0052: a Split card's second half is cast on its own. Battery ({3}{G}
+# sorcery) creates a 3/3 Elephant token; the card goes to the graveyard whole.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+castspell human 1 face
+resolvestack

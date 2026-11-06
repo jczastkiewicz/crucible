@@ -90,6 +90,10 @@ type Game struct {
 	// (PhaseHandler.java:447-449 sets bRepeatCleanup and givePriorityToPlayer
 	// from endTurnByEffect's own onPhaseBegin). Step consumes it.
 	endTurnCleanup bool
+	// turnEndedByEffect is set when an EndTurn resolution actually ended the
+	// turn (not declined, its condition met); priorityRound clears it before
+	// each resolution and reads it after.
+	turnEndedByEffect bool
 	// xctx is the X of the ability Registry.resolve is running, the root
 	// ability's xManaCostPaid that Count$xPaid reads first
 	// (AbilityUtils.java:1631); hasX false reads the source card's castX.
@@ -100,6 +104,9 @@ type Game struct {
 	// that name its targets, triggering objects and paid cards read it
 	// (amountcontext.go, valid.go); nil outside both.
 	resolving *Ability
+	// triggerEvent is the event a trigger's conditions are being read
+	// against (withTriggerEvent, triggerevent.go); nil outside that check.
+	triggerEvent *triggerEventCheck
 	// layering counts the continuous-effect passes running now
 	// (applyContinuousLayers, which a refresh can enter again): while it is
 	// non-zero a permanent's power is mid-rebuild, so handlePaid
@@ -116,6 +123,10 @@ type Game struct {
 	// castPending is the spell whose cast is in progress and whose X has not
 	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
 	castPending CardID
+	// castGrantor is the MayPlay$ host castPending is cast through, NoCard
+	// for none: SpellAbility.getMayPlay, read by the MayPlaySource property
+	// while the cast is in progress.
+	castGrantor CardID
 	// xReduce is the part of a ReduceCost past the printed generic mana of a
 	// cost with X, which the announced X absorbs when it is paid (March of
 	// Reckless Joy); costStatics sets it, payManaCostX spends it.
@@ -141,6 +152,10 @@ type Game struct {
 	// worked out after targeting (CostAdjustment.checkRequirement).
 	castTargets    []EntityID
 	castTargetsFor CardID
+	// castWaterbend marks the spell being cast as paying a Waterbend cost
+	// (SpellAbility.maxWaterbend), its waterbend fired with its SpellCast
+	// triggers.
+	castWaterbend bool
 	// preX is the X a spell announced before its targets (castspell.go
 	// announceX), waiting for payManaCostX.
 	// redirectGuard lists the replacement rules whose redirect is being dealt
@@ -165,6 +180,12 @@ type Game struct {
 	// drawRecord collects the cards drawOneCard draws while a Draw effect
 	// with RememberDrawn$ is resolving; nil otherwise.
 	drawRecord *[]CardID
+	// drawCause is the ability whose Draw effect is drawing now, the Cause
+	// Java's Player.drawCards puts on each Draw replacement's run params
+	// (DrawEffect.java:100, Player.java:1198-1206); nil for the turn's draw
+	// and every other draw. Event$ Draw's ValidCause$ matches it and
+	// Defined$ ReplacedSource is its host (Unpredictable Cyclone).
+	drawCause *Ability
 	// pendingErr is a static trigger's error from a site with no error
 	// return (resolveStaticTriggers, statictrigger.go), waiting for the
 	// nearest boundary that has one -- Registry.Resolve, ResolveStack,
@@ -189,6 +210,11 @@ type Game struct {
 	// a win, a loss, or a draw. Nothing unsets it: a game that has ended
 	// stays ended (action.go).
 	over bool
+	// variants is GameRules.appliedVariants (ADR-0055, commander.go).
+	variants Variant
+	// planarDiceSpecialActions is PhaseHandler.planarDiceSpecialActionThisTurn:
+	// the planar die special actions taken this turn, by anyone (ADR-0056).
+	planarDiceSpecialActions int
 
 	// restarted is Java's GameStage.RestartedByKarn (RestartGameEffect.java:105):
 	// a RestartGame effect has reset the game mid-resolution and the turn
@@ -216,6 +242,8 @@ type Game struct {
 	// and from where (Count$ThisTurnCast_<valid>, castrecord.go); cleared when
 	// a new turn starts.
 	castThisTurn []castRecord
+	// castSeq numbers the casts of the game (Card.castSeq).
+	castSeq uint64
 	// castLastTurn is MagicStack.lastTurnCast (MagicStack.java:961-979): the
 	// previous turn's castThisTurn, rotated as a new turn starts. The
 	// Werewolf trigger conditions read it (amountrecords.go).
@@ -308,6 +336,11 @@ type Game struct {
 	// LastStateBattlefield copy), with the player who sacrificed it. Read by
 	// the SacrificedThisTurn player measure; cleared at cleanup.
 	sacrificedThisTurn []sacrificeRecord
+	// playedLandsThisTurn is every player's Player.playedLandsThisTurn: a
+	// last-known copy of each land played this turn, taken before it moved, so
+	// it remembers the zone it was played from (Player.java:1663-1669). Read by
+	// the LandsPlayed <valid> player measure; cleared as LandsPlayed resets.
+	playedLandsThisTurn []sacrificeRecord
 	// snowAnyColor is set while a cast through MayPlaySnowIgnoreColor$ pays
 	// its mana cost: snow mana pays a colored pip of any color
 	// (ManaConversionMatrix.snowForColor, PlaySpellAbility.java:648-649).
@@ -562,6 +595,12 @@ type pumpRecord struct {
 	// (pumpHiddenKeywords). Never edited in place: Clone shares it.
 	Hidden   []string
 	Switched bool // KW$ HIDDEN switchPTKeyword: a Layer 7d switch
+	// Traits are the abilities, triggers, statics and replacements the
+	// granted Keywords stand for (compile's `KW` subs, ADR-0038 decision 4),
+	// re-added every pass by pumpLayerKeywords. Never edited in place.
+	// TraitAmounts is the pumping face's amounts, where their SVars live.
+	Traits       []*compile.Ability
+	TraitAmounts map[string]expr.Amount
 	// CanBlockAny and CanBlockMore are Pump's CanBlockAny$ and CanBlockAmount$
 	// (PumpEffect.java:78-84): the card can block any number of creatures, or
 	// this many more, for as long as the record lives.
@@ -662,13 +701,34 @@ type zoneKey struct {
 // is).
 var errRestartPending = errors.New("engine: game restarted (RestartGame); call ResumeAfterRestart before driving it again")
 
-// startingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's own
-// default (RegisteredPlayer.java:25), what Game's constructor hands every
-// seat when no StartingLife was forced (Game.java:347-351). The variants
-// that raise it (Commander, Archenemy, Vanguard, RegisteredPlayer.java:137-171)
-// have no game setup in this port, so it is a constant for the same reason
-// startingHandSize is. Subgame's seats start at it (subgameeffect.go).
-const startingLife = 20
+// Variant is a set of GameRules.appliedVariants (GameRules.java:19): the
+// game types whose rules a game plays under (ADR-0055,
+// commander.go).
+type Variant uint8
+
+// The ported variants: GameType.Commander, Vanguard and Planechase. No rule
+// reads VariantVanguard (Java has none); Planechase's rules read
+// planechaseActive (ADR-0029), and the variant gates the plane handover at
+// each turn (ADR-0056).
+const (
+	VariantCommander Variant = 1 << iota
+	VariantVanguard
+	VariantPlanechase
+)
+
+// defaultStartingHandSize is CR 103.4's seven, RegisteredPlayer's default
+// (RegisteredPlayer.java:26): each seat's Player.StartingHandSize unless a
+// Vanguard avatar changes it (SeatAvatar, ADR-0056).
+const defaultStartingHandSize = 7
+
+// defaultStartingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's
+// own default (RegisteredPlayer.java:25), what Game's constructor hands
+// every seat when no StartingLife was forced (Game.java:347-351). Of the
+// variants that raise it (RegisteredPlayer.java:137-171) Commander is
+// ported (SetupVariant, ADR-0055) and Vanguard's avatars add theirs
+// (SeatAvatar, ADR-0056); Archenemy is not. Subgame's
+// seats start at it unless StartingLife$ says otherwise (subgameeffect.go).
+const defaultStartingLife = 20
 
 // NewGame builds an empty game with the given players.
 //
@@ -690,7 +750,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
-		g.players = append(g.players, Player{ID: id, Name: name, Life: startingLife, CrankCounter: 3})
+		g.players = append(g.players, Player{ID: id, Name: name, Life: defaultStartingLife, StartingLife: defaultStartingLife, StartingHandSize: defaultStartingHandSize, CrankCounter: 3})
 		for _, z := range []ZoneType{Hand, Library, Graveyard, Battlefield, Exile, Command, Sideboard} {
 			g.zones[zoneKey{z, id}] = &Zone{Type: z, Owner: id, cards: collect.NewOrderedSet[CardID](0)}
 		}
@@ -862,6 +922,7 @@ func (g *Game) NewCard(def *compile.Card, owner PlayerID, zone ZoneType) CardID 
 		// entered its zone this turn.
 		cameUnderControl: true,
 		enteredTurn:      g.turn,
+		zoneEntryPlayer:  owner,
 	})
 	g.put(id, zone, owner)
 	if zone == Battlefield {
@@ -979,8 +1040,24 @@ func (g *Game) traitHosts(pid PlayerID) []CardID {
 }
 
 // isCommandTraitHost reports whether c, sitting in the Command zone, has
-// traits traitHosts must walk: an effect card or a scheme.
+// traits traitHosts must walk: an effect card, a scheme, a Vanguard avatar, a
+// plane or a phenomenon (ADR-0056). Each line's own zone param decides
+// whether it functions there (staticHostZoneOK, hostInActiveZones, the
+// trigger zone checks); a commander there is not a host.
 func (c *Card) isCommandTraitHost() bool {
+	if c.isCommandEffectLike() {
+		return true
+	}
+	if c.Def == nil {
+		return false
+	}
+	t := c.Type()
+	return t.Has(cardtype.Vanguard) || t.Has(cardtype.Plane) || t.Has(cardtype.Phenomenon)
+}
+
+// isCommandEffectLike reports whether c is an effect card or a scheme: a
+// Command-zone host whose statics function there with no EffectZone$.
+func (c *Card) isCommandEffectLike() bool {
 	return c.IsEffect || (c.Def != nil && c.Type().Has(cardtype.Scheme))
 }
 
@@ -1057,16 +1134,13 @@ func (g *Game) LKI(id CardID) *Card {
 //
 // Leaving the battlefield freezes a copy of the card into [Game.lki] before
 // clearing Counters, Damage, Tapped, PT/TypeMod/ColorMod/KeywordMod and any
-// attachment; entering it sets SummonSick and, for a planeswalker or a
-// Battle, its printed starting loyalty/defense as counters (CR 121.5,
-// 704.5v). Java gets all three for free: GameAction.changeZone builds a new
-// Card object for the destination zone (CardCopyService.copyCard), so a
-// field simply is not copied onto it, a freshly-built permanent starts sick
-// unless something says otherwise, and a planeswalker's loyalty is set once
-// at that same construction -- CR 121.5 puts loyalty nowhere near Layer 7,
-// so it has no computed accessor the way Power/Toughness do; it is exactly
-// its Loyalty counter count from the moment of entry, full stop
-// (the removed port log's "Loyalty is not a layer" section has the full citation).
+// attachment; entering it sets SummonSick. Java gets both for free:
+// GameAction.changeZone builds a new Card object for the destination zone
+// (CardCopyService.copyCard), so a field simply is not copied onto it, and a
+// freshly-built permanent starts sick unless something says otherwise. A
+// planeswalker's printed loyalty and a battle's defense are not Move's: they
+// are etbCounter replacements of the card's own (CardState.java:595-600),
+// placed with the entry's other counters (applyEnterCounters, entercounters.go).
 // A CardID is stable across zone changes here instead (ADR-0009) — the same
 // struct persists, so a creature that dies with three +1/+1 counters would return
 // from the graveyard still carrying them unless this clears them, a Raise
@@ -1112,10 +1186,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if from == Exile && kind != Exile {
 		c.foretold, c.foretoldByEffect = false, false
 		c.Plotted = false
+		c.onAdventure = false
 	}
 	if kind != Stack && kind != Battlefield {
-		c.wasCast, c.castManaSpent, c.castSnow, c.castPaidSources = false, 0, 0, nil
+		c.wasCast, c.castManaSpent, c.castSnow, c.castPaidSources, c.castSeq = false, 0, 0, nil, 0
 	}
+	flashbackExiled := false
 	if from == Stack && c.flashbackCast {
 		// CR 702.34a, Flashback's replacement (CardFactoryUtil.java:2252:
 		// Event$ Moved | Origin$ Stack | ExcludeDestination$ Exile): a spell
@@ -1123,6 +1199,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.flashbackCast = false
 		if kind != Exile {
 			kind, owner = Exile, c.Owner
+			flashbackExiled = true
 		}
 	}
 	if from == Stack && c.graveyardToExile {
@@ -1150,10 +1227,22 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	isPermanent := c.Type().IsPermanent()
 	leftStamp := c.zoneStamp
+	leftExiledWith := c.exiledWith
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.put(id, kind, owner)
+	if c.commander {
+		// GameAction.java:847-848 (and :499-500 for each merged component,
+		// which moveMerged moves through here): CR 903.9a's "since the last
+		// time state-based actions were checked".
+		c.toCommandZone = true
+	}
 	if from != kind {
-		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
+		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
+		c.newObjectFlags(kind)
+		c.entryExiledWith = exiledWithMark{}
+		if kind != Battlefield {
+			c.entryExiledWith = leftExiledWith
+		}
 	}
 	if from == Stack && kind == Battlefield {
 		g.relinkExiledWith(id, leftStamp, c.zoneStamp)
@@ -1172,21 +1261,40 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	// entering it (a reanimated permanent must not keep its graveyard's
 	// grants) and every other-zone-to-other-zone move (an AffectedZone$ Hand
 	// grant must not ride along into the graveyard or stack).
+	if from != kind && (from != Stack || kind != Battlefield) {
+		// A prototyped spell stays prototyped as the permanent it becomes;
+		// any other move makes a new object without it (CR 702.160c).
+		c.prototype = nil
+	}
 	if from != kind {
 		c.TypeMod.Clear()
 		c.ColorMod.Clear()
 		c.KeywordMod.Clear()
 		// A grant made to the card in hand, a graveyard or on the stack ends
-		// with that object too (CR 400.7); a Perpetual one stays.
+		// with that object too (CR 400.7); a Perpetual one stays. An Animate
+		// stays into the battlefield: Java's changeZone keeps the same object
+		// for a battlefield destination (GameAction.java:170-172) and copies
+		// it for any other (GameAction.java:207), so Takklemaggot's
+		// graveyard Animate is the permanent's.
 		if from != Battlefield {
-			g.clearAnimates(id)
+			if kind != Battlefield {
+				// A bestow spell leaving the stack is the creature card
+				// (CounterEffect.java:261); its record goes with the rest.
+				g.dropBestow(id)
+				g.clearAnimates(id)
+			}
 			// A PumpZone$ pump of a card in another zone ends with the object
-			// too (pumpRecord.InZone); a Perpetual one stays.
-			g.clearPumps(id)
+			// too (pumpRecord.InZone); a Perpetual one stays. A spell's pump
+			// stays on the permanent it becomes, the same Java object
+			// (GameAction.java:170-172): a suspended creature's haste (CR
+			// 702.62a), a spell given Mobilize or lifelink.
+			if from != Stack || kind != Battlefield {
+				g.clearPumps(id)
+			}
 		}
 	}
 	// melded is the other card of a melded permanent leaving the battlefield
-	// (CR 712.4c), split off after this move's own event, below.
+	// (CR 712.21), split off after this move's own event, below.
 	melded := NoCard
 	switch {
 	case from == Battlefield && kind != Battlefield:
@@ -1225,8 +1333,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.blockedByThisTurn = nil
 		c.blockedThisTurn = nil
 		c.attackedThisTurn = nil
-		c.devoured = nil
-		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.attackedLastTurnOf = nil
+		c.devoured, c.exploited = nil, nil
+		c.Suspected, c.Solved, c.Harnessed, c.unearthed = false, false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
 		c.renowned, c.monstrous = false, false
 		c.classLevel = 0
@@ -1253,17 +1362,8 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.enterRoom()
 		c.SummonSick = true
 		c.cameUnderControl, c.enteredTurn = true, g.turn
-		// A Mode$ CantPutCounter static stops the printed loyalty and defense
-		// counters too (Card.canReceiveCounters, the "etbCounter" replacement's
-		// own placement).
-		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) && !g.cantPutCounter(CardEntity(id), Loyalty) {
-			c.Counters.Add(Loyalty, loyalty)
-			emitCounterChanged(g, id, CardEntity(id), Loyalty, loyalty)
-		}
-		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) && !g.cantPutCounter(CardEntity(id), Defense) {
-			c.Counters.Add(Defense, defense)
-			emitCounterChanged(g, id, CardEntity(id), Defense, defense)
-		}
+		// The printed loyalty and defense counters are the entry's own
+		// replacements (applyEnterCounters, entercounters.go).
 	}
 
 	// CR's own "descend" tracker (Zone.add's own "!rollback" branch, Java):
@@ -1275,6 +1375,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if kind == Graveyard && isPermanent && !c.IsToken {
 		g.Player(owner).DescendedThisTurn = true
 		g.Player(owner).descended++
+	}
+	if from != kind && kind != Battlefield {
+		// Java copies the card on any move but one to the battlefield
+		// (GameAction.java:207), and the copy has a fresh damage history.
+		c.damageDealtThisTurn = 0
 	}
 	g.recordEntered(c, &before, from, kind)
 
@@ -1289,6 +1394,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		To:     kind,
 	})
 	g.effectCardsSeeMove(id, from, kind)
+	if flashbackExiled {
+		// The replacement's ChangeZone exiles the card with its own host,
+		// the card itself (SpellAbilityEffect.handleExiledWith,
+		// SpellAbilityEffect.java:1084-1112).
+		g.markExiledWith(id, id)
+	}
 	if melded != NoCard {
 		g.unmeld(melded, kind, owner, false)
 	}
@@ -1303,11 +1414,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 // tuck already relies on exactly that); this is Move's mirror for the one
 // case a card needs the opposite end instead, sharing its every other
 // behavior -- including the Battlefield-transition cleanup below, so a
-// future caller that moves a card onto the top of a library from anywhere
-// other than the library itself (a tutor effect's own
-// "Destination$ Library | LibraryPosition$ 0" shape, not built yet) gets
-// that cleanup for free rather than a scry-only shortcut that silently
-// skips it. Returns the melded partner it unmelds along with id, same as
+// caller that moves a card onto the top of a library from anywhere other
+// than the library itself (a ChangeZone "Destination$ Library |
+// LibraryPosition$ 0", moveByEffect) gets that cleanup too. Returns the melded partner it unmelds along with id, same as
 // [Game.Move].
 func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	if g.ceaseCopiedSpell(id) {
@@ -1320,6 +1429,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	}
 	before := *c
 	g.clearTextRecords(id)
+	c.prototype = nil
 	if from != Battlefield && from != Library {
 		// The new object has none of a PumpZone$ pump made in the zone it left.
 		g.clearPumps(id)
@@ -1329,10 +1439,13 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.tempControllers = nil
 	}
 	leftStamp := c.zoneStamp
+	leftExiledWith := c.exiledWith
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.putFront(id, owner)
 	if from != Library {
-		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
+		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
+		c.newObjectFlags(Library)
+		c.entryExiledWith = leftExiledWith
 	}
 
 	melded := NoCard
@@ -1366,8 +1479,9 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.blockedByThisTurn = nil
 		c.blockedThisTurn = nil
 		c.attackedThisTurn = nil
-		c.devoured = nil
-		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.attackedLastTurnOf = nil
+		c.devoured, c.exploited = nil, nil
+		c.Suspected, c.Solved, c.Harnessed, c.unearthed = false, false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
 		// Layer 3's text change ends with the object (CR 400.7), before the
 		// copy and face-down restores below read or replace Def.
@@ -1386,7 +1500,13 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		g.unpairOnLeave(id)
 	}
 	if from == Stack {
+		// A bestow spell tucked into a library is the creature card
+		// (CounterEffect.java:261's reason: the new object is not bestowed).
+		g.dropBestow(id)
 		c.leaveRoom()
+	}
+	if from != Library {
+		c.damageDealtThisTurn = 0
 	}
 	g.recordEntered(c, &before, from, Library)
 
@@ -1416,11 +1536,12 @@ func (c *Card) leaveMeld() CardID {
 	c.Melded = false
 	melded := c.MeldedWith
 	c.MeldedWith = NoCard
+	c.meldedCMC = 0
 	return melded
 }
 
 // unmeld is GameAction.changeZone's "Spin off Melded card"
-// (GameAction.java:629-642, CR 712.4c): a melded permanent just left the
+// (GameAction.java:629-642, CR 712.21): a melded permanent just left the
 // battlefield for kind, so the other card it represented follows it to the
 // same zone, after it -- appended after it, or with top put on the library's
 // top over it, where Java's changeZone(null, zoneTo, unmeld, position, ...)
@@ -1429,7 +1550,10 @@ func (c *Card) leaveMeld() CardID {
 // (PlayerZoneBattlefield.addToMelded), so it gets no leave-the-battlefield
 // cleanup, no last-known information and no effect-card watch -- its state
 // was already cleared when meldeffect.go exiled it -- only the zone change
-// itself and its event.
+// itself and its event. The melded permanent's stickers stay on its own
+// card: Java's owner may give them to the secondary instead
+// (chooseCardToKeepStickers, GameAction.java:654-660, CR 123.5c), and
+// Game.Move has no controller to ask (quirks.md).
 func (g *Game) unmeld(secondary CardID, kind ZoneType, owner PlayerID, top bool) {
 	s := g.Card(secondary)
 	if !s.Melded {
@@ -1512,6 +1636,11 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	if hiddenZone(kind) {
 		c.stickers = nil
 	}
+	if kind == Command && c.commander {
+		// Zone.java:106-114: a commander entering the Command zone goes first.
+		g.Zone(kind, owner).cards.Prepend(id)
+		return
+	}
 	g.Zone(kind, owner).cards.Add(id)
 }
 
@@ -1555,6 +1684,7 @@ func (g *Game) Attach(attachment, host CardID) {
 		h.attachments = collect.NewOrderedSet[CardID](2)
 	}
 	h.attachments.Add(attachment)
+	g.startReconfigure(attachment)
 }
 
 // AttachToPlayer is Attach for a player host (Card.attachToEntity with a
@@ -1597,6 +1727,11 @@ func (g *Game) Unattach(attachment CardID) {
 		h.attachments.Remove(attachment)
 	}
 	a.attachedTo = NoCard
+	// Card.java:4003-4004: a bestowed Aura becomes the creature again
+	// (CR 702.103f); the next layer pass shows it, as Unattach runs inside
+	// zone changes too.
+	g.dropBestow(attachment)
+	g.dropReconfigure(attachment)
 	// Card.unattachFromEntity runs Unattached before the commands
 	// (Card.java:4016-4019).
 	g.queueUnattached(attachment, CardEntity(old))
@@ -1710,47 +1845,50 @@ func (g *Game) Clone() *Game {
 		pendingSkips:   append([]pendingSkip(nil), g.pendingSkips...),
 		pendingRepeats: append([]pendingRepeat(nil), g.pendingRepeats...),
 
-		extraTurns:            append([]extraTurn(nil), g.extraTurns...),
-		maxDistinctSources:    g.maxDistinctSources,
-		noSchemesThisTurn:     g.noSchemesThisTurn,
-		combatDamagePrevented: g.combatDamagePrevented,
-		combatsThisTurn:       g.combatsThisTurn,
-		mainsThisTurn:         g.mainsThisTurn,
-		piledGuessedSA:        g.piledGuessedSA,
-		singleMaxDamage:       g.singleMaxDamage,
-		upkeepsThisTurn:       g.upkeepsThisTurn,
-		skipDamageSteps:       g.skipDamageSteps,
-		turnOrderReversed:     g.turnOrderReversed,
-		preventShields:        append([]preventShield(nil), g.preventShields...),
-		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),
-		mayPlay:               append([]mayPlayGrant(nil), g.mayPlay...),
-		mayPlayUses:           cloneMayPlayUses(g.mayPlayUses),
-		charmModes:            cloneCharmModes(g.charmModes),
-		castThisTurn:          append([]castRecord(nil), g.castThisTurn...),
-		castLastTurn:          append([]castRecord(nil), g.castLastTurn...),
-		castSinceOwnTurn:      cloneCastSince(g.castSinceOwnTurn),
-		startingPlayer:        g.startingPlayer,
-		leftGraveyardThisTurn: append([]Card(nil), g.leftGraveyardThisTurn...),
-		endOfTurnsThisTurn:    g.endOfTurnsThisTurn,
-		enteredThisTurn:       append([]zoneEntry(nil), g.enteredThisTurn...),
-		enteredLastTurn:       append([]zoneEntry(nil), g.enteredLastTurn...),
-		countersAddedThisTurn: append([]counterAddition(nil), g.countersAddedThisTurn...),
-		countersRemoved:       append([]counterRemoval(nil), g.countersRemoved...),
-		activatedThisTurn:     append([]activationRecord(nil), g.activatedThisTurn...),
-		playerDamageThisTurn:  append([]playerDamage(nil), g.playerDamageThisTurn...),
-		cardDamageThisTurn:    append([]cardDamage(nil), g.cardDamageThisTurn...),
-		sacrificedThisTurn:    append([]sacrificeRecord(nil), g.sacrificedThisTurn...),
-		snowAnyColor:          g.snowAnyColor,
-		dayTime:               g.dayTime,
-		previousPlayer:        g.previousPlayer,
-		previousPlayerSpells:  g.previousPlayerSpells,
-		lki:                   make(map[CardID]*Card, len(g.lki)),
-		monarch:               g.monarch,
-		counterKinds:          append([]CounterType(nil), g.counterKinds...),
-		monarchBeginTurn:      g.monarchBeginTurn,
-		initiative:            g.initiative,
-		activePlane:           g.activePlane,
-		planechaseActive:      g.planechaseActive,
+		extraTurns:               append([]extraTurn(nil), g.extraTurns...),
+		maxDistinctSources:       g.maxDistinctSources,
+		noSchemesThisTurn:        g.noSchemesThisTurn,
+		combatDamagePrevented:    g.combatDamagePrevented,
+		combatsThisTurn:          g.combatsThisTurn,
+		mainsThisTurn:            g.mainsThisTurn,
+		piledGuessedSA:           g.piledGuessedSA,
+		singleMaxDamage:          g.singleMaxDamage,
+		upkeepsThisTurn:          g.upkeepsThisTurn,
+		skipDamageSteps:          g.skipDamageSteps,
+		turnOrderReversed:        g.turnOrderReversed,
+		preventShields:           append([]preventShield(nil), g.preventShields...),
+		exileGrants:              append([]ExilePlayGrant(nil), g.exileGrants...),
+		mayPlay:                  append([]mayPlayGrant(nil), g.mayPlay...),
+		mayPlayUses:              cloneMayPlayUses(g.mayPlayUses),
+		charmModes:               cloneCharmModes(g.charmModes),
+		castThisTurn:             append([]castRecord(nil), g.castThisTurn...),
+		castLastTurn:             append([]castRecord(nil), g.castLastTurn...),
+		castSinceOwnTurn:         cloneCastSince(g.castSinceOwnTurn),
+		startingPlayer:           g.startingPlayer,
+		leftGraveyardThisTurn:    append([]Card(nil), g.leftGraveyardThisTurn...),
+		endOfTurnsThisTurn:       g.endOfTurnsThisTurn,
+		enteredThisTurn:          append([]zoneEntry(nil), g.enteredThisTurn...),
+		enteredLastTurn:          append([]zoneEntry(nil), g.enteredLastTurn...),
+		countersAddedThisTurn:    append([]counterAddition(nil), g.countersAddedThisTurn...),
+		countersRemoved:          append([]counterRemoval(nil), g.countersRemoved...),
+		activatedThisTurn:        append([]activationRecord(nil), g.activatedThisTurn...),
+		playerDamageThisTurn:     append([]playerDamage(nil), g.playerDamageThisTurn...),
+		cardDamageThisTurn:       append([]cardDamage(nil), g.cardDamageThisTurn...),
+		sacrificedThisTurn:       append([]sacrificeRecord(nil), g.sacrificedThisTurn...),
+		playedLandsThisTurn:      append([]sacrificeRecord(nil), g.playedLandsThisTurn...),
+		snowAnyColor:             g.snowAnyColor,
+		dayTime:                  g.dayTime,
+		previousPlayer:           g.previousPlayer,
+		previousPlayerSpells:     g.previousPlayerSpells,
+		lki:                      make(map[CardID]*Card, len(g.lki)),
+		monarch:                  g.monarch,
+		counterKinds:             append([]CounterType(nil), g.counterKinds...),
+		monarchBeginTurn:         g.monarchBeginTurn,
+		initiative:               g.initiative,
+		activePlane:              g.activePlane,
+		planechaseActive:         g.planechaseActive,
+		variants:                 g.variants,
+		planarDiceSpecialActions: g.planarDiceSpecialActions,
 	}
 	for i := range g.extraPhases {
 		out.extraPhases[i] = append([]extraPhase(nil), g.extraPhases[i]...)
@@ -1772,6 +1910,9 @@ func (g *Game) Clone() *Game {
 			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
 		}
 		out.players[i].commanders = append([]CardID(nil), g.players[i].commanders...)
+		out.players[i].commanderCasts = append([]commanderCastCount(nil), g.players[i].commanderCasts...)
+		out.players[i].commanderDamage = append([]commanderCastCount(nil), g.players[i].commanderDamage...)
+		out.players[i].avatars = append([]*compile.Card(nil), g.players[i].avatars...)
 		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
 		out.players[i].attackedThisTurn = append([]CardID(nil), g.players[i].attackedThisTurn...)
 		out.players[i].attackedPlayersThisTurn = append([]PlayerID(nil), g.players[i].attackedPlayersThisTurn...)
@@ -1792,7 +1933,10 @@ func (g *Game) Clone() *Game {
 		c.blockedByThisTurn = append([]CardID(nil), g.cards[i].blockedByThisTurn...)
 		c.blockedThisTurn = append([]CardID(nil), g.cards[i].blockedThisTurn...)
 		c.attackedThisTurn = append([]EntityID(nil), g.cards[i].attackedThisTurn...)
+		c.attackedLastTurnOf = append([]PlayerID(nil), g.cards[i].attackedLastTurnOf...)
 		c.devoured = append([]CardID(nil), g.cards[i].devoured...)
+		c.exploited = append([]CardID(nil), g.cards[i].exploited...)
+		c.crewedBy = append([]objectStamp(nil), g.cards[i].crewedBy...)
 		c.castPaidSources = append([]manaSource(nil), g.cards[i].castPaidSources...)
 		c.activations = g.cards[i].activations.clone()
 		c.trigActs = g.cards[i].trigActs.clone()
@@ -1854,6 +1998,11 @@ type castRecord struct {
 	controller PlayerID
 	from       ZoneType
 	stamp      uint64
+	// warp is SpellAbility.isWarp of the cast: it was for the card's Warp
+	// cost (Game.isVoid reads it).
+	warp bool
+	// seq is the card's castSeq for this cast.
+	seq uint64
 }
 
 // zoneEntry is one card's zone change this turn (Zone.cardsAddedThisTurn): the
@@ -1891,7 +2040,9 @@ type cardDamage struct {
 }
 
 // sacrificeRecord is one entry of Game.sacrificedThisTurn: who sacrificed
-// the permanent and the permanent as last known on the battlefield.
+// the permanent and the permanent as last known on the battlefield. Game.
+// playedLandsThisTurn uses it too: who played the land, and the land as last
+// known before it moved.
 type sacrificeRecord struct {
 	player PlayerID
 	card   Card
@@ -2023,4 +2174,26 @@ func cloneCastSince(m map[PlayerID][]castRecord) map[PlayerID][]castRecord {
 type preventedEntry struct {
 	target EntityID
 	amount int
+}
+
+// triggerEventCheck is Trigger.checkWith's checkedEvent (Trigger.java:428-446):
+// the trigger host whose conditions are being read, its controller, and the
+// triggering objects the event gives it (triggerevent.go).
+type triggerEventCheck struct {
+	source     CardID
+	controller PlayerID
+	objects    triggeredObjects
+}
+
+// newObjectFlags clears what a card's next object does not keep
+// (GameAction.changeZone's copyCard, GameAction.java:206-218): the turn's
+// discard, mill, surveil, exert and crew records, and the draw unless it
+// moves onto the stack.
+func (c *Card) newObjectFlags(to ZoneType) {
+	c.drawnThisTurn = c.drawnThisTurn && to == Stack
+	c.discarded, c.milled, c.surveilled = false, false, false
+	c.startedTurnUntapped = false
+	c.exertedThisTurn = 0
+	c.crewedBy = nil
+	c.dealtDamage, c.combatDamagedPlayers = 0, nil
 }

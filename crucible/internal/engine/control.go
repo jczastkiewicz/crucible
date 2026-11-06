@@ -119,6 +119,23 @@ type PlayerController interface {
 	// empty return is legal, the player declining every offer.
 	ExertAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 
+	// DeclareBands decides which of the declared attackers attack in bands
+	// (CR 702.22c, banding.go, ADR-0057). Asked only when one of attackers has
+	// Banding or Bands with other, after the attack is checked and before
+	// anything taps. Each returned band names attackers that attack the same
+	// target; one of two or more must be valid (at most one member without
+	// banding, or all matching a member's Bands with other), or
+	// Game.DeclareCombatAttackers returns an *IllegalDeclarationError. An
+	// attacker in no band attacks alone; nil forms no band.
+	DeclareBands(g *Game, decider PlayerID, attackers []CardID) [][]CardID
+
+	// PayManaCost is PlayerController.payManaCost's mana-ability half (CR
+	// 605.3a, ADR-0054), asked once for every mana payment: the mana
+	// abilities payer activates, in order, before the pool pays toPay for
+	// paidFor (NoCard for an effect's payment). Only ActionTapForMana and
+	// ActionManaAbility answers are read; nil activates nothing.
+	PayManaCost(g *Game, payer PlayerID, toPay mana.Cost, paidFor CardID) []Action
+
 	// ChooseAttackTarget decides what a single declared attacker is
 	// attacking -- the defending player, or one of the planeswalkers/battles
 	// they control (CR 508.1b, Game.chooseAttackTargets, attack.go). eligible
@@ -146,7 +163,11 @@ type PlayerController interface {
 	// return value's order is the order the attacking player assigns in, and
 	// is not re-checked for the "lethal before moving on" requirement CR
 	// 510.1c imposes -- trust the controller's answer, the same as
-	// ChooseLegendaryToKeep.
+	// ChooseLegendaryToKeep. A blocker blocking more than one attacker asks
+	// the same question the other way round (CR 510.1d,
+	// Combat.assignBlockersDamage): decider is its controller, attacker the
+	// blocker and blockers the attackers it blocks, each answer's Blocker a
+	// recipient attacker.
 	AssignCombatDamage(g *Game, decider PlayerID, attacker CardID, blockers []CardID) []DamageAssignment
 
 	// DiscardToHandSize decides which of decider's hand to discard at
@@ -340,6 +361,16 @@ type PlayerController interface {
 	// payment if decider's pool does not actually hold what was chosen, the
 	// same as an unavailable hybrid colour choice already does.
 	ChoosePayGeneric(g *Game, decider PlayerID) mana.Shard
+
+	// ChooseAssistant is Java's choosePlayerToAssistPayment: the caster of
+	// a spell with Assist (CR 702.132a) may choose another player, out of
+	// options, to pay up to most of its generic mana. NoPlayer chooses no one,
+	// which is what Java's AI always answers (PlayerControllerAi.java:395-410).
+	ChooseAssistant(g *Game, caster PlayerID, source CardID, options []PlayerID, most int) PlayerID
+
+	// AssistAmount is Java's helpPayForAssistSpell: how much of the spell's
+	// generic mana, 0 to most, the chosen assistant pays from their own pool.
+	AssistAmount(g *Game, assistant PlayerID, source CardID, most int) int
 
 	// ChoosePayX decides the value of X for a cost carrying one or more X
 	// symbols (CR 601.2b/107.3f: chosen once per cast, then every X symbol in
@@ -555,6 +586,17 @@ type PlayerController interface {
 	// checks the answer is one of doors (GO-7).
 	ChooseRoomDoor(g *Game, decider PlayerID, room CardID, doors []Door) Door
 
+	// OrderSimultaneousTriggers is CR 603.3b: decider puts the triggered
+	// abilities they control that triggered together on the stack in the
+	// order they choose -- Java's orderSimultaneousSa (PlayerController.java:
+	// 103, MagicStack.java:945-975). items are in the order the triggers were
+	// found; the answer lists their indices in the order they resolve, first
+	// to resolve first (the last put on the stack). Asked only when decider
+	// has two or more. An answer that is not a permutation of the indices
+	// is ignored, the default being the reverse of the found order (the
+	// first found is put on the stack first).
+	OrderSimultaneousTriggers(g *Game, decider PlayerID, items []TriggerOrderItem) []int
+
 	// ChooseReplacementEffect is CR 616.1's own "the affected player
 	// chooses": which of options -- two or more replacement effects that
 	// could each apply to the one event -- applies first. Java's
@@ -628,6 +670,7 @@ type ScriptedController struct {
 	legendaryKeep      []CardID
 	attackers          [][]CardID
 	exertAttackers     [][]CardID
+	bands              [][][]CardID
 	attackTargets      []EntityID
 	blocks             [][]Block
 	damage             [][]DamageAssignment
@@ -655,6 +698,8 @@ type ScriptedController struct {
 	returnChoices      [][]CardID
 	cardChoices        [][]CardID
 	playerChoices      []PlayerID
+	assistants         []PlayerID
+	assistAmounts      []int
 	colorChoices       []mana.Colors
 	numberChoices      []int
 	tapOrUntap         []bool
@@ -677,6 +722,7 @@ type ScriptedController struct {
 	dieResult          []int
 	rollSwapValue      []int
 	roomDoor           []Door
+	triggerOrder       [][]int
 	replacementPick    []int
 	replacementConfirm []bool
 	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
@@ -684,6 +730,8 @@ type ScriptedController struct {
 	// left nil means "nothing queued for this player yet," the same as an
 	// empty slice.
 	actionQueue []*[]Action
+	// payManaCost is PayManaCost's queue (ADR-0054).
+	payManaCost [][]Action
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -739,6 +787,11 @@ func (c *ScriptedController) QueueAttackers(cards []CardID) {
 // consumes the queue slot.
 func (c *ScriptedController) QueueExertAttackers(cards []CardID) {
 	c.exertAttackers = append(c.exertAttackers, cards)
+}
+
+// QueueBands appends the answer to the next DeclareBands call.
+func (c *ScriptedController) QueueBands(bands [][]CardID) {
+	c.bands = append(c.bands, bands)
 }
 
 // QueueAttackTarget appends the answer to the next ChooseAttackTarget call.
@@ -876,6 +929,23 @@ func (c *ScriptedController) DeclareCombatAttackers(_ *Game, _ PlayerID, _ []Car
 	return v
 }
 
+// QueuePayManaCost appends the answer to the next PayManaCost call.
+func (c *ScriptedController) QueuePayManaCost(actions []Action) {
+	c.payManaCost = append(c.payManaCost, actions)
+}
+
+// PayManaCost returns the next answer QueuePayManaCost queued, or none when
+// the queue is empty: like TakeAction's pass (ADR-0019), "activate nothing
+// more" is what a test that fills the pool itself means (ADR-0054).
+func (c *ScriptedController) PayManaCost(_ *Game, _ PlayerID, _ mana.Cost, _ CardID) []Action {
+	if len(c.payManaCost) == 0 {
+		return nil
+	}
+	v := c.payManaCost[0]
+	c.payManaCost = c.payManaCost[1:]
+	return v
+}
+
 // ExertAttackers returns the next answer QueueExertAttackers queued.
 func (c *ScriptedController) ExertAttackers(_ *Game, _ PlayerID, _ []CardID) []CardID {
 	if len(c.exertAttackers) == 0 {
@@ -883,6 +953,18 @@ func (c *ScriptedController) ExertAttackers(_ *Game, _ PlayerID, _ []CardID) []C
 	}
 	v := c.exertAttackers[0]
 	c.exertAttackers = c.exertAttackers[1:]
+	return v
+}
+
+// DeclareBands returns the next answer QueueBands queued, or no band when
+// nothing is queued: banding is rare enough that a script attacking with a
+// banding creature need not answer.
+func (c *ScriptedController) DeclareBands(_ *Game, _ PlayerID, _ []CardID) [][]CardID {
+	if len(c.bands) == 0 {
+		return nil
+	}
+	v := c.bands[0]
+	c.bands = c.bands[1:]
 	return v
 }
 
@@ -1239,6 +1321,27 @@ func (c *ScriptedController) ChooseColors(_ *Game, _ PlayerID, _ CardID, _ mana.
 	return popQueue(&c.colorChoices, "color choice")
 }
 
+// QueueAssistant appends the answer to the next ChooseAssistant call.
+func (c *ScriptedController) QueueAssistant(p PlayerID) { c.assistants = append(c.assistants, p) }
+
+// ChooseAssistant returns the next answer QueueAssistant queued, and no one
+// when none is queued: every cast of an Assist spell asks, and a script that
+// does not mean to be assisted need not say so.
+func (c *ScriptedController) ChooseAssistant(_ *Game, _ PlayerID, _ CardID, _ []PlayerID, _ int) PlayerID {
+	if len(c.assistants) == 0 {
+		return NoPlayer
+	}
+	return popQueue(&c.assistants, "assistant")
+}
+
+// QueueAssistAmount appends the answer to the next AssistAmount call.
+func (c *ScriptedController) QueueAssistAmount(n int) { c.assistAmounts = append(c.assistAmounts, n) }
+
+// AssistAmount returns the next answer QueueAssistAmount queued.
+func (c *ScriptedController) AssistAmount(_ *Game, _ PlayerID, _ CardID, _ int) int {
+	return popQueue(&c.assistAmounts, "assist amount")
+}
+
 // QueueNumberChoice appends the answer to the next ChooseNumber call.
 func (c *ScriptedController) QueueNumberChoice(n int) { c.numberChoices = append(c.numberChoices, n) }
 
@@ -1435,6 +1538,21 @@ func (c *ScriptedController) ChooseRollSwapValue(_ *Game, _ PlayerID, _ CardID, 
 	return popQueue(&c.rollSwapValue, "roll swap value")
 }
 
+// QueueTriggerOrder appends the answer to the next OrderSimultaneousTriggers
+// call; with nothing queued the default order stands.
+func (c *ScriptedController) QueueTriggerOrder(order []int) {
+	c.triggerOrder = append(c.triggerOrder, order)
+}
+
+// OrderSimultaneousTriggers returns the next answer QueueTriggerOrder queued,
+// or nil (the default order) when none is.
+func (c *ScriptedController) OrderSimultaneousTriggers(_ *Game, _ PlayerID, _ []TriggerOrderItem) []int {
+	if len(c.triggerOrder) == 0 {
+		return nil
+	}
+	return popQueue(&c.triggerOrder, "trigger order")
+}
+
 // QueueRoomDoor appends the answer to the next ChooseRoomDoor call.
 func (c *ScriptedController) QueueRoomDoor(d Door) { c.roomDoor = append(c.roomDoor, d) }
 
@@ -1531,4 +1649,12 @@ func popQueue[T any](q *[]T, kind string) T {
 // know which one came up short.
 func scriptExhausted(kind string) string {
 	return fmt.Sprintf("engine: scripted controller ran out of %s decisions", kind)
+}
+
+// TriggerOrderItem is one triggered ability a player orders under CR 603.3b.
+type TriggerOrderItem struct {
+	// Source is the card the trigger belongs to.
+	Source CardID
+	// Mode is the trigger's Mode$ (ChangesZone, Attacks, ...).
+	Mode string
 }

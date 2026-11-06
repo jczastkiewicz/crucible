@@ -3,6 +3,7 @@
 package fixture
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -67,7 +68,7 @@ func Dump(l *Loaded) *State {
 		ps.Counters = dumpCounters(g.Player(pid).Counters)
 		ps.ManaPool = dumpManaPool(g.Player(pid).ManaPool)
 		ps.LandsPlayed = g.Player(pid).LandsPlayed
-		ps.LandsPlayedLastTurn = g.Player(pid).LandsPlayedLastTurn
+		ps.Speed = g.Player(pid).Speed
 		ps.NumRingTemptedYou = g.RingTemptedYou(pid)
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)
@@ -100,7 +101,8 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 }
 
 // dumpCard writes one card's `|`-separated entry. The zone gates Java's
-// GameState.toString applies stand as written: Tapped, SummonSick, Owner,
+// GameState.toString applies stand as written: Tapped, SummonSick, Renowned,
+// Monstrous, Owner,
 // PhasedOut, AttachedTo, Damage, RememberedCards and Imprinting are
 // Battlefield-only;
 // Counters is Battlefield or Exile; Id has no gate. Protector is
@@ -120,6 +122,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 	}
 	b.WriteString("|Id:")
 	b.WriteString(strconv.FormatUint(uint64(id), 10))
+	// GameState.java:305-307: every zone.
+	if g.IsCommander(id) {
+		b.WriteString("|IsCommander")
+	}
 
 	if c.Zone == engine.Battlefield {
 		if c.Owner != c.Controller() {
@@ -133,8 +139,16 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if c.Tapped {
 			b.WriteString("|Tapped")
 		}
-		if c.SummonSick {
+		// GameState writes Card.isSick, not the flag: a noncreature or a
+		// creature with haste that changed control writes none.
+		if c.IsSick() {
 			b.WriteString("|SummonSick")
+		}
+		if c.IsRenowned() {
+			b.WriteString("|Renowned")
+		}
+		if c.IsMonstrous() {
+			b.WriteString("|Monstrous")
 		}
 		if c.IsPhasedOut() {
 			// Java's own spelling, P<seat index> (GameState.java:309-311,
@@ -142,6 +156,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			// writes above.
 			b.WriteString("|PhasedOut:P")
 			b.WriteString(strconv.Itoa(seatIndex(g, c.PhasedOutFor())))
+		}
+		if c.IsFaceDown() {
+			// GameState.java:342-343.
+			b.WriteString("|FaceDown")
 		}
 		if c.InFlippedState() {
 			b.WriteString("|Flipped")
@@ -160,7 +178,19 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString("|Damage:")
 			b.WriteString(strconv.Itoa(c.Damage.Marked))
 		}
-		// GameState.java:379-390: after Damage, ChosenType then NamedCard.
+		// GameState.java:376-398: after Damage, ChosenColor, ChosenType,
+		// NamedCard, then ChosenCards. Java lists the colors in the order
+		// chosen; Go keeps a set, written in WUBRG order.
+		if colors := c.Memory.ChosenColors(); colors != 0 {
+			var names []string
+			for _, cn := range chosenColorNames {
+				if colors&cn.color != 0 {
+					names = append(names, cn.name)
+				}
+			}
+			b.WriteString("|ChosenColor:")
+			b.WriteString(strings.Join(names, ","))
+		}
 		if t := c.Memory.ChosenType(false); t != "" {
 			b.WriteString("|ChosenType:")
 			b.WriteString(t)
@@ -168,6 +198,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if names := c.Memory.NamedCards(); len(names) > 0 {
 			b.WriteString("|NamedCard:")
 			b.WriteString(strings.Join(names, ","))
+		}
+		if chosen := c.Memory.Chosen(); len(chosen) > 0 {
+			b.WriteString("|ChosenCards:")
+			b.WriteString(joinCardIDs(chosen))
 		}
 		if ids := cardRefs(c.Memory.Remembered()); len(ids) > 0 {
 			b.WriteString("|RememberedCards:")
@@ -186,11 +220,29 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		b.WriteString("|ExiledWith:")
 		b.WriteString(strconv.FormatUint(uint64(host), 10))
 	}
+	if c.Zone == engine.Exile && c.IsFaceDown() {
+		// GameState.java:440-441.
+		b.WriteString("|FaceDown")
+	}
 	if c.Zone == engine.Battlefield || c.Zone == engine.Exile {
 		if s := dumpCounters(c.Counters); s != "" {
 			b.WriteString("|Counters:")
 			b.WriteString(s)
 		}
+	}
+	// GameState.java:463-470: an attacker in the combat now, with the
+	// planeswalker or battle it attacks.
+	if c.Zone == engine.Battlefield && slices.Contains(g.Attackers(), id) {
+		b.WriteString("|Attacking")
+		if target, ok := g.AttackTarget(id).AsCard(); ok {
+			b.WriteString(":")
+			b.WriteString(strconv.FormatUint(uint64(target), 10))
+		}
+	}
+	if c.OnAdventure() {
+		// GameState.java:443-447 writes this for every exiled Adventure card (its
+		// own TODO); only a card actually on an adventure is written here.
+		b.WriteString("|OnAdventure")
 	}
 	// GameState.java:445-450: last, left then right, in any zone -- only a
 	// Room on the battlefield has any.

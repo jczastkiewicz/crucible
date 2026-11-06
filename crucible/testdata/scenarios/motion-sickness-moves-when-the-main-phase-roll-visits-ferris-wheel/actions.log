@@ -1,0 +1,14 @@
+# CR 703.4g: human's precombat main phase starts with a d6 roll to visit
+# Attractions, since human controls one (PhaseHandler.java:292-295). The
+# scenario seed rolls a light Ferris Wheel shows (Lights:4 5 6), so it is
+# visited, and Motion Sickness's "whenever you visit an Attraction" (Mode$
+# VisitAttraction, ValidCard$ Attraction.YouCtrl) moves the Aura to the other
+# tapped creature. Both creatures have protection from artifacts, so Ferris
+# Wheel's own Visit trigger has no legal target and is removed (CR 603.3d):
+# its phase-out Effect would sit in the command zone, which a fixture cannot
+# load back (GameState.java:225-233 writes it by a name no card has).
+startturn human
+queue optionaltrigger true
+queue targets 4
+advance 3
+resolvestack

@@ -5,6 +5,7 @@ package fixture
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -59,6 +60,8 @@ import (
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
 //	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //	queue cardchoice <id>[,...]   ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick, ids from CardByFixtureID
+//	queue scry <top>[/<bottom>]   ScriptedController.QueueScry, ids kept on top (first topmost), after a slash those put on the bottom
+//	queue surveil <top>[/<grave>] ScriptedController.QueueSurveil, ids kept on top, after a slash those put into the graveyard
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 //	queue divide <n>[,<n>...]     ScriptedController.QueueDivision, a DividedAsYouChoose$ share per target, in target order
 //	queue targets <t>[,...]|none  ScriptedController.QueueTargets, cards by CardByFixtureID or player names; none chooses no target
@@ -86,6 +89,8 @@ import (
 //	queue confirmeffect <bool>           ScriptedController.QueueConfirmEffect, an effect's yes/no prompt
 //	queue confirmpaycost <bool>          ScriptedController.QueueConfirmPayCost, an UnlessCost$ pay-or-not prompt
 //	queue optionaltrigger <bool>         ScriptedController.QueueConfirmOptionalTrigger, an OptionalDecider$ trigger's "you may"
+//	queue sticker <n>                    ScriptedController.QueueSticker, an index into the stickers PutSticker offers (-1 declines)
+//	queue stickerpos <n>                 ScriptedController.QueueStickerNamePosition, where a Name sticker's word goes
 //
 // A scenario that needs a decision point no verb here reaches -- choosing
 // modes, anything an instant or sorcery resolves into -- cannot be written
@@ -104,6 +109,11 @@ import (
 // `resolvestack` are the payment step plus the one stack shape this port
 // can push and resolve.
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
+	if len(l.Attacking) > 0 {
+		// GameState.java:1429-1435 puts a setup attacker into combat; Load
+		// does not, so the two engines would play different boards.
+		return errors.New("setup.state: |Attacking is read only in expect.state; Load builds no combat")
+	}
 	sc := bufio.NewScanner(r)
 	for line := 1; sc.Scan(); line++ {
 		text := strings.TrimSpace(sc.Text())
@@ -201,6 +211,46 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("plot: want exactly one card id, got %q", args[1])
 		}
 		l.Game.Plot(pid, ids[0], c)
+
+	case "suspend":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if len(args) < 2 {
+			return fmt.Errorf("suspend: want a player and a card id, got %q", strings.Join(args, " "))
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("suspend: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("suspend: want exactly one card id, got %q", args[1])
+		}
+		l.Game.Suspend(pid, ids[0], c)
+
+	case "turnfaceup":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if len(args) < 2 || len(args) > 3 {
+			return fmt.Errorf("turnfaceup: want a player, a card id and an optional way, got %q", strings.Join(args, " "))
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("turnfaceup: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("turnfaceup: want exactly one card id, got %q", args[1])
+		}
+		way := 0
+		if len(args) == 3 {
+			if way, err = strconv.Atoi(args[2]); err != nil {
+				return fmt.Errorf("turnfaceup: way %q: %w", args[2], err)
+			}
+		}
+		l.Game.TurnFaceUp(pid, ids[0], way, c)
 
 	case "concede":
 		pid, err := resolveActionPlayer(l, args, 1)
@@ -351,7 +401,17 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("playland: want exactly one card id, got %q", args[1])
 		}
-		l.Game.PlayLand(pid, ids[0], c)
+		// A refused play is an error, so a scenario cannot pass with the land
+		// never played; a refusal the scenario means is `expecterror refused`.
+		var played bool
+		if len(args) > 2 && args[2] == "face" {
+			played = l.Game.PlayLandFace(pid, ids[0], c)
+		} else {
+			played = l.Game.PlayLand(pid, ids[0], c)
+		}
+		if !played {
+			return fmt.Errorf("playland: %s's land play was refused", args[0])
+		}
 
 	case "castspell":
 		if len(args) < 2 {
@@ -368,7 +428,19 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("castspell: want exactly one card id, got %q", args[1])
 		}
-		l.Game.CastSpell(pid, ids[0], c)
+		// A refused cast is an error, as a refused land play is.
+		var cast bool
+		switch {
+		case len(args) > 2 && args[2] == "face":
+			cast = l.Game.CastFace(pid, ids[0], c)
+		case len(args) > 2 && args[2] == "fuse":
+			cast = l.Game.CastFused(pid, ids[0], c)
+		default:
+			cast = l.Game.CastSpell(pid, ids[0], c)
+		}
+		if !cast {
+			return fmt.Errorf("castspell: %s's cast was refused", args[0])
+		}
 
 	case "resolvestack":
 		if err := l.Game.ResolveStack(engine.NewRegistry(), c); err != nil {
@@ -566,6 +638,42 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueCardChoice(ids)
 
+	case "entitychoice":
+		// ChooseEntitiesForEffect: players and permanents an effect picks
+		// among (Proliferate's "choose any number"), each a card's
+		// CardByFixtureID or a seated player's name; "none" is an empty pick,
+		// the answer Java still asks for when nothing qualifies.
+		if value == "none" {
+			c.QueueEntityChoice(nil)
+			break
+		}
+		chosen, err := resolveTargetEntities(l, value)
+		if err != nil {
+			return fmt.Errorf("queue entitychoice: %w", err)
+		}
+		c.QueueEntityChoice(chosen)
+
+	case "tapchoice":
+		// ChoosePermanentsToTap: a tapXType cost's pick (Station, Crew).
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue tapchoice: %w", err)
+		}
+		c.QueueTapChoice(ids)
+
+	case "triggerorder":
+		// OrderSimultaneousTriggers (CR 603.3b): indices of the player's
+		// triggers, in the order they resolve.
+		var order []int
+		for _, f := range strings.Split(value, ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(f))
+			if err != nil {
+				return fmt.Errorf("queue triggerorder: %w", err)
+			}
+			order = append(order, n)
+		}
+		c.QueueTriggerOrder(order)
+
 	case "cardorder":
 		// The order cards moving into one zone together go in (CR 613.7m,
 		// OrderCardsForZone), as the exile of The Mimeoplasm's two cards.
@@ -590,18 +698,18 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		c.QueueReturnChoice(ids)
 
 	case "scry":
-		ids, err := resolveCardIDs(l, value)
+		top, bottom, err := resolveTopAndRest(l, value)
 		if err != nil {
 			return fmt.Errorf("queue scry: %w", err)
 		}
-		c.QueueScry(ids, nil)
+		c.QueueScry(top, bottom)
 
 	case "surveil":
-		ids, err := resolveCardIDs(l, value)
+		top, graveyard, err := resolveTopAndRest(l, value)
 		if err != nil {
 			return fmt.Errorf("queue surveil: %w", err)
 		}
-		c.QueueSurveil(ids, nil)
+		c.QueueSurveil(top, graveyard)
 
 	case "battleprotector":
 		pid, err := resolveActionPlayer(l, args[1:], 1)
@@ -618,6 +726,20 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue option %q: want an option index", value)
 		}
 		c.QueueOption(n)
+
+	case "sticker", "stickerpos":
+		// A PutSticker answer (ChooseSticker): an index into the offered
+		// stickers, -1 declining an optional one; stickerpos is where a Name
+		// sticker's word goes (ChooseStickerNamePosition).
+		n, err := strconv.Atoi(value)
+		if err != nil || n < -1 || (kind == "stickerpos" && n < 0) {
+			return fmt.Errorf("queue %s %q: want an index", kind, value)
+		}
+		if kind == "sticker" {
+			c.QueueSticker(n)
+		} else {
+			c.QueueStickerNamePosition(n)
+		}
 
 	case "numberchoice":
 		// A number an effect asks the player to choose (ChooseNumber): the life
@@ -685,6 +807,22 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueSector(i)
 
+	case "assistant":
+		// The player an Assist spell's caster asks to pay (ChooseAssistant).
+		pid, err := resolveActionPlayer(l, args[1:], 1)
+		if err != nil {
+			return err
+		}
+		c.QueueAssistant(pid)
+
+	case "assistamount":
+		// The generic mana the assistant pays (AssistAmount).
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("queue assistamount %q: %w", value, err)
+		}
+		c.QueueAssistAmount(n)
+
 	case "paygeneric":
 		s, err := mana.ParseShard(value)
 		if err != nil {
@@ -733,6 +871,17 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue paycolorlesshybrid %q: %w", value, err)
 		}
 		c.QueuePayColorlessHybrid(v)
+
+	case "coincall":
+		// CallCoinFlip: the flipping player's call (FlipCoinEffect.java).
+		switch value {
+		case "heads":
+			c.QueueCoinCall(true)
+		case "tails":
+			c.QueueCoinCall(false)
+		default:
+			return fmt.Errorf("queue coincall %q: want heads or tails", value)
+		}
 
 	case "payphyrexian":
 		v, err := strconv.ParseBool(value)
@@ -882,6 +1031,23 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("plot takes one card id, got %q", strings.Join(args[2:], " "))
 		}
 		return engine.Action{Kind: engine.ActionPlot, Card: ids[0]}, pid, nil
+	case "suspend":
+		if len(args) != 3 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("suspend takes one card id, got %q", strings.Join(args[2:], " "))
+		}
+		return engine.Action{Kind: engine.ActionSuspend, Card: ids[0]}, pid, nil
+	case "turnfaceup":
+		if len(args) != 3 && len(args) != 4 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("turnfaceup takes a card id and an optional way, got %q", strings.Join(args[2:], " "))
+		}
+		way := 0
+		if len(args) == 4 {
+			var err error
+			if way, err = strconv.Atoi(args[3]); err != nil {
+				return engine.Action{}, engine.NoPlayer, fmt.Errorf("turnfaceup way %q: %w", args[3], err)
+			}
+		}
+		return engine.Action{Kind: engine.ActionTurnFaceUp, Card: ids[0], AbilityIndex: way}, pid, nil
 	case "playland":
 		if len(args) != 3 {
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes one card id, got %q", args[1], strings.Join(args[2:], " "))
@@ -931,6 +1097,25 @@ func resolveCardIDs(l *Loaded, value string) ([]engine.CardID, error) {
 		ids[i] = id
 	}
 	return ids, nil
+}
+
+// resolveTopAndRest reads a scry or surveil answer: the ids kept on top,
+// the first topmost, then after a slash the ids put on the bottom (or into
+// the graveyard). Either half may be empty; with no slash the answer keeps
+// only the listed cards on top and moves no other card.
+func resolveTopAndRest(l *Loaded, value string) (top, rest []engine.CardID, err error) {
+	topText, restText, _ := strings.Cut(value, "/")
+	if strings.TrimSpace(topText) != "" {
+		if top, err = resolveCardIDs(l, topText); err != nil {
+			return nil, nil, err
+		}
+	}
+	if strings.TrimSpace(restText) != "" {
+		if rest, err = resolveCardIDs(l, restText); err != nil {
+			return nil, nil, err
+		}
+	}
+	return top, rest, nil
 }
 
 // resolveManaColor reads a bare color letter ("W", "U", ...) the way

@@ -392,10 +392,19 @@ func (g *Game) checkTurnedFaceUpTriggers(controller PlayerController, card CardI
 		}
 		return triggeredObjects{card: card}, true
 	})
+	// AbilityUtils.java:1680-1685: a TurnFaceUp trigger's Count$xPaid is the X
+	// its cause paid (a Morph:X turn-face-up special action, Bane of the
+	// Living), 0 when the cause had none.
+	for i := range matches {
+		matches[i].xManaCostPaid, matches[i].hasXManaCostPaid = 0, true
+		if cause != nil && cause.hasXManaCostPaid {
+			matches[i].xManaCostPaid = cause.xManaCostPaid
+		}
+	}
 	g.pushTriggeredAbilities(controller, matches)
 }
 
-var attachedTriggerParams = effectEventParams("validsource", "validtarget", "targetrelativetosource")
+var attachedTriggerParams = effectEventParams("validsource", "validtarget", "targetrelativetosource", "static")
 
 // checkAttachedTriggers is Mode$ Attached (TriggerAttached, 4 real lines),
 // fired by Card.attachToEntity after the Event$ Attached replacements

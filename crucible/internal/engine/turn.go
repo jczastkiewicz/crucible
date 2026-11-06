@@ -26,6 +26,8 @@
 
 package engine
 
+import "slices"
+
 // SetTurnState jumps the game directly to a turn, active player and phase,
 // with none of the per-step actions applied. This is fixture loading's tool
 // -- the same relationship Java's devAdvanceToPhase has to
@@ -114,7 +116,14 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 	} else {
 		next = nextPhaseOf(g.activePhase, g.phasesReversed(g.activePlayer))
 		if g.activePhase == Cleanup {
+			g.endCleanup()
 			g.turn++
+			// PhaseHandler.java:855-857, phased-out permanents included.
+			for _, pid := range g.Players() {
+				for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+					g.Card(id).startedTurnUntapped = !g.Card(id).Tapped
+				}
+			}
 			g.previousPlayer = g.activePlayer
 			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
 			// MagicStack.onNextTurn (MagicStack.java:965-979): this turn's
@@ -167,6 +176,9 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.endEffectsAtTurnStart(g.activePlayer)
 			g.endCopiesAtTurnStart(g.activePlayer)
 			g.monarchBeginTurn = g.monarch
+			g.handActivePlaneTo(g.activePlayer)
+			// PhaseHandler.java:526: the planar die's special action count.
+			g.planarDiceSpecialActions = 0
 			// PhaseHandler.java:522-524: the "begin turn" trigger of the
 			// cleanup step that handed the turn over.
 			g.checkTurnBeginTriggers(controller, g.activePlayer)
@@ -193,7 +205,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 
 // drivenSkips is PhaseHandler.isSkippingPhase (PhaseHandler.java:219-238)
 // for the steps the driver skips on its own: the first player's draw step
-// on turn 1 of a two-player game (CR 103.7a), and -- entering
+// on turn 1 of a two-player game (CR 103.8a), and -- entering
 // DeclareBlockers records whether any creature attacked -- with none,
 // DeclareBlockers and both damage steps. A skipped step is not begun at
 // all: no PhaseBegan and no phase triggers, Java's own `skipped` path
@@ -352,6 +364,11 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		g.upkeepsThisTurn++
 		// PhaseHandler.java:259-260: executeUntil(playerTurn), executeAt().
 		g.runPhaseCommands(controller, untilUpkeepBegin, g.activePlayer)
+		// :263-265: a player who controls a Contraption advances their
+		// CRANK! counter and cranks that sprocket's Contraptions.
+		if g.controlsContraption(g.activePlayer) {
+			g.advanceCrankCounter(controller, g.activePlayer, NoCard)
+		}
 	case EndOfTurn:
 		// PhaseHandler.java:362: nEndOfTurnsThisTurn++.
 		g.endOfTurnsThisTurn++
@@ -368,6 +385,8 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		g.mainsThisTurn++
 		g.archenemyMain1(controller)
 		g.sagaLoreCounters(controller)
+		// :292-295, CR 703.4g.
+		g.rollToVisitAttractions(controller, g.activePlayer)
 	case CombatBegin:
 		g.combatsThisTurn++
 		// PhaseHandler.java:301: getBeginOfCombat().executeUntil(playerTurn),
@@ -403,8 +422,17 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		priority = false // CR 514.3, PhaseHandler.java:422
 	}
 	g.checkPhaseTriggers(controller)
+	if !priority && g.activePhase != Cleanup {
+		// CR 704.3: state-based actions are checked when a player would
+		// receive priority (PhaseHandler.checkStateBasedEffects); Untap and
+		// a damage step with no damage give none. Cleanup checks them
+		// itself (CR 514.3a, PhaseHandler.java:425).
+		return false, nil
+	}
 	_, performed := checkStateBasedActions(g, controller)
-	if g.activePhase == Cleanup && (performed || len(g.stack) != 0) {
+	// A trigger held in an open trigger batch (an EndTurn resolution's) is
+	// Java's hasSimultaneousStackEntries: it counts as on the stack.
+	if g.activePhase == Cleanup && (performed || len(g.stack) != 0 || len(g.triggerBatch) != 0) {
 		// CR 514.3a: priority, then another cleanup step
 		// (PhaseHandler.java:425-426, 447-449).
 		priority = true
@@ -464,9 +492,34 @@ func (g *Game) emptyManaPools(controller PlayerController) {
 // the wasTapped check below rather than inside checkUntapsTriggers itself,
 // since a card already untapped is not an event to check triggers against
 // at all.
+// untapStepBounce is doUntap's first pass (Untap.java:91-98): every
+// permanent of the active player with untapBounceKeyword (Undiscovered
+// Paradise's Pump) returns to its owner's hand before anything untaps, the
+// moves batched for ChangesZoneAll.
+func (g *Game) untapStepBounce(controller PlayerController) {
+	var bounce, moved []CardID
+	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
+		if g.Card(id).hasKeywordText(untapBounceKeyword) {
+			bounce = append(bounce, id)
+		}
+	}
+	for _, id := range bounce {
+		g.moveByEffect(controller, id, Hand, 0, NoPlayer, false)
+		if g.Card(id).Zone == Hand {
+			moved = append(moved, id)
+		}
+	}
+	g.checkChangesZoneAllTriggers(controller, moved, Battlefield, Hand)
+}
+
 func (g *Game) untapStep(controller PlayerController) {
 	g.untapStepPhasing(controller)
 	g.dayTimeAtUntap(controller)
+	// Untap.executeAt's checkStaticAbilities (Untap.java:76): the step gives
+	// no priority, so no state-based check rebuilds the layers before the
+	// untap reads them (an expired "doesn't untap", a "can't untap" static).
+	g.refreshLayers()
+	g.untapStepBounce(controller)
 	// Exert and summoning sickness clear for every permanent the active player
 	// controls, whether or not it untaps (Untap.java:167-169).
 	exerted := map[CardID]bool{}
@@ -515,17 +568,18 @@ func (g *Game) untapStep(controller PlayerController) {
 	g.endNextUntapStepKeyword()
 }
 
-// untapCard untaps a tapped permanent: its untap commands, then the tapped
-// flag, then the Untaps triggers (Go runs them after the flag; Java before).
+// untapCard untaps a tapped permanent in Card.untap's order (Card.java:
+// 4839-4842): the Untaps triggers are checked while it is still tapped, then
+// its untap commands run, then the tapped flag clears.
 func (g *Game) untapCard(controller PlayerController, id CardID) {
+	g.checkUntapsTriggers(controller, id)
 	g.runUntapCommands(controller, id)
 	g.Card(id).Tapped = false
-	g.checkUntapsTriggers(controller, id)
 }
 
 // drawStep draws one card for the active player, ported from
 // PhaseHandler.onPhaseBegin's DRAW case and PhaseHandler.isSkippingPhase's
-// DRAW rule (CR 103.7a): the first player skips the draw step of their own
+// DRAW rule (CR 103.8a): the first player skips the draw step of their own
 // first turn in a two-player game. Every player's own DrawnThisDrawStep
 // (player.go) resets here first, PhaseHandler.java:268-271's own loop over
 // every player -- a skipped draw step resets nothing, matching Java's own
@@ -594,7 +648,7 @@ func (g *Game) drawEvent(controller PlayerController, pid PlayerID) bool {
 	if g.cantDraw(pid) {
 		return false
 	}
-	if g.drawPrevented(pid) {
+	if g.drawPrevented(controller, pid) {
 		return true
 	}
 	if g.drawReplaced(controller, pid) {
@@ -622,16 +676,26 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	if g.playerStatic(pid, "DrawFromBottom", nil) {
 		id = lib.Cards()[lib.Len()-1]
 	}
-	g.Move(id, Hand, pid)
+	// A Moved replacement may take the card elsewhere (a commander to the
+	// Command zone); Java's doDraw (Player.java:1235-1277) still counts it as
+	// drawn and fires Drawn wherever it landed.
+	if !g.redirectMove(controller, id, Hand) {
+		g.Move(id, Hand, pid)
+	}
+	g.Card(id).drawnThisTurn = true
 	// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
 	// says a card moved, CardDrawn says why, which is what makes a draw
 	// countable without inspecting every zone change for the ones that
 	// happen to be library-to-hand.
 	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
 	g.Player(pid).CardsDrawnThisTurn++
+	g.Player(pid).extraDrawnThisTurn++
 	g.Player(pid).lastDrawn, g.Player(pid).hasLastDrawn = id, true
 	if g.activePhase == Draw {
 		g.Player(pid).DrawnThisDrawStep++
+		if g.Player(pid).DrawnThisDrawStep == 1 {
+			g.Player(pid).extraDrawnThisTurn--
+		}
 	}
 	g.checkDrawnTriggers(controller, pid, id, g.Player(pid).CardsDrawnThisTurn)
 	g.checkLeftZoneTriggers(controller, []CardID{id}, Library)
@@ -641,12 +705,13 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	return true
 }
 
-// MaxHandSize is CR 103.4's default maximum hand size, the base
-// HandSizeLimit (player.go) folds Layer 8's own SetMaxHandSize$/
+// MaxHandSize is CR 103.4's default maximum hand size. Each player's base,
+// the one HandSizeLimit (player.go) folds Layer 8's own SetMaxHandSize$/
 // RaiseMaxHandSize$ continuous effects on top of (Spellbook's/Thought
-// Vessel's own static abilities among the corpus's 43 real
-// SetMaxHandSize$ lines).
-const MaxHandSize = 7
+// Vessel's own static abilities among the corpus's 43 real SetMaxHandSize$
+// lines), is their StartingHandSize, this unless a Vanguard avatar changed
+// it.
+const MaxHandSize = defaultStartingHandSize
 
 // endCombat is CR 511.3: as the end of combat step ends, every creature and
 // planeswalker/battle is removed from combat (advanceStep). Java's
@@ -672,6 +737,12 @@ func (g *Game) endCombat() {
 	g.runScheduledActions(boundaryEndCombat, g.activePlayer)
 	g.runEndOfCombatCommands(nil)
 	g.combat = Combat{}
+	// Combat.java:181-183: every battlefield card's damagedThisCombat.
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+			g.Card(id).combatDamagedPlayers = nil
+		}
+	}
 	// Combat.endCombat's playerWhoAttacks.clearAttackedPlayersMyCombat
 	// (Combat.java:170): the attacking player's list only, as Java clears it.
 	// A game with no turn begun has no attacking player and nothing recorded.
@@ -683,11 +754,11 @@ func (g *Game) endCombat() {
 }
 
 // cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
-// partial CR 514.2 ("all damage marked on permanents ... is removed") and
-// CR 305.2's own per-turn land-play reset. 514.1 only concerns the active
-// player -- discarding down is not scoped to everyone the way clearing
-// damage and the land-play reset are (below); an untapStep-shaped difference
-// these have from each other. If the active player's hand already fits, or
+// partial CR 514.2 ("all damage marked on permanents ... is removed"),
+// PhaseHandler.onPhaseBegin's CLEANUP case. The turn's own counts (lands
+// played, cards drawn, ...) reset as the step ends, endCleanup. 514.1 only
+// concerns the active player -- discarding down is not scoped to everyone
+// the way clearing damage is (below). If the active player's hand already fits, or
 // is empty, the controller is never asked, the same "nothing meaningful to
 // decide" reasoning every other combat/mulligan decision point in this port
 // uses for an empty or already-satisfied set.
@@ -709,7 +780,7 @@ func (g *Game) endCombat() {
 // check for the first time in this same phase.
 func (g *Game) cleanupStep(controller PlayerController) {
 	hand := g.Zone(Hand, g.activePlayer).Cards()
-	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(MaxHandSize); hasLimit && len(hand) > limit {
+	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(g.Player(g.activePlayer).StartingHandSize); hasLimit && len(hand) > limit {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
 		for _, id := range discard {
 			// CR 514.1's discard is no effect's (Player.discard with effect
@@ -719,78 +790,25 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		}
 	}
 
-	// Card.resetActivationsPerTurn for every card in the game
-	// (Game.java:1239-1241), not only the battlefield's.
-	for i := 1; i < len(g.cards); i++ {
-		g.cards[i].activations.resetTurn()
-		g.cards[i].trigActs.resetTurn()
-		g.cards[i].trigResolved.resetTurn()
-		g.cards[i].damageDealtThisTurn = 0
-	}
-	// Phased-out permanents too: CR 514.2's damage removal and
-	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
-	// (PhaseHandler.java:400, Game.java:1236) -- ADR-0021's cleanup opt-in.
+	// CR 514.2 (PhaseHandler.java:400-405): phased-out permanents too
+	// (getCardsIncludePhasingIn) -- ADR-0021's cleanup opt-in.
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
 			if !g.damageNotRemoved(id) {
 				g.Card(id).Damage.Clear()
 			}
-			g.Card(id).AttacksThisTurn = 0
-			g.Card(id).BecameTargetThisTurn = false
-			g.Card(id).blockedByThisTurn = nil
-			g.Card(id).blockedThisTurn = nil
-			g.Card(id).attackedThisTurn = nil
-			g.Card(id).LoyaltyAbilityActivated, g.Card(id).loyaltyActivations, g.Card(id).loyaltyLimitUsed = false, 0, false
-			g.Card(id).RegenShields, g.Card(id).regenFollows = 0, nil
-			g.Card(id).Saddled, g.Card(id).saddledBy, g.Card(id).timesSaddled = false, nil, 0
-			// Card.onCleanupPhase (Card.java:7275).
-			g.Card(id).regeneratedThisTurn = 0
 		}
-		p := g.Player(pid)
-		p.LandsPlayedLastTurn = p.LandsPlayed
-		p.LandsPlayed = 0
-		// Player.onCleanupPhase (Player.java:2474-2494): the "last turn" counts
-		// take this turn's before they reset.
-		p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, p.LifeLostThisTurn
-		p.scryThisTurn = 0
-		p.RollsThisTurn = 0
-		p.librarySearched = 0
-		p.CardsDrawnThisTurn = 0
-		p.dilemmasFacedThisTurn = 0
-		p.DescendedThisTurn, p.descended = false, 0
-		p.committedCrimes = 0
-		p.VenturedThisTurn = 0
-		p.LifeGainedTimesThisTurn = 0
-		p.LifeLostThisTurn = 0
-		p.exploredThisTurn = 0
-		p.LifeGainedThisTurn = 0
-		p.attackedThisTurn = nil
-		p.CyclingThisTurn = 0
-		p.InvestigatedThisTurn = 0
-		p.TokensCreatedThisTurn = 0
-		p.discardedThisTurn = nil
-		g.cleanupPlayerRecords(pid)
 	}
-	// Zone.resetCardsAddedThisTurn (Player.onCleanupPhase),
-	// Game.clearCountersThisTurn and Game.clearGlobalDamageHistory
-	// (Game.onCleanupPhase).
-	g.enteredLastTurn, g.enteredThisTurn = g.enteredThisTurn, nil
 	// PhaseHandler.java:420: MagicStack.resetMaxDistinctSources.
 	g.maxDistinctSources = 0
 	g.noSchemesThisTurn = false
-	g.leftGraveyardThisTurn = nil
 	// PhaseHandler.java:415-418: the CLEANUP case of onPhaseBegin zeroes the
 	// upkeeps, combats and end steps begun, so cleanup itself reads none
 	// finished and the next turn starts from none.
 	g.upkeepsThisTurn = 0
 	g.combatsThisTurn = 0
 	g.mainsThisTurn = 0
-	g.piledGuessedSA = 0
 	g.endOfTurnsThisTurn = 0
-	g.countersAddedThisTurn = nil
-	g.countersRemoved = nil
-	g.playerDamageThisTurn = nil
-	g.cardDamageThisTurn = nil
 
 	g.combatDamagePrevented = false
 	g.preventShields = nil
@@ -810,6 +828,90 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	g.endSkipsAtCleanup()
 	g.endEffectsAtCleanup()
 	g.endMustBlocks(false)
+}
+
+// endCleanup is Game.onCleanupPhase (Game.java:1337-1352), which
+// PhaseHandler.onPhaseEnd runs as the last cleanup step ends, not repeated
+// (PhaseHandler.java:508-511): the turn's own counts stay readable through
+// cleanup, so a checkpoint there still sees this turn's lands played.
+func (g *Game) endCleanup() {
+	// Card.resetActivationsPerTurn for every card in the game
+	// (Game.java:1239-1241), not only the battlefield's.
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].activations.resetTurn()
+		g.cards[i].trigActs.resetTurn()
+		g.cards[i].trigResolved.resetTurn()
+		g.cards[i].damageDealtThisTurn = 0
+	}
+	// Phased-out permanents too: Card.onCleanupPhase's resets walk
+	// getCardsIncludePhasingIn (Game.java:1347-1349).
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+			c := g.Card(id)
+			c.attackedLastTurnOf = slices.DeleteFunc(c.attackedLastTurnOf, func(p PlayerID) bool { return p == g.activePlayer })
+			if c.AttacksThisTurn > 0 {
+				c.attackedLastTurnOf = append(c.attackedLastTurnOf, g.activePlayer)
+			}
+			g.Card(id).AttacksThisTurn = 0
+			g.Card(id).BecameTargetThisTurn = false
+			g.Card(id).foughtThisTurn = false
+			g.Card(id).visitedThisTurn = false
+			g.Card(id).blockedByThisTurn = nil
+			g.Card(id).blockedThisTurn = nil
+			g.Card(id).attackedThisTurn = nil
+			g.Card(id).LoyaltyAbilityActivated, g.Card(id).loyaltyActivations, g.Card(id).loyaltyLimitUsed = false, 0, false
+			g.Card(id).RegenShields, g.Card(id).regenFollows = 0, nil
+			g.Card(id).Saddled, g.Card(id).saddledBy, g.Card(id).timesSaddled = false, nil, 0
+			// Card.onCleanupPhase (Card.java:7275).
+			g.Card(id).regeneratedThisTurn = 0
+			g.Card(id).exertedThisTurn = 0
+			g.Card(id).crewedBy = nil
+			g.Card(id).combatDamagedPlayers = nil
+		}
+		// Player.onCleanupPhase (Player.java:2493-2495).
+		for _, id := range g.Zone(Hand, pid).Cards() {
+			g.Card(id).drawnThisTurn = false
+		}
+		p := g.Player(pid)
+		if pid == g.activePlayer {
+			p.LandsPlayedMyLastTurn = p.LandsPlayed
+		}
+		p.LandsPlayed = 0
+		g.forgetPlayedLands(pid)
+		// Player.onCleanupPhase (Player.java:2474-2494): the "last turn" counts
+		// take this turn's before they reset.
+		p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, p.LifeLostThisTurn
+		p.scryThisTurn = 0
+		p.RollsThisTurn = 0
+		p.librarySearched = 0
+		p.CardsDrawnThisTurn = 0
+		p.extraDrawnThisTurn = 0
+		p.dilemmasFacedThisTurn = 0
+		p.DescendedThisTurn, p.descended = false, 0
+		p.committedCrimes = 0
+		p.elementalBends = 0
+		p.VenturedThisTurn = 0
+		p.LifeGainedTimesThisTurn = 0
+		p.LifeLostThisTurn = 0
+		p.exploredThisTurn = 0
+		p.LifeGainedThisTurn = 0
+		p.attackedThisTurn = nil
+		p.CyclingThisTurn = 0
+		p.InvestigatedThisTurn = 0
+		p.TokensCreatedThisTurn = 0
+		p.discardedThisTurn = nil
+		g.cleanupPlayerRecords(pid)
+	}
+	// Zone.resetCardsAddedThisTurn (Player.onCleanupPhase),
+	// Game.clearCountersThisTurn and Game.clearGlobalDamageHistory
+	// (Game.onCleanupPhase).
+	g.enteredLastTurn, g.enteredThisTurn = g.enteredThisTurn, nil
+	g.leftGraveyardThisTurn = nil
+	g.piledGuessedSA = 0
+	g.countersAddedThisTurn = nil
+	g.countersRemoved = nil
+	g.playerDamageThisTurn = nil
+	g.cardDamageThisTurn = nil
 }
 
 // skipPhase is one SkipPhase effect: Player skips the next phase or step in
@@ -872,6 +974,7 @@ func (g *Game) endUpkeep() {
 			c := g.Card(id)
 			c.notAttacked |= 1 << g.activePlayer
 			c.notBlocked |= 1 << g.activePlayer
+			c.notBeenBlocked |= 1 << g.activePlayer
 			if c.Controller() == g.activePlayer && c.enteredTurn < g.turn {
 				c.cameUnderControl = false
 			}

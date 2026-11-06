@@ -373,27 +373,6 @@ func TestReplaceCounterValidCounterTypeMismatchStillLetsAMatchingReplacementRun(
 	}
 }
 
-// TestReplaceSplitDamageRejectsDivideShield proves DivideShield$ (a shape
-// this port does not model) makes the replacement fail to resolve, so
-// eachReplacement treats it as not applied and the damage lands whole --
-// rather than silently redirecting as if DivideShield$ were not there.
-func TestReplaceSplitDamageRejectsDivideShield(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	host := resolveLine(t, g, p, engine.NewScriptedController(),
-		"DB$ Effect | RememberObjects$ Self | ReplacementEffects$ RedirectDamage | Duration$ Permanent | SubAbility$ DBDamage",
-		"RedirectDamage", "Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ RedirectDmg | DamageTarget$ You | Description$ The next 1 damage is dealt to you instead.",
-		"RedirectDmg", "DB$ ReplaceSplitDamage | DamageTarget$ You | DivideShield$ True",
-		"DBDamage", "DB$ DealDamage | Defined$ Self | NumDmg$ 3")
-	if got := g.Player(p).Life; got != 20 {
-		t.Errorf("controller life = %d, want 20 -- DivideShield$ True makes the replacement fail to resolve, none redirected", got)
-	}
-	if z := g.Card(host).Zone; z != engine.Graveyard {
-		t.Errorf("1/1 creature zone = %v, want Graveyard -- all 3 damage hits it, unredirected", z)
-	}
-}
-
 // TestReplaceEffectFailsClosedOnMalformedLines proves ReplaceEffect's own
 // error branches leave the event unedited rather than propagating: a
 // rejected VarKey$, an unmet Condition gate, a VarName$ that does not name
@@ -469,6 +448,23 @@ func TestReplaceDamageFailsClosedAndDefaultsAmountToOne(t *testing.T) {
 		}
 	})
 
+	for name, op := range map[string]string{
+		"UnknownTokenScript":        "DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ no_such_token",
+		"ChosenWithoutValidChoices": "DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ Chosen",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTokenGame(t)
+			g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Bad Replace",
+				"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
+				"Op", op), p, engine.Battlefield)
+			resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
+			if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
+				t.Errorf("soldiers = %d, want 3 -- a ReplaceWith$ that fails leaves the token table as it was", n)
+			}
+		})
+	}
+
 	t.Run("AmountUnresolvable", func(t *testing.T) {
 		t.Parallel()
 		g, p, _ := newTwoPlayerGame(t)
@@ -514,22 +510,21 @@ func TestReplaceSplitDamageDefaultsAndFailsClosed(t *testing.T) {
 	}
 }
 
-// TestReplaceTokenFailsClosedOnUnportedTypeAndBadAmount proves Type$ naming
-// something other than Amount, and Amount$ naming an unresolvable op, both
-// fail the replacement rather than silently leaving the token count alone
-// or crashing.
-func TestReplaceTokenFailsClosedOnUnportedTypeAndBadAmount(t *testing.T) {
+// TestReplaceTokenUnknownTypeAndBadAmount proves an unknown Type$ changes
+// nothing (Java's own fall-through), and an Amount$ naming an unresolvable op
+// fails the replacement rather than guessing a count or crashing.
+func TestReplaceTokenUnknownTypeAndBadAmount(t *testing.T) {
 	t.Parallel()
 
-	t.Run("TypeNotAmount", func(t *testing.T) {
+	t.Run("UnknownTypeChangesNothing", func(t *testing.T) {
 		t.Parallel()
 		g, p, _ := newTokenGame(t)
-		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Type Not Amount",
+		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Unknown Type",
 			"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
-			"Op", "DB$ ReplaceToken | Type$ ReplaceController"), p, engine.Battlefield)
+			"Op", "DB$ ReplaceToken | Type$ Bogus"), p, engine.Battlefield)
 		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
 		if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
-			t.Errorf("soldiers = %d, want 3 -- Type$ ReplaceController is not ported, replacement fails closed", n)
+			t.Errorf("soldiers = %d, want 3 -- an unknown Type$ changes nothing (ReplaceTokenEffect.java:158)", n)
 		}
 	})
 

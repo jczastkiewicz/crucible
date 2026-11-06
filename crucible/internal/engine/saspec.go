@@ -27,18 +27,18 @@ var saKeywordProperties = map[string][]string{
 	"Crew": {"Crew"}, "Saddle": {"Saddle"}, "Station": {"Station"}, "Cycling": {"Cycling", "TypeCycling"},
 	"Unearth": {"Unearth"}, "Modular": {"Modular"}, "Equip": {"Equip"}, "Exhaust": {"Exhaust"},
 	"Outlast": {"Outlast"}, "PowerUp": {"PowerUp"}, "Boast": {"Boast"}, "Monstrosity": {"Monstrosity"},
+	"Craft": {"Craft"}, "Daybound": {"Daybound"}, "Nightbound": {"Nightbound"},
 }
 
 // saUnresolvedProperties are SpellAbility properties that read state this
 // port does not track (how a spell was cast, what mana paid for it): a spec
 // naming one is not evaluated.
 var saUnresolvedPrefixes = []string{
-	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Craft", "Dash",
+	"CountersRemovedToPay", "Bargain", "Backup", "Bestow",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
-	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
-	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
-	"Nightbound", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
-	"paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource",
+	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "Mayhem",
+	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
+	"paidPhyrexianMana", "ManaSpentBy", "ManaFrom",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }
 
@@ -123,12 +123,28 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		}
 	}
 	switch {
+	case prop == "isCastFaceDown":
+		// SpellAbility.isCastFaceDown: the spell's card is face down while it
+		// is cast and on the stack (ADR-0048).
+		return a.spell && source.IsFaceDown(), true
+	case prop == "MayPlaySource":
+		// SpellAbilityProperty.java:207-212: the MayPlay$ static the spell is
+		// cast through is hosted by the trait's own card. Known only for the
+		// spell being cast; a spell on the stack keeps no grantor here.
+		if !a.spell || a.Source != g.castPending {
+			return false, false
+		}
+		return g.castGrantor != NoCard && g.castGrantor == host.ID, true
 	case prop == "ManaAbility":
 		// A basic land's intrinsic mana ability (CR 305.6) has no script line.
 		if a.Params == nil {
 			return a.API == APIMana && a.activated, true
 		}
 		return a.Params.Record == compile.Activated && strings.EqualFold(a.Params.Name, "Mana"), true
+	case prop == "SacrificedToPay":
+		// SpellAbilityProperty.java:42-43: its cost sacrificed one or more
+		// permanents (the paid Sacrificed list; Ashnod the Uncaring).
+		return len(a.paid.sacrificed) > 0, true
 	case prop == "hasTapCost":
 		if a.Params == nil {
 			return false, true
@@ -146,6 +162,11 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 	case prop == "OppCtrl":
 		matched, _ := matchesPlayerSpec(g, a.Controller, hostController, host.ID, "Opponent")
 		return matched, true
+	case prop == "Dash" || prop == "Blitz" || prop == "Warp":
+		// SpellAbilityProperty.java:51-52, :65-66, :137-138 (isBlitz, isDash,
+		// isWarp): the spell cast for that keyword's cost (castFor), which the
+		// card records as the cast starts (Cantor of the Refrain).
+		return a.spell && source.castFor(prop), true
 	case prop == "Mutate":
 		// SpellAbilityProperty.java:115-116, SpellAbility.isMutate: the spell
 		// cast for its mutate cost.
@@ -177,6 +198,19 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		return a.spell && g.spellOptional(a.Source).has(optTeamwork), true
 	case strings.HasPrefix(prop, "numTargets"):
 		return g.saTargetCount(a, prop, host, amounts)
+	case strings.HasPrefix(prop, "ManaSpent "):
+		// SpellAbilityProperty.java:183-187: the mana spent on it
+		// (getTotalManaSpent) against an amount read for the host. A spell
+		// keeps it on its card (castManaSpent); an ability's is not kept.
+		rest := strings.TrimPrefix(prop, "ManaSpent ")
+		if !a.spell || len(rest) < 3 {
+			return false, false
+		}
+		want, ok := resolveNamedAmount(g, amounts, host, rest[2:])
+		if !ok {
+			return false, false
+		}
+		return compareOp(source.castManaSpent, rest[:2], want), true
 	case strings.HasPrefix(prop, "cmc"):
 		return g.saCMC(a, prop, host, amounts)
 	case strings.HasPrefix(prop, "XCost"):

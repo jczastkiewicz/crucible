@@ -48,8 +48,8 @@ var costModParams = map[string]bool{
 // that does not resolve then refuses the cast. The probe before the announce
 // (announceXFor, which only asks whether an X is left) skips such a line: a
 // reduction never touches the X.
-func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extras bool) (mana.Cost, bool) {
-	return g.costStatics(pid, card, nil, base, paying, extras)
+func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extras bool, ownReduce string) (mana.Cost, bool) {
+	return g.costStatics(pid, card, nil, base, paying, extras, ownReduce)
 }
 
 // costStatics is spellCost for a spell (act nil) or for the activation of
@@ -57,12 +57,20 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extr
 // from CostPayment.payCost): Type$ Ability and an absent Type$ reach it, and
 // ValidSpell$ Activated[.props] is read against act. A cost with no mana
 // part still takes a raise, so its base is never "no cost" there.
-func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying, extras bool) (mana.Cost, bool) {
+//
+// ownReduce is a spell's own ReduceCost$ SVar name (a Flashback keyword's
+// extra), "" for none; an activation's is read from act.
+func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying, extras bool, ownReduce string) (mana.Cost, bool) {
 	if act == nil && base.IsNoCost() {
 		return base, true
 	}
 	c := g.Card(card)
 	generic := base.Generic()
+	if act == nil {
+		// Commander tax, CostAdjustment.adjust's first step for a spell
+		// (CostAdjustment.java:56-61), before any RaiseCost or ReduceCost.
+		generic += g.commanderTax(pid, c)
+	}
 	shards := append([]mana.Shard(nil), base.Shards()...)
 
 	type line struct {
@@ -163,6 +171,15 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		if reduced, repeated, repeats, ok = g.abilityReduceCost(c, act, paying); !ok {
 			return base, false
 		}
+	} else if ownReduce != "" {
+		n, ok := g.costModAmountFor(c, pid, nil, &c.Def.Faces[0], c, ownReduce)
+		if !ok {
+			if paying {
+				g.recordPendingError(fmt.Errorf("engine: ReduceCost$ %q on %s is not resolvable yet", ownReduce, c.Name()))
+			}
+			return base, false
+		}
+		reduced = max(n, 0)
 	}
 	for _, r := range reduces {
 		raw, ok := r.s.Param("Amount")
@@ -226,10 +243,11 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 // abilityReduceCost is an activated ability's own ReduceCost$ (CostAdjustment.
 // java:214-222): the amount, a number or an SVar of the host, comes off the
 // generic mana of the activation. With ReduceAmount$ the ReduceCost$ text is a
-// mana cost taken off that many times instead (repeated, repeats). An amount
-// this port cannot evaluate yet (one that reads the ability's targets, which
-// are chosen after the cost is adjusted) refuses the activation, why kept
-// (GO-7).
+// mana cost taken off that many times instead (repeated, repeats). The targets
+// are chosen before the cost is adjusted (activateAbility, CR 601.2c before
+// 601.2f), so an amount may read them (Belt of Giant Strength's
+// Targeted$CardPower). An amount this port cannot evaluate refuses the
+// activation, why kept (GO-7).
 func (g *Game) abilityReduceCost(c *Card, act *compile.Ability, paying bool) (generic int, repeated mana.Cost, repeats int, ok bool) {
 	cst, has := act.Param("ReduceCost")
 	if !has {
@@ -283,7 +301,15 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	// checkRequirement tests the static's conditions first
 	// (CostAdjustment.java:514-516), so a line whose condition fails skips
 	// before any param this port cannot evaluate refuses the cast.
-	if !g.staticConditionsMet(host, s) {
+	// The spell being cast is on the stack while its cost is adjusted
+	// (Java moves it there first); Go-side it is still where it was cast
+	// from, so its own lines are read as from the Stack (Liesa's EffectZone$
+	// Stack reduction and raise).
+	if act == nil && host.ID == c.ID {
+		if !staticZoneOK(Stack, s) || !g.staticOtherConditionsMet(host, s) {
+			return costModSkips
+		}
+	} else if !g.staticConditionsMet(host, s) {
 		return costModSkips
 	}
 	wantType := "Spell"
@@ -296,7 +322,7 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	if v, ok := s.Param("ValidSpell"); ok {
 		switch {
 		case act == nil:
-			matched, recognized := validSpellForSpell(v)
+			matched, recognized := validSpellForSpell(v, c)
 			if !recognized {
 				return costModUnresolvable
 			}
@@ -456,17 +482,27 @@ func raiseScaledByShards(c *Card, s *compile.Ability, text string) string {
 // validSpellForSpell evaluates a ValidSpell$ spec against a spell being cast
 // (SpellAbility.isValid, SpellAbility.java:2200-2250): comma-separated
 // alternatives, of which "Spell" matches and "Activated", "Static" and
-// "Triggered" never do. A property on Spell (Flashback, ...) or any other base
-// is not evaluated here: recognized is false and the line stays unresolvable.
-func validSpellForSpell(spec string) (matched, recognized bool) {
+// "Triggered" never do. Spell.Dash and Spell.Blitz match c's cast for that
+// keyword's cost (castFor, recorded before the cost is read: Warbringer,
+// Henzie). Any other property on Spell (Flashback, ...) or other base is not
+// evaluated here: recognized is false and the line stays unresolvable.
+func validSpellForSpell(spec string, c *Card) (matched, recognized bool) {
 	for _, alt := range strings.Split(spec, ",") {
 		base, props, _ := strings.Cut(alt, ".")
 		switch base {
 		case "Spell":
-			if props != "" {
+			switch props {
+			case "":
+				matched = true
+			case "Dash", "Blitz":
+				matched = matched || c.castFor(props)
+			case "isCastFaceDown":
+				// The spell is face down from before its cost is worked out
+				// (ADR-0048): Dream Chisel's reduction.
+				matched = matched || c.IsFaceDown()
+			default:
 				return false, false
 			}
-			matched = true
 		case "Activated", "Static", "Triggered":
 		default:
 			return false, false
@@ -480,6 +516,15 @@ func validSpellForSpell(spec string) (matched, recognized bool) {
 // Domination's XGrave, CostAdjustment.java:466-479 passes the spell's sa):
 // g.resolving is a spell Ability carrying them while the amount is worked out.
 func (g *Game) costModAmountFor(c *Card, pid PlayerID, act *compile.Ability, face *compile.Face, host *Card, raw string) (int, bool) {
+	if raw == "Strive" {
+		// CostAdjustment.java:139-142: every target the spell's abilities
+		// chose (getAllTargetChoices) but the first; before the targets are
+		// chosen the spell has none.
+		if act != nil || g.castTargetsFor != c.ID {
+			return 0, true
+		}
+		return max(len(g.castTargets)-1, 0), true
+	}
 	if act == nil && g.castTargetsFor == c.ID {
 		saved := g.resolving
 		g.resolving = &Ability{Source: c.ID, Controller: pid, Targets: g.castTargets, spell: true}

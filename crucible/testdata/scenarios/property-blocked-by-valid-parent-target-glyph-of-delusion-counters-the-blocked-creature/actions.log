@@ -1,0 +1,16 @@
+# CardProperty.java:1620-1649: Creature.blockedByValidThisTurn ParentTarget is a
+# Defined$ list read in the ability in context. human's Wall blocks ai's Bears;
+# Glyph of Delusion targets the Wall, then the creature that Wall blocked, and
+# puts X glyph counters on it, X being its power (2).
+startturn ai
+advance 5
+queue attackers 4
+declareattackers
+advance
+queue blocks 3=4
+declareblockers
+tapformana human 2 U
+queue targets 3
+queue targets 4
+castspell human 1
+resolvestack

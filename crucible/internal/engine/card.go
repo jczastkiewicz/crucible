@@ -37,6 +37,10 @@ const optionalUntapKeyword = "You may choose not to untap CARDNAME during your u
 
 const untapNextStepKeyword = "This card doesn't untap during your next untap step."
 
+// untapBounceKeyword is the hidden keyword Untap.doUntap returns to hand
+// (Untap.java:93).
+const untapBounceKeyword = "During your next untap step, as you untap your permanents, return CARDNAME to its owner's hand."
+
 // Card is one card in one game.
 //
 // It holds no back-reference: no *Game, no *Player. Its controller is a
@@ -80,6 +84,10 @@ type Card struct {
 	// (CR 400.7: the card is a new object). castManaSpent is the mana paid for
 	// that cast (SpellAbility.getTotalManaSpent), 0 for a free one.
 	wasCast bool
+	// castSeq names the cast that put the card on the stack, Card.getCastSA's
+	// identity: a number unique in the game, kept and cleared with wasCast.
+	// CastSaSource compares it.
+	castSeq uint64
 	// firstOfCreator marks a token that was its creator's first this turn
 	// (CardZoneTable.addToken's firstTime), which TokenCreatedOnce's OnlyFirst$ reads.
 	firstOfCreator bool
@@ -106,6 +114,14 @@ type Card struct {
 	// had then; rebuilt, never appended in place (Clone shares them).
 	damagedPlayers []PlayerID
 	damagedCards   []damagedCard
+	// dealtDamage is CardDamageHistory.hasdealtDamagetoAny for this object:
+	// dealtNoncombat and dealtCombat bits, set as it deals damage
+	// (CardDamageHistory.java:241); Move clears it, Java's new object.
+	dealtDamage uint8
+	// combatDamagedPlayers is CardDamageHistory.damagedThisCombat: the players
+	// it dealt combat damage this combat, cleared as combat ends
+	// (CardDamageHistory.java:243-244, :305-306), at cleanup and by Move.
+	combatDamagedPlayers []PlayerID
 	// storedRolls are the RollDice StoreResults$ results kept on this card,
 	// ascending (Card.storedRolls), read by Count$MaxSameStoredRolls.
 	storedRolls []int
@@ -166,6 +182,23 @@ type Card struct {
 	// commander is Card.isCommander (ADR-0051), kept in step with the owner's
 	// Player.commanders.
 	commander bool
+	// toCommandZone is Card.moveToCommandZone (Card.java:202): a commander
+	// moved since state-based actions last looked at it, which CR 903.9a's
+	// return reads (returnCommandersToCommandZone) and clears.
+	toCommandZone bool
+	// bestowTS is Card.bestowTimestamp: the timestamp of the bestow change
+	// (animateBestow, bestow.go) while the card is a bestowed Aura, 0
+	// otherwise.
+	bestowTS uint64
+	// reconfigureTS is the timestamp of the Reconfigure effect that makes an
+	// attached card not a creature (reconfigure.go), 0 while there is none.
+	reconfigureTS uint64
+	// encoded is the Cipher encoding this exiled card carries (encodeeffect.go).
+	encoded encodeMark
+	// prototype is the prototype cost and power/toughness a Prototype cast
+	// gives the spell and the permanent it becomes (prototype.go), nil
+	// otherwise.
+	prototype *prototypeChars
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.
@@ -181,10 +214,13 @@ type Card struct {
 	// over PlayerID: the end of a player's upkeep sets that player's bit on
 	// every permanent, and the card attacking (blocking) clears the whole set
 	// (PhaseHandler.java:477-481, CombatUtil.java:387, PhaseHandler.java:783).
-	notAttacked, notBlocked uint32
-	enteredTurn             int
-	// embalmed is Card.isEmbalmed: the token Embalm makes. Embalm is not
-	// ported, so nothing sets it; Clone's Embalm$ reads it (CardFactory.java:555).
+	// notBeenBlocked is NotBeenBlockedSinceLastUpkeepOf, cleared when the
+	// card is a blocked attacker as blockers are declared
+	// (PhaseHandler.java:789-792).
+	notAttacked, notBlocked, notBeenBlocked uint32
+	enteredTurn                             int
+	// embalmed is Card.isEmbalmed: the token an Embalm ability made
+	// (copypermanenteffect.go), which Clone's Embalm$ reads.
 	embalmed bool
 	// zoneEntered, zoneEntryTurn and zoneEntryFrom record how the card last
 	// entered the zone it sits in by a move: the turn and the zone it came from
@@ -194,6 +230,10 @@ type Card struct {
 	zoneEntered   bool
 	zoneEntryTurn int
 	zoneEntryFrom ZoneType
+	// zoneEntryPlayer is Card.getTurnInController: the player whose zone the
+	// card last entered from another zone type (Zone.java:120-122), its owner
+	// as NewCard places it. EnteredUnder reads it.
+	zoneEntryPlayer PlayerID
 	// renowned is Card.isRenowned (CR 702.112): a Renown creature that has
 	// had its counters put on it; Move clears it when the card leaves the
 	// battlefield.
@@ -341,7 +381,7 @@ type Card struct {
 	// AttacksThisTurn is CardDamageHistory.getCreatureAttacksThisTurn's own
 	// per-card counter -- incremented once per combat this card is declared
 	// an attacker in (DeclareCombatAttackers, attack.go), reset every cleanup
-	// (cleanupStep, turn.go) alongside Damage/LandsPlayed/CardsDrawnThisTurn.
+	// (endCleanup, turn.go) alongside LandsPlayed/CardsDrawnThisTurn.
 	// TriggerAttacks' own FirstAttack$ (trigger.go) is the one reader: "this
 	// is the first time this creature has attacked this turn," true exactly
 	// when this reads 1 at the moment its own trigger fires, immediately
@@ -357,6 +397,12 @@ type Card struct {
 	// new Card. Read by the attackedYouThisTurn property (CardProperty.java:
 	// 1193-1196, valid.go).
 	attackedThisTurn []EntityID
+	// attackedLastTurnOf is CardDamageHistory.creatureAttackedLastTurnOf
+	// (CardDamageHistory.java:31, :111-126): each player during whose last
+	// turn this card attacked, set or dropped for the active player at every
+	// cleanup (Card.onCleanupPhase, Card.java:7312) from AttacksThisTurn.
+	// Read by the attackedLastTurn property (valid.go).
+	attackedLastTurnOf []PlayerID
 
 	// BecameTargetThisTurn is Card.hasBecomeTargetThisTurn's own flag --
 	// AttacksThisTurn's own boolean sibling, since Mode$ BecomesTarget's own
@@ -365,9 +411,17 @@ type Card struct {
 	// by whom (Java's own targetedFromThisTurn is a Player set, but nothing
 	// this port resolves reads which players are in it, only whether it is
 	// empty). Set the moment this card is first targeted
-	// (checkBecomesTargetTriggers), reset every cleanup (cleanupStep,
+	// (checkBecomesTargetTriggers), reset every cleanup (endCleanup,
 	// turn.go) alongside AttacksThisTurn.
 	BecameTargetThisTurn bool
+	// foughtThisTurn is Card.foughtThisTurn: set for both fighters as a Fight
+	// resolves (FightEffect.java:169-171), reset every cleanup
+	// (Card.java:7309).
+	foughtThisTurn bool
+	// visitedThisTurn is Card.visitedThisTurn: set as an Attraction is
+	// visited (Card.java:6848, visitAttractions), reset every cleanup
+	// (Card.java:7322).
+	visitedThisTurn bool
 
 	// blockedByThisTurn is Card.getBlockedByThisTurn (Card.java:112,
 	// 1658-1666): every creature that blocked this card this turn, in the
@@ -376,7 +430,7 @@ type Card struct {
 	// Block effect adding a blocker (blockeffect.go; BlockEffect.java:60-61)
 	// -- and nowhere else: SwitchBlock's re-added blocks are not recorded,
 	// as SwitchBlockEffect.java's own addBlocker calls do not record them.
-	// Cleared every cleanup (cleanupStep, turn.go; Card.onCleanupPhase,
+	// Cleared every cleanup (endCleanup, turn.go; Card.onCleanupPhase,
 	// Card.java:7152) and on leaving the battlefield (Game.Move), where
 	// Java's card becomes a new object. Read by SwitchBlock's
 	// `blockedByValidThisTurn Targeted` (switchblockeffect.go).
@@ -401,7 +455,7 @@ type Card struct {
 	// loyaltyLimitUsed its planeswalkerActivationLimitUsed: the second
 	// activation was made under a Mode$ NumLoyaltyAct Twice$ line
 	// (loyaltyActivationAllowed, staticability.go). All three reset every
-	// cleanup (cleanupStep, turn.go) and on a zone change.
+	// cleanup (endCleanup, turn.go) and on a zone change.
 	LoyaltyAbilityActivated bool
 	loyaltyActivations      int
 	loyaltyLimitUsed        bool
@@ -498,6 +552,12 @@ type Card struct {
 	// GameAction.java:576-579), and markExiledWith (zonemove.go) sets it
 	// after an effect's own exile move, ADR-0034.
 	exiledWith exiledWithMark
+	// entryExiledWith is exiledWith as the record of the card's entry into
+	// its zone has it (Zone.cardsAddedThisTurn, Zone.java:120-127): the
+	// object that left, a last-known copy that still carries its exiledWith,
+	// except on the battlefield, whose record is the new object
+	// (Zone.saveLKI, GameAction.java:580-582). ExiledWithSourceLKI reads it.
+	entryExiledWith exiledWithMark
 	// delved is Card.delvedCards (Card.java:111): the cards the last delve
 	// payment of this card exiled, read by the "delved" valid property
 	// (Soulflayer). Cleared only by the next delve cast (CostAdjustment.java:
@@ -541,6 +601,9 @@ type Card struct {
 	// menace a suspected card has.
 	Suspected, Solved, Harnessed, Plotted bool
 	suspectedTS                           uint64
+	// unearthed is Card.isUnearthed: put onto the battlefield by an Unearth
+	// ability (ChangeZoneEffect.java:685), read by IsUnearthed; Move clears it.
+	unearthed bool
 
 	// Saddled is Card.isSaddled (CR 702.171): saddled until end of turn.
 	// saddledBy is Card.getSaddledByThisTurn, the creatures tapped for the
@@ -564,6 +627,9 @@ type Card struct {
 	// leaves exile (Heist); Move clears it.
 	faceDownEntry       bool
 	Manifested, Cloaked bool
+	// turnedFaceUpTurn is the turn the card was last turned face up
+	// (Card.turnedFaceUpThisTurn, cleared at cleanup, Card.java:7310).
+	turnedFaceUpTurn int
 
 	// frontDef is the card's own (front face) definition while it is
 	// transformed: Def then holds the back face. Transforms counts its
@@ -586,8 +652,12 @@ type Card struct {
 	// permanent (CR 712.4a, meldeffect.go): the other card it represents,
 	// NoCard for anything not melded. Def is then the meld face and frontDef
 	// this card's own front face, turnFrontFaceUp's revert. Leaving the
-	// battlefield splits the pair back apart (Game.unmeld, CR 712.4c).
+	// battlefield splits the pair back apart (Game.unmeld, CR 712.21).
 	MeldedWith CardID
+	// meldedCMC is the other card's mana value while MeldedWith is set: a
+	// melded permanent's mana value is the sum of its front faces' (CR
+	// 712.8g, Card.java:7409-7415), and the meld face itself has no cost.
+	meldedCMC int
 	// Melded marks the other card of a melded pair: PlayerZoneBattlefield.
 	// addToMelded (PlayerZoneBattlefield.java:45-49) points its Zone at the
 	// battlefield but adds it to no zone's card list, so no enumeration of
@@ -604,6 +674,14 @@ type Card struct {
 	roomDef  *compile.Card
 	doors    doorSet
 	castDoor Door
+
+	// faceDef is the printed card of a non-Room multi-face card cast as its
+	// second face (face.go, ADR-0052): Def then holds that face alone, and it
+	// stays Def while the card is a permanent (a Modal back face) until it
+	// leaves the stack or the battlefield. onAdventure marks an Adventure
+	// card in exile that may be cast as its creature (Card.isOnAdventure).
+	faceDef     *compile.Card
+	onAdventure bool
 
 	// copies are the Layer 1 copy effects on this permanent (CR 613.2a,
 	// 707.2), ascending Timestamp: Java's Card.clonedStates. The last one's
@@ -629,6 +707,28 @@ type Card struct {
 	// leaves the battlefield (Java's next zone's object is a new Card). The
 	// slice is replaced, never appended in place.
 	devoured []CardID
+	// exploited is Card.getExploited: the creatures this card's Exploit
+	// sacrificed (SacrificeEffect.java:170-171), as devoured is kept.
+	exploited []CardID
+	// drawnThisTurn is Card.getDrawnThisTurn: drawn this turn
+	// (Player.java:1253). Move keeps it only onto the stack
+	// (GameAction.java:218); the cleanup clears it for the cards in hand
+	// (Player.java:2493-2495).
+	drawnThisTurn bool
+	// discarded, milled and surveilled are Card.wasDiscarded, wasMilled and
+	// wasSurveilled: the card a discard, mill or surveil moved
+	// (Player.java:1461, :1604, :1069). Move clears them, Java's new object.
+	discarded, milled, surveilled bool
+	// startedTurnUntapped is Card.hasStartedTheTurnUntapped: untapped as the
+	// turn began (PhaseHandler.java:855-857).
+	startedTurnUntapped bool
+	// exertedThisTurn is Card.getExertedThisTurn: exerted this turn, cleared
+	// at cleanup (Card.java:7319) and by Move.
+	exertedThisTurn int
+	// crewedBy is Card.getCrewedByThisTurn: the creatures tapped to crew this
+	// card this turn, each with its zone stamp (Card.becomesCrewed,
+	// Card.java:6819-6823); cleared at cleanup and by Move.
+	crewedBy []objectStamp
 
 	// goadedBy are this creature's goads (CR 701.15).
 	goadedBy []goad
@@ -728,11 +828,16 @@ type traitGrant struct {
 	// granted trigger's ability (SpellAbility.getOriginalHost, the card state
 	// the granting StaticAbility holds), read by Defined$/Object$ OriginalHost.
 	origin CardID
+	// grantor is the Mode$ Continuous static that granted these traits
+	// (SpellAbility.getGrantorStatic), nil for a grant no static made; its
+	// ManaConversion$ applies to the granted abilities' activation costs.
+	grantor *compile.Ability
 }
 
 // Name is Card.getName: the printed name, or the one a Layer 3 SetName$ gave a
 // permanent (changedName; only a battlefield card is ever renamed). A card
-// without a definition has none.
+// without a definition has none. A Split card off the stack has both halves'
+// names joined (splitOriginal).
 func (c *Card) Name() string {
 	if c.changedName != "" && c.Zone == Battlefield {
 		return c.changedName
@@ -743,7 +848,21 @@ func (c *Card) Name() string {
 	if c.Def == nil {
 		return ""
 	}
+	if splitOriginal(c.Def) {
+		return c.Def.Name + " // " + c.Def.Faces[carddb.FaceAlternate].Name
+	}
 	return c.Def.Name
+}
+
+// splitOriginal reports whether def is a printed Split card, a Room
+// included: Java's CardStateName.Original, whose name, mana cost, color and
+// type combine both halves' (CardFactory.java:330-339, CR 709.4) and which
+// every Card getter reads off the stack (Card.java:975, :2071, :4042,
+// :4204, :7372). Every view of a split card -- one half cast (doorView), the
+// fused spell (fuseView), a Room permanent (roomView) -- has no SplitType,
+// so a printed Split definition is a split card off the stack.
+func splitOriginal(def *compile.Card) bool {
+	return def.SplitType == carddb.SplitSplit && def.Faces[carddb.FaceAlternate].Name != ""
 }
 
 // grantFaces is faces plus one pseudo-face per trait grant that carries statics
@@ -873,6 +992,17 @@ func (c *Card) grantOrigin(ability *compile.Ability) CardID {
 	return NoCard
 }
 
+// grantorStatic is SpellAbility.getGrantorStatic for ability, one of c's
+// abilities: the static that granted it, nil for a printed one.
+func (c *Card) grantorStatic(ability *compile.Ability) *compile.Ability {
+	for _, grant := range c.traitGrants {
+		if slices.Contains(grant.abilities, ability) {
+			return grant.grantor
+		}
+	}
+	return nil
+}
+
 // abilityCount is how many indices abilityAt answers for, printed lines and
 // granted ones alike. Under CR 305.7 the printed indices answer not-found
 // while the granted ones after them still answer, so a walk over c's
@@ -964,16 +1094,34 @@ func (c *Card) Type() cardtype.Line {
 	if c.copyNonLegendary {
 		effects = append([]TypeEffect{{RemoveTypes: cardtype.ParseToken("Legendary")}}, effects...)
 	}
-	return foldType(c.Def.Faces[0].Type, effects)
+	base := c.Def.Faces[0].Type
+	if splitOriginal(c.Def) {
+		base = base.Union(c.Def.Faces[carddb.FaceAlternate].Type)
+	}
+	return foldType(base, effects)
 }
 
-// isSick is Card.isSick (Card.java:3651-3653): summoning sickness
+// IsSick is Card.isSick (Card.java:3665-3671): summoning sickness
 // restricts only a creature (CR 302.6), and haste lifts it
 // (Card.hasSickness). A land or artifact that entered this turn can pay a
-// {T} cost.
-func (c *Card) isSick() bool {
+// {T} cost. GameState writes |SummonSick by it, not by the flag.
+func (c *Card) IsSick() bool {
 	return c.SummonSick && c.Type().Has(cardtype.Creature) && !c.HasKeyword("Haste")
 }
+
+// IsRenowned is Card.isRenowned, GameState's |Renowned.
+func (c *Card) IsRenowned() bool { return c.renowned }
+
+// SetRenowned is Card.setRenowned, for a fixture's |Renowned
+// (GameState.java:1321-1322).
+func (c *Card) SetRenowned(v bool) { c.renowned = v }
+
+// IsMonstrous is Card.isMonstrous, GameState's |Monstrous.
+func (c *Card) IsMonstrous() bool { return c.monstrous }
+
+// SetMonstrous is Card.setMonstrous, for a fixture's |Monstrous
+// (GameState.java:1329-1330).
+func (c *Card) SetMonstrous(v bool) { c.monstrous = v }
 
 // HasKeyword reports whether the card currently carries the named keyword:
 // its own printed face, exact match against keyword.Parse's own Name (the
@@ -1023,6 +1171,9 @@ func (c *Card) BasePower() (int, bool) {
 	if c.hasBasePower && len(c.copies) == 0 {
 		return c.basePower, true
 	}
+	if c.prototype != nil && len(c.copies) == 0 {
+		return c.prototype.power, true
+	}
 	if c.Def == nil {
 		return 0, false
 	}
@@ -1033,6 +1184,9 @@ func (c *Card) BasePower() (int, bool) {
 func (c *Card) BaseToughness() (int, bool) {
 	if c.hasBaseToughness && len(c.copies) == 0 {
 		return c.baseToughness, true
+	}
+	if c.prototype != nil && len(c.copies) == 0 {
+		return c.prototype.toughness, true
 	}
 	if c.Def == nil {
 		return 0, false
@@ -1087,10 +1241,12 @@ func (c *Card) Colors() mana.Colors {
 	if c.Def == nil {
 		return 0
 	}
-	f := c.Def.Faces[0]
-	base := f.ManaCost.Colors()
-	if f.HasColors {
-		base = f.Colors
+	base := faceColors(c.Def.Faces[0])
+	if c.prototype != nil {
+		base = c.prototype.cost.Colors()
+	}
+	if splitOriginal(c.Def) {
+		base |= faceColors(c.Def.Faces[carddb.FaceAlternate])
 	}
 	for _, inc := range c.incorporated {
 		base |= inc.Colors()
@@ -1098,10 +1254,22 @@ func (c *Card) Colors() mana.Colors {
 	return foldColor(base, c.ColorMod.effects)
 }
 
-// manaCost is Card.getManaCost: the printed cost with every incorporated cost
-// added (Card.addChangedManaCost, additional).
+// printedManaCost is the mana cost c's state prints: its primary face's, or
+// both halves' for a Split card off the stack (splitOriginal).
+func (c *Card) printedManaCost() mana.Cost {
+	if c.prototype != nil {
+		return c.prototype.cost
+	}
+	if splitOriginal(c.Def) {
+		return combinedManaCost(c.Def.Faces[0].ManaCost, c.Def.Faces[carddb.FaceAlternate].ManaCost)
+	}
+	return c.Def.Faces[0].ManaCost
+}
+
+// manaCost is Card.getManaCost: the printed cost (printedManaCost) with every
+// incorporated cost added (Card.addChangedManaCost, additional).
 func (c *Card) manaCost() mana.Cost {
-	base := c.Def.Faces[0].ManaCost
+	base := c.printedManaCost()
 	if c.costOverride != nil {
 		base = *c.costOverride
 	}
@@ -1279,7 +1447,7 @@ func (c *Card) starUnresolved(toughness bool) bool {
 			return false
 		}
 	}
-	for _, face := range c.traitFaces() {
+	for _, face := range c.liveTraitFaces() {
 		for _, st := range face.Statics {
 			if _, cda := st.Param("CharacteristicDefining"); cda && strings.EqualFold(st.Name, "Continuous") {
 				return true
@@ -1297,6 +1465,9 @@ func (c *Card) CMC() int {
 	if c.Def == nil {
 		return 0
 	}
+	if c.MeldedWith != NoCard && c.frontDef != nil {
+		return c.frontDef.Faces[0].ManaCost.CMC() + c.meldedCMC
+	}
 	return c.manaCost().CMC()
 }
 
@@ -1311,8 +1482,8 @@ func (c *Card) stackX() int {
 }
 
 // isCommander is Card.isCommander: set by Player.addCommander (commander.go),
-// which AlterAttribute's Commander attribute calls (ADR-0051). A Commander game
-// setup and GameState's |IsCommander option are not ported.
+// which AlterAttribute's Commander attribute and the fixture's |IsCommander
+// option call (ADR-0051, ADR-0053). A Commander game setup is not ported.
 func (c *Card) isCommander() bool { return c.commander }
 
 // shortManaCost is Card.getManaCost().getShortString(), what a granted
@@ -1322,6 +1493,30 @@ func (c *Card) shortManaCost() string {
 		return ""
 	}
 	return c.manaCost().ShortString()
+}
+
+// costPlaceholderKeywords is keywords as granted to c: CardManaCost becomes
+// c's mana cost and, in a keyword without it (an else-if), ConvertedManaCost
+// becomes c's mana value (StaticAbilityContinuous.java:755-762,
+// PumpEffect.java:453-466). The input is not modified.
+func (c *Card) costPlaceholderKeywords(keywords []string) []string {
+	out, cloned := keywords, false
+	for i, tok := range keywords {
+		var with string
+		switch {
+		case strings.Contains(tok, "CardManaCost"):
+			with = strings.ReplaceAll(tok, "CardManaCost", c.shortManaCost())
+		case strings.Contains(tok, "ConvertedManaCost"):
+			with = strings.ReplaceAll(tok, "ConvertedManaCost", strconv.Itoa(c.CMC()))
+		default:
+			continue
+		}
+		if !cloned {
+			out, cloned = slices.Clone(keywords), true
+		}
+		out[i] = with
+	}
+	return out
 }
 
 // foldPT applies Layers 7a and 7b in order (CR 613.4a-b): each effect
@@ -1458,7 +1653,7 @@ const (
 // Kicker1/Kicker2 (SpellAbility.optionalCosts, an EnumSet): Generic for a
 // Mode$ OptionalCost static without ReduceColor$, Teamwork and Bargain for
 // the keywords. A set, so two Generic costs paid read the same as one.
-type optionalKinds uint8
+type optionalKinds uint16
 
 const (
 	optGeneric optionalKinds = 1 << iota
@@ -1477,6 +1672,9 @@ const (
 	// Freerunning cost (altkeywords.go).
 	optSurge
 	optFreerunning
+	// optEntwine is OptionalCost.Entwine: the spell's entwine cost was paid,
+	// so its Charm takes every mode (SpellAbility.isEntwine, CR 702.42).
+	optEntwine
 )
 
 // keywordAmount is the amount SpellAbility.setOptionalKeywordAmount records
@@ -1535,7 +1733,16 @@ type castOptional struct {
 	// 553): the permanent sacrificed for the Emerge cost, read as it last was
 	// (emerge.go); NoCard for a cast that did not emerge.
 	emerged CardID
+	// altKeyword is the keyword whose cost the cast paid instead of the mana
+	// cost (SpellAbility.getAlternativeCost for Surge, Freerunning, Dash and
+	// Blitz; altkeywords.go), "" for any other cast.
+	altKeyword string
 }
+
+// castFor reports whether c was cast for its keyword name's cost and still
+// carries that cast: SpellAbility.isDash/isBlitz on Card.getCastSA, which
+// the permanent the spell became keeps (GameAction.java:229).
+func (c *Card) castFor(name string) bool { return c.wasCast && c.castOpt.altKeyword == name }
 
 // has reports whether the cast paid an optional cost of kind k.
 func (o castOptional) has(k optionalKinds) bool { return o.kinds&k != 0 }
@@ -1621,7 +1828,9 @@ func (c *Card) InTransformedState() bool {
 
 // liveFaces is how many of def's faces are its current state's. A
 // transforming, flipping, melded, modal or specialize card's other face is a
-// state it is not in (Card.getTriggers reads currentState alone), and this
+// state it is not in (Card.getTriggers, getStaticAbilities and
+// getReplacementEffects read currentState alone: Heliod's back-face flash,
+// Blackbloom Bog's "enters tapped" are not the front's), and this
 // port's current face of such a card is always Faces[0]: a transformed or
 // melded card's Def is its back face, no path flips a flip card yet
 // (setstateeffect.go's own "Flip... not resolved" gap -- an unflipped card's
@@ -1718,4 +1927,33 @@ func (c *Card) powerBonusFromCounters() int {
 func (c *Card) toughnessBonusFromCounters() int {
 	n := c.Counters.Count
 	return n(P1P1) + 2*n("P1P2") - n(M1M1) + n("P0P1") - 2*n("M0M2") + 2*n("P2P2") - n("M0M1") - n("M2M1") - 2*n("M2M2") + 2*n("P0P2")
+}
+
+// encodeMark is an exiled card's encoding (Card.getEncodingCard): the
+// creature it is encoded on, that creature's zone stamp, and the exiled
+// card's own zone stamp when it was encoded.
+type encodeMark struct {
+	creature             CardID
+	creatureStamp, stamp uint64
+}
+
+// transformBack is a transforming card's back face as a one-face card, the
+// Def a transformed permanent shows (Card.changeCardState to Backside).
+func transformBack(front *compile.Card) *compile.Card {
+	back := &compile.Card{Filename: front.Filename, Name: front.Faces[1].Name, SplitType: front.SplitType}
+	back.Faces[0] = front.Faces[1]
+	return back
+}
+
+// prototypeChars are the characteristics a Prototype cast gives the card.
+type prototypeChars struct {
+	cost             mana.Cost
+	power, toughness int
+}
+
+// objectStamp is one object: a card's id and its zone stamp then (Java's
+// equalsWithGameTimestamp identity).
+type objectStamp struct {
+	card  CardID
+	stamp uint64
 }

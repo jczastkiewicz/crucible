@@ -32,7 +32,7 @@ func isLeftToTrigger(t *compile.Ability, dest ZoneType) bool {
 }
 
 // checkLeftToTriggers fires the leaves-the-battlefield triggers of left, a
-// permanent that just moved to dest (Hand or Library): its own Card.Self
+// permanent that just moved to dest (Hand, Library or Command): its own Card.Self
 // triggers, the triggers of every permanent still on the battlefield and the
 // live delayed watches. left's last-known information is read for the
 // dying-state fields, as checkDiesTriggers does.

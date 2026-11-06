@@ -339,3 +339,36 @@ func TestChooseCardWithDifferentPowersExcludesChosenPowers(t *testing.T) {
 	}
 	_ = b
 }
+
+// K:Station taps another creature for CHARGE counters equal to its power
+// (CardFactoryUtil.java:3468-3476) and fires Mode$ Stationed once per tapped
+// creature (MagicStack.java:426-434) on a Spacecraft.
+func TestStationPutsChargeCountersAndFiresStationed(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	ship := g.NewCard(scriptDef(t, "Test Spacecraft", "Artifact Spacecraft", "K:Station:6",
+		"T:Mode$ Stationed | ValidCard$ Card.Self | ValidCrew$ Creature | Execute$ TrigPer | TriggerZones$ Battlefield",
+		"SVar:TrigPer:DB$ GainLife | Defined$ You | LifeAmount$ 100"), p, engine.Battlefield)
+	crew := tappedCreatures(t, g, p, 1)
+	g.Card(crew[0]).Tapped = false
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	power, _ := g.Card(crew[0]).Power()
+	before := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueueTapChoice([]engine.CardID{crew[0]})
+
+	if !g.ActivateAbility(p, ship, 0, c) {
+		t.Fatal("Station could not be activated")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Card(ship).Counters.Count("CHARGE"); got != power {
+		t.Errorf("CHARGE counters = %d, want %d (the tapped creature's power)", got, power)
+	}
+	if got := g.Player(p).Life - before; got != 100 {
+		t.Errorf("gained %d, want 100 (one Stationed trigger)", got)
+	}
+}

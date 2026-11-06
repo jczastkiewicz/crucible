@@ -13,9 +13,11 @@ only once that effect has been applied; nothing sees an intermediate state.
 Forge writes most of these as a keyword, `K:ETBReplacement:<Layer>:<SVar>[:Optional[:Zone[:Valid]]]` — 421 corpus lines,
 `Other` 353 and `Copy` 68 (Cavern of Souls, Phantasmal Image, Phyrexian Metamorph, Clone). `CardFactoryUtil` expands the
 keyword at card creation into an `Event$ Moved | Destination$ Battlefield | ReplacementResult$ Updated` replacement
-whose overriding ability is the SVar's ability (`CardFactoryUtil.java:2595-2606`, `:515-542`), placed in its CR 616.1
-replacement layer (`ReplacementLayer.java:8-13`: CantHappen, Control, Copy, Transform, Other). The ability resolves on
-the entering card during the move, before it lands.
+whose overriding ability is the SVar's ability (`CardFactoryUtil.java:2595-2606`, `:515-542`), placed in its replacement
+layer (`ReplacementLayer.java:8-13`): CantHappen (CR 614.17, a "can't" effect, applied first though not a replacement
+effect), Control (616.1b), Copy (616.1c), Transform (616.1d), Other (616.1e). CR 616.1a's self-replacement effects
+(614.15) have no layer: Forge scripts them inside the resolving ability itself, so they apply before any of these. The
+ability resolves on the entering card during the move, before it lands.
 
 This port has four battlefield-entry paths, and each applies Moved replacements _after_ landing:
 
@@ -57,8 +59,9 @@ and every as-enters choice.
    fires ETB triggers. `permanentEffect`, `attachEffect`, `PlayLand` and `moveByEffect` become callers of it.
 3. **`Optional$` asks the entering card's controller** through the existing `ConfirmOptionalTrigger`-shaped confirm, and
    a choice the ability makes (creature type, what to copy) goes through its existing `PlayerController` method.
-4. **Within one CR 616.1 layer, more than one applicable replacement keeps today's deterministic order** (GO-12). CR
-   616's "affected player chooses" hook stays the separate M5 gap it already is.
+4. **Within one CR 616.1 layer, the player the card enters under chooses** which applicable replacement applies first
+   (CR 616.1e, `PlayerController.ChooseReplacementEffect`, Java's `chooseSingleReplacementEffect`); the candidates are
+   gathered again after each one applies (CR 616.1f). The candidate list itself is in play order (GO-12).
 5. **The existing tapped-on-entry replacement moves into this path unchanged in effect.** `Move` resets `Tapped`
    (`game.go:439`), so a replacement is _decided_ before landing and its result applied to the entering object as it
    lands, before ETB triggers — the same observable order as today.

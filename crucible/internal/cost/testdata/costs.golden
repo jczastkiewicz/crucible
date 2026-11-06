@@ -5,7 +5,7 @@ part	Blight	20
 part	ChooseCard	1
 part	ChooseCreatureType	2
 part	CollectEvidence	22
-part	Discard	558
+part	Discard	559
 part	Draw	40
 part	Exert	36
 part	Exile	81
@@ -34,7 +34,7 @@ part	RevealChosen	4
 part	RevealFromExile	1
 part	RevealOrChoose	2
 part	RollDice	1
-part	Sac	2260
+part	Sac	2261
 part	SubCounter	947
 part	T	5584
 part	Unattach	9

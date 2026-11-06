@@ -1,0 +1,13 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Id:1|Tapped;Island|Id:2|Tapped;Island|Id:3|Tapped;Quantum Riddler|Id:4
+humanhand=Island|Id:8;Island|Id:9;Island|Id:10
+humangraveyard=Lightning Bolt|Id:6;Grizzly Bears|Id:7;Divination|Id:5
+humanlibrary=Island|Id:11;Island|Id:12;Island|Id:13
+ailife=20
+aibattlefield=Grizzly Bears|Id:14;Ornithopter|Id:15;Swamp|Id:16;Pacifism|Id:17|AttachedTo:14
+aihand=Island|Id:18;Lightning Bolt|Id:19;Grizzly Bears|Id:20
+aigraveyard=Shock|Id:21;Hill Giant|Id:22
+ailibrary=Island|Id:23;Island|Id:24;Island|Id:25;Island|Id:26;Island|Id:27;Island|Id:28

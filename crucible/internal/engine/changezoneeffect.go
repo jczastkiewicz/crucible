@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -285,7 +287,10 @@ func alternativeOrigin(g *Game, a *Ability, controller PlayerController, decider
 		altFetch = append(altFetch, g.Zone(z, player).Cards()...)
 	}
 	if changeType != "" {
-		altFetch = filterValid(g, altFetch, changeType, a.Controller, a.Source)
+		// ChangeZoneEffect.java:947: AbilityUtils.filterListByType.
+		if altFetch, err = filterListByType(g, a, altFetch, changeType); err != nil {
+			return nil, false, fmt.Errorf("engine: ChangeZone: %w", err)
+		}
 	}
 	out := append([]ZoneType(nil), origin...)
 	if !controller.ConfirmEffect(g, decider, a.Source) {
@@ -446,8 +451,37 @@ func (g *Game) changeZoneMoved(a *Ability, source *Card, id CardID) {
 		c.foretold, c.foretoldTurn = true, g.turn
 		c.foretoldByEffect = hasParam(a, "ForetoldCost")
 	}
+	g.warpedEffect(a, id)
 	tmpl, _ := changeZoneStaticTemplate(g, a) // validated in Resolve
 	g.applyChangeZoneStatic(tmpl, id)
+}
+
+// warpedEffect is ChangeZoneEffect.java:775-783: the warp trigger's exile of
+// a permanent cast for its Warp cost (registerDelayedLeave's keyword) gives
+// its owner a Command-zone effect, "Warped <card>", under which the card may
+// be cast from exile from the next turn on (CR 702.185a): a MayPlay$ static
+// on Card.IsRemembered+nonLand+!ThisTurnEntered, forgotten as the card leaves
+// exile or is cast (addForgetOnMovedTrigger, addForgetOnCastTrigger), the
+// effect exiled once it remembers nothing.
+func (g *Game) warpedEffect(a *Ability, id CardID) {
+	if a.Params == nil || a.Params.Keyword != "Warp" || g.Card(id).Zone != Exile {
+		return
+	}
+	host := g.Card(a.Source)
+	name := "Warped " + effectHostName(host)
+	play := &compile.Ability{Record: compile.Static, Name: "Continuous", Params: []vocab.Param{
+		{Key: "Mode", Value: "Continuous"}, {Key: "MayPlay", Value: "True"}, {Key: "EffectZone", Value: "Command"},
+		{Key: "Affected", Value: "Card.IsRemembered+nonLand+!ThisTurnEntered"}, {Key: "AffectedZone", Value: "Exile"},
+	}}
+	def := &compile.Card{Name: name}
+	def.Faces[0].Name = name
+	def.Faces[0].Statics = []*compile.Ability{play}
+	owner := host.Owner
+	eff := g.Card(g.NewCard(def, owner, Command))
+	eff.IsEffect = true
+	eff.effectLife = effectLifetime{duration: effectPermanent, player: owner, host: a.Source,
+		forgetOnMoved: zoneMask(1) << Exile, forgetOnCast: true}
+	eff.Memory.Remember(CardEntity(id))
 }
 
 // changeZoneMemory applies RememberChanged$/ForgetChanged$/Imprint$ for a
@@ -546,6 +580,19 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	cards, err := changeZoneKnownCards(g, a, source, origin)
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: %w", err)
+	}
+	if a.rememberedStamps != nil {
+		// ChangeZoneEffect.java:561: Defined$ DelayTriggerRememberedLKI is the
+		// remembered object, skipped once its card is a new one
+		// (equalsWithGameTimestamp): a dashed creature flickered before the
+		// end step stays.
+		kept := cards[:0:0]
+		for _, id := range cards {
+			if stamp, ok := a.rememberedStamps[id]; !ok || stamp == g.Card(id).zoneStamp {
+				kept = append(kept, id)
+			}
+		}
+		cards = kept
 	}
 	if hasParam(a, "ImprintLast") {
 		// ImprintLast$ is read only inside Java's hasMergedCard() branch
@@ -659,7 +706,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			if dest != Battlefield {
 				return fmt.Errorf("engine: ChangeZone: FaceDown$ with Destination$ %v not resolvable yet", dest)
 			}
-			if g.turnFaceDown(id) {
+			if g.turnFaceDown(id, true) {
 				if err := g.setFaceDownState(a, source, g.Card(id)); err != nil {
 					return err
 				}
@@ -667,8 +714,12 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			}
 		}
 		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
+		g.retainCraftMaterials(a, id, dest)
 		g.changeZoneLeftCombat(id, joined)
 		g.changeZoneAttach(controller, id, attach)
+		if err := g.unearthReturned(a, id); err != nil {
+			return err
+		}
 		if err := g.leaveBattlefieldFor(a, "ChangeZone", []CardID{id}); err != nil {
 			return err
 		}
@@ -830,7 +881,8 @@ func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
 // fetcher another player controls does not search Sideboard (the Wish rule,
 // ChangeZoneEffect.java:987-991).
 // Defined$ skips the search and takes the named cards in order;
-// ChooseFromDefined$ offers them as the choice instead. A library that was
+// ChooseFromDefined$ offers them as the choice instead, and neither shuffles
+// unless Shuffle$ True (ChangeZoneEffect.java:1006). A library that was
 // searched is shuffled afterwards unless NoShuffle$ or Shuffle$ False --
 // before the move when the destination is the library itself, so a fetched
 // card placed on top stays there.
@@ -982,6 +1034,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		fetcherShuffle, searchedLibrary, blocked := shuffleMandatory, false, false
 		switch {
 		case defined:
+			fetcherShuffle = false
 			spec := definedSpec
 			if chooseFromDefined {
 				spec = chooseFrom
@@ -1043,7 +1096,10 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			g.checkSearchedLibraryTriggers(controller, decider, player)
 		}
 		if !defined && changeType != "" && !each {
-			fetchList = filterValid(g, fetchList, changeType, a.Controller, a.Source)
+			// ChangeZoneEffect.java:1086: AbilityUtils.filterListByType.
+			if fetchList, err = filterListByType(g, a, fetchList, changeType); err != nil {
+				return fmt.Errorf("engine: ChangeZone: %w", err)
+			}
 		}
 
 		changeZonePreMemory(a, source)
@@ -1107,8 +1163,13 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				// declined or empty pick moves on to the next.
 				for _, thisType := range strings.Split(eachTypes, " & ") {
 					for i := 0; i < changeNum; i++ {
+						// :1133: AbilityUtils.filterListByType.
+						typed, err := filterListByType(g, a, fetchList, thisType)
+						if err != nil {
+							return fmt.Errorf("engine: ChangeZone: %w", err)
+						}
 						var rest []CardID
-						for _, id := range filterValid(g, fetchList, thisType, a.Controller, a.Source) {
+						for _, id := range typed {
 							if !slices.Contains(chosen, id) {
 								rest = append(rest, id)
 							}
@@ -1363,7 +1424,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		if err := registerAtEOT(g, a, movedAll); err != nil {
 			return err
 		}
-		if (zoneIn(Library, pick.origin) && dest != Library && !defined && pick.shuffleMandatory) || shuffleParam == "True" {
+		if (zoneIn(Library, pick.origin) && dest != Library && pick.shuffleMandatory) || shuffleParam == "True" {
 			g.shuffleLibrary(controller, pick.player, a)
 		}
 	}
@@ -1555,4 +1616,32 @@ func notedEnterCounters(g *Game, a *Ability) []enterCounters {
 		out = append(out, enterCounters{kind: CounterType(strings.ToUpper(strings.TrimPrefix(k, notedCountersPrefix))), n: host.svars[k], placer: a.Controller})
 	}
 	return out
+}
+
+// retainCraftMaterials is GameAction.java:485-486 (Card.retainPaidList,
+// Card.java:1573-1580): a Craft ability's host returning to the battlefield
+// takes over the cards its cost exiled, so they are exiled with the new
+// permanent (Dinosaur Headdress's DefinedCards$ ExiledWith) rather than with
+// the card that sat in exile.
+func (g *Game) retainCraftMaterials(a *Ability, id CardID, dest ZoneType) {
+	if dest != Battlefield || id != a.Source || a.Params == nil || g.Card(id).Zone != Battlefield ||
+		keyword.Parse(a.Params.Keyword).Name != "Craft" {
+		return
+	}
+	for _, e := range a.paid.exiled {
+		if e != id {
+			g.markExiledWith(e, id)
+		}
+	}
+}
+
+// filterListByType is AbilityUtils.filterListByType's prefix step
+// (AbilityUtils.java:790-875) followed by the filter: listTypeSource reads
+// the source, then filterValid matches spec from it.
+func filterListByType(g *Game, a *Ability, list []CardID, spec string) ([]CardID, error) {
+	spec, src, ok, err := listTypeSource(g, a, spec)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return filterValid(g, list, spec, a.Controller, src), nil
 }

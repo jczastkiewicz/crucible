@@ -1,0 +1,8 @@
+turn=1
+activeplayer=ai
+activephase=Declare Blockers
+humanlife=20
+ailife=20
+aibattlefield=Grizzly Bears|Id:2|Tapped|Attacking;Coveted Jewel|Id:1|Owner:human
+aihand=Swamp|Id:3;Swamp|Id:4;Swamp|Id:5
+ailibrary=Swamp|Id:6

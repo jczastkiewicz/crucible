@@ -2,5 +2,5 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Huatli's Snubhorn
+humanbattlefield=Huatli's Snubhorn|Attacking
 ailife=18

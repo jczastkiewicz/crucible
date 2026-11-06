@@ -81,6 +81,43 @@ func runScenario(t *testing.T, db *compile.DB, dir string) {
 	}
 	want := loadScenarioFile(t, db, filepath.Join(dir, "expect.state"))
 	compareGames(t, setup.Game, want.Game)
+	compareAttacking(t, setup.Game, want)
+}
+
+// compareAttacking checks the combat's attackers against expect.state's
+// |Attacking cards (fixture.Loaded.Attacking) on the battlefield: by controller, name and what
+// each attacks -- a player, or a planeswalker or battle by name -- for the
+// CardID reason compareGames gives.
+func compareAttacking(t *testing.T, got *engine.Game, want *fixture.Loaded) {
+	t.Helper()
+
+	describe := func(g *engine.Game, attacker, target engine.CardID) string {
+		c := g.Card(attacker)
+		s := g.Player(c.Controller()).Name + " " + c.Def.Name + " attacks "
+		if target == engine.NoCard {
+			return s + "a player"
+		}
+		return s + g.Card(target).Def.Name
+	}
+	var gotList, wantList []string
+	for _, id := range got.Attackers() {
+		if got.Card(id).Zone != engine.Battlefield {
+			// Java removes a card from combat as it leaves the battlefield
+			// (Combat.removeFromCombat); fixture.Dump writes battlefield
+			// attackers only.
+			continue
+		}
+		target, _ := got.AttackTarget(id).AsCard()
+		gotList = append(gotList, describe(got, id, target))
+	}
+	for id, target := range want.Attacking {
+		wantList = append(wantList, describe(want.Game, id, target))
+	}
+	slices.Sort(gotList)
+	slices.Sort(wantList)
+	if !slices.Equal(gotList, wantList) {
+		t.Errorf("attackers = %q, want %q", gotList, wantList)
+	}
 }
 
 func loadScenarioFile(t *testing.T, db *compile.DB, path string) *fixture.Loaded {
@@ -172,8 +209,8 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		if got, want := gp.LandsPlayed, wp.LandsPlayed; got != want {
 			t.Errorf("%s: lands played = %d, want %d", gp.Name, got, want)
 		}
-		if got, want := gp.LandsPlayedLastTurn, wp.LandsPlayedLastTurn; got != want {
-			t.Errorf("%s: lands played last turn = %d, want %d", gp.Name, got, want)
+		if got, want := gp.Speed, wp.Speed; got != want {
+			t.Errorf("%s: speed = %d, want %d", gp.Name, got, want)
 		}
 		if g, w := got.RingTemptedYou(gotPlayers[i]), want.RingTemptedYou(wantPlayers[i]); g != w {
 			t.Errorf("%s: numringtemptedyou = %d, want %d", gp.Name, g, w)
@@ -191,6 +228,18 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 			compareZoneCards(t, gp.Name, zone, got, gotPlayers[i], want, wantPlayers[i])
 		}
 	}
+}
+
+// attachedHost names the card c is attached to by its controller, battlefield
+// position and name, empty when c is attached to no card: an Aura moved to
+// the wrong one of two creatures must not compare equal.
+func attachedHost(g *engine.Game, c *engine.Card) string {
+	host, ok := c.AttachedTo()
+	if !ok {
+		return ""
+	}
+	h := g.Card(host)
+	return fmt.Sprintf("%s battlefield[%d] %s", g.Player(h.ZoneOwner).Name, slices.Index(g.Zone(engine.Battlefield, h.ZoneOwner).CardsIncludingPhasedOut(), host), h.PrintedDef().Name)
 }
 
 // bearerIndex is pid's Ring-bearer's position among its controller's
@@ -241,16 +290,21 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 		if gcard.Tapped != wcard.Tapped {
 			t.Errorf("%s tapped = %v, want %v", label, gcard.Tapped, wcard.Tapped)
 		}
-		if gcard.SummonSick != wcard.SummonSick {
-			t.Errorf("%s summonsick = %v, want %v", label, gcard.SummonSick, wcard.SummonSick)
+		// |SummonSick is Card.isSick as GameState writes it, not the flag.
+		if gcard.IsSick() != wcard.IsSick() {
+			t.Errorf("%s summonsick = %v, want %v", label, gcard.IsSick(), wcard.IsSick())
+		}
+		if gcard.IsRenowned() != wcard.IsRenowned() {
+			t.Errorf("%s renowned = %v, want %v", label, gcard.IsRenowned(), wcard.IsRenowned())
+		}
+		if gcard.IsMonstrous() != wcard.IsMonstrous() {
+			t.Errorf("%s monstrous = %v, want %v", label, gcard.IsMonstrous(), wcard.IsMonstrous())
 		}
 		if gcard.Damage.Marked != wcard.Damage.Marked {
 			t.Errorf("%s damage = %d, want %d", label, gcard.Damage.Marked, wcard.Damage.Marked)
 		}
-		_, gAttached := gcard.AttachedTo()
-		_, wAttached := wcard.AttachedTo()
-		if gAttached != wAttached {
-			t.Errorf("%s attached = %v, want %v", label, gAttached, wAttached)
+		if g, w := attachedHost(got, gcard), attachedHost(want, wcard); g != w {
+			t.Errorf("%s attached to %q, want %q", label, g, w)
 		}
 		// By name, not PlayerID: got and want are two independently loaded
 		// games, the same reason nothing here compares CardIDs directly

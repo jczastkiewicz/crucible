@@ -1,0 +1,16 @@
+# R20c gauntlet probe (Test of Talents): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric U
+tapformana ai 54 R
+queue targets human
+queue targets 61
+queue cardchoice 61
+queue cardchoice 63
+queue action human pass
+queue action ai cast 61
+queue action human cast 1
+tapformana human 100 U
+tapformana human 101 U
+passpriority

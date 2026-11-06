@@ -19,7 +19,7 @@ func TestDestroyAllEffectDestroysEveryMatch(t *testing.T) {
 	b := g.NewCard(creatureDefPT(t, "3", "3"), other, engine.Battlefield)
 	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 
-	c := engine.NewScriptedController()
+	c := keepingOrder()
 	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test DestroyAll", "DB$ DestroyAll | ValidCards$ Creature.OppCtrl"), c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}

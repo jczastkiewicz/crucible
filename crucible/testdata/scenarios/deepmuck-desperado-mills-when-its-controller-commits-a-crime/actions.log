@@ -1,0 +1,10 @@
+# Mode$ CommitCrime (CR 700.13): targeting an opponent with Shock is a crime,
+# so Deepmuck Desperado's trigger (each opponent mills three) goes on the
+# stack above Shock and resolves first.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets ai
+castspell human 3
+queue cardorder 4,5,6
+resolvestack

@@ -64,7 +64,7 @@ func TestExcessDamageAllFiresOncePerBatch(t *testing.T) {
 		} else {
 			g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 		}
-		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ DamageAll | ValidCards$ Creature | NumDmg$ 3")
+		resolveLine(t, g, p, keepingOrder(), "DB$ DamageAll | ValidCards$ Creature | NumDmg$ 3")
 		if got := g.Player(p).Life; got != tc.wantGot {
 			t.Errorf("%s: life = %d, want %d", tc.name, got, tc.wantGot)
 		}

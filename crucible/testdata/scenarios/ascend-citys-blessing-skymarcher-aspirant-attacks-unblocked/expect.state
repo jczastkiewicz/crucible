@@ -2,6 +2,6 @@ turn=1
 activeplayer=human
 activephase=Combat Damage
 humanlife=20
-humanbattlefield=Skymarcher Aspirant|Tapped;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+humanbattlefield=Skymarcher Aspirant|Tapped|Attacking;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
 ailife=18
 aibattlefield=Silvercoat Lion

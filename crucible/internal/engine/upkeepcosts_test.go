@@ -196,7 +196,9 @@ func TestCumulativeUpkeepGainControlTakesALand(t *testing.T) {
 }
 
 // Jötun Grunt's cumulative upkeep is PutCardToLibFromSameGrave<2/-1/Card>: two
-// cards of one graveyard go to the bottom of their owner's library.
+// cards of one graveyard go to the bottom of their owner's library, in the
+// order their owner chooses (PlaySpellAbility.java:301-302): the last one
+// moved ends up at the bottom.
 func TestCumulativeUpkeepPutsTwoCardsFromOneGraveyardOnTheBottom(t *testing.T) {
 	t.Parallel()
 
@@ -212,10 +214,11 @@ func TestCumulativeUpkeepPutsTwoCardsFromOneGraveyardOnTheBottom(t *testing.T) {
 	c.QueueConfirmPayCost(true)
 	c.QueuePlayerChoice(other)
 	c.QueueCardChoice([]engine.CardID{a, b})
+	c.QueueCardOrder([]engine.CardID{b, a})
 	toStep(t, g, c, p, engine.Upkeep, nil)
 	lib := g.Zone(engine.Library, other).Cards()
-	if len(lib) != 10 || lib[len(lib)-2] != a && lib[len(lib)-1] != a || lib[len(lib)-2] != b && lib[len(lib)-1] != b {
-		t.Errorf("opponent library = %v, want %v and %v on the bottom", lib, a, b)
+	if len(lib) != 10 || lib[len(lib)-2] != b || lib[len(lib)-1] != a {
+		t.Errorf("opponent library = %v, want %v then %v at the bottom", lib, b, a)
 	}
 	if n := g.Zone(engine.Graveyard, p).Len(); n != 1 {
 		t.Errorf("own graveyard holds %d cards, want it untouched", n)
@@ -281,5 +284,41 @@ func TestEchoXCostsYourLifeTotal(t *testing.T) {
 	}
 	if left := g.Player(p).ManaPool.Total(); left != 0 {
 		t.Errorf("mana left = %d, want 0: the echo cost was X = 3", left)
+	}
+}
+
+// Thick-Skinned Goblin's "you may pay {0} rather than pay the echo cost"
+// (SacrificeEffect.java:40-42): taking it keeps the creature without the
+// echo cost being asked; declining asks the echo cost as usual.
+func TestThickSkinnedGoblinPaysEchoWithZero(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		zero bool
+		want engine.ZoneType
+	}{
+		{"zero", true, engine.Battlefield},
+		{"declined", false, engine.Graveyard},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			libraryCards(t, g, p, 8)
+			libraryCards(t, g, other, 8)
+			g.NewCard(corpusCard(t, "Thick-Skinned Goblin"), p, engine.Battlefield)
+			buggy := g.NewCard(corpusCard(t, "Goblin War Buggy"), p, engine.Battlefield)
+			g.SetTurnState(2, p, engine.Untap)
+			c := engine.NewScriptedController()
+			c.QueueConfirmEffect(tc.zero)
+			if !tc.zero {
+				c.QueueConfirmPayCost(false)
+			}
+			toUpkeep(t, g, c, p, mana.Red, 2)
+			if got := g.Card(buggy).Zone; got != tc.want {
+				t.Errorf("after the upkeep the Buggy is in %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

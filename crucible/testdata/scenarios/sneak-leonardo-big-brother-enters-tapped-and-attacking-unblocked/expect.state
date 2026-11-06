@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Combat Damage
 humanlife=20
 humanhand=Silvercoat Lion
-humanbattlefield=Plains|Tapped;Leonardo, Big Brother|Tapped|SummonSick
+humanbattlefield=Plains|Tapped;Leonardo, Big Brother|Tapped|SummonSick|Attacking
 ailife=19

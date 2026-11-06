@@ -15,7 +15,7 @@ import (
 func TestDumpRoundTripsThroughParse(t *testing.T) {
 	t.Parallel()
 
-	db := testDB(t, "Rancor", "Grizzly Bears", "Llanowar Elves", "Mountain")
+	db := typedDB(t, map[string]string{"Rancor": "", "Grizzly Bears": "Creature", "Llanowar Elves": "", "Mountain": ""})
 	original := "humanlife=17\nailife=9\nturn=5\nactiveplayer=ai\nactivephase=Main2\n" +
 		"humanbattlefield=Rancor|Id:1|AttachedTo:2|Tapped;Grizzly Bears|Id:2|Counters:P1P1=2|Damage:1|SummonSick\n" +
 		"humanhand=Mountain;Llanowar Elves\n" +
@@ -174,15 +174,13 @@ func TestDumpAndWriteRoundTripManaPool(t *testing.T) {
 	}
 }
 
-// Dump round-trips LandsPlayed/LandsPlayedLastTurn through Write and back --
-// Write had no landsplayed=/landsplayedlastturn= line at all until now, the
-// same gap ManaPool had, just on the Parse/Load side already working rather
-// than not.
+// Dump round-trips LandsPlayed through Write and back, the landsplayed= key
+// GameState writes for every player.
 func TestDumpAndWriteRoundTripLandsPlayed(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	l := load(t, db, "humanlife=20\nhumanlandsplayed=1\nhumanlandsplayedlastturn=2\n")
+	l := load(t, db, "humanlife=20\nhumanlandsplayed=1\n")
 	st := fixture.Dump(l)
 
 	var buf strings.Builder
@@ -191,9 +189,6 @@ func TestDumpAndWriteRoundTripLandsPlayed(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "humanlandsplayed=1") {
 		t.Fatalf("Write did not emit landsplayed=1:\n%s", buf.String())
-	}
-	if !strings.Contains(buf.String(), "humanlandsplayedlastturn=2") {
-		t.Fatalf("Write did not emit landsplayedlastturn=2:\n%s", buf.String())
 	}
 
 	got, err := fixture.Parse(strings.NewReader(buf.String()))
@@ -208,8 +203,24 @@ func TestDumpAndWriteRoundTripLandsPlayed(t *testing.T) {
 	if p2.LandsPlayed != 1 {
 		t.Errorf("LandsPlayed after round trip = %d, want 1", p2.LandsPlayed)
 	}
-	if p2.LandsPlayedLastTurn != 2 {
-		t.Errorf("LandsPlayedLastTurn after round trip = %d, want 2", p2.LandsPlayedLastTurn)
+}
+
+// speed= (CR 702.179) loads into Player.Speed and round-trips through Dump
+// and Write, the key GameState.toString writes for every player.
+func TestDumpAndWriteRoundTripSpeed(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nhumanspeed=3\n")
+	if got := l.Game.Player(l.Game.Players()[0]).Speed; got != 3 {
+		t.Fatalf("Speed after Load = %d, want 3", got)
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "humanspeed=3") {
+		t.Fatalf("Write did not emit speed=3:\n%s", buf.String())
 	}
 }
 
@@ -294,6 +305,61 @@ func TestDumpZoneGating(t *testing.T) {
 	}
 	if strings.Contains(st.Players[0].Exile, "Tapped") {
 		t.Errorf("exile %q carries Tapped, want it dropped -- Tapped is Battlefield-only", st.Players[0].Exile)
+	}
+}
+
+// ChosenCards: (Zenos yae Galvus's chosen creature) names the chosen card by
+// id and loads back into the same card's chosen list.
+func TestChosenCardsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears", "Llanowar Elves")
+	l := load(t, db, "humanbattlefield=Grizzly Bears|Id:1|ChosenCards:2;Llanowar Elves|Id:2\n")
+	bf := l.Game.Zone(engine.Battlefield, l.Game.Players()[0]).Cards()
+	if got := l.Game.Card(bf[0]).Memory.Chosen(); len(got) != 1 || got[0] != bf[1] {
+		t.Fatalf("Grizzly Bears chose %v after load, want [%v] (Llanowar Elves)", got, bf[1])
+	}
+
+	st := fixture.Dump(l)
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	st2, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	l2, err := fixture.Load(st2, db, javarand.New(1))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	bf2 := l2.Game.Zone(engine.Battlefield, l2.Game.Players()[0]).Cards()
+	if got := l2.Game.Card(bf2[0]).Memory.Chosen(); len(got) != 1 || got[0] != bf2[1] {
+		t.Errorf("Grizzly Bears chose %v after the round trip, want [%v]; dumped %q", got, bf2[1], buf.String())
+	}
+}
+
+// ChosenColor: is GameState's comma list of color names
+// (GameState.java:376-378, :1399-1400); Go keeps a set, so it writes the
+// names back in WUBRG order whatever order the setup gave.
+func TestChosenColorRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears")
+	l := load(t, db, "humanbattlefield=Grizzly Bears|Id:1|ChosenColor:red,white\n")
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "|ChosenColor:white,red") {
+		t.Errorf("dumped %q, want |ChosenColor:white,red", buf.String())
+	}
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=Grizzly Bears|ChosenColor:mauve\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("Load accepted ChosenColor:mauve")
 	}
 }
 
@@ -485,5 +551,31 @@ func TestDumpWritesATokenAsItsScriptName(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "humanbattlefield=T:w_1_1_soldier|Id:1|Tapped") {
 		t.Errorf("dump does not name the token by script:\n%s", buf.String())
+	}
+}
+
+// OnAdventure loads onto an exiled card, dumps back, and is refused anywhere
+// but exile (GameState.java:1366, :443-447).
+func TestOnAdventureRoundTripsAndNeedsExile(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Beast", "Mountain")
+	l := load(t, db, "humanexile=Beast|Id:1|OnAdventure;Beast|Id:2\nailife=20\n")
+	if !l.Game.Card(l.CardByFixtureID[1]).OnAdventure() || l.Game.Card(l.CardByFixtureID[2]).OnAdventure() {
+		t.Fatal("OnAdventure did not mark exactly the first card")
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(buf.String(), "OnAdventure"); got != 1 {
+		t.Errorf("dump wrote OnAdventure %d times, want once:\n%s", got, buf.String())
+	}
+	st, err := fixture.Parse(strings.NewReader("humanhand=Mountain|Id:1|OnAdventure\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil || !strings.Contains(err.Error(), "OnAdventure") {
+		t.Errorf("OnAdventure in a hand: err = %v, want it refused", err)
 	}
 }

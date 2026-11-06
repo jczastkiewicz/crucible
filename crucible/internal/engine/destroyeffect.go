@@ -71,8 +71,16 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: Destroy: %w", err)
 	}
 	// Radiance$ (DestroyEffect.java:54): the untargeted permanents are
-	// destroyed after the targets.
-	cards = append(cards, g.radianceCards(a)...)
+	// destroyed after the targets. Each list is ordered for the graveyard by
+	// its cards' owners first (DestroyEffect.java:57-58, CR 613.7m).
+	if cards, err = g.orderCardsByTheirOwners(controller, cards, Graveyard); err != nil {
+		return fmt.Errorf("engine: Destroy: %w", err)
+	}
+	radiance, err := g.orderCardsByTheirOwners(controller, g.radianceCards(a), Graveyard)
+	if err != nil {
+		return fmt.Errorf("engine: Destroy: %w", err)
+	}
+	cards = append(cards, radiance...)
 	_, remember := a.Params.Param("RememberDestroyed")
 	if remember {
 		// DestroyEffect.java:50-52: the host forgets what it remembered first.

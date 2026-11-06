@@ -74,7 +74,7 @@ func (balanceEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 	for i, p := range players {
 		if len(discards[i]) > 0 {
-			discardCards(g, controller, discards[i], p)
+			discardCards(g, controller, discards[i], p, effectDiscardCause(a))
 		}
 	}
 	return nil

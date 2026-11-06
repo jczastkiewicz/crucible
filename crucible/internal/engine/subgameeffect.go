@@ -47,10 +47,11 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 
 // subgameEffect resolves SP$ Subgame.
 //
-// Resolved: StartingLife$ (every seat's starting life, default
-// startingLife), RememberPlayers$ Win / NotWin (the main-game players who
-// won, or did not win, the subgame, remembered on the host -- a draw makes
-// every player NotWin, GameOutcome.isWinner being false for all).
+// Resolved: StartingLife$ (every seat's starting life, default each seat's
+// own, Game.java:375-378), RememberPlayers$ Win / NotWin (the main-game
+// players who won, or did not win, the subgame, remembered on the host -- a
+// draw makes every player NotWin, GameOutcome.isWinner being false for
+// all). The subgame shares the main game's variants (SubgameEffect.java:38).
 //
 // Rejected before anything is built, each a shape the real three lines never
 // reach:
@@ -60,10 +61,11 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 //   - RememberPlayers$ naming anything but Win/NotWin: Java ignores it
 //     silently (SubgameEffect.java:174-181), which is a script bug to name,
 //     not a shape to reproduce.
-//   - A main-game player with a SchemeDeck or PlanarDeck: GameAction.startGame
-//     puts the archenemy first (determineFirstTurnPlayer, :2393-2400) and
-//     turns a plane face up (initPlane, :2358-2363) for those variants, and
-//     this port's game start has neither.
+//   - A main-game player with a SchemeDeck: GameAction.startGame puts the
+//     archenemy first (determineFirstTurnPlayer, :2393-2400), and this port's
+//     game start has no Archenemy setup. A PlanarDeck plays: the subgame,
+//     under the main game's variants, turns its first plane up after the
+//     mulligans (startSubgame, InitPlanechase).
 //
 // Rejected while the subgame is built, before it plays: a card with
 // Companion among a player's outside-the-game cards. Player.assignCompanion
@@ -78,11 +80,9 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 // library (GameAction.java:815-824, SubgameEffect.java:205-212), which needs
 // identity across two games' arenas this port does not track.
 //
-// Nothing to port: Vanguard avatars and Commanders
-// (initVariantsZonesSubgame) -- this port has neither, so the main game's
-// Command zone never holds one, and the post-game commander move
-// (SubgameEffect.java:214-238) and Subgame-zone return (:205-212) always
-// find nothing. Merged is scanned but always empty (Mutate is not ported).
+// Commanders and Vanguard avatars cross over (initVariantsZonesSubgame,
+// returnSubgameCommanders), and the Subgame-zone return (:205-212) always finds nothing (above). Merged holds a
+// mutated permanent's components (mutate.go).
 // The GameEventSubgameStart/End, DayTimeChanged and Zone view events are UI
 // refreshes with no rules content.
 type subgameEffect struct{}
@@ -98,7 +98,9 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	life := startingLife
+	// -1 is Java's "no StartingLife$": each seat starts at its registered
+	// starting life (Game.java:375-378), the main game's StartingLife.
+	life := -1
 	if raw, ok := a.Params.Param("StartingLife"); ok {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
@@ -120,10 +122,8 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 		}
 	}
 	for _, pid := range seats {
-		for _, kind := range [...]ZoneType{SchemeDeck, PlanarDeck} {
-			if z := existingZone(g, kind, pid); z != nil && z.Len() > 0 {
-				return fmt.Errorf("engine: Subgame: %v not resolvable yet (no game-start variant setup)", kind)
-			}
+		if z := existingZone(g, SchemeDeck, pid); z != nil && z.Len() > 0 {
+			return fmt.Errorf("engine: Subgame: %v not resolvable yet (no game-start variant setup)", SchemeDeck)
 		}
 	}
 
@@ -149,6 +149,9 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 			source.Memory.Remember(PlayerEntity(pid))
 		}
 	}
+	for i, pid := range seats {
+		g.returnSubgameCommanders(c, sub, pid, subSeats[i])
+	}
 	// SubgameEffect.java:240-244: player.shuffle(sa), then each variant deck.
 	for _, pid := range seats {
 		g.Shuffle(Library, pid)
@@ -159,6 +162,29 @@ func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 		}
 	}
 	return nil
+}
+
+// returnSubgameCommanders is CR 720.5c (SubgameEffect.java:213-237): a
+// commander in pid's Command zone whose name no commander in the subgame
+// seat sp's Command zone still has left it during the subgame, so it moves
+// to pid's library -- through the Moved replacements, so the Commander
+// Effect may send it back to the Command zone, as GameAction.moveTo does.
+func (g *Game) returnSubgameCommanders(controller PlayerController, sub *Game, pid, sp PlayerID) {
+	stayed := map[string]bool{}
+	for _, id := range sub.Zone(Command, sp).Cards() {
+		if card := sub.Card(id); card.commander {
+			stayed[card.Name()] = true
+		}
+	}
+	var moved []CardID
+	for _, id := range g.Zone(Command, pid).Cards() {
+		if card := g.Card(id); card.commander && !card.IsEffect && !stayed[card.Name()] {
+			moved = append(moved, id)
+		}
+	}
+	for _, id := range moved {
+		g.moveByEffect(controller, id, Library, 0, NoPlayer, false)
+	}
 }
 
 // sideboardCard is one card buildSubgame put in a subgame Sideboard, with
@@ -195,12 +221,21 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 	}
 	sub := NewGame(g.db, g.rand, names)
 	sub.registry = g.registry
+	// new Game(players, maingame.getRules(), ...) (SubgameEffect.java:38):
+	// the subgame plays under the main game's variants.
+	sub.variants = g.variants
 	subSeats := sub.Players()
 	var sideboard []sideboardCard
 	for i, pid := range seats {
 		sp := subSeats[i]
 		// Player.setStartingLife (Player.java:423-428) sets life too.
-		sub.Player(sp).Life = life
+		seatLife := life
+		if seatLife < 0 {
+			seatLife = g.Player(pid).StartingLife
+		}
+		sub.Player(sp).Life, sub.Player(sp).StartingLife = seatLife, seatLife
+		// The seat's RegisteredPlayer starting hand (Game.java:379-380).
+		sub.Player(sp).StartingHandSize = g.Player(pid).StartingHandSize
 		copyCardsInto(g, sub, g.Zone(Library, pid).CardsIncludingPhasedOut(), sp, Library)
 
 		// CR 720.4: getCardsInOwnedBy(outsideZones, p) (Game.java:645-651),
@@ -238,6 +273,20 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 		for _, kind := range subgameExtraDecks {
 			if z := existingZone(g, kind, pid); z != nil {
 				copyCardsInto(g, sub, z.Cards(), sp, kind)
+			}
+		}
+		// initVariantsZonesSubgame's Vanguard step (SubgameEffect.java:63-68):
+		// a fresh copy of each registered avatar, whose deltas are already in
+		// the seat's starting life and hand.
+		for _, def := range g.Player(pid).avatars {
+			sub.NewCard(def, sp, Command)
+		}
+		// initVariantsZonesSubgame (SubgameEffect.java:70-79): each commander
+		// in the main-game player's Command zone gets a fresh copy in the
+		// subgame's, a commander there too.
+		for _, id := range g.Zone(Command, pid).Cards() {
+			if card := g.Card(id); card.commander && !card.IsEffect {
+				sub.addCommander(sp, sub.NewCard(card.Def, sp, Command))
 			}
 		}
 		sub.Shuffle(Library, sp)
@@ -289,6 +338,12 @@ func startSubgame(sub *Game, reg *Registry, c PlayerController) error {
 	// nothing in this port concedes, and an ended game's turn driver
 	// returns at once anyway.
 	PerformMulligans(sub, c, first)
+	// GameAction.java:2377-2381, under the shared rules.
+	if sub.HasVariant(VariantPlanechase) {
+		if err := sub.InitPlanechase(first); err != nil {
+			return err
+		}
+	}
 	first, err := RunOpeningHandActions(sub, reg, c, first)
 	if err != nil {
 		return err

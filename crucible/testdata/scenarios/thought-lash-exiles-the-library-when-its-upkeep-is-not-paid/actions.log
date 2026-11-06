@@ -1,0 +1,8 @@
+# CR 702.24a: human declines Thought Lash's cumulative upkeep, so it is
+# sacrificed, and its Mode$ PayCumulativeUpkeep (Paid$ False) trigger exiles
+# all cards from human's library.
+startturn human
+queue confirmpaycost false
+advance
+queue cardorder 2,3,4
+resolvestack

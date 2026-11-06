@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=2
-humanbattlefield=Exploration;Plains|SummonSick;Island|SummonSick
+humanbattlefield=Exploration;Plains;Island
 ailife=20

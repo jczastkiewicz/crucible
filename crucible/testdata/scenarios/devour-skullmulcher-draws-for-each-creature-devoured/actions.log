@@ -6,6 +6,7 @@
 # two cards.
 startturn human
 advance 3
+queue cardorder 7,8
 tapformana human 2 G
 tapformana human 3 G
 tapformana human 4 G

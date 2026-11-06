@@ -1,0 +1,13 @@
+# Mode$ Unattached (TriggerUnattached): Stitcher's Graft is equipped onto the
+# Elves, leaving the Bears; "whenever this becomes unattached from a
+# permanent, sacrifice that permanent" sacrifices the Bears.
+startturn human
+advance 3
+tapformana human 4 W
+tapformana human 5 W
+queue targets 3
+queue action human activate 2 0
+queue paygeneric W
+queue paygeneric W
+passpriority
+passpriority

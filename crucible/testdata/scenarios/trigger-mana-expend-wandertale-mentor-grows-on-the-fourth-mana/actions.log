@@ -1,0 +1,14 @@
+# Mode$ ManaExpend (TriggerManaExpend): casting Hill Giant
+# spends the turn's fourth mana on a spell; "whenever you expend 4" puts a
+# +1/+1 counter on Wandertale Mentor.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+castspell human 6
+resolvestack

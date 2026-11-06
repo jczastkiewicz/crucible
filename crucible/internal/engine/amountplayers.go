@@ -67,7 +67,7 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 		if !ok {
 			return 0, false, true
 		}
-		if len(cards) == 0 && (head == "Sacrificed" || head == "Exiled" || head == "ExiledCards" || head == "Discarded" || head == "Tapped") {
+		if len(cards) == 0 && (head == "Sacrificed" || head == "Exiled" || head == "ExiledCards" || head == "Discarded" || head == "Tapped" || head == "TappedCards") {
 			// A cost list nothing was paid into is Java's null paid list
 			// (SpellAbility.getPaidList): the amount is 0, the operator unread
 			// (AbilityUtils.java:715-729).
@@ -79,13 +79,22 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 	if !isAbilityPlayerHead(head) {
 		return 0, false, false
 	}
-	a := g.resolving
-	if a == nil || source == NoCard || a.Source != source {
+	// The Triggered* heads read the triggering objects of the trait itself,
+	// a trigger's condition included (AbilityUtils.java:569-581); the
+	// targeting heads only a resolving SpellAbility's (:603-656).
+	refs, activator, ok := g.triggerRefs(source)
+	if !strings.HasPrefix(head, "Triggered") {
+		if a := g.resolving; a != nil && source != NoCard && a.Source == source {
+			refs, activator, ok = a.refs(), a.Controller, true
+		} else {
+			ok = false
+		}
+	}
+	if !ok {
 		// An ability-context head read outside its own ability's resolution
 		// (a static, a cost being checked): not resolvable here (GO-7).
 		return 0, false, true
 	}
-	refs := a.refs()
 	switch {
 	case strings.HasPrefix(head, "TargetedPlayer"):
 		players, ok := targetingPlayers(refs)
@@ -110,7 +119,7 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 		} else if strings.HasPrefix(head, "TargetedController") {
 			defined = "TargetedController"
 		}
-		players, err := definedPlayers(g, a.Controller, source, defined, refs)
+		players, err := definedPlayers(g, activator, source, defined, refs)
 		if err != nil {
 			return 0, false, true
 		}
@@ -121,7 +130,7 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 	// TriggeredActivator: one triggering object, playerXProperty when it is a
 	// player and 0 when it is not (AbilityUtils.java:631-636).
 	key := triggeredPlayerKey(head)
-	players, err := definedPlayers(g, a.Controller, source, key, refs)
+	players, err := definedPlayers(g, activator, source, key, refs)
 	if err != nil {
 		return 0, false, true
 	}
@@ -231,19 +240,8 @@ func (g *Game) playerCountPlayers(amounts map[string]expr.Amount, controller Pla
 		}
 		return out, true
 	case strings.HasPrefix(hType, "Defined"):
-		var refs abilityRefs
-		own := false
-		if a := g.resolving; a != nil && source != NoCard && a.Source == source {
-			refs, own = a.refs(), true
-		}
+		refs, _, _ := g.triggerRefs(source)
 		key := strings.TrimPrefix(hType, "Defined")
-		if key == "TriggeredAttackedTargetAndYou" && !own {
-			// A trigger's CheckSVar$ reads this off the Trigger, not a
-			// SpellAbility, so Java's Triggered* branch is skipped and the
-			// player list falls through to every player, turn order
-			// (AbilityUtils.java:1013, :1191-1193; quirks.md, PORT-7).
-			return g.playersInTurnOrder(), true
-		}
 		players, err := definedPlayers(g, controller, source, key, refs)
 		return players, err == nil
 	}
@@ -268,10 +266,10 @@ func playerXCount(g *Game, amounts map[string]expr.Amount, controller PlayerID, 
 	switch {
 	case strings.HasPrefix(body, "TotalCommanderCastFromCommandZone"):
 		// AbilityUtils.java:3366-3372: every player's total, summed, the
-		// operator applied to the sum (commanderCasts: 0 for every player).
+		// operator applied to the sum.
 		n := 0
-		for range players {
-			n += g.commanderCasts()
+		for _, p := range players {
+			n += g.totalCommanderCasts(p)
 		}
 		return math(n)
 	case strings.HasPrefix(body, "Highest"), strings.HasPrefix(body, "Lowest"):
@@ -405,8 +403,7 @@ var playerPropertyNames = [...]string{
 // playerPropertyMeasure is the measure of the first playerPropertyNames entry
 // value contains, found false when none does. ok is false for a property this
 // port keeps no state for: StartingLibrarySize,
-// LifeGainedByTeamThisTurn, LifeStartedThisTurnWith,
-// SVarAmount.
+// LifeGainedByTeamThisTurn, SVarAmount.
 func playerPropertyMeasure(g *Game, pid PlayerID, value string, sq []string) (n int, ok, found bool) {
 	name := ""
 	for _, candidate := range playerPropertyNames {
@@ -436,7 +433,7 @@ func playerPropertyMeasure(g *Game, pid PlayerID, value string, sq []string) (n 
 	case "CreaturesInPlay":
 		return len(filterValid(g, g.Zone(Battlefield, pid).Cards(), "Creature", pid, NoCard)), true, true
 	case "StartingLife":
-		return startingLife, true, true
+		return p.StartingLife, true, true
 	case "LifeTotal":
 		return p.Life, true, true
 	case "LifeLostThisTurn":
@@ -448,6 +445,12 @@ func playerPropertyMeasure(g *Game, pid PlayerID, value string, sq []string) (n 
 		return p.LifeGainedThisTurn, true, true
 	case "Speed":
 		return p.Speed, true, true
+	case "LifeStartedThisTurnWith":
+		// AbilityUtils.java:3602-3603.
+		if !p.lifeStarted {
+			return 20, true, true
+		}
+		return p.lifeStartedThisTurnWith, true, true
 	case "Counters":
 		if len(sq) < 2 {
 			return 0, false, true
@@ -525,6 +528,12 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 		}
 		return math(n)
 	}
+	if spec, ok := strings.CutPrefix(body, "LandsPlayed "); ok {
+		// AbilityUtils.java:3527-3532: the lands played this turn (as last known
+		// before they moved) matching the valid string, ahead of the plain
+		// LandsPlayed count playerPropertyMeasure reads.
+		return math(g.playedLandsCount(pid, source, spec))
+	}
 	if strings.HasPrefix(body, "Sacrificed") {
 		n, ok := g.sacrificedThisTurnCount(pid, source, body)
 		if !ok {
@@ -569,10 +578,8 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 	case "OpponentsAttackedThisCombat":
 		return math(g.attackedOpponentsThisCombat(pid))
 	case "AttractionsVisitedThisTurn":
-		// AbilityUtils.java:3683: Player.getAttractionsVisitedThisTurn. The
-		// engine never visits Attractions (RollDice's ToVisitYourAttractions
-		// is refused), so no visit has been counted: always 0.
-		return math(0)
+		// AbilityUtils.java:3683: Player.getAttractionsVisitedThisTurn.
+		return math(g.Player(pid).attractionsVisitedThisTurn)
 	}
 	return 0, false
 }

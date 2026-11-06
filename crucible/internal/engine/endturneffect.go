@@ -41,6 +41,12 @@ func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		}
 	}
 	g.exileStack(controller)
+	if source.Zone == Stack {
+		// The stack zone's every card, the resolving spell's own included:
+		// Time Stop is exiled and goes on resolving (EndTurnEffect.java:
+		// 36-43, CR 723.1b).
+		g.moveByEffect(controller, a.Source, Exile, 0, NoPlayer, false)
+	}
 	g.endCombat()
 	CheckStateBasedActions(g, controller)
 	g.extraPhases = [numPhaseTypes][]extraPhase{}
@@ -51,6 +57,7 @@ func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: EndTurn: %w", err)
 	}
 	g.endTurnCleanup = priority
+	g.turnEndedByEffect = true
 	return nil
 }
 

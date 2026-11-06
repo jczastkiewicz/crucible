@@ -14,7 +14,7 @@ answered from memory.
 
 | Port               | Adapters                                             | Decided in                                                                  |
 | ------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| `PlayerController` | Scripted, Replay, AI                                 | Inherited from Forge — 110 abstract methods                                 |
+| `PlayerController` | Scripted, Replay, AI                                 | Inherited from Forge — 112 abstract methods                                 |
 | `event.Sink`       | Telemetry recorder, discard for AI clones            | [ADR-0005](0005-concurrency-model.md), [design](../design/engine-design.md) |
 | RNG                | `javarand` for parity, `math/rand/v2` for production | [ADR-0006](0006-determinism-and-rng.md)                                     |
 
@@ -73,7 +73,7 @@ dispatched by API type, which is variation, and its cost is one array index and 
 as separate layers does not qualify, and the compiler will not stop it, so review has to.
 
 **The vocabulary is adopted, the layering is not.** Calling `PlayerController` a port is useful — it explains why it has
-110 methods and why that is acceptable. Calling `internal/engine` a hexagon and splitting it into domain and application
+112 methods and why that is acceptable. Calling `internal/engine` a hexagon and splitting it into domain and application
 packages is the thing this ADR exists to prevent.
 
 ## Consequences

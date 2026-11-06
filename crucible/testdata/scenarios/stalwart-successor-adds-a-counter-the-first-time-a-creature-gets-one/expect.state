@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Stalwart Successor|Id:1;Grizzly Bears|Id:2|Counters:P1P1=2;Forest|Id:3|Tapped
+humangraveyard=Battlegrowth|Id:4
+ailife=20

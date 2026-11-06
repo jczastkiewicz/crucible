@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability amount card castspell condition control defined effecthelpers game id land parts player trigger unlesscost valid zone zonemove illusionarymask
+//enginelint:allow ability amount card castspell condition control defined effecthelpers face game id land parts player trigger unlesscost valid zone zonemove illusionarymask castoptions
 
 import (
 	"fmt"
@@ -47,10 +47,14 @@ type playEffect struct{}
 // a card built from outside the game past AnySupportedCard$ Names: with
 // RandomCopied$ (RandomNum$, ChoiceNum$, the sorcery and instant lists); an alternate state (CastTransformed$); alternative or modified costs past a plain mana
 // PlayCost$ (playCost: ManaCost, SuspendCost and the non-mana ones;
-// PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ShowCards$ (a second, display-only list), ZoneRegardless$
-// (equalsWithGameTimestamp, which this port cannot tell apart);
+// PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ShowCards$ (a second, display-only list);
 // Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // "never met" rather than evaluating.
+//
+// ZoneRegardless$ is not in this list either: it keeps a card that changed
+// zones since it was chosen (PlayEffect.java:181-187), and a CardID here
+// carries no zone stamp, so every Play keeps such a card already
+// (quirks.md: the no-param case is the deviation).
 //
 // TgtZone$ is not in this list: with ValidTgts$ present, resolveTargets
 // (targeting.go) already read it before Play's own Resolve ever runs, so
@@ -61,20 +65,13 @@ type playEffect struct{}
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
 	"RandomNum", "ChoiceNum", "CastTransformed", "PlayReduceCost",
-	"PlayRaiseCost", "ShowCards", "ZoneRegardless"}
+	"PlayRaiseCost", "ShowCards"}
 
-// playUnportedProperties are card-property prefixes in the corpus's Play
-// valid strings that Matches (valid.go) has no case for and would read as
-// false for every card, silently emptying the pool (GO-7): ExiledWith and
-// its ExiledWithSourceLKI/ExiledWithEffectSource forms -- the exact
-// ExiledWithSource is answered (playSpecGap) --, sharesCardTypeWith.
 // sharesNameWith is answered in the forms Matches evaluates without the
 // ability that names them (playSharesNameWithForms); the corpus's Play lines
-// use only ThisTurnCast (answered from the turn's cast record) and TriggeredCard, which stays refused.
-var playUnportedProperties = [...]string{
-	"ExiledWith",
-}
-
+// use only ThisTurnCast (answered from the turn's cast record) and
+// TriggeredCard, which stays refused.
+//
 // playSharesNameWithForms are the `sharesNameWith <restriction>` restrictions
 // valid.go answers from the game and the source's memory alone (CardProperty.java:
 // 823-869): the zone forms, and the cards the host remembered or imprinted.
@@ -258,11 +255,12 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			g.Card(pick).IsToken = true
 		}
 
-		opt, ok, err := playOptionFor(g, a, caster, pick, validSA, hasValidSA)
+		opt, ok, err := playOptionFor(g, controller, a, caster, pick, validSA, hasValidSA)
 		if err != nil {
 			return err
 		}
-		pickCMC := g.Card(pick).manaCost().CMC()
+		var pickCMC int
+		withPlayView(g, pick, opt, func() { pickCMC = g.Card(pick).manaCost().CMC() })
 		if ok && hasBudget && !opt.land && pickCMC > budget {
 			ok = false // PlayEffect.java:306-311: no spell fits what is left
 		}
@@ -275,6 +273,22 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			continue
 		}
 		origin := g.Card(pick).Zone
+		faced := (opt.face || opt.fused) && g.Card(pick).faceDef == nil
+		switch {
+		case faced && opt.fused:
+			// CastFused's view: both halves as one spell.
+			g.Card(pick).castAsFused()
+		case faced:
+			g.Card(pick).castAsFace()
+		case !opt.land:
+			// A Split card's plain option is its left half's spell.
+			faced = g.Card(pick).castAsLeftHalf()
+		}
+		undoFace := func() {
+			if faced && g.Card(pick).Zone != Stack && g.Card(pick).Zone != Battlefield {
+				g.Card(pick).undoCastAsFace()
+			}
+		}
 		if opt.land {
 			g.playLandNow(controller, caster, pick)
 			playRecord(g, a, pick, chosenCard)
@@ -282,16 +296,27 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			amount--
 			continue
 		}
-		if !withoutMana && !opts.hasAltCost && g.Card(pick).Def.Faces[0].ManaCost.IsNoCost() {
+		cast := opts
+		if !withoutMana && !opts.hasAltCost && extraCost == "" && !opts.madness && !hasParam(a, "CastFaceDown") {
+			// PlayEffect.java:297 (withAltCost when neither WithoutManaCost$
+			// nor PlayCost$): the card's Mode$ AlternativeCost spells are
+			// offered beside its plain cast (AbilityUtils.java:3028-3030).
+			if alt, ok := g.chooseAltCostForPlay(controller, caster, pick); ok {
+				cast.altCost, cast.hasAltCost = alt.alt, true
+				cast.altStatic, cast.altOwn = true, alt.altOwn
+				cast.extra, cast.hasExtra = alt.altExtra, alt.hasAltExtra
+			}
+		}
+		if !withoutMana && !cast.hasAltCost && g.Card(pick).Def.Faces[0].ManaCost.IsNoCost() {
 			// PlayEffect.java:387-389: a spell with no mana cost cannot be
 			// paid for, so it is skipped, amount not spent. A PlayCost$
 			// replaces the mana cost, so it is paid instead (:371-386).
+			undoFace()
 			if err := playRepeatLoop(allowRepeats, g.Card(chosenCard), "has no mana cost to pay"); err != nil {
 				return err
 			}
 			continue
 		}
-		cast := opts
 		if hasParam(a, "CastFaceDown") {
 			// PlayEffect.java:321-324: the Morph ability, {3} unless
 			// WithoutManaCost$ strips it.
@@ -314,11 +339,33 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			g.playReplaceGraveyard(a, pick)
 			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
+		} else {
+			undoFace()
 		}
 		amount--
 		budget -= pickCMC
 	}
 	return nil
+}
+
+// chooseAltCostForPlay offers caster card's Mode$ AlternativeCost casts
+// beside the plain one (altCostOptions); ok is false when there are none or
+// the plain cast is chosen.
+func (g *Game) chooseAltCostForPlay(controller PlayerController, caster PlayerID, card CardID) (castOption, bool) {
+	alts := g.altCostOptions(caster, g.Card(card))
+	if len(alts) == 0 {
+		return castOption{}, false
+	}
+	name := g.Card(card).Def.Name
+	labels := []string{castOption{}.describe(name)}
+	for _, o := range alts {
+		labels = append(labels, o.describe(name))
+	}
+	i := controller.ChooseOption(g, caster, card, labels)
+	if i <= 0 || i > len(alts) {
+		return castOption{}, false
+	}
+	return alts[i-1], true
 }
 
 // playCost is the cast options a's cost params give (PlayEffect.java:
@@ -461,8 +508,8 @@ func playCandidates(g *Game, a *Ability) ([]CardID, error) {
 
 // playSpecGap names the first property of a card valid string Matches
 // cannot answer: a numeric comparison against an operand that is neither a
-// literal nor an SVar of the Play ability (amounts), or a
-// playUnportedProperties prefix.
+// literal nor an SVar of the Play ability (amounts), or a sharesNameWith
+// form outside playSharesNameWithForms.
 func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 	for _, alt := range valid.Parse(spec).Alternatives {
 		for _, p := range alt.Properties {
@@ -474,19 +521,11 @@ func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 				}
 				continue
 			}
-			if p.Name == "ExiledWithSource" || p.Name == "CanPayManaCost" {
-				continue
-			}
 			if rest, ok := strings.CutPrefix(p.Name, "sharesNameWith"); ok {
 				if rest == "" || slices.Contains(playSharesNameWithForms[:], strings.TrimSpace(rest)) {
 					continue
 				}
 				return p.Name, true
-			}
-			for _, prefix := range playUnportedProperties {
-				if strings.HasPrefix(p.Name, prefix) {
-					return p.Name, true
-				}
 			}
 		}
 	}
@@ -497,6 +536,57 @@ func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 // its one spell.
 type playOption struct {
 	land bool
+	// face is the card's second face (ADR-0052): cast, or played as a land,
+	// through a one-face view of the printed card.
+	face bool
+	// fused is a Fuse Split card's two halves cast together (fuseView): from
+	// the hand only, the one zone Fuse allows (SpellAbilityRestriction.java:364,
+	// the only check left once Play clears the zone restriction,
+	// AbilityUtils.java:2995).
+	fused bool
+}
+
+// withPlayView runs fn while card shows opt's characteristics, as Java's
+// option is its own SpellAbility on its own state: the second face
+// (castAsFace), the fused spell (fuseView), or a Split card's left half
+// (castAsLeftHalf); any other front is the card as it is. ValidSA$, WithTotalCMC$ and the label read the option this way, so the
+// right half of Fire // Ice is judged on Ice's cost, not Fire's.
+func withPlayView(g *Game, card CardID, opt playOption, fn func()) {
+	c := g.Card(card)
+	if c.faceDef == nil {
+		switch {
+		case opt.face:
+			c.castAsFace()
+			defer c.undoCastAsFace()
+		case opt.fused:
+			if c.castAsFused() {
+				defer c.undoCastAsFace()
+			}
+		case !opt.land:
+			if c.castAsLeftHalf() {
+				defer c.undoCastAsFace()
+			}
+		}
+	}
+	fn()
+}
+
+// playOptionLabel names opt for the controller's choice among a card's play
+// options (PlayerController.getAbilityToPlay).
+func playOptionLabel(g *Game, card CardID, opt playOption) string {
+	var label string
+	withPlayView(g, card, opt, func() {
+		name := g.Card(card).Name()
+		switch {
+		case opt.land:
+			label = "Play " + name
+		case opt.fused:
+			label = "Cast " + name + " fused"
+		default:
+			label = "Cast " + name
+		}
+	})
+	return label
 }
 
 // playOptionsOf is AbilityUtils.getSpellsFromPlayEffect for card: a land's
@@ -510,6 +600,40 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 	if playCastGap(c) != "" {
 		return nil, false
 	}
+	if c.faceDef == nil && faceCastable(c.Def) {
+		// Both faces' options, the front first; playOptionFor asks the
+		// controller to choose among those ValidSA$ admits
+		// (getAbilityToPlay).
+		left := c.castAsLeftHalf()
+		front, _ := playOptionsOfFace(g, caster, card)
+		if left {
+			c.undoCastAsFace()
+		}
+		c.castAsFace()
+		face, _ := playOptionsOfFace(g, caster, card)
+		c.undoCastAsFace()
+		for i := range face {
+			face[i].face = true
+		}
+		opts := append(append([]playOption(nil), front...), face...)
+		if c.Zone == Hand && c.castAsFused() {
+			// Java's order: Left, Right, then the fused spell (CardState.java:
+			// 495-502, Card.java:3471-3477).
+			fused, _ := playOptionsOfFace(g, caster, card)
+			c.undoCastAsFace()
+			for i := range fused {
+				fused[i].fused = true
+			}
+			opts = append(opts, fused...)
+		}
+		return opts, true
+	}
+	return playOptionsOfFace(g, caster, card)
+}
+
+// playOptionsOfFace is playOptionsOf for the characteristics c has now.
+func playOptionsOfFace(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
+	c := g.Card(card)
 	t := c.Type()
 	switch {
 	case t.Has(cardtype.Land):
@@ -539,6 +663,11 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 func playCastGap(c *Card) string {
 	switch c.Def.SplitType {
 	case carddb.SplitNone, carddb.SplitTransform, carddb.SplitMeld, carddb.SplitFlip, carddb.SplitSpecialize:
+	case carddb.SplitAdventure, carddb.SplitOmen, carddb.SplitModal, carddb.SplitSplit, carddb.SplitVengeance:
+		if !faceCastable(c.Def) {
+			return "a " + c.Def.SplitType.String() + " card's choice of spells"
+		}
+		return ""
 	default:
 		return "a " + c.Def.SplitType.String() + " card's choice of spells"
 	}
@@ -575,7 +704,9 @@ func cardHasPlayOption(g *Game, a *Ability, caster PlayerID, card CardID, validS
 		return true, nil
 	}
 	for _, opt := range opts {
-		matched, err := validSAMatches(g, a, caster, card, opt, validSA)
+		var matched bool
+		var err error
+		withPlayView(g, card, opt, func() { matched, err = validSAMatches(g, a, caster, card, opt, validSA) })
 		if err != nil || matched {
 			return matched, err
 		}
@@ -584,26 +715,47 @@ func cardHasPlayOption(g *Game, a *Ability, caster PlayerID, card CardID, validS
 }
 
 // playOptionFor is the option Play uses for the chosen card, and whether it
-// has one; a spell this port cannot cast is an error (GO-7).
-func playOptionFor(g *Game, a *Ability, caster PlayerID, card CardID, validSA string, hasValidSA bool) (playOption, bool, error) {
+// has one: each option ValidSA$ admits, judged under its own view
+// (withPlayView), and the controller's pick when several are (ChooseOption,
+// labelled by playOptionLabel). A spell this port cannot cast is an error
+// (GO-7).
+func playOptionFor(g *Game, controller PlayerController, a *Ability, caster PlayerID, card CardID, validSA string, hasValidSA bool) (playOption, bool, error) {
 	opts, ok := playOptionsOf(g, caster, card)
 	if !ok {
 		c := g.Card(card)
 		return playOption{}, false, fmt.Errorf("engine: Play: casting %q (%s) not resolvable yet", c.Def.Name, playCastGap(c))
 	}
+	var offered []playOption
 	for _, opt := range opts {
-		if !hasValidSA {
-			return opt, true, nil
-		}
-		matched, err := validSAMatches(g, a, caster, card, opt, validSA)
-		if err != nil {
-			return playOption{}, false, err
+		matched := true
+		if hasValidSA {
+			var err error
+			withPlayView(g, card, opt, func() { matched, err = validSAMatches(g, a, caster, card, opt, validSA) })
+			if err != nil {
+				return playOption{}, false, err
+			}
 		}
 		if matched {
-			return opt, true, nil
+			offered = append(offered, opt)
 		}
 	}
-	return playOption{}, false, nil
+	switch len(offered) {
+	case 0:
+		return playOption{}, false, nil
+	case 1:
+		return offered[0], true, nil
+	}
+	// PlayEffect.java:323: the controller picks one of the card's spells
+	// (getAbilityToPlay; Java's AI takes the first).
+	labels := make([]string, len(offered))
+	for i, opt := range offered {
+		labels[i] = playOptionLabel(g, card, opt)
+	}
+	i := controller.ChooseOption(g, caster, a.Source, labels)
+	if i < 0 || i >= len(offered) {
+		return playOption{}, false, fmt.Errorf("engine: Play: option %d of %d", i, len(offered))
+	}
+	return offered[i], true, nil
 }
 
 // validSAMatches is SpellAbility.isValid (SpellAbility.java:2206-2274) for
@@ -684,12 +836,11 @@ func validSAPropertyMatches(g *Game, a *Ability, caster PlayerID, c *Card, prop 
 		// host named.
 		return slices.Contains(g.Card(a.Source).Memory.NamedCards(), c.Def.Name), nil
 	case "CouldCastTiming":
-		// SpellAbilityProperty.java:304-321 for a spell: the caster could cast
-		// it now, at sorcery speed or at instant speed (instant, Flash, a
-		// CastWithFlash static). A split-second spell on the stack is not
-		// modelled here.
-		return g.canActSorcerySpeed(caster) || c.Type().Has(cardtype.Instant) || c.HasKeyword("Flash") ||
-			g.castsWithFlash(caster, c.ID), nil
+		// SpellAbilityProperty.java:304-321 for a spell: no split-second spell
+		// is on the stack and the caster could cast it now, at sorcery speed
+		// or at instant speed (instant, Flash, a CastWithFlash static).
+		return !g.splitSecondOnStack() && (g.canActSorcerySpeed(caster) || c.Type().Has(cardtype.Instant) || c.HasKeyword("Flash") ||
+			g.castsWithFlash(caster, c.ID)), nil
 	}
 	if name, gap := playSpecGap("Card."+prop, a.Amounts); gap {
 		return false, fmt.Errorf("engine: Play: ValidSA$ property %q not resolvable yet", name)

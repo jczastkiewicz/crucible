@@ -30,6 +30,9 @@ var becomesCrewedParams = map[string]bool{
 func (g *Game) becomesCrewed(controller PlayerController, a *Ability) {
 	host := a.Source
 	g.crewedThisTurn = append(g.crewedThisTurn, host)
+	for _, id := range a.paid.tapped {
+		g.Card(host).crewedBy = append(g.Card(host).crewedBy, objectStamp{card: id, stamp: g.Card(id).zoneStamp})
+	}
 	times := 0
 	for _, id := range g.crewedThisTurn {
 		if id == host {
@@ -49,7 +52,7 @@ func (g *Game) becomesCrewed(controller PlayerController, a *Ability) {
 				return triggeredObjects{}, false
 			}
 		}
-		return triggeredObjects{card: host}, true
+		return triggeredObjects{card: host, crew: append([]CardID(nil), a.paid.tapped...)}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

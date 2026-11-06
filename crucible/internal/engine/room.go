@@ -116,9 +116,19 @@ func (c *Card) PrintedDef() *compile.Card {
 	if c.roomDef != nil {
 		return c.roomDef
 	}
-	if c.flipped && c.frontDef != nil {
-		// A flipped card is still the paper card it was printed as.
+	if c.faceDef != nil {
+		return c.faceDef
+	}
+	if c.frontDef != nil && (c.flipped || c.MeldedWith == NoCard && c.frontDef.SplitType == carddb.SplitTransform) {
+		// A flipped or transformed card is still the paper card it was
+		// printed as: GameState writes the front face's name, then
+		// |Transformed.
 		return c.frontDef
+	}
+	if c.faceUpDef != nil {
+		// A face-down card is written under its own name (GameState.java
+		// writes the paper card, then |FaceDown).
+		return c.faceUpDef
 	}
 	return c.UncopiedDef()
 }
@@ -160,6 +170,9 @@ func (c *Card) enterRoom() {
 // unlockedRooms set and its Original state (GameAction.java:249). Callers
 // run it after turnFaceUp and endCopiesOnLeave, so Def is the own slot.
 func (c *Card) leaveRoom() {
+	if c.faceDef != nil {
+		c.leaveFace()
+	}
 	if c.roomDef == nil {
 		return
 	}
@@ -241,14 +254,20 @@ func roomView(printed *compile.Card, doors doorSet) *compile.Card {
 	v.Faces[0] = left
 	v.Faces[0].Name = v.Name
 	v.Faces[0].Type = left.Type.Union(right.Type)
-	shards := append(append([]mana.Shard(nil), left.ManaCost.Shards()...), right.ManaCost.Shards()...)
-	v.Faces[0].ManaCost = mana.FromShards(shards, left.ManaCost.Generic()+right.ManaCost.Generic())
+	v.Faces[0].ManaCost = combinedManaCost(left.ManaCost, right.ManaCost)
 	if left.HasColors || right.HasColors {
 		v.Faces[0].Colors = faceColors(left) | faceColors(right)
 		v.Faces[0].HasColors = true
 	}
 	v.Faces[DoorRight] = right
 	return v
+}
+
+// combinedManaCost is two halves' mana costs as one (CardRules' combined
+// split cost, CardFactory.java:335): every shard of both, generic summed.
+func combinedManaCost(left, right mana.Cost) mana.Cost {
+	shards := append(append([]mana.Shard(nil), left.Shards()...), right.Shards()...)
+	return mana.FromShards(shards, left.Generic()+right.Generic())
 }
 
 // faceColors is a face's printed color: its Colors: override, else its mana
@@ -444,7 +463,7 @@ func unlockCostModified(g *Game, unlocker PlayerID) bool {
 			if c.Def == nil {
 				continue
 			}
-			for _, face := range c.traitFaces() {
+			for _, face := range c.liveTraitFaces() {
 				for _, st := range face.Statics {
 					mode, _ := st.Param("Mode")
 					spell, _ := st.Param("ValidSpell")

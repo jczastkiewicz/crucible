@@ -54,25 +54,34 @@ Pain's Reward, Dance with Calamity) answered yes forever loops by the controller
 
 ## Results
 
-Measured on the full corpus (34,078 cards):
+Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,594 |
-| refused      |      0 |
+| plays        | 33,358 |
+| refused      |    239 |
 | panicked     |      0 |
 | hung         |      0 |
-| placed       |    454 |
+| placed       |    451 |
 | inconclusive |     86 |
 
-100.0% of the 33,594 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
+99.3% of the 33,597 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.6% of 8,695 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
+| 113 | `resolve: valid property not resolvable` |
+| 98 | `turns: valid property not resolvable` |
+| 27 | `activate: valid property not resolvable` |
+| 1 | `turns: static trigger of: valid property not resolvable` |
+
+All 239 are one gate: a valid-string property no case of `valid.go` ports that names no card type either
+(`checkTypeWord`, open plan R19b) errors instead of matching nothing. About 100 distinct properties, the most frequent
+`greatestRememberedCMC`, `targetedBy`, `blockedBySource`, `sharesCreatureTypeWith`, `attackedThisTurn`, `hasXCost`,
+`TopLibrary_<type>`, `BottomLibrary`, `blockedByRemembered`, `Transformed`, `NoAbilities` and `AdventureCard`.
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

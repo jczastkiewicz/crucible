@@ -22,8 +22,9 @@ func TestTakklemaggotReturnsAsANonAuraEnchantment(t *testing.T) {
 	sba(g)
 	c := engine.NewScriptedController()
 	c.QueueCardChoice(nil) // no creature Takklemaggot could enchant
-	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(bears)},
-		"DB$ Destroy | ValidTgts$ Creature"); err != nil {
+	// DestroyAll takes the test's own creature host too, so no creature is
+	// left for Creature.CanBeEnchantedBy.
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ DestroyAll | ValidCards$ Creature"); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
@@ -37,5 +38,34 @@ func TestTakklemaggotReturnsAsANonAuraEnchantment(t *testing.T) {
 	advanceUntil(t, g, c, func() bool { return g.Turn() == 2 && g.ActivePhase() == engine.Draw })
 	if got := life - g.Player(other).Life; got != 1 {
 		t.Errorf("%d damage at that player's upkeep, want 1", got)
+	}
+}
+
+// When its creature dies, Takklemaggot returns attached to a creature it
+// could enchant (Creature.CanBeEnchantedBy, Card.canBeAttached) that the
+// dead creature's controller chooses.
+func TestTakklemaggotReturnsAttachedToTheChosenCreature(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	thopter := g.NewCard(corpusCard(t, "Ornithopter"), other, engine.Battlefield)
+	maggot := g.NewCard(corpusCard(t, "Takklemaggot"), p, engine.Battlefield)
+	g.Attach(maggot, bears)
+	sba(g)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{thopter}) // ChooseCard
+	c.QueueCardChoice([]engine.CardID{thopter}) // ChangeZone's AttachedTo$ ChosenCard
+	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(bears)},
+		"DB$ Destroy | ValidTgts$ Creature"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	m := g.Card(maggot)
+	if host, ok := m.AttachedTo(); m.Zone != engine.Battlefield || !ok || host != thopter {
+		t.Fatalf("Takklemaggot in %v attached to %v (%v), want on the battlefield on Ornithopter %v", m.Zone, host, ok, thopter)
 	}
 }

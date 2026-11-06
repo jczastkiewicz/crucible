@@ -214,11 +214,24 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return !c.InTransformedState()
 	case name == "BackSide":
 		return c.InTransformedState()
-	case name == "token":
-		// CardProperty.java:1346-1347: isToken() || isTokenCard(); its
-		// "tokenCreated..." suffixes fall through to the type fallback below,
-		// false for every card.
+	case strings.HasPrefix(name, "token"):
+		// CardProperty.java:1346-1353: isToken() || isTokenCard(); a
+		// "tokenCreated" form leaves out a token that was cast (a copied
+		// permanent spell, getCastSA() != null).
+		if strings.Contains(name, "Created") && c.wasCast {
+			return false
+		}
 		return c.IsToken || c.IsTokenCard
+	case name == "CanBeEnchantedBy":
+		// CardProperty.java:508-519: c could have source attached
+		// (Card.canBeAttached), Takklemaggot's new host.
+		sc, ok := sourceCard(g, source)
+		return ok && g.canBeAttached(sc, c.ID)
+	case name == "TriggeredCrew":
+		// CardProperty.java:2048-2063 over AbilityKey.Crew: c crewed the host
+		// of the BecomesCrewed trigger resolving or choosing targets.
+		a := g.resolving
+		return a != nil && source != NoCard && a.Source == source && containsCard(a.refs().triggered.crew, c.ID)
 	case name == "EffectSource":
 		// CardProperty.java:424: c is the card that created source, an
 		// effect card (effecteffect.go's effectLifetime.host).
@@ -1048,9 +1061,34 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// its named branches (color included, checked first, above) claim
 		// the property -- "nonLand", "nonCreature", "nonArtifact", and
 		// every other `non<Type>` this port's `cardtype` recognizes.
+		g.checkTypeWord(name, rest)
 		return !c.Type().HasStringType(rest)
 	}
+	g.checkTypeWord(name, name)
 	return c.Type().HasStringType(name)
+}
+
+// checkTypeWord records an error when a property that reached
+// propertyMatches' type fallthrough names no card type, supertype or
+// subtype: Java's CardProperty answers it by name and this port does not,
+// so matching nothing would hide the card's filter being ignored (GO-7,
+// R19b). word is the type the property tests, name the whole property.
+func (g *Game) checkTypeWord(name, word string) {
+	if word == "" {
+		g.recordPendingError(fmt.Errorf("engine: valid property %q not resolvable yet", name))
+		return
+	}
+	up := strings.ToUpper(word[:1]) + word[1:]
+	if _, ok := cardtype.CoreTypeFromName(up); ok {
+		return
+	}
+	if _, ok := cardtype.SupertypeFromName(up); ok {
+		return
+	}
+	if reg := g.db.Types(); reg == nil || reg.Known(word) {
+		return
+	}
+	g.recordPendingError(fmt.Errorf("engine: valid property %q not resolvable yet", name))
 }
 
 // sourceColorMatches is CardStateProperty.hasProperty's withSource form of

@@ -745,6 +745,9 @@ type triggeredObjects struct {
 	// triggering object), read by Defined$ TriggeredFighter/
 	// TriggeredFighterLKICopy. NoCard when unset.
 	fighter CardID
+	// crew is AbilityKey.Crew of Mode$ BecomesCrewed, the creatures tapped
+	// to crew the host (Card.becomesCrewed), read by TriggeredCrew.
+	crew []CardID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the

@@ -49,7 +49,7 @@ func (g *Game) becomesCrewed(controller PlayerController, a *Ability) {
 				return triggeredObjects{}, false
 			}
 		}
-		return triggeredObjects{card: host}, true
+		return triggeredObjects{card: host, crew: append([]CardID(nil), a.paid.tapped...)}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

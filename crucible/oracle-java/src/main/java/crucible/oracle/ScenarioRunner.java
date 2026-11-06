@@ -58,7 +58,7 @@ public final class ScenarioRunner {
     // reported unmapped and not run (ADR-0060).
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
-            "tapformana", "castspell", "playland", "passpriority");
+            "tapformana", "castspell", "playland", "passpriority", "expecterror");
     // The lines a seat makes at its priority, where Go ran them (S13).
     private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
@@ -182,6 +182,21 @@ public final class ScenarioRunner {
                     // A second startturn restarts Go's turn mid-game; Java
                     // sets up its first turn once (PhaseHandler.setupFirstTurn).
                     unmapped.add(line);
+                } else if ((PLAYS.contains(f[0]) || f[0].equals("expecterror")) && when.get(i)[0].equals("1")
+                        && when.get(i)[1].equals("DRAW")) {
+                    // S18: Go's advance walks through the first player's
+                    // skipped draw step (CR 103.8a); Java skips it, so a play
+                    // there has no priority to be made at.
+                    unmapped.add(line);
+                } else if (f[0].equals("expecterror")) {
+                    // S17: only a refused cast or land play is mapped.
+                    String[] all = line.split("\\s+");
+                    if (all.length != 5 || !all[1].equals("refused") || !PLAYS.contains(all[2]) || all[2].equals("tapformana")) {
+                        unmapped.add(line);
+                    } else {
+                        answers.refusedPlay(i, all[2], Arrays.copyOfRange(all, 3, all.length), Integer.parseInt(when.get(i)[0]),
+                                PhaseType.smartValueOf(when.get(i)[1]));
+                    }
                 } else if (f[0].equals("queue")) {
                     answers.queue(f[1], f[2]);
                 } else if (f[0].equals("resolvestack") && Set.of("UNTAP", "CLEANUP").contains(when.get(i)[1])) {
@@ -242,7 +257,8 @@ public final class ScenarioRunner {
                 // Checkpoints: Java's own loop reaches the phase Go walks to,
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
-                        "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority" -> {
+                        "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority",
+                        "expecterror" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }

@@ -90,6 +90,7 @@ final class ScenarioController extends PlayerControllerForTests {
         if (atCheckpoint.getAsBoolean()) {
             throw new Checkpoint();
         }
+        boolean refused = false;
         for (ScenarioAnswers.Play play; (play = answers.nextPlayFor(player)) != null;) {
             if (play.verb().equals("pass")) {
                 return null;
@@ -114,6 +115,11 @@ final class ScenarioController extends PlayerControllerForTests {
                 continue;
             }
             boolean land = play.verb().equals("playland");
+            if (play.refused()) {
+                refuse(card, land);
+                refused = true;
+                continue;
+            }
             for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
                 if (land ? sa.isLandAbility() : sa.isSpell()) {
                     return List.of(sa);
@@ -121,7 +127,26 @@ final class ScenarioController extends PlayerControllerForTests {
             }
             throw new IllegalStateException(player + " cannot " + play.verb() + " " + card);
         }
+        // A refused play changed nothing: the checkpoint it held back may be
+        // this priority, before the seat passes the step away (S17).
+        if (refused && atCheckpoint.getAsBoolean()) {
+            throw new Checkpoint();
+        }
         return null;
+    }
+
+    // S17: a play Go refused. Java refuses it too when the card offers no
+    // playable spell or land ability, or when playing it fails; a play that
+    // goes through is an error, since Go's state assumes it never happened.
+    private void refuse(Card card, boolean land) {
+        for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
+            if (land ? sa.isLandAbility() : sa.isSpell()) {
+                if (PlaySpellAbility.playSpellAbility(this, player, sa)) {
+                    throw new IllegalStateException(player + " played " + sa + ", which Go refused");
+                }
+                return;
+            }
+        }
     }
 
     @Override
@@ -219,6 +244,12 @@ final class ScenarioController extends PlayerControllerForTests {
             if (currentAbility.canTarget(o) || !alone(currentAbility, o)) {
                 currentAbility.getTargets().add(o);
             }
+        }
+        // Fewer targets than the minimum is a selection that cannot finish,
+        // as TargetSelection's (Go's resolveTargets refuses the cast).
+        if (currentAbility.getTargets().size() < tgt.getMinTargets(currentAbility.getHostCard(), currentAbility)) {
+            currentAbility.resetTargets();
+            return false;
         }
         if (currentAbility.isDividedAsYouChoose()) {
             // Go's divideAmongTargets (dividedtargets.go) asks nothing for one

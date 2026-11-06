@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 1,045 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `cardchoice`, `confirmeffect`, `optionaltrigger`, `confirmpaycost`, `discardchoice`, `sacrificechoice`, `modechoice`, `scry`, `surveil`, `payphyrexian`, `payx`, `colorchoice`, `numberchoice`, `replacement`, `confirmreplacement`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` and Java error lists are exactly `crucible/testdata/l2-baseline.txt`
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 1,045 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `cardchoice`, `confirmeffect`, `optionaltrigger`, `confirmpaycost`, `discardchoice`, `sacrificechoice`, `modechoice`, `scry`, `surveil`, `payphyrexian`, `payx`, `colorchoice`, `numberchoice`, `replacement`, `confirmreplacement`, `action` queue kinds and a refused play's `expecterror`; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` and Java error lists are exactly `crucible/testdata/l2-baseline.txt`
 
 ## What it does
 
@@ -40,6 +40,8 @@ How the runner turns a fixture into a Java game. Each is a place the Go harness 
 | S14 | A `resolvestack` in Untap or Cleanup makes the scenario not runnable | Go's harness resolves there; Java gives no priority there (CR 502.4, 514.3), so its triggers wait for the next step |
 | S15 | A `queue action <player> ...` line is due at the priority round that takes it in Go: the next `passpriority`'s turn and phase, or the step a `step` line enters. The player takes it at their first priority at or after that point, once every earlier play is made; an action of a later round than the one before, or after a `resolvestack` or `passpriority`, waits for an empty stack. `pass` passes, `cast` and `playland` play as S13, `tapformana` taps, `activate N` and `manaability N` activate the card's Nth ability: its `A:` lines, then those its keywords and granting effects add, in `CardState.getSpellAbilities` order after the basic spell or land ability, as Go's `abilityAt` counts them. A door, `unlockdoor`, `foretell`, `plot`, `suspend` and `turnfaceup` are unmapped. A checkpoint in a step without priority does not wait for queued actions | Go's `ScriptedController` keeps one action queue per player, asked at each priority (`TakeAction`); a step without priority asks no one, so what it does not take stays queued |
 | S16 | A `queue cardchoice` answer is popped by whichever of `chooseCardsForEffect`, `chooseSingleEntityForEffect`, `chooseEntitiesForEffect`, `chooseSingleCardForZoneChange`, `chooseCardsForZoneChange` (a multi-card hidden search, which upstream's test controller answers with nothing), `chooseCardsToDiscardFrom`, `chooseCardsToRevealFromHand`, `chooseCardsToDiscardUnlessType`, `chooseCardsToDelve`, `chooseCardsForCost`, `choosePermanentsToSacrifice` (devour, exploit) and `ScenarioCostDecision`'s exile, forage (three graveyard cards), put-counter (blight) and reveal cost parts is asked first while it fits: every id one of the options, the count within the question's minimum (0 when optional) and maximum. A question it does not fit gets the upstream default answer. An answer left queued at the checkpoint is a Java error | Go asks one `ChooseCardsForEffect` where Java splits the question by purpose; the fit test keeps an answer for the question Go asked, and the leftover check catches a Java run that never asked it |
+| S17 | An `expecterror refused castspell` or `expecterror refused playland` line is a play Java must refuse too: the card offers no playable spell or land ability, playing it fails, or its turn and phase pass with no priority for the seat. A play that goes through is a Java error. After a refusal the seat's priority is the checkpoint when it is due, before the seat passes the step away. A target set below the ability's minimum fails the selection, as `TargetSelection`'s does | Go's harness reports the refusal as an error and changes nothing; a Java play would leave a state Go never had |
+| S18 | A play in turn 1's Draw step makes the scenario not runnable | Go's `advance` walks through the first player's skipped draw step (CR 103.8a, `drivenSkips` is the driver's only), Java skips it and gives no priority there |
 
 ## Verbs
 
@@ -57,7 +59,7 @@ An `actions.log` line is mapped to a Java answer, a checkpoint, or nothing. A sc
 | `resolvestack` | 316 | A checkpoint, the stack empty (S8); the next play waits for it (S13). Unmapped in Untap or Cleanup (S14) | mapped |
 | `passpriority` | 103 | A checkpoint, the stack empty (S8); the round that takes the queued actions (S15) | mapped |
 | `castspell <player> <id>`, `playland <player> <id>` | 250, 24 | A play (S13). A face or fuse argument is unmapped | mapped |
-| `expecterror` | 18 | — | unmapped |
+| `expecterror` | 18 | A refused `castspell` or `playland` (S17). The combat forms (`508.1d`, `509.1b`, `alone`) and `outside resolvestack` are unmapped | mapped for a refused play |
 | `mulligan`, `dealopeninghands` | 5, 3 | — | unmapped |
 | `foretell`, `plot`, `suspend`, `turnfaceup` | 2, 1, 1, 1 | — | unmapped |
 | `run`, `resumerestart`, `concede` | 2, 1, 1 | — | unmapped |
@@ -83,7 +85,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 919 same, 4 differs, 0 random, 141 not runnable (136 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
+The current run: 932 same, 4 differs, 0 random, 128 not runnable (123 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
@@ -95,7 +97,7 @@ The current run: 919 same, 4 differs, 0 random, 141 not runnable (136 with an un
 ## Not ported yet
 
 - `ScenarioController`'s answers for the other queue kinds (ADR-0060), Go's defaults and panics, and dividing combat damage among several blockers (`queue damage`)
-- The other verbs and queue kinds. By the first unmapped line per scenario: `expecterror` 18, `paymanacost` 15, `resolvestack` in Untap or Cleanup 10, a face or fuse `castspell` 7, `queue returnchoice`, `enchanttarget` and `divide` 6 each, `queue paysnow` 5
+- The other verbs and queue kinds. By the first unmapped line per scenario: `paymanacost` 15, `resolvestack` in Untap or Cleanup 10, a face or fuse `castspell` 7, `queue returnchoice`, `enchanttarget` and `divide` 6 each, `queue paysnow` 5
 - A seat's own order of its simultaneous triggers: they go on the stack in upstream's list order, Go's in its default order (`queue triggerorder`, which no scenario queues)
 - A created id (ADR-0059, open plan R21a-c)
-- Go's `ScriptedController` does not fail on an answer left queued; the Java leftover check found two such stale `queue confirmpaycost` lines (Rathi Assassin, Blood Moon), now removed
+- Go's `ScriptedController` does not fail on an answer left queued; the Java leftover check found three such stale lines, now removed: two `queue confirmpaycost` (Rathi Assassin, Blood Moon) and a `queue targets` for a spell with no legal target (Raise Dead in the Control Magic scenario)

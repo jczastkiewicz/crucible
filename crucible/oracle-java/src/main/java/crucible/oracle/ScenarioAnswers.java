@@ -39,7 +39,7 @@ final class ScenarioAnswers {
      * waits for the stack to empty. line is the actions.log line.
      */
     record Play(int line, String verb, String player, int turn, PhaseType phase, int id, String arg,
-            boolean afterResolve) {
+            boolean afterResolve, boolean refused) {
     }
 
     private final Deque<List<Integer>> attackers = new ArrayDeque<>();
@@ -122,7 +122,7 @@ final class ScenarioAnswers {
             throw new IllegalArgumentException(verb + " " + String.join(" ", args));
         }
         plays.add(new Play(line, verb, args[0], turn, phase, Integer.parseInt(args[1]),
-                args.length > 2 ? args[2] : null, resolved));
+                args.length > 2 ? args[2] : null, resolved, false));
         resolved = false;
     }
 
@@ -158,7 +158,19 @@ final class ScenarioAnswers {
         lastRound = round;
         resolvedForAction = false;
         actions.computeIfAbsent(args[0].toLowerCase(), k -> new ArrayDeque<>())
-                .add(new Play(line, verb, args[0], turn, phase, id, want > 3 ? args[3] : null, later));
+                .add(new Play(line, verb, args[0], turn, phase, id, want > 3 ? args[3] : null, later, false));
+    }
+
+    /**
+     * Queues an `expecterror refused castspell|playland <player> <id>` line:
+     * a play Go refused, which Java must refuse too (S17).
+     */
+    void refusedPlay(int line, String verb, String[] args, int turn, PhaseType phase) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException(verb + " " + String.join(" ", args));
+        }
+        plays.add(new Play(line, verb, args[0], turn, phase, Integer.parseInt(args[1]), null, resolved, true));
+        resolved = false;
     }
 
     /** A resolvestack line: the next play waits for an empty stack. */
@@ -172,6 +184,11 @@ final class ScenarioAnswers {
      * is due now; else null (p passes).
      */
     Play nextPlayFor(Player p) {
+        // A refused play whose turn and phase passed with no priority for
+        // its seat was refused by Java too: no one could have made it (S17).
+        while (plays.peek() != null && plays.peek().refused() && due(plays.peek()) && !now(plays.peek())) {
+            plays.poll();
+        }
         Play next = plays.peek();
         // A tapformana is made at whoever's priority comes first: Go's
         // harness taps outside the priority loop.

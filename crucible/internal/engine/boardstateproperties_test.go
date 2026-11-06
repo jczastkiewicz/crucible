@@ -80,3 +80,36 @@ func TestNoAbilitiesMatchesVanillaCardsOnly(t *testing.T) {
 		}
 	}
 }
+
+// hasManaAbility, hasNonManaActivatedAbility and hasAbility <spec> read c's
+// own abilities (CardStateProperty.java:116-147).
+func TestAbilityPresencePropertiesReadTheCardsAbilities(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	elves := g.NewCard(corpusCard(t, "Llanowar Elves"), p, engine.Battlefield)
+	forest := g.NewCard(corpusCard(t, "Forest"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	pinger := g.NewCard(corpusCard(t, "Prodigal Sorcerer"), p, engine.Battlefield)
+	for _, tc := range []struct {
+		spec string
+		card engine.CardID
+		want bool
+	}{
+		{"Card.hasManaAbility", elves, true},
+		{"Card.hasManaAbility", forest, true},
+		{"Card.hasManaAbility", pinger, false},
+		{"Card.hasNonManaActivatedAbility", pinger, true},
+		{"Card.hasNonManaActivatedAbility", elves, false},
+		{"Card.hasAbility Activated", pinger, true},
+		{"Card.hasAbility Activated", bears, false},
+		{"Card.hasAbility Activated.hasTapCost", pinger, true},
+	} {
+		if got := engine.Matches(g, g.Card(tc.card), valid.Parse(tc.spec), p, tc.card); got != tc.want {
+			t.Errorf("%s on %s = %v, want %v", tc.spec, g.Card(tc.card).Name(), got, tc.want)
+		}
+		if err := g.TakePendingError(); err != nil {
+			t.Errorf("%s: %v", tc.spec, err)
+		}
+	}
+}

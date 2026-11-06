@@ -803,6 +803,66 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			who = c.Controller()
 		}
 		return attached && g.Card(host).Controller() == who
+	case strings.HasPrefix(name, "hasAbility"):
+		// CardStateProperty.java:116-123: one of c's spell abilities is
+		// valid for the spell-ability spec after "hasAbility " (Activated,
+		// Activated.hasTapCost, Activated.Exhaust), with source as its host.
+		spec := ""
+		if len(name) > len("hasAbility ") {
+			spec = name[len("hasAbility "):]
+		}
+		host := c
+		if sc, ok := sourceCard(g, source); ok {
+			host = sc
+		}
+		for i := range c.abilityCount() {
+			ab, amounts, ok := c.abilityAt(i)
+			if !ok || ab.Record != compile.Activated && ab.Record != compile.Spell {
+				continue
+			}
+			api, _ := APIByName(ab.Name)
+			probe := &Ability{API: api, Source: c.ID, Controller: c.Controller(), Params: ab, Amounts: amounts,
+				activated: ab.Record == compile.Activated, spell: ab.Record == compile.Spell, probing: true}
+			matched, recognized := g.spellAbilityMatches(probe, spec, host, sourceController, amounts)
+			if !recognized {
+				g.recordPendingError(fmt.Errorf("engine: valid property %q not resolvable yet", name))
+				return false
+			}
+			if matched {
+				return true
+			}
+		}
+		return false
+	case name == "hasManaAbility", name == "hasNonManaActivatedAbility":
+		// CardStateProperty.java:124-147: c has a mana ability -- an
+		// activated Mana or ManaReflected line, a basic land type's intrinsic
+		// one, or a trigger whose ability is a mana ability (TapsForMana) --
+		// or an activated ability that is not one.
+		mana := name == "hasManaAbility"
+		if mana && c.Type().Has(cardtype.Land) && hasABasicLandType(c) {
+			return true
+		}
+		for i := range c.abilityCount() {
+			ab, _, ok := c.abilityAt(i)
+			if !ok || ab.Record != compile.Activated {
+				continue
+			}
+			if isMana := ab.Name == "Mana" || ab.Name == "ManaReflected"; isMana == mana {
+				return true
+			}
+		}
+		if mana {
+			for _, f := range c.liveTraitFaces() {
+				for _, t := range f.Triggers {
+					for _, sub := range t.Subs {
+						if strings.EqualFold(sub.Key, "Execute") && sub.Ability != nil && sub.Ability.Name == "Mana" && t.Name == "TapsForMana" {
+							return true
+						}
+					}
+				}
+			}
+		}
+		return false
 	case name == "NoAbilities":
 		// CardProperty.java:1896-1899 over Card.hasNoAbilities
 		// (Card.java:3446-3468).

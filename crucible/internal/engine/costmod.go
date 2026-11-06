@@ -2,7 +2,7 @@
 // statics, CostAdjustment.getSpellCostChange (raise) and CostAdjustment.adjust
 // (reduce) for Type$ Spell lines.
 
-//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability castspell control
+//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability castspell control manaabilityrule
 
 package engine
 
@@ -331,7 +331,7 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 			}
 		case act != nil:
 			_, loyalty := act.Param("Planeswalker")
-			matched, recognized := validSpecForActivation(v, act.Name == "Mana", loyalty)
+			matched, recognized := validSpecForActivation(v, isManaAbility(act), loyalty)
 			if !recognized {
 				return costModUnresolvable
 			}

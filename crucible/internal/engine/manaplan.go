@@ -11,7 +11,7 @@
 
 package engine
 
-//enginelint:allow ability control card game player id zone activatemanaability manaability cantbecast activateability castspell parts
+//enginelint:allow ability control card game player id zone activatemanaability manaability cantbecast activateability castspell parts manaabilityrule
 
 import (
 	"sort"
@@ -53,7 +53,7 @@ func (g *Game) ManaSources(pid PlayerID) []ManaSource {
 		sick := c.SummonSick && c.Type().Has(cardtype.Creature) && !c.HasKeyword("Haste")
 		for i := 0; i < 64; i++ {
 			ab, _, ok := c.abilityAt(i)
-			if !ok || ab.Name != "Mana" || !g.manaAbilityParamsResolvable(ab) {
+			if !ok || ab.Name != "Mana" || !isManaAbility(ab) || !g.manaAbilityParamsResolvable(ab) {
 				continue
 			}
 			if cost, _ := ab.Param("Cost"); strings.TrimSpace(cost) != "T" || sick {

@@ -1,0 +1,11 @@
+# R20c gauntlet probe (Warping Wail): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric U
+queue modechoice 0
+queue targets 51
+tapformana human 100 U
+tapformana human 101 C
+castspell human 1
+resolvestack

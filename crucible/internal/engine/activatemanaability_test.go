@@ -467,11 +467,11 @@ func TestActivateManaAbilityDeclinesWhenEnergyTooLowForPayEnergyCost(t *testing.
 	}
 }
 
-// TestActivateManaAbilityAddCounterLoyaltyCost proves a loyalty-ability mana
-// line -- 6 real corpus lines, e.g. "[+1]: Add {R}{R}." -- pays by adding
-// counters to the source (not tapping or sacrificing it), and marks the
-// once-per-turn flag the identical way ActivateAbility's own does.
-func TestActivateManaAbilityAddCounterLoyaltyCost(t *testing.T) {
+// TestLoyaltyManaLinePaysOnTheStack proves a loyalty-ability mana line --
+// e.g. "[+1]: Add {R}{R}." -- is no mana ability (CR 605.1a): ActivateManaAbility
+// refuses it, ActivateAbility pays by adding counters to the source and marks
+// the once-per-turn flag, and the mana arrives when the ability resolves.
+func TestLoyaltyManaLinePaysOnTheStack(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -484,8 +484,14 @@ func TestActivateManaAbilityAddCounterLoyaltyCost(t *testing.T) {
 	g.Card(pw).Counters.Add(engine.Loyalty, 4)
 
 	c := engine.NewScriptedController()
-	if !g.ActivateManaAbility(p, pw, 0, c) {
-		t.Fatal("ActivateManaAbility returned false, want true")
+	if g.ActivateManaAbility(p, pw, 0, c) {
+		t.Fatal("ActivateManaAbility took a loyalty ability, want it refused")
+	}
+	if !g.ActivateAbility(p, pw, 0, c) {
+		t.Fatalf("ActivateAbility returned false: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 6 {
 		t.Errorf("loyalty = %d, want 6 (4 + 2)", got)

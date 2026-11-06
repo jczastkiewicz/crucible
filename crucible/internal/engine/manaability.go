@@ -7,7 +7,6 @@ package engine
 import (
 	"strings"
 
-	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -48,9 +47,9 @@ var basicLandType = map[mana.Colors]string{
 // for -- the same "declined by the rules, not a bug" contract
 // [Game.PayManaCost]'s own bool return already carries.
 //
-// color itself must be exactly one of mana.White/Blue/Black/Red/Green, the
-// same invariant [Pool.Add] enforces -- anything else (the empty set, more
-// than one bit) is not a key basicLandType holds, so it falls into the
+// color itself must be colorless (0, below) or exactly one of
+// mana.White/Blue/Black/Red/Green, the same invariant [Pool.Add] enforces --
+// more than one bit is not a key basicLandType holds, so it falls into the
 // panic below rather than silently reporting false. That is an engine
 // invariant breach, not something a fixture or a card can cause (GO-7):
 // nothing here ever computes a Colors value with more than one bit, so
@@ -60,7 +59,15 @@ var basicLandType = map[mana.Colors]string{
 // triggers (checkTapsTriggers/checkTapsForManaTriggers, trigger.go) --
 // this port's only other tap site (DeclareCombatAttackers, attack.go) checks
 // the first but not the second, since attacking is not a mana ability.
+//
+// Colorless (color 0) taps the card's first activated `Produced$ C` mana
+// ability instead (tapForColorless): no basic land type makes {C}, and the
+// Java runner's tapformana takes the first mana ability that can produce the
+// color (AbilityManaPart.canProduce).
 func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors, controller PlayerController) bool {
+	if color == 0 {
+		return g.tapForColorless(pid, land, controller)
+	}
 	basic, ok := basicLandType[color]
 	if !ok {
 		panic("engine: TapLandForMana wants exactly one basic land color")
@@ -176,7 +183,7 @@ func canProduceManaColor(c *Card, color string) bool {
 	}
 	for i := range c.abilityCount() {
 		ab, _, ok := c.abilityAt(i)
-		if !ok || ab.Record != compile.Activated || ab.Name != "Mana" {
+		if !ok || ab.Name != "Mana" || !isManaAbility(ab) {
 			continue
 		}
 		// AbilityManaPart.canProduce/mana (:510-523, :601-613, :644-684):
@@ -192,6 +199,26 @@ func canProduceManaColor(c *Card, color string) bool {
 		produced = strings.ReplaceAll(produced, "Chosen", c.Memory.ChosenColors().String())
 		if strings.Contains(produced, short) {
 			return true
+		}
+	}
+	return false
+}
+
+// tapForColorless activates land's first activated mana ability that adds
+// {C} (Wastes, Eldrazi Temple), through ActivateManaAbility; false when it
+// has none or the activation is refused.
+func (g *Game) tapForColorless(pid PlayerID, land CardID, controller PlayerController) bool {
+	c := g.Card(land)
+	if c.Def == nil {
+		return false
+	}
+	for i := range c.abilityCount() {
+		ability, _, found := c.abilityAt(i)
+		if !found || ability.Name != "Mana" || !isManaAbility(ability) {
+			continue
+		}
+		if produced, _ := ability.Param("Produced"); produced == "C" {
+			return g.ActivateManaAbility(pid, land, i, controller)
 		}
 	}
 	return false

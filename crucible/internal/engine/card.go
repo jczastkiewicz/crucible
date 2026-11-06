@@ -923,7 +923,7 @@ func (c *Card) hidesPrintedAbility(ab *compile.Ability) bool {
 	if c.TypeMod.removesLandAbilities() || c.abilityRemoval == removalAll {
 		return true
 	}
-	return c.abilityRemoval == removalNonMana && !strings.EqualFold(ab.Name, "Mana")
+	return c.abilityRemoval == removalNonMana && !isManaAbility(ab)
 }
 
 // traitDef is c's definition as a source of its own printed traits, nil

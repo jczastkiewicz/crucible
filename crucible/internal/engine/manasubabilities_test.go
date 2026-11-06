@@ -31,18 +31,29 @@ func TestPainLandDealsDamageAsItMakesMana(t *testing.T) {
 	}
 }
 
-// A targeted link in the chain has its target chosen with the ability, before
-// anything is paid: Chandra, Dressed to Kill's +1 deals 1 damage to the target.
-func TestManaAbilitySubAbilityTargetIsChosenFirst(t *testing.T) {
+// A loyalty ability that adds mana is no mana ability (CR 605.1a,
+// SpellAbility.java:401-403): Chandra, Dressed to Kill's +1 is refused as
+// one, goes on the stack, and on resolution adds {R} and deals 1 damage to
+// the target chosen as it was activated.
+func TestLoyaltyManaAbilityUsesTheStack(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 	chandra := g.NewCard(corpusCard(t, "Chandra, Dressed to Kill"), p, engine.Battlefield)
 	g.Card(chandra).Counters.Add(engine.Loyalty, 3)
 	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, chandra, 0, c) {
+		t.Fatal("ActivateManaAbility took a loyalty ability, want it refused")
+	}
 	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
-	if !g.ActivateManaAbility(p, chandra, 0, c) {
-		t.Fatalf("ActivateManaAbility failed: %v", g.TakePendingError())
+	if !g.ActivateAbility(p, chandra, 0, c) {
+		t.Fatalf("ActivateAbility failed: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("mana in pool before resolution = %d, want 0", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 	if err := g.TakePendingError(); err != nil {
 		t.Fatalf("pending error: %v", err)

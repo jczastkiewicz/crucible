@@ -1724,7 +1724,7 @@ func (c *Card) removeTraits(kind abilityRemoval) {
 	for _, g := range c.traitGrants {
 		var mana []*compile.Ability
 		for _, ab := range g.abilities {
-			if strings.EqualFold(ab.Name, "Mana") {
+			if isManaAbility(ab) {
 				mana = append(mana, ab)
 			}
 		}

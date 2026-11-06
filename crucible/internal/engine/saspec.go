@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -140,7 +139,7 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		if a.Params == nil {
 			return a.API == APIMana && a.activated, true
 		}
-		return a.Params.Record == compile.Activated && strings.EqualFold(a.Params.Name, "Mana"), true
+		return isManaAbility(a.Params), true
 	case prop == "SacrificedToPay":
 		// SpellAbilityProperty.java:42-43: its cost sacrificed one or more
 		// permanents (the paid Sacrificed list; Ashnod the Uncaring).

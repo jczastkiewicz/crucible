@@ -866,7 +866,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			if !ok || ab.Record != compile.Activated {
 				continue
 			}
-			if isMana := ab.Name == "Mana" || ab.Name == "ManaReflected"; isMana == mana {
+			if isManaAbility(ab) == mana {
 				return true
 			}
 		}

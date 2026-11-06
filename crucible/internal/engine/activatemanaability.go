@@ -263,7 +263,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if !found {
 		return false
 	}
-	if ability.Record != compile.Activated || ability.Name != "Mana" {
+	if ability.Record != compile.Activated || ability.Name != "Mana" || !isManaAbility(ability) {
 		return false
 	}
 	if g.cantBeActivated(pid, c, true, false) || !g.timingRestrictionsMet(pid, ability) {

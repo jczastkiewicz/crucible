@@ -128,7 +128,8 @@
       "cloneeffect",
       "mustblockeffect",
       "room",
-      "controlcommands"
+      "controlcommands",
+      "manaabilityrule"
     ],
     "player": ["id", "parts", "mana", "playernotes"],
     "ability": ["id", "mana", "damageresolveeffect", "replaceeffect", "game", "parts"],
@@ -245,7 +246,8 @@
       "playerproperty",
       "defined",
       "ability",
-      "manaability"
+      "manaability",
+      "manaabilityrule"
     ],
     "attack": [
       "triggerhooks",
@@ -368,7 +370,8 @@
       "taptype",
       "replaceeffect",
       "unlesscost",
-      "subability"
+      "subability",
+      "manaabilityrule"
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
@@ -413,7 +416,8 @@
       "delayedtrigger",
       "leftto",
       "triggerpack",
-      "emerge"
+      "emerge",
+      "manaabilityrule"
     ],
     "trigger": [
       "daytimeeffect",
@@ -475,10 +479,11 @@
       "animate",
       "dependency",
       "unlesscost",
-      "textwords"
+      "textwords",
+      "manaabilityrule"
     ],
     "dependency": ["id", "card", "game", "continuous", "continuouslayers", "layer"],
-    "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone", "castspell"],
+    "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone", "castspell", "manaabilityrule"],
     "triggerscan": [
       "id",
       "card",

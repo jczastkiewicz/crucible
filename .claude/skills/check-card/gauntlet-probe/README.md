@@ -20,4 +20,4 @@ first color, queued `paygeneric`), `set key=value` / `set +key=value` (setup), `
 before the cast), other lines are actions after it (default `resolvestack`). Base board: ai has Grizzly Bears 50,
 Ornithopter 51, Swamp 52, Pacifism 53 on the Bears; hands, graveyards and six-Island libraries (ids 80-85, 90-95).
 Go-side gotchas: a planeswalker needs `|Counters:LOYALTY=n`; mill and graveyard exile ask `cardorder`; `payphyrexian`
-takes true/false; `tapformana` cannot tap for {C}. Java maps only the `ScenarioAnswers.KINDS` queue kinds.
+takes true/false; `tapformana ... C` taps the card's {C} ability. Java maps only the `ScenarioAnswers.KINDS` queue kinds.

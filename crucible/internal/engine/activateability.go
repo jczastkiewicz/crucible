@@ -226,7 +226,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// An ST$ line (compile.Static in a card's abilities, StaticAbilityApiBased)
 	// is a spell ability its controller activates like an AB$ one, from the
 	// zone it names (Discord's DiscordCast, Command).
-	if (ability.Record != compile.Activated && ability.Record != compile.Static) || ability.Name == "Mana" || ability.Name == "ManaReflected" {
+	if (ability.Record != compile.Activated && ability.Record != compile.Static) || isManaAbility(ability) {
 		return false
 	}
 	// Split second (AbilityActivated.java:85): no activated ability but a

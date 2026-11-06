@@ -350,7 +350,6 @@ func TestPlayRejectsUnbuiltShapes(t *testing.T) {
 	}{
 		{"DB$ Play | Defined$ Remembered | ReplaceGraveyard$ Hand", "ReplaceGraveyard$"},
 		{"DB$ Play | Defined$ Remembered | TgtZone$ Graveyard", "TgtZone$"},
-		{"DB$ Play | Valid$ Card.ExiledWithSourceLKI | ValidZone$ Exile", "ExiledWithSourceLKI"},
 		{"DB$ Play | Valid$ Card.cmcLEX | ValidZone$ Exile", "cmcLEX"},
 		{"DB$ Play | Valid$ Card | ValidZone$ Nowhere", "ValidZone$"},
 		{"DB$ Play | Defined$ Remembered | ValidSA$ Spell.cmcLEZ", "cmcLEZ"},

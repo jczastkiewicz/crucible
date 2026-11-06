@@ -67,18 +67,11 @@ var playUnresolvedParams = [...]string{
 	"RandomNum", "ChoiceNum", "CastTransformed", "PlayReduceCost",
 	"PlayRaiseCost", "ShowCards"}
 
-// playUnportedProperties are card-property prefixes in the corpus's Play
-// valid strings that Matches (valid.go) has no case for and would read as
-// false for every card, silently emptying the pool (GO-7): ExiledWith and
-// its ExiledWithSourceLKI/ExiledWithEffectSource forms -- the exact
-// ExiledWithSource is answered (playSpecGap) --, sharesCardTypeWith.
 // sharesNameWith is answered in the forms Matches evaluates without the
 // ability that names them (playSharesNameWithForms); the corpus's Play lines
-// use only ThisTurnCast (answered from the turn's cast record) and TriggeredCard, which stays refused.
-var playUnportedProperties = [...]string{
-	"ExiledWith",
-}
-
+// use only ThisTurnCast (answered from the turn's cast record) and
+// TriggeredCard, which stays refused.
+//
 // playSharesNameWithForms are the `sharesNameWith <restriction>` restrictions
 // valid.go answers from the game and the source's memory alone (CardProperty.java:
 // 823-869): the zone forms, and the cards the host remembered or imprinted.
@@ -515,8 +508,8 @@ func playCandidates(g *Game, a *Ability) ([]CardID, error) {
 
 // playSpecGap names the first property of a card valid string Matches
 // cannot answer: a numeric comparison against an operand that is neither a
-// literal nor an SVar of the Play ability (amounts), or a
-// playUnportedProperties prefix.
+// literal nor an SVar of the Play ability (amounts), or a sharesNameWith
+// form outside playSharesNameWithForms.
 func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 	for _, alt := range valid.Parse(spec).Alternatives {
 		for _, p := range alt.Properties {
@@ -528,19 +521,11 @@ func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 				}
 				continue
 			}
-			if p.Name == "ExiledWithSource" || p.Name == "CanPayManaCost" {
-				continue
-			}
 			if rest, ok := strings.CutPrefix(p.Name, "sharesNameWith"); ok {
 				if rest == "" || slices.Contains(playSharesNameWithForms[:], strings.TrimSpace(rest)) {
 					continue
 				}
 				return p.Name, true
-			}
-			for _, prefix := range playUnportedProperties {
-				if strings.HasPrefix(p.Name, prefix) {
-					return p.Name, true
-				}
 			}
 		}
 	}

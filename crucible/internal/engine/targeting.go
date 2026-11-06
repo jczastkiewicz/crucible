@@ -1806,3 +1806,37 @@ func readsTgtZone(api APIType) bool {
 	}
 	return false
 }
+
+// canBeTargetedByChain is the CanBeTargetedBy property's walk
+// (CardProperty.java:544-552): item and each link of its chain that targets
+// could target card id, as SpellAbility.canTarget reads it at resolution
+// (targetStillLegal).
+func (g *Game) canBeTargetedByChain(item *Ability, id CardID) bool {
+	e := CardEntity(id)
+	if _, ok := targetSpec(item); ok && !g.targetStillLegal(item, e) {
+		return false
+	}
+	parents := item.Targets
+	ancestorTargeting := item.ancestorTargeting || linkUsesTargeting(item.Params)
+	for i := range item.chainTargets {
+		ct := &item.chainTargets[i]
+		if !linkUsesTargeting(ct.Params) {
+			continue
+		}
+		link := Ability{Source: item.Source, Controller: item.Controller, Params: ct.Params, targetStamps: ct.Stamps,
+			Amounts: item.Amounts, TriggerRemembered: item.TriggerRemembered, triggered: item.triggered, targeter: ct.Targeter,
+			choosing: item.choosing, hasChoosing: item.hasChoosing,
+			parentTargets: parents, ancestorTargeting: ancestorTargeting}
+		if api, ok := APIByName(ct.Params.Name); ok {
+			link.API = api
+		}
+		link.Targets = ct.Targets
+		if !g.targetStillLegal(&link, e) {
+			return false
+		}
+		if len(ct.Targets) > 0 {
+			parents = ct.Targets
+		}
+	}
+	return true
+}

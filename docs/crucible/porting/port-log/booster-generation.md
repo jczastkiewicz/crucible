@@ -7,7 +7,7 @@ Ported from `forge-core` for Booster Tutor (ADR-0049). The reference is `crucibl
 | Layer | State |
 | --- | --- |
 | Edition files (`edition.go`) | done: metadata, card sections sorted as `EditionEntry.compareTo`, BoosterSlots, custom sections |
-| Card pool (`pool.go`) | done: `CardDb.initialize` order, art numbering per edition, variant rules in their own pool, flavor names, `getCard` with the latest-art preference |
+| Card pool (`pool.go`) | done: `CardDb.initialize` order, art numbering per edition, variant rules in their own pool, flavor names, `getCard` with the latest-art preference, `Table.OriginalEdition` with the original-art one (the `set<CODE>` property) |
 | Print sheets (`sheet.go`, `jorder.go`, `makesheet.go`) | done: `ConcurrentHashMap` order emulated, 810 of 810 oracle sheets equal |
 | Generator, effect | not yet: `Booster$` stays refused |
 

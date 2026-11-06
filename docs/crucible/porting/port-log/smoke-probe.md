@@ -58,8 +58,8 @@ Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,591 |
-| refused      |      3 |
+| plays        | 33,594 |
+| refused      |      0 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -69,16 +69,8 @@ Measured on the full corpus (34,134 cards):
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
-Largest refusal causes over the full corpus (cards blocked):
-
-| Cards | Refusal |
-| ---: | --- |
-| 2 | `activate: valid property not resolvable` |
-| 1 | `resolve: valid property not resolvable` |
-
-All 3 are one gate: a valid-string property no case of `valid.go` ports that names no card type either (`checkTypeWord`,
-open plan R19b) errors instead of matching nothing. One property remains: `set<CODE>` (Apocalypse Chime, Golgothian
-Sylex, City in a Bottle), which needs edition data.
+No card is refused. A valid-string property no case of `valid.go` ports still errors (`checkTypeWord`, open plan R19b)
+instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

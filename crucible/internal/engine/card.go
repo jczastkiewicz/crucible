@@ -552,6 +552,12 @@ type Card struct {
 	// GameAction.java:576-579), and markExiledWith (zonemove.go) sets it
 	// after an effect's own exile move, ADR-0034.
 	exiledWith exiledWithMark
+	// entryExiledWith is exiledWith as the record of the card's entry into
+	// its zone has it (Zone.cardsAddedThisTurn, Zone.java:120-127): the
+	// object that left, a last-known copy that still carries its exiledWith,
+	// except on the battlefield, whose record is the new object
+	// (Zone.saveLKI, GameAction.java:580-582). ExiledWithSourceLKI reads it.
+	entryExiledWith exiledWithMark
 	// delved is Card.delvedCards (Card.java:111): the cards the last delve
 	// payment of this card exiled, read by the "delved" valid property
 	// (Soulflayer). Cleared only by the next delve cast (CostAdjustment.java:

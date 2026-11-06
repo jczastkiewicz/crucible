@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jczastkiewicz/crucible/internal/boosters"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -182,6 +183,10 @@ type Plan struct {
 	// Variant is the game variant every game is set up for (ADR-0055); zero
 	// is a plain constructed game.
 	Variant engine.Variant
+	// Boosters is the edition and booster data each game reads (Booster$
+	// packs, the set<CODE> property); nil leaves those an error (GO-7). It
+	// is immutable and shared by every game.
+	Boosters *boosters.Table
 }
 
 // Spec is one batch of the same deck pair, the simple case of a Plan.
@@ -440,6 +445,7 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 	if plan.Variant != 0 {
 		g.SetupVariant(plan.Variant)
 	}
+	g.SetBoosters(plan.Boosters)
 	for seat, d := range job.Decks {
 		pid := g.Players()[seat]
 		for _, name := range d.Cards {

@@ -308,14 +308,15 @@ func (p *Pool) getCard(req string) (*Print, error) {
 	if len(p.byName[fold(r.name)]) == 0 {
 		return nil, nil
 	}
-	return p.fromEditions(r.name, r.art), nil
+	return p.fromEditions(r.name, r.art, true), nil
 }
 
 // fromEditions is CardDb.tryToGetCardFromEditions with LATEST_ART_ALL_EDITIONS
-// (every edition accepted, newest first), the default of a game: the print of
-// the name with this art index from the newest edition, in its traditional
+// (every edition accepted, newest first, the default of a game) when latest,
+// ORIGINAL_ART_ALL_EDITIONS (oldest first) otherwise: the print of the name
+// with this art index from the newest or oldest edition, in its traditional
 // frame.
-func (p *Pool) fromEditions(name string, art int) *Print {
+func (p *Pool) fromEditions(name string, art int, latest bool) *Print {
 	art = max(art, 1)
 	pick := func(prints []*Print) []*Print {
 		var out []*Print
@@ -364,7 +365,10 @@ func (p *Pool) fromEditions(name string, art int) *Print {
 		}
 		return eds[i].name < eds[j].name
 	})
-	best := eds[len(eds)-1]
+	best := eds[0]
+	if latest {
+		best = eds[len(eds)-1]
+	}
 	return p.traditionalFramePrint(byCode[best.code])
 }
 

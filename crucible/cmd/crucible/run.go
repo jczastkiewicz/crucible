@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jczastkiewicz/crucible/internal/boosters"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -33,6 +34,8 @@ func runCmd(args []string) error {
 	corpus := fs.String("corpus", "../forge-gui/res/cardsfolder", "card script directory")
 	tokens := fs.String("tokens", "../forge-gui/res/tokenscripts", "token script directory")
 	types := fs.String("types", "../forge-gui/res/lists/TypeLists.txt", "subtype vocabulary")
+	editions := fs.String("editions", "../forge-gui/res/editions", "edition files, for the cards that open a booster or read their edition (empty: none)")
+	blockdata := fs.String("blockdata", "../forge-gui/res/blockdata", "print sheets, for the cards that open a booster")
 	target := fs.String("target", "", "the deck under test (.dck)")
 	vs := fs.String("vs", "", "opponent decks: .dck files or directories of them, comma-separated")
 	games := fs.Int("games", 100, "games per opponent")
@@ -67,6 +70,12 @@ func runCmd(args []string) error {
 		return err
 	}
 	db = db.WithTokens(tok)
+	var table *boosters.Table
+	if *editions != "" {
+		if table, err = boosters.Load(*editions, *blockdata, db); err != nil {
+			return err
+		}
+	}
 
 	gauntlet, meta, err := buildGauntlet(db, *target, *vs, *games)
 	if err != nil {
@@ -85,7 +94,7 @@ func runCmd(args []string) error {
 	start := time.Now()
 	results, err := sim.Run(context.Background(), sim.Plan{
 		DB: db, Jobs: jobs, NewController: func() engine.PlayerController { return &smoke.Controller{} },
-		BaseSeed: *seed, MaxTurns: *turns, GameTimeout: *timeout, Store: run, Variant: variant,
+		BaseSeed: *seed, MaxTurns: *turns, GameTimeout: *timeout, Store: run, Variant: variant, Boosters: table,
 	}, *workers)
 	if err != nil {
 		return err

@@ -276,3 +276,113 @@ func TestExiledWithEffectSourceReadsTheEffectsMaker(t *testing.T) {
 			engine.Matches(g, g.Card(ogre), spec, p, effect), engine.Matches(g, g.Card(bolt), spec, p, effect))
 	}
 }
+
+// A trigger's ValidCard$ reads a filtered Defined$ off its host with no
+// ability in context: Thought Prison's SharesCMCWith
+// Imprinted.ExiledWithSource (AbilityUtils.java:317-322).
+func TestSharesCMCWithReadsAFilteredDefinedOutsideAnAbility(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Gray Ogre"), other, engine.Graveyard)
+	prison, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ ChangeZoneAll | ChangeType$ Creature | Origin$ Graveyard | Destination$ Exile | Imprint$ True")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := valid.Parse("Card.SharesCMCWith Imprinted.ExiledWithSource")
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{{"Gray Ogre", true}, {"Grizzly Bears", false}} {
+		c := g.NewCard(corpusCard(t, tc.name), other, engine.Hand)
+		if got := engine.Matches(g, g.Card(c), spec, p, prison); got != tc.want {
+			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
+		}
+		if err := g.TakePendingError(); err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+		}
+	}
+}
+
+// set<CODE> (CardProperty.java:1960-1969) reads the name's print from its
+// oldest edition; without edition data it is an error.
+func TestSetPropertyReadsTheOldestPrint(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	efreet := g.NewCard(corpusCard(t, "Serendib Efreet"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	engine.Matches(g, g.Card(bears), valid.Parse("Card.setLEA"), p, engine.NoCard)
+	if err := g.TakePendingError(); err == nil {
+		t.Error("set<CODE> without edition data: no error")
+	}
+
+	g.SetBoosters(boosterTable(t))
+	for _, tc := range []struct {
+		spec string
+		card engine.CardID
+		want bool
+	}{
+		{"Card.setARN", efreet, true},
+		{"Card.setARN", bears, false},
+		{"Card.setLEA", bears, true},
+	} {
+		if got := engine.Matches(g, g.Card(tc.card), valid.Parse(tc.spec), p, engine.NoCard); got != tc.want {
+			t.Errorf("%s on %s = %v, want %v", tc.spec, g.Card(tc.card).Name(), got, tc.want)
+		}
+		if err := g.TakePendingError(); err != nil {
+			t.Errorf("%s: %v", tc.spec, err)
+		}
+	}
+}
+
+// ExiledWithSourceLKI (CardProperty.java:374-397) reads the record of the
+// card entering its zone this turn: the object that left, so a card that
+// left the source's exile for the graveyard is, and one still in that
+// exile or put onto the battlefield (a new object's record) is not.
+func TestExiledWithSourceLKIReadsTheZoneEntryRecord(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	ogre := g.NewCard(corpusCard(t, "Gray Ogre"), other, engine.Graveyard)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Graveyard)
+	c := engine.NewScriptedController()
+	c.QueueCardOrder([]engine.CardID{ogre, bears})
+	host, err := resolveNow(t, g, p, c, nil,
+		"DB$ ChangeZoneAll | ChangeType$ Creature | Origin$ Graveyard | Destination$ Exile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := valid.Parse("Card.ExiledWithSourceLKI")
+	is := func(id engine.CardID) bool { return engine.Matches(g, g.Card(id), spec, p, host) }
+	if is(ogre) {
+		t.Error("a card still in the exile it went to matched")
+	}
+	g.Move(ogre, engine.Graveyard, other)
+	g.Move(bears, engine.Battlefield, other)
+	if !is(ogre) || is(bears) {
+		t.Errorf("left exile for the graveyard %v, for the battlefield %v; want true, false", is(ogre), is(bears))
+	}
+	if engine.Matches(g, g.Card(ogre), spec, p, bears) {
+		t.Error("matched against a source that did not exile it")
+	}
+}
+
+// Mana Web's canProduceSameManaTypeWith (Card.java:3375-3380): a land that
+// can produce a color the tapped land can.
+func TestCanProduceSameManaTypeWithComparesProducibleColors(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	island := g.NewCard(corpusCard(t, "Island"), p, engine.Battlefield)
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{{"Island", true}, {"Underground River", true}, {"Mountain", false}, {"Grizzly Bears", false}} {
+		c := g.NewCard(corpusCard(t, tc.name), p, engine.Battlefield)
+		if got := engine.Matches(g, g.Card(c), valid.Parse("Card.canProduceSameManaTypeWith"), p, island); got != tc.want {
+			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

@@ -239,12 +239,23 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// effect card (effecteffect.go's effectLifetime.host).
 		sc, ok := sourceCard(g, source)
 		return ok && sc.IsEffect && sc.effectLife.host != NoCard && sc.effectLife.host == c.ID
+	case name == "ExiledWithSourceLKI":
+		// CardProperty.java:374-397: the record of c entering its zone this
+		// turn was exiled with source's object. The record is of the object
+		// that left, so a card still in the exile it went to is not, and one
+		// that left exile for any zone but the battlefield is.
+		ew := c.entryExiledWith
+		if !c.zoneEntered || c.zoneEntryTurn != g.turn || source == NoCard || ew.host != source {
+			return false
+		}
+		stamp, _ := g.hostObjectStamp(source)
+		return ew.stamp == stamp
 	case name == "ExiledWithSource":
 		// CardProperty.java:397-411: c was exiled with source's own object
 		// -- the same CardID and the same zoneStamp as the host object an
 		// ability of source sees (hostObjectStamp, game.go), and listed on
 		// it. Exact name only: ExiledWithSourceLKI and ExiledWithEffectSource
-		// are different branches Java tests first, not ported.
+		// are different branches Java tests first.
 		ew := c.exiledWith
 		if source == NoCard || ew.host != source || !ew.listed {
 			return false
@@ -3012,7 +3023,10 @@ func (g *Game) validDefinedCards(defined string, sourceController PlayerID, sour
 	if !ok {
 		return nil
 	}
-	var refs abilityRefs
+	// Without an ability of source in context (a trigger's ValidCard$, Thought
+	// Prison's) Java still reads the game-wide spellings off the host
+	// (AbilityUtils.getDefinedCards with a non-SpellAbility trait).
+	refs := abilityRefs{game: g, activator: sourceController}
 	if a := g.resolving; a != nil && a.Source == source {
 		refs = a.refs()
 	}
@@ -3339,6 +3353,50 @@ func cardStateMatches(g *Game, c *Card, name string, sourceController PlayerID, 
 		}
 		ew := c.exiledWith
 		return ew.host == sc.effectLife.host && ew.stamp == sc.effectLife.hostStamp, true
+	case strings.HasPrefix(name, "set") && len(name) >= 6:
+		// CardProperty.java:1960-1969: the name's print from its oldest
+		// edition (ORIGINAL_ART_ALL_EDITIONS, never the print the deck
+		// chose) is of edition name[3:6]. A name no edition prints passes, a
+		// face-down card's empty name fails.
+		if c.Name() == "" {
+			return false, true
+		}
+		if g.boosters == nil {
+			g.recordPendingError(fmt.Errorf("engine: valid property %q needs edition data (SetBoosters)", name))
+			return false, true
+		}
+		code, ok := g.boosters.OriginalEdition(c.Name())
+		return !ok || code == name[3:6], true
+	case name == "canProduceSameManaTypeWith":
+		// CardProperty.java:800-803, Card.canProduceSameManaTypeWith
+		// (Card.java:3375-3380): c can produce a color the source can
+		// (getProducibleColors), each read as canProduceManaColor reads it.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false, true
+		}
+		for _, col := range []string{"White", "Blue", "Black", "Red", "Green", "Colorless"} {
+			if canProduceManaColor(sc, col) && canProduceManaColor(c, col) {
+				return true, true
+			}
+		}
+		return false, true
+	case strings.HasPrefix(name, "CanBeTargetedBy"):
+		// CardProperty.java:544-552: every link of the defined spell
+		// ability that targets could target c (SpellAbility.canTarget). The
+		// corpus names only TriggeredSpellAbility (Feather), the stack item
+		// a SpellCast trigger recorded.
+		if name != "CanBeTargetedByTriggeredSpellAbility" {
+			g.recordPendingError(fmt.Errorf("engine: valid property %q not resolvable yet", name))
+			return false, true
+		}
+		sid := g.validRefs(source).triggered.spellAbility
+		if sid == NoStackItem {
+			g.recordPendingError(fmt.Errorf("engine: valid property %q: no triggering spell ability", name))
+			return false, true
+		}
+		item, ok := g.stackItem(sid)
+		return ok && g.canBeTargetedByChain(item, c.ID), true
 	case name == "hadToAttackThisCombat":
 		// CardProperty.java:1693-1697: c, this object, had an attack
 		// requirement as attackers were declared this combat.

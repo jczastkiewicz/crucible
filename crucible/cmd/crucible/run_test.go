@@ -97,6 +97,8 @@ func TestRunStoresAGauntletAndReportReadsItBack(t *testing.T) {
 		"-corpus", filepath.Join(root, "forge-gui", "res", "cardsfolder"),
 		"-tokens", filepath.Join(root, "forge-gui", "res", "tokenscripts"),
 		"-types", filepath.Join(root, "forge-gui", "res", "lists", "TypeLists.txt"),
+		"-editions", filepath.Join(root, "forge-gui", "res", "editions"),
+		"-blockdata", filepath.Join(root, "forge-gui", "res", "blockdata"),
 		"-target", target, "-vs", vs, "-games", "4", "-turns", "100", "-workers", "2", "-shards", "2", "-out", out,
 	}
 	if err := runCmd(args); err != nil {

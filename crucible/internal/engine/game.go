@@ -1227,6 +1227,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	isPermanent := c.Type().IsPermanent()
 	leftStamp := c.zoneStamp
+	leftExiledWith := c.exiledWith
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.put(id, kind, owner)
 	if c.commander {
@@ -1238,6 +1239,10 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if from != kind {
 		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
 		c.newObjectFlags(kind)
+		c.entryExiledWith = exiledWithMark{}
+		if kind != Battlefield {
+			c.entryExiledWith = leftExiledWith
+		}
 	}
 	if from == Stack && kind == Battlefield {
 		g.relinkExiledWith(id, leftStamp, c.zoneStamp)
@@ -1434,11 +1439,13 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.tempControllers = nil
 	}
 	leftStamp := c.zoneStamp
+	leftExiledWith := c.exiledWith
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.putFront(id, owner)
 	if from != Library {
 		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
 		c.newObjectFlags(Library)
+		c.entryExiledWith = leftExiledWith
 	}
 
 	melded := NoCard

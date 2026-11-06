@@ -1,0 +1,18 @@
+# Mode$ Championed (CR 702.72, TriggerChampioned): Mistbind Clique enters and
+# champions the Zephyr Sprite (exiles it); "when a Faerie is championed with
+# Mistbind Clique, tap all lands target player controls" taps the
+# opponent's Forests.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+castspell human 6
+queue confirmeffect true
+queue cardchoice 1
+queue targets ai
+resolvestack

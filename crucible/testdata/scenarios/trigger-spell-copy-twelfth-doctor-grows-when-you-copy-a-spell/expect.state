@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=The Twelfth Doctor|Id:1|Counters:P1P1=1;Mountain|Id:2|Tapped;Island|Id:3|Tapped;Island|Id:4|Tapped
+humangraveyard=Twincast;Lightning Bolt
+ailife=14

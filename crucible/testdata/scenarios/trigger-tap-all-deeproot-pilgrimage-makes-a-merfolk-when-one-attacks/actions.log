@@ -1,0 +1,8 @@
+# Mode$ TapAll (TriggerTapAll): Coral Merfolk becomes tapped attacking;
+# "whenever one or more nontoken Merfolk you control become tapped" makes a
+# 1/1 hexproof Merfolk token.
+startturn human
+advance 5
+queue attackers 2
+declareattackers
+resolvestack

@@ -1,0 +1,9 @@
+# Mode$ ExcessDamage (CR 120.4a, TriggerExcessDamage): Lightning Bolt deals 3
+# to a 1/1 the opponent controls, 2 of it excess; Fall of Cair Andros amasses
+# Orcs 2, making a 0/0 Orc Army with two +1/+1 counters.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 4
+castspell human 3
+resolvestack

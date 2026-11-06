@@ -1,0 +1,8 @@
+# Mode$ Forage (TriggerForage): at the beginning of combat Corpseberry
+# Cultivator's trigger forages by exiling three cards from the graveyard;
+# "whenever you forage, put a +1/+1 counter on it" fires off that.
+startturn human
+advance 4
+queue optionaltrigger true
+queue cardchoice 2,3,4
+resolvestack

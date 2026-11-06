@@ -97,6 +97,63 @@ public final class ComboGuard {
         if (host == null) {
             return null;
         }
+        // Balustrade Spy and Undercity Informer milling their own controller without the Oracle to follow it
+        if (plan != null && plan.has(ComboPlan.Kind.LIBRARY_OUT)
+                && AiCardLists.has(AiCardLists.Role.SELF_MILL_OUTLET, host.getName())) {
+            // The cast of the creature has no target: its trigger picks one when it enters. What is refused is therefore
+            // the cast itself, with the creature counted among those the flashback of Dread Return can sacrifice, and
+            // an Oracle in hand only counts when the mana for it is there after the Spy (the library is then empty for
+            // good: the next draw would lose the game).
+            if (sa.isSpell() && host.isCreature()
+                    && (!plan.libraryOutSelfMillSafe(ai, 1) || !LibraryOutWin.castable(ai, plan, sa, 1))) {
+                return "self-mill-no-winner";
+            }
+            if (!plan.libraryOutSelfMillSafe(ai)) {
+                boolean self = ai.equals(aim);
+                for (SpellAbility a = sa; a != null && !self; a = a.getSubAbility()) {
+                    self = a.usesTargeting() && a.getTargets() != null && a.getTargets().contains(ai);
+                }
+                if (self) {
+                    return "self-mill-no-winner";
+                }
+            }
+        }
+        // Breakthrough without a dredger, a card for the graveyard and Lion's Eye Diamond in play only empties the hand.
+        // Not left to AiController.canPlaySa: it answers AnotherTime, and a fuel play (a sorcery that discards) with that
+        // answer is still offered to the rollouts as a discovered play, which the rollouts like (the graveyard fills).
+        if (plan != null && DredgeLine.mustWait(ai, plan, sa)) {
+            return "dredge-line-incomplete";
+        }
+        // Breakthrough without a dredger, a card for the graveyard and Lion's Eye Diamond in play only empties the hand.
+        // Not left to AiController.canPlaySa: it answers AnotherTime, and a fuel play (a sorcery that discards) with that
+        // answer is still offered to the rollouts as a discovered play, which the rollouts like (the graveyard fills).
+        if (plan != null && DredgeLine.mustWait(ai, plan, sa)) {
+            return "dredge-line-incomplete";
+        }
+        // Griselbrand: pay life, draw cards. Offered to the rollouts as a discovered play whatever the heuristics think,
+        // and the rollouts like the cards; the guard stops it when the life or the library cannot take it.
+        if (LifeDrawGuard.reckless(ai, sa, plan)) {
+            return "life-draw-reckless";
+        }
+        // Void Mirror and Chalice of the Void (anyone's) counter spells: a free spell is countered by either of them
+        final String walled = counterWall(ai, sa, host);
+        if (walled != null) {
+            return walled;
+        }
+        // a creature land (Mutavault), a crew, a saddle or a station at a moment it cannot do anything: only wastes the mana
+        // and the creatures tapped for it (see TimedAbilityGuard)
+        final String untimely = TimedAbilityGuard.problem(ai, sa);
+        if (untimely != null) {
+            return untimely;
+        }
+        // Demonic Consultation exiles the library: only to win, with the Oracle's trigger on the stack (ConsultationWin)
+        if (ConsultationWin.isConsultation(sa) && !ConsultationWin.winnerOnStack(ai.getGame(), ai)) {
+            return "consultation-no-winner";
+        }
+        // Doomsday without the Oracle in hand (or the life, or a library to cut) only throws the deck away
+        if (sa.isSpell() && DoomsdayPile.isDoomsday(host) && !DoomsdayPile.ready(ai)) {
+            return "doomsday-not-ready";
+        }
         // Doomsday Excruciator, or Superior Spider-Man with nothing else to copy: the cut loses without a finisher
         if (cutsTheLibraries(ai, sa, plan)) {
             return "library-cut-unsafe";
@@ -137,6 +194,14 @@ public final class ComboGuard {
      * give up a piece of the combos of the deck or one of its win cards, going by the creature the AI picks for such
      * a cost. A deck without a combo plan and a cost that sacrifices the card itself are never a problem.
      */
+    /**
+     * A land that animates itself until end of turn (Mutavault, Stirring Wildwood) at a moment it is worth nothing:
+     * see {@link TimedAbilityGuard}, which also covers Vehicles, Mounts and Spacecraft.
+     */
+    static boolean wastedManland(final Player ai, final SpellAbility sa, final Card host) {
+        return sa != null && host != null && host.isLand() && "manland-wasted".equals(TimedAbilityGuard.problem(ai, sa));
+    }
+
     private static final Pattern PACT_COST = Pattern.compile("UnlessCost\\$\\s*([^|]+)");
 
     /**
@@ -669,5 +734,40 @@ public final class ComboGuard {
 
     private static Set<String> names(final String... names) {
         return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(names)));
+    }
+
+    /**
+     * The spell is countered by a permanent in play: Void Mirror counters any spell cast without colored mana, so a spell
+     * that costs nothing always is (the first playtest cast Black Lotus and Mox Emerald into its own); Chalice of the Void
+     * counters the spells whose mana value equals its charge counters, with none on it that is every free spell.
+     *
+     * @return the refusal code, or null
+     */
+    static String counterWall(final Player ai, final SpellAbility sa, final Card host) {
+        if (!sa.isSpell() || host.isLand() || sa.getPayCosts() == null) {
+            return null;
+        }
+        for (final Card c : ai.getGame().getCardsIn(ZoneType.Battlefield)) {
+            if ("Chalice of the Void".equals(c.getName()) && host.getCMC() == c.getCounters(forge.game.card.CounterEnumType.CHARGE)) {
+                return "chalice-counters-spell";
+            }
+        }
+        if (sa.getPayCosts().getTotalMana() != null && sa.getPayCosts().getTotalMana().isZero()
+                && !sa.getPayCosts().hasXInAnyCostPart() && coloredManaCountersSpells(ai)) {
+            return "void-mirror-counters-free-spell";
+        }
+        return null;
+    }
+
+    /** Whether a permanent in play counters spells cast without colored mana (Void Mirror). */
+    static boolean coloredManaCountersSpells(final Player ai) {
+        for (final Card c : ai.getGame().getCardsIn(ZoneType.Battlefield)) {
+            for (final forge.game.trigger.Trigger t : c.getTriggers()) {
+                if ("True".equals(t.getParam("NoColoredMana")) && forge.game.trigger.TriggerType.SpellCast.equals(t.getMode())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

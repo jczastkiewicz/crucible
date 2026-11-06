@@ -1,0 +1,9 @@
+# R20c gauntlet probe (Ashiok, Dream Render): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue cardorder 90,91,92,93
+queue cardorder 72,73,90,91,92,93
+queue action human activate 1 0
+queue targets ai
+passpriority

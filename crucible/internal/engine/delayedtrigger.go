@@ -234,6 +234,9 @@ func (g *Game) delayedSpellCastSatisfied(d delayedTrigger, c *Card, activator Pl
 	if !matchesActivatingPlayer(g, t, activator, d.Controller, d.Host) {
 		return false
 	}
+	if !g.activatorCastCountOK(t, c, activator, d.Controller, d.Host) {
+		return false
+	}
 	if spec, ok := t.Param("ValidSA"); ok {
 		spell, found := g.stackItem(spellID)
 		if !found {

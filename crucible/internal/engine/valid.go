@@ -525,6 +525,17 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:438-441: source.hasCardAttachment(card), the
 		// reverse direction of EquippedBy and its siblings.
 		return source != NoCard && containsCard(g.Card(source).Attachments(), c.ID)
+	case name == "hasABasicLandType":
+		// CardProperty.java:1008-1011, CardType.hasABasicLandType: one of
+		// the five basic land subtypes (Boseiju's "a land card with a basic
+		// land type"); Wastes, a basic land with none, does not match.
+		return hasABasicLandType(c)
+	case strings.HasPrefix(name, "canProduceManaColor "):
+		// CardProperty.java:804-811: any mana ability of the card can make
+		// the color (AbilityManaPart.canProduce: "Any" makes every color
+		// but colorless, otherwise the Produced$ text contains the short
+		// letter). A basic land type is its intrinsic mana ability.
+		return canProduceManaColor(c, strings.TrimPrefix(name, "canProduceManaColor "))
 	case strings.HasPrefix(name, "inRealZone"):
 		// inRealZone reads c.Zone directly, no LKI involved (card.isInZone).
 		zone, ok := ZoneByName(strings.TrimPrefix(name, "inRealZone"))

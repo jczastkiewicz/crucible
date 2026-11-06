@@ -1,0 +1,13 @@
+# Boseiju's channel destroys ai's Pacifism; ai (TargetedController) may search
+# for a Land.hasABasicLandType (CardProperty.java:1008-1011) and takes an
+# Island onto the battlefield. L2: same as Java.
+startturn human
+advance 3
+queue paygeneric G
+queue action human activate 1 1
+queue targets 53
+queue confirmeffect true
+queue cardchoice 90
+tapformana human 100 G
+tapformana human 101 G
+passpriority

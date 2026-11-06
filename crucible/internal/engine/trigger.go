@@ -499,11 +499,13 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // no per-trigger target-inspection hook), NoColoredMana/
 // SnowSpentForCardsColor (no mana-payment-detail tracking past whether the
 // cost was paid), IsSingleTarget (no generic target-count reader),
-// TriggersWhenSpent (a mana-ability-specific remembered-list this port has
-// no mana-ability ChosenPlayer/Remembered plumbing for) and
-// ActivatorThisTurnCast/ActivatorThisTurnCastEach (a per-turn cast-history
-// count this port tracks nothing for). 1,163 of 1,435 real lines carry none
-// of these.
+// and TriggersWhenSpent (a mana-ability-specific remembered-list this port
+// has no mana-ability ChosenPlayer/Remembered plumbing for). 1,163 of 1,435
+// real lines carry none of these.
+//
+// ActivatorThisTurnCast/ActivatorThisTurnCastEach (Flurry and the "second
+// spell each turn" family, 115 lines) are resolved by activatorCastCountOK
+// from the turn's cast record.
 //
 // HasXManaCost is resolved: TriggerSpellAbilityCastOrCopy.java:171-181's
 // spell branch, the cast card's own mana cost carrying at least one {X}
@@ -614,6 +616,9 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
 				continue
 			}
+			if !g.activatorCastCountOK(t, c, activator, h.Controller(), host) {
+				continue
+			}
 			if spec, ok := t.Param("ValidSA"); ok {
 				spell, found := g.stackItem(spellID)
 				if !found {
@@ -638,7 +643,63 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 // refused at registration.
 var spellCastUnresolvedParams = [...]string{"ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
 	"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
-	"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach"}
+	"TriggersWhenSpent"}
+
+// activatorCastCountOK is TriggerSpellAbilityCastOrCopy.java:86-114: the
+// spells cast this turn that match ValidCard$ (default Card) from the host
+// controller's side and that activator controls, compared against
+// ActivatorThisTurnCast$ ("EQ2": the second spell); with
+// ActivatorThisTurnCastEach$, the count is taken per ValidCard$ alternative
+// the cast card matches and any one satisfying it is enough. Java checks both
+// only inside its ValidActivatingPlayer$ branch; every corpus line carrying
+// one also carries ValidActivatingPlayer$.
+func (g *Game) activatorCastCountOK(t *compile.Ability, cast *Card, activator, hostController PlayerID, host CardID) bool {
+	if _, ok := t.Param("ValidActivatingPlayer"); !ok {
+		return true
+	}
+	validCard, ok := t.Param("ValidCard")
+	if !ok {
+		validCard = "Card"
+	}
+	count := func(spec string) int {
+		parsed := valid.Parse(strings.TrimSpace(spec))
+		n := 0
+		for _, rec := range g.castThisTurn {
+			if rec.controller != activator {
+				continue
+			}
+			view := *g.Card(rec.card)
+			view.controller = rec.controller
+			if Matches(g, &view, parsed, hostController, host) {
+				n++
+			}
+		}
+		return n
+	}
+	if cmp, ok := t.Param("ActivatorThisTurnCast"); ok {
+		right, err := strconv.Atoi(cmp[2:])
+		if err != nil || !javaCompare(count(validCard), cmp, right) {
+			return false
+		}
+	}
+	if cmp, ok := t.Param("ActivatorThisTurnCastEach"); ok {
+		right, err := strconv.Atoi(cmp[2:])
+		if err != nil {
+			return false
+		}
+		found := false
+		for _, v := range strings.Split(validCard, ",") {
+			if Matches(g, cast, valid.Parse(v), hostController, host) && javaCompare(count(v), cmp, right) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
 // matchesValidParam("ValidActivatingPlayer", activator) -- matchesPlayerSpec

@@ -5,6 +5,9 @@
 package engine
 
 import (
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -143,4 +146,43 @@ func (g *Game) manaSourceCard(src manaSource) *Card {
 		}
 	}
 	return c
+}
+
+// hasABasicLandType is CardType.hasABasicLandType: one of the five basic land
+// subtypes.
+func hasABasicLandType(c *Card) bool {
+	for _, color := range []mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+		if c.Type().HasSubtype(basicLandType[color]) {
+			return true
+		}
+	}
+	return false
+}
+
+// canProduceManaColor is the canProduceManaColor property's test for one
+// color name (MagicColor.toShortString: "White" is "W", "Colorless" "C").
+func canProduceManaColor(c *Card, color string) bool {
+	short := map[string]string{"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G", "Colorless": "C"}[color]
+	if short == "" {
+		return false
+	}
+	for _, col := range []mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+		if col.String() == short && c.Type().HasSubtype(basicLandType[col]) {
+			return true
+		}
+	}
+	if c.Def == nil {
+		return false
+	}
+	for i := range c.abilityCount() {
+		ab, _, ok := c.abilityAt(i)
+		if !ok || ab.Record != compile.Activated || ab.Name != "Mana" {
+			continue
+		}
+		produced, _ := ab.Param("Produced")
+		if produced == "Any" && short != "C" || strings.Contains(produced, short) {
+			return true
+		}
+	}
+	return false
 }

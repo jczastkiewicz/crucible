@@ -287,7 +287,10 @@ func alternativeOrigin(g *Game, a *Ability, controller PlayerController, decider
 		altFetch = append(altFetch, g.Zone(z, player).Cards()...)
 	}
 	if changeType != "" {
-		altFetch = filterValid(g, altFetch, changeType, a.Controller, a.Source)
+		// ChangeZoneEffect.java:947: AbilityUtils.filterListByType.
+		if altFetch, err = filterListByType(g, a, altFetch, changeType); err != nil {
+			return nil, false, fmt.Errorf("engine: ChangeZone: %w", err)
+		}
 	}
 	out := append([]ZoneType(nil), origin...)
 	if !controller.ConfirmEffect(g, decider, a.Source) {
@@ -1093,7 +1096,10 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			g.checkSearchedLibraryTriggers(controller, decider, player)
 		}
 		if !defined && changeType != "" && !each {
-			fetchList = filterValid(g, fetchList, changeType, a.Controller, a.Source)
+			// ChangeZoneEffect.java:1086: AbilityUtils.filterListByType.
+			if fetchList, err = filterListByType(g, a, fetchList, changeType); err != nil {
+				return fmt.Errorf("engine: ChangeZone: %w", err)
+			}
 		}
 
 		changeZonePreMemory(a, source)
@@ -1157,8 +1163,13 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				// declined or empty pick moves on to the next.
 				for _, thisType := range strings.Split(eachTypes, " & ") {
 					for i := 0; i < changeNum; i++ {
+						// :1133: AbilityUtils.filterListByType.
+						typed, err := filterListByType(g, a, fetchList, thisType)
+						if err != nil {
+							return fmt.Errorf("engine: ChangeZone: %w", err)
+						}
 						var rest []CardID
-						for _, id := range filterValid(g, fetchList, thisType, a.Controller, a.Source) {
+						for _, id := range typed {
 							if !slices.Contains(chosen, id) {
 								rest = append(rest, id)
 							}
@@ -1622,4 +1633,80 @@ func (g *Game) retainCraftMaterials(a *Ability, id CardID, dest ZoneType) {
 			g.markExiledWith(e, id)
 		}
 	}
+}
+
+// filterListByType is AbilityUtils.filterListByType's prefix step
+// (AbilityUtils.java:790-875): a type naming the triggering, the first
+// targeted or the first remembered card reads that card as the source and
+// "Card" in its place (Surgical Extraction's Remembered.sameName); none
+// such, no cards. Imprinted only reads "Card"; any other type filters with
+// the host as the source.
+func filterListByType(g *Game, a *Ability, list []CardID, spec string) ([]CardID, error) {
+	host := g.Card(a.Source)
+	src := a.Source
+	switch {
+	case strings.HasPrefix(spec, "Triggered"):
+		// :792-835: the Card, Object, Attacker or Blocker run param.
+		defined := "TriggeredCard"
+		for _, kind := range [...]string{"Card", "Object", "Attacker", "Blocker"} {
+			if strings.Contains(spec, kind) {
+				defined = "Triggered" + kind
+				break
+			}
+		}
+		got, err := definedCards(host, defined, a.refs())
+		if err != nil {
+			return nil, err
+		}
+		if len(got) == 0 {
+			return nil, nil
+		}
+		src = got[0]
+		switch spec {
+		case "Triggered", "TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker":
+			spec = "Card.Self"
+		default:
+			replaced := false
+			for _, kind := range [...]string{"TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker"} {
+				if strings.Contains(spec, kind) {
+					spec, replaced = strings.ReplaceAll(spec, kind, "Card"), true
+					break
+				}
+			}
+			if !replaced {
+				spec = strings.ReplaceAll(spec, "Triggered", "Card")
+			}
+		}
+	case strings.HasPrefix(spec, "Targeted"):
+		// :836-852: SpellAbility.findTargetedCards' first card.
+		got, err := definedCards(host, "Targeted", a.refs())
+		if err != nil {
+			return nil, err
+		}
+		if len(got) == 0 {
+			return nil, nil
+		}
+		src = got[0]
+		if strings.HasPrefix(spec, "TargetedCard") {
+			spec = strings.ReplaceAll(spec, "TargetedCard", "Card")
+		} else {
+			spec = strings.ReplaceAll(spec, "Targeted", "Card")
+		}
+	case strings.HasPrefix(spec, "Remembered"):
+		// :853-868: the first remembered card.
+		found := false
+		for _, e := range host.Memory.Remembered() {
+			if id, ok := e.AsCard(); ok {
+				src, found = id, true
+				break
+			}
+		}
+		if !found {
+			return nil, nil
+		}
+		spec = strings.ReplaceAll(spec, "Remembered", "Card")
+	case strings.HasPrefix(spec, "Imprinted"):
+		spec = strings.ReplaceAll(spec, "Imprinted", "Card")
+	}
+	return filterValid(g, list, spec, a.Controller, src), nil
 }

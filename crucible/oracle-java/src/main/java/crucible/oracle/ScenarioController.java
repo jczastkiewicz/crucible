@@ -449,6 +449,19 @@ final class ScenarioController extends PlayerControllerForTests {
         return chosen.isEmpty() ? null : chosen.get(0);
     }
 
+    // A multi-card hidden search (ChangeZoneEffect.java:1160, Surgical
+    // Extraction's "any number"): upstream's test controller answers null,
+    // picking nothing; Go asks ChooseCardsForEffect once for the list.
+    @Override
+    public List<Card> chooseCardsForZoneChange(ZoneType destination, List<ZoneType> origin, SpellAbility sa,
+            CardCollection fetchList, int min, int max, DelayedReveal delayedReveal, String selectPrompt,
+            Player decider) {
+        List<Card> chosen = answers.bound() ? answers.nextCardChoice(fetchList, min, max) : null;
+        return chosen != null ? chosen
+                : super.chooseCardsForZoneChange(destination, origin, sa, fetchList, min, max, delayedReveal,
+                        selectPrompt, decider);
+    }
+
     // Go's discard and sacrifice picks are ChooseCardsToDiscard and
     // ChoosePermanentsToSacrifice (queue discardchoice, sacrificechoice);
     // its reveal, delve, cost, devour and exploit picks are

@@ -443,8 +443,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "IsImprinted":
 		sc, ok := sourceCard(g, source)
 		return ok && containsCard(sc.Memory.Imprinted(), c.ID)
-	case name == "sharesNameWith":
-		// CardProperty.java:819-822: c shares a name with the source itself.
+	case name == "sharesNameWith", strings.HasPrefix(name, "sameName"):
+		// CardProperty.java:819-822: c shares a name with the source itself;
+		// sameName (:814-817) is the same test under any suffix.
 		sc, ok := sourceCard(g, source)
 		return ok && g.sharesNameWith(c.ID, sc.ID)
 	case name == "sharesCardTypeWith":

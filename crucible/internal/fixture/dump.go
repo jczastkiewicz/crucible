@@ -178,8 +178,19 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString("|Damage:")
 			b.WriteString(strconv.Itoa(c.Damage.Marked))
 		}
-		// GameState.java:379-398: after Damage, ChosenType, NamedCard, then
-		// ChosenCards.
+		// GameState.java:376-398: after Damage, ChosenColor, ChosenType,
+		// NamedCard, then ChosenCards. Java lists the colors in the order
+		// chosen; Go keeps a set, written in WUBRG order.
+		if colors := c.Memory.ChosenColors(); colors != 0 {
+			var names []string
+			for _, cn := range chosenColorNames {
+				if colors&cn.color != 0 {
+					names = append(names, cn.name)
+				}
+			}
+			b.WriteString("|ChosenColor:")
+			b.WriteString(strings.Join(names, ","))
+		}
 		if t := c.Memory.ChosenType(false); t != "" {
 			b.WriteString("|ChosenType:")
 			b.WriteString(t)

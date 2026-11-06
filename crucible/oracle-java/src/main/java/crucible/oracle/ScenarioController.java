@@ -8,7 +8,12 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 
 import forge.LobbyPlayer;
+import forge.card.ColorSet;
 import forge.card.ICardFace;
+import forge.card.MagicColor;
+import forge.card.mana.ManaCostShard;
+import forge.game.spellability.AbilitySub;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.GameObject;
@@ -253,15 +258,39 @@ final class ScenarioController extends PlayerControllerForTests {
     // cost the pool cannot pay takes the tapformana plays Go made in this
     // step (a cost paid before priority), else it is an error, never an
     // automatic tap.
+    //
+    // Go asks ChoosePayPhyrexian once per one-color Phyrexian shard
+    // (manapay.go); a false answer pays it with 2 life, deducted once the
+    // mana is paid, the way InputPayManaOfCostPayment does.
     @Override
     public boolean applyManaToCost(ManaCostBeingPaid toPay, SpellAbility ability, String prompt,
             ManaConversionMatrix matrix, boolean effect) {
+        int life = 0;
+        if (answers.bound()) {
+            for (ManaCostShard shard : toPay.getUnpaidShards()) {
+                if (!shard.isPhyrexian() || Integer.bitCount(shard.getColorMask() & MagicColor.ALL_COLORS) != 1) {
+                    continue;
+                }
+                Boolean payColor = answers.nextPayPhyrexian();
+                if (payColor == null) {
+                    break;
+                }
+                if (!payColor) {
+                    toPay.decreaseShard(shard, 1);
+                    ability.setSpendPhyrexianMana(true);
+                    life += 2;
+                }
+            }
+        }
         while (!player.getManaPool().payManaCostFromPool(toPay, ability, false, ability.getPayingMana())) {
             ScenarioAnswers.Play tap = answers.nextTapNow();
             if (tap == null) {
                 throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + ability);
             }
             tapForMana(answers.card(tap.id()), tap.arg());
+        }
+        if (life > 0) {
+            player.payLife(life, ability, effect);
         }
         return true;
     }
@@ -420,13 +449,15 @@ final class ScenarioController extends PlayerControllerForTests {
         return chosen.isEmpty() ? null : chosen.get(0);
     }
 
-    // Go's discard, reveal, delve, cost, devour and exploit picks are
-    // ChooseCardsForEffect too (discardeffect.go, costassist.go,
-    // chosencosts.go, sacrificeeffect.go).
+    // Go's discard and sacrifice picks are ChooseCardsToDiscard and
+    // ChoosePermanentsToSacrifice (queue discardchoice, sacrificechoice);
+    // its reveal, delve, cost, devour and exploit picks are
+    // ChooseCardsForEffect (costassist.go, chosencosts.go), so a hook falls
+    // back to the card choice queue.
     @Override
     public CardCollectionView choosePermanentsToSacrifice(SpellAbility sa, int min, int max,
             CardCollectionView validTargets, String message) {
-        List<Card> chosen = answers.nextCardChoice(validTargets, min, max);
+        List<Card> chosen = answers.nextSacrificeChoice(validTargets, min, max);
         return chosen != null ? new CardCollection(chosen)
                 : super.choosePermanentsToSacrifice(sa, min, max, validTargets, message);
     }
@@ -434,7 +465,7 @@ final class ScenarioController extends PlayerControllerForTests {
     @Override
     public CardCollection chooseCardsToDiscardFrom(Player playerDiscard, SpellAbility sa, CardCollection validCards,
             int min, int max, CardCollectionView visibleToChooser) {
-        List<Card> chosen = answers.nextCardChoice(validCards, min, max);
+        List<Card> chosen = answers.nextDiscardChoice(validCards, min, max);
         return chosen != null ? new CardCollection(chosen)
                 : super.chooseCardsToDiscardFrom(playerDiscard, sa, validCards, min, max, visibleToChooser);
     }
@@ -514,6 +545,80 @@ final class ScenarioController extends PlayerControllerForTests {
             String prompt) {
         return answers.bound() ? new ScenarioCostDecision(player, ability, effect, answers)
                 : super.getCostDecisionMaker(player, ability, effect, prompt);
+    }
+
+    // Go's ChooseModesForAbility (charmeffect.go): indices into the modes
+    // CharmEffect.makePossibleOptions offers, the list Go builds the same way.
+    @Override
+    public List<AbilitySub> chooseModeForAbility(SpellAbility sa, List<AbilitySub> possible, int min, int num,
+            boolean allowRepeat) {
+        List<Integer> idx = answers.bound() ? answers.nextModeChoice() : null;
+        if (idx == null) {
+            return super.chooseModeForAbility(sa, possible, min, num, allowRepeat);
+        }
+        List<AbilitySub> out = new ArrayList<>();
+        for (int i : idx) {
+            out.add(possible.get(i));
+        }
+        return out;
+    }
+
+    // Go's ArrangeForScry and ArrangeForSurveil: the queued top cards, the
+    // first topmost (GameAction.scry and Player.surveil reverse the list
+    // themselves), and the queued bottom or graveyard cards.
+    @Override
+    public ImmutablePair<CardCollection, CardCollection> arrangeForScry(CardCollection topN) {
+        List<CardCollection> v = answers.bound() ? answers.nextScry() : null;
+        return v != null ? ImmutablePair.of(v.get(0), v.get(1)) : super.arrangeForScry(topN);
+    }
+
+    @Override
+    public ImmutablePair<CardCollection, CardCollection> arrangeForSurveil(CardCollection topN) {
+        List<CardCollection> v = answers.bound() ? answers.nextSurveil() : null;
+        return v != null ? ImmutablePair.of(v.get(0), v.get(1)) : super.arrangeForSurveil(topN);
+    }
+
+    // Go's ChoosePayX (castspell.go, manapay.go): the X PlaySpellAbility
+    // announces (PlaySpellAbility.java:751, :773). Go asks ChooseNumber for
+    // any other announced value (ChooseNumberEffect.java:72) and for the X
+    // of a cost a replacement pays (replacementcost.go: Minion of the
+    // Wastes), so a numberchoice answers when no payx is queued.
+    @Override
+    public Integer announceRequirements(SpellAbility ability, int min, int max, String announce) {
+        Integer v = null;
+        if (answers.bound()) {
+            v = "X".equals(announce) ? answers.nextPayX() : null;
+            if (v == null) {
+                v = answers.nextNumberChoice();
+            }
+        }
+        return v != null ? v : super.announceRequirements(ability, min, max, announce);
+    }
+
+    // Go's ChooseColors: one queued color, for a one-color or a set choice.
+    @Override
+    public byte chooseColor(String message, SpellAbility sa, ColorSet colors) {
+        Byte v = answers.bound() ? answers.nextColorChoice() : null;
+        return v != null ? v : super.chooseColor(message, sa, colors);
+    }
+
+    @Override
+    public ColorSet chooseColors(String message, SpellAbility sa, int min, int max, ColorSet options) {
+        Byte v = answers.bound() ? answers.nextColorChoice() : null;
+        return v != null ? ColorSet.fromMask(v) : super.chooseColors(message, sa, min, max, options);
+    }
+
+    // Go's ChooseNumber.
+    @Override
+    public int chooseNumber(SpellAbility sa, String title, int min, int max) {
+        Integer v = answers.bound() ? answers.nextNumberChoice() : null;
+        return v != null ? v : super.chooseNumber(sa, title, min, max);
+    }
+
+    @Override
+    public int chooseNumber(SpellAbility sa, String title, List<Integer> values, Player relatedPlayer) {
+        Integer v = answers.bound() ? answers.nextNumberChoice() : null;
+        return v != null ? v : super.chooseNumber(sa, title, values, relatedPlayer);
     }
 
     private boolean pay(Cost cost, SpellAbility sa) {

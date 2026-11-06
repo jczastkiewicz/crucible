@@ -339,6 +339,30 @@ func TestChosenCardsRoundTrip(t *testing.T) {
 	}
 }
 
+// ChosenColor: is GameState's comma list of color names
+// (GameState.java:376-378, :1399-1400); Go keeps a set, so it writes the
+// names back in WUBRG order whatever order the setup gave.
+func TestChosenColorRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears")
+	l := load(t, db, "humanbattlefield=Grizzly Bears|Id:1|ChosenColor:red,white\n")
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "|ChosenColor:white,red") {
+		t.Errorf("dumped %q, want |ChosenColor:white,red", buf.String())
+	}
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=Grizzly Bears|ChosenColor:mauve\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("Load accepted ChosenColor:mauve")
+	}
+}
+
 // Imprinting round-trips the same way RememberedCards does, and a
 // remembered player -- not just a card -- must not show up in
 // RememberedCards:, which is a comma id list of cards only.

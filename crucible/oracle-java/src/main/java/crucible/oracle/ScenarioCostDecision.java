@@ -7,10 +7,12 @@ import forge.game.card.Card;
 import forge.game.card.CardCollectionView;
 import forge.game.card.CardLists;
 import forge.game.card.CardPredicates;
+import forge.game.cost.CostDiscard;
 import forge.game.cost.CostExile;
 import forge.game.cost.CostForage;
 import forge.game.cost.CostPutCounter;
 import forge.game.cost.CostReveal;
+import forge.game.cost.CostSacrifice;
 import forge.game.cost.PaymentDecision;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
@@ -72,6 +74,33 @@ final class ScenarioCostDecision extends AiCostDecision {
         }
         return pick(ai, valid(player.getCardsIn(cost.getRevealFrom()), cost.getType()),
                 cost.getAbilityAmount(ability));
+    }
+
+    // Discard<1/Card>: Go's ChooseCardsToDiscard (costparts.go,
+    // chosencosts.go). A random or whole-hand discard keeps the AI's pick.
+    @Override
+    // The queued answer is read before the AI's pick: AiCostDecision's own
+    // discard and sacrifice visits cast the controller to PlayerControllerAi.
+    public PaymentDecision visit(CostDiscard cost) {
+        String type = cost.getType();
+        if (cost.payCostFromSource() || type.equals("Hand") || type.equals("Random") || type.contains("WithSameName")) {
+            return super.visit(cost);
+        }
+        int n = cost.getAbilityAmount(ability);
+        List<Card> chosen = answers.nextDiscardChoice(valid(player.getCardsIn(ZoneType.Hand), type), n, n);
+        return chosen != null ? PaymentDecision.card(chosen) : super.visit(cost);
+    }
+
+    // Sac<1/Creature>: Go's ChoosePermanentsToSacrifice (chosencosts.go).
+    @Override
+    public PaymentDecision visit(CostSacrifice cost) {
+        if (cost.payCostFromSource() || cost.getType().equals("All")) {
+            return super.visit(cost);
+        }
+        int n = cost.getAbilityAmount(ability);
+        List<Card> chosen = answers.nextSacrificeChoice(
+                valid(player.getCardsIn(ZoneType.Battlefield), cost.getType()), n, n);
+        return chosen != null ? PaymentDecision.card(chosen) : super.visit(cost);
     }
 
     private CardCollectionView valid(CardCollectionView cards, String type) {

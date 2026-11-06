@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import forge.card.MagicColor;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.card.Card;
@@ -26,7 +27,8 @@ final class ScenarioAnswers {
     /** The queue kinds mapped so far; a scenario queueing any other is unmapped. */
     static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
             "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
-            "confirmpaycost");
+            "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
+            "payphyrexian", "payx", "colorchoice", "numberchoice");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -49,6 +51,15 @@ final class ScenarioAnswers {
     private final Deque<Boolean> confirmEffects = new ArrayDeque<>();
     private final Deque<Boolean> optionalTriggers = new ArrayDeque<>();
     private final Deque<Boolean> confirmPayCosts = new ArrayDeque<>();
+    private final Deque<List<Integer>> discardChoices = new ArrayDeque<>();
+    private final Deque<List<Integer>> sacrificeChoices = new ArrayDeque<>();
+    private final Deque<List<Integer>> modeChoices = new ArrayDeque<>();
+    private final Deque<List<List<Integer>>> scries = new ArrayDeque<>();
+    private final Deque<List<List<Integer>>> surveils = new ArrayDeque<>();
+    private final Deque<Boolean> phyrexian = new ArrayDeque<>();
+    private final Deque<Integer> xValues = new ArrayDeque<>();
+    private final Deque<Byte> colorChoices = new ArrayDeque<>();
+    private final Deque<Integer> numberChoices = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -88,6 +99,15 @@ final class ScenarioAnswers {
             case "optionaltrigger" -> optionalTriggers.add(bool(value));
             case "confirmpaycost" -> confirmPayCosts.add(bool(value));
             case "cardchoice" -> cardChoices.add(value.strip().equals("none") ? List.of() : ids(value));
+            case "discardchoice" -> discardChoices.add(ids(value));
+            case "sacrificechoice" -> sacrificeChoices.add(ids(value));
+            case "modechoice" -> modeChoices.add(ids(value));
+            case "scry" -> scries.add(split(value));
+            case "surveil" -> surveils.add(split(value));
+            case "payphyrexian" -> phyrexian.add(bool(value));
+            case "payx" -> xValues.add(Integer.parseInt(value.strip()));
+            case "colorchoice" -> colorChoices.add(MagicColor.fromName(value.strip()));
+            case "numberchoice" -> numberChoices.add(Integer.parseInt(value.strip()));
             default -> throw new IllegalStateException("queue kind " + kind);
         }
     }
@@ -247,7 +267,27 @@ final class ScenarioAnswers {
      * later question; the caller then answers the upstream default.
      */
     List<Card> nextCardChoice(Iterable<? extends GameEntity> options, int min, int max) {
-        List<Integer> next = cardChoices.peek();
+        return nextCards(cardChoices, options, min, max);
+    }
+
+    /**
+     * The next discardchoice answer (Go's ChooseCardsToDiscard), popped when
+     * it fits as a card choice does; else the next card choice.
+     */
+    List<Card> nextDiscardChoice(Iterable<? extends GameEntity> options, int min, int max) {
+        List<Card> out = nextCards(discardChoices, options, min, max);
+        return out != null ? out : nextCardChoice(options, min, max);
+    }
+
+    /** The next sacrificechoice answer (Go's ChoosePermanentsToSacrifice), else the next card choice. */
+    List<Card> nextSacrificeChoice(Iterable<? extends GameEntity> options, int min, int max) {
+        List<Card> out = nextCards(sacrificeChoices, options, min, max);
+        return out != null ? out : nextCardChoice(options, min, max);
+    }
+
+    private List<Card> nextCards(Deque<List<Integer>> queue, Iterable<? extends GameEntity> options, int min,
+            int max) {
+        List<Integer> next = queue.peek();
         if (next == null || next.size() < min || next.size() > max) {
             return null;
         }
@@ -266,8 +306,62 @@ final class ScenarioAnswers {
             }
             out.add(match);
         }
-        cardChoices.poll();
+        queue.poll();
         return out;
+    }
+
+    /** The next modechoice answer: indices into the modes offered, or null. */
+    List<Integer> nextModeChoice() {
+        return modeChoices.poll();
+    }
+
+    /**
+     * The next scry answer as the cards to put on top (the first topmost)
+     * and the cards to put on the bottom, or null. A card the answer leaves
+     * out is not moved, as Go leaves it (scryeffect.go).
+     */
+    List<CardCollection> nextScry() {
+        return cards(scries.poll());
+    }
+
+    /** The next surveil answer: the cards kept on top and those put into the graveyard, or null. */
+    List<CardCollection> nextSurveil() {
+        return cards(surveils.poll());
+    }
+
+    private List<CardCollection> cards(List<List<Integer>> halves) {
+        if (halves == null) {
+            return null;
+        }
+        List<CardCollection> out = new ArrayList<>();
+        for (List<Integer> half : halves) {
+            CardCollection cc = new CardCollection();
+            for (int id : half) {
+                cc.add(card(id));
+            }
+            out.add(cc);
+        }
+        return out;
+    }
+
+    /** The next payphyrexian answer (true pays the color, false 2 life), or null. */
+    Boolean nextPayPhyrexian() {
+        return phyrexian.poll();
+    }
+
+    /** The next payx answer, or null. */
+    Integer nextPayX() {
+        return xValues.poll();
+    }
+
+    /** The next colorchoice answer as a color mask, or null. */
+    Byte nextColorChoice() {
+        return colorChoices.poll();
+    }
+
+    /** The next numberchoice answer, or null. */
+    Integer nextNumberChoice() {
+        return numberChoices.poll();
     }
 
     /** The next confirmeffect answer (Go's ConfirmEffect), or null when none is queued. */
@@ -304,6 +398,21 @@ final class ScenarioAnswers {
         }
         if (!optionalTriggers.isEmpty()) {
             throw new IllegalStateException("optionaltrigger answers never asked for: " + optionalTriggers);
+        }
+        Map<String, Deque<?>> rest = new LinkedHashMap<>();
+        rest.put("discardchoice", discardChoices);
+        rest.put("sacrificechoice", sacrificeChoices);
+        rest.put("modechoice", modeChoices);
+        rest.put("scry", scries);
+        rest.put("surveil", surveils);
+        rest.put("payphyrexian", phyrexian);
+        rest.put("payx", xValues);
+        rest.put("colorchoice", colorChoices);
+        rest.put("numberchoice", numberChoices);
+        for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
+            if (!e.getValue().isEmpty()) {
+                throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());
+            }
         }
     }
 
@@ -371,6 +480,23 @@ final class ScenarioAnswers {
             case "false", "0", "f", "F", "FALSE", "False" -> false;
             default -> throw new IllegalArgumentException("not a bool: " + value);
         };
+    }
+
+    // Go's queue scry/surveil value: the top ids, then after a slash the
+    // bottom (or graveyard) ids; either half may be empty.
+    private static List<List<Integer>> split(String value) {
+        String[] halves = value.strip().split("/", -1);
+        if (halves.length > 2) {
+            throw new IllegalArgumentException("scry/surveil " + value);
+        }
+        List<List<Integer>> out = new ArrayList<>();
+        for (String h : halves) {
+            out.add(h.isBlank() ? List.of() : ids(h));
+        }
+        if (out.size() == 1) {
+            out.add(List.of());
+        }
+        return out;
     }
 
     private static List<Integer> ids(String value) {

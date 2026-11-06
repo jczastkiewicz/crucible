@@ -36,7 +36,7 @@ type Loaded struct {
 
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
-	// modeled yet (ChosenColor, ...), or a player-level field with
+	// modeled yet, or a player-level field with
 	// no corresponding engine.Player field (PersistentMana, ...). Silently dropping these would make a fixture that names,
 	// say, a Solved case pass while testing something other than what
 	// it says.
@@ -422,6 +422,17 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: %q: %w", name, info, err)
 			}
 			ld.exiledWith = append(ld.exiledWith, attachRef{id, hostID})
+		case strings.HasPrefix(info, "ChosenColor:"):
+			// GameState.java:1399-1400: a comma list of color names.
+			var colors mana.Colors
+			for _, n := range strings.Split(strings.TrimPrefix(info, "ChosenColor:"), ",") {
+				col, ok := chosenColorByName[strings.ToLower(strings.TrimSpace(n))]
+				if !ok {
+					return fmt.Errorf("%s: %q: not a color", name, info)
+				}
+				colors |= col
+			}
+			c.Memory.SetChosenColors(colors)
 		case strings.HasPrefix(info, "ChosenType:"):
 			// ChosenType2: is its own key, so this never reaches the second
 			// slot.
@@ -638,4 +649,16 @@ func (l *Loaded) ApplyStateEffects(controller engine.PlayerController) {
 	for pid, life := range saved {
 		g.Player(pid).Life = life
 	}
+}
+
+// chosenColorNames are the names GameState writes for a chosen color
+// (MagicColor.Constant), in WUBRG order.
+var chosenColorNames = [...]struct {
+	color mana.Colors
+	name  string
+}{{mana.White, "white"}, {mana.Blue, "blue"}, {mana.Black, "black"}, {mana.Red, "red"}, {mana.Green, "green"}}
+
+// chosenColorByName reads ChosenColor:'s names back.
+var chosenColorByName = map[string]mana.Colors{
+	"white": mana.White, "blue": mana.Blue, "black": mana.Black, "red": mana.Red, "green": mana.Green,
 }

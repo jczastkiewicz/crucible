@@ -60,6 +60,8 @@ import (
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
 //	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //	queue cardchoice <id>[,...]   ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick, ids from CardByFixtureID
+//	queue scry <top>[/<bottom>]   ScriptedController.QueueScry, ids kept on top (first topmost), after a slash those put on the bottom
+//	queue surveil <top>[/<grave>] ScriptedController.QueueSurveil, ids kept on top, after a slash those put into the graveyard
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 //	queue divide <n>[,<n>...]     ScriptedController.QueueDivision, a DividedAsYouChoose$ share per target, in target order
 //	queue targets <t>[,...]|none  ScriptedController.QueueTargets, cards by CardByFixtureID or player names; none chooses no target
@@ -696,18 +698,18 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		c.QueueReturnChoice(ids)
 
 	case "scry":
-		ids, err := resolveCardIDs(l, value)
+		top, bottom, err := resolveTopAndRest(l, value)
 		if err != nil {
 			return fmt.Errorf("queue scry: %w", err)
 		}
-		c.QueueScry(ids, nil)
+		c.QueueScry(top, bottom)
 
 	case "surveil":
-		ids, err := resolveCardIDs(l, value)
+		top, graveyard, err := resolveTopAndRest(l, value)
 		if err != nil {
 			return fmt.Errorf("queue surveil: %w", err)
 		}
-		c.QueueSurveil(ids, nil)
+		c.QueueSurveil(top, graveyard)
 
 	case "battleprotector":
 		pid, err := resolveActionPlayer(l, args[1:], 1)
@@ -1095,6 +1097,25 @@ func resolveCardIDs(l *Loaded, value string) ([]engine.CardID, error) {
 		ids[i] = id
 	}
 	return ids, nil
+}
+
+// resolveTopAndRest reads a scry or surveil answer: the ids kept on top,
+// the first topmost, then after a slash the ids put on the bottom (or into
+// the graveyard). Either half may be empty; with no slash the answer keeps
+// only the listed cards on top and moves no other card.
+func resolveTopAndRest(l *Loaded, value string) (top, rest []engine.CardID, err error) {
+	topText, restText, _ := strings.Cut(value, "/")
+	if strings.TrimSpace(topText) != "" {
+		if top, err = resolveCardIDs(l, topText); err != nil {
+			return nil, nil, err
+		}
+	}
+	if strings.TrimSpace(restText) != "" {
+		if rest, err = resolveCardIDs(l, restText); err != nil {
+			return nil, nil, err
+		}
+	}
+	return top, rest, nil
 }
 
 // resolveManaColor reads a bare color letter ("W", "U", ...) the way

@@ -25,6 +25,18 @@ type DeckInfo struct {
 	Name string `json:"name"`
 	// Hash is a digest of the decklist, so a manifest says which list was run.
 	Hash string `json:"hash"`
+	// Weight is the opponent's metagame share its gauntlet.toml gives, 0 for
+	// the target and for a deck no manifest lists.
+	Weight float64 `json:"weight,omitempty"`
+}
+
+// Snapshot is the gauntlet.toml of an opponent directory: which metagame
+// sample the run was measured against (docs/crucible/research/meta-gauntlet.md).
+type Snapshot struct {
+	Dir    string `json:"dir"`
+	Format string `json:"format"`
+	Date   string `json:"date"`
+	Source string `json:"source"`
 }
 
 // Manifest is what a run records about itself (ADR-0014): enough to re-run it
@@ -43,6 +55,9 @@ type Manifest struct {
 	// Variant is the game variant the run was played under ("commander"),
 	// empty for constructed (ADR-0055).
 	Variant string `json:"variant,omitempty"`
+	// Snapshots lists the gauntlet.toml manifests the opponents came from;
+	// results from different snapshots are not comparable.
+	Snapshots []Snapshot `json:"snapshots,omitempty"`
 }
 
 // Row is one stored record: its kind and the kind's JSON.

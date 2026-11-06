@@ -90,8 +90,9 @@ A clone's sink is a discard, so AI lookahead contributes nothing ([`engine-desig
 They move independently, and both are stamped on every row and every shard. Tooling refuses to merge shards whose
 `SchemaVersion` differs, because a silent union produces a column meaning one thing for half the rows.
 
-Every run also carries a `manifest.json` with the git SHA, both versions, seeds, deck hashes, the gauntlet, and every
-metric threshold in force. **A run that cannot be reproduced from its manifest is a bug.**
+Every run also carries a `manifest.json` with the git SHA, both versions, seeds, deck hashes, the gauntlet (each
+opponent's `gauntlet.toml` weight and the snapshots the opponents came from), and every metric threshold in force. **A
+run that cannot be reproduced from its manifest is a bug.**
 
 ---
 

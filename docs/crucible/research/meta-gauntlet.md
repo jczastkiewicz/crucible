@@ -133,7 +133,10 @@ The order formats are added is a scheduling decision, made with that report in h
 
 ## Open questions
 
-- Nothing reads `gauntlet.toml` yet: `internal/deck` parses the `.dck` files, the weights wait for a loader.
+- `deck.ParseGauntlet` reads `gauntlet.toml`, a strict TOML subset (quoted strings, numbers, `[[deck]]`, comments;
+  anything else is an error, since GO-14 rules out a TOML library). `crucible run -vs gauntlets/modern` plays the decks
+  it lists in its order and fails on a listed file that is missing or a `.dck` it leaves out; `manifest.json` records
+  each opponent's `weight` and the manifest's snapshot. No report weights results by them yet (R24a).
 - `crucible card-smoke -decks gauntlets/modern` gives the share of the gauntlet's cards the engine plays
   ([`smoke-probe.md`](../porting/port-log/smoke-probe.md)): 232 of 233 distinct cards judged, all of them play, one
   inconclusive. A split card is named by both halves (`Wear // Tear`), as Forge's `.dck` files write it;

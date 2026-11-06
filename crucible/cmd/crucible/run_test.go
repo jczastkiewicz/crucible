@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -189,6 +190,72 @@ func TestParseVariantReadsCommanderOrNothing(t *testing.T) {
 	}
 }
 
+// A directory with a gauntlet.toml is the decks it lists, in its order, each
+// with its weight, and its snapshot goes to the manifest; a listed file that
+// is not there, or a .dck the manifest leaves out, is an error.
+func TestDeckSourcesReadAGauntletManifest(t *testing.T) {
+	t.Parallel()
+	manifest := "format = \"modern\"\nsnapshot = \"2026-11-06\"\nsource = \"a tracker\"\n" +
+		"[[deck]]\nfile = \"b.dck\"\nweight = 7.5\n[[deck]]\nfile = \"a.dck\"\nweight = 2\n"
+	setup := func(t *testing.T, toml string, decks ...string) string {
+		t.Helper()
+		dir := t.TempDir()
+		for _, d := range decks {
+			writeDeckFile(t, dir, d, "[Main]\n1 Island\n")
+		}
+		if err := os.WriteFile(filepath.Join(dir, "gauntlet.toml"), []byte(toml), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+
+	dir := setup(t, manifest, "a", "b")
+	got, meta, err := deckSources(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []deckSource{{filepath.Join(dir, "b.dck"), 7.5}, {filepath.Join(dir, "a.dck"), 2}}
+	if !slices.Equal(got, want) {
+		t.Errorf("sources %v, want %v", got, want)
+	}
+	if len(meta.snapshots) != 1 || meta.snapshots[0] != (store.Snapshot{Dir: dir, Format: "modern", Date: "2026-11-06", Source: "a tracker"}) {
+		t.Errorf("snapshots %+v", meta.snapshots)
+	}
+
+	if _, _, err := deckSources(setup(t, manifest, "b")); err == nil || !strings.Contains(err.Error(), "lists a.dck") {
+		t.Errorf("a listed deck missing: err %v", err)
+	}
+	if _, _, err := deckSources(setup(t, manifest, "a", "b", "c")); err == nil || !strings.Contains(err.Error(), "does not list c.dck") {
+		t.Errorf("an unlisted deck: err %v", err)
+	}
+	if _, _, err := deckSources(setup(t, "format = modern\n", "a")); err == nil {
+		t.Error("a malformed gauntlet.toml did not fail")
+	}
+
+	infos := deckInfos(sim.Gauntlet{Target: sim.Deck{Name: "t"}, Opponents: []sim.Opponent{{Deck: sim.Deck{Name: "b"}}, {Deck: sim.Deck{Name: "a"}}}}, []float64{7.5, 2})
+	if infos[0].Weight != 0 || infos[1].Weight != 7.5 || infos[2].Weight != 2 {
+		t.Errorf("deck infos %+v: want the target unweighted, then 7.5 and 2", infos)
+	}
+}
+
+// The checked-in Modern gauntlet's manifest matches its directory, each deck
+// weighted.
+func TestModernGauntletLoads(t *testing.T) {
+	t.Parallel()
+	sources, meta, err := deckSources("../../gauntlets/modern")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 14 || len(meta.snapshots) != 1 || meta.snapshots[0].Date != "2026-11-06" {
+		t.Errorf("%d decks, snapshots %+v", len(sources), meta.snapshots)
+	}
+	for _, s := range sources {
+		if s.weight <= 0 {
+			t.Errorf("%s has no weight", s.path)
+		}
+	}
+}
+
 func TestDeckHashTellsCommandersApart(t *testing.T) {
 	t.Parallel()
 	main := []string{"Mountain", "Mountain"}
@@ -200,7 +267,7 @@ func TestDeckHashTellsCommandersApart(t *testing.T) {
 			{Deck: sim.Deck{Name: "d", Cards: main, Avatars: []string{"Urza"}}},
 			{Deck: sim.Deck{Name: "e", Cards: main, Planes: []string{"Krosa"}}},
 		},
-	})
+	}, nil)
 	seen := map[string]bool{}
 	for _, info := range infos {
 		if seen[info.Hash] {

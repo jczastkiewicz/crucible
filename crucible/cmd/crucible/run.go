@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -67,7 +68,7 @@ func runCmd(args []string) error {
 	}
 	db = db.WithTokens(tok)
 
-	gauntlet, err := buildGauntlet(db, *target, *vs, *games)
+	gauntlet, meta, err := buildGauntlet(db, *target, *vs, *games)
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,8 @@ func runCmd(args []string) error {
 	run, err := store.Create(*out, store.Manifest{
 		RunID: filepath.Base(*out), GitSHA: gitSHA(), SchemaVersion: telemetry.SchemaVersion,
 		MetricsVersion: telemetry.MetricsVersion, BaseSeed: *seed, Games: len(jobs), Shards: *shards,
-		Gauntlet: gauntlet.Name, Decks: deckInfos(gauntlet), Variant: *variantName,
+		Gauntlet: gauntlet.Name, Decks: deckInfos(gauntlet, meta.weights), Variant: *variantName,
+		Snapshots: meta.snapshots,
 	})
 	if err != nil {
 		return err
@@ -127,46 +129,76 @@ func reportCmd(args []string) error {
 	return nil
 }
 
+// gauntletMeta is what the opponent directories' gauntlet.toml files add to
+// a run's manifest: each opponent's weight (0 for a deck no manifest lists)
+// and each manifest's snapshot.
+type gauntletMeta struct {
+	weights   []float64
+	snapshots []store.Snapshot
+}
+
 // buildGauntlet reads the target deck and the opponent decks and resolves
 // every card name against db.
-func buildGauntlet(db *compile.DB, target, vs string, games int) (sim.Gauntlet, error) {
+func buildGauntlet(db *compile.DB, target, vs string, games int) (sim.Gauntlet, gauntletMeta, error) {
 	t, err := loadSimDeck(db, target)
 	if err != nil {
-		return sim.Gauntlet{}, err
+		return sim.Gauntlet{}, gauntletMeta{}, err
 	}
-	paths, err := deckPaths(vs)
+	sources, meta, err := deckSources(vs)
 	if err != nil {
-		return sim.Gauntlet{}, err
+		return sim.Gauntlet{}, gauntletMeta{}, err
 	}
 	gt := sim.Gauntlet{Name: t.Name + " gauntlet", Target: t}
-	for _, p := range paths {
-		d, err := loadSimDeck(db, p)
+	for _, src := range sources {
+		d, err := loadSimDeck(db, src.path)
 		if err != nil {
-			return sim.Gauntlet{}, err
+			return sim.Gauntlet{}, gauntletMeta{}, err
 		}
 		gt.Opponents = append(gt.Opponents, sim.Opponent{Deck: d, Games: games})
+		meta.weights = append(meta.weights, src.weight)
 	}
-	return gt, nil
+	return gt, meta, nil
+}
+
+// deckSource is one opponent decklist and its gauntlet.toml weight.
+type deckSource struct {
+	path   string
+	weight float64
 }
 
 // deckPaths expands a comma-separated list of files and directories into the
-// .dck files they name, directories sorted.
+// .dck files they name.
 func deckPaths(list string) ([]string, error) {
-	var out []string
+	sources, _, err := deckSources(list)
+	paths := make([]string, len(sources))
+	for i, s := range sources {
+		paths[i] = s.path
+	}
+	return paths, err
+}
+
+// deckSources expands the list: a file is itself, a directory its .dck files
+// sorted, or, with a gauntlet.toml, the decks it lists in its order with
+// their weights (docs/crucible/research/meta-gauntlet.md). A manifest that
+// names a missing file, or a .dck it does not list, is an error: the
+// manifest is the gauntlet.
+func deckSources(list string) ([]deckSource, gauntletMeta, error) {
+	var out []deckSource
+	var meta gauntletMeta
 	for _, item := range strings.Split(list, ",") {
 		item = strings.TrimSpace(item)
 		info, err := os.Stat(item)
 		if err != nil {
-			return nil, err
+			return nil, gauntletMeta{}, err
 		}
 		if !info.IsDir() {
-			out = append(out, item)
+			out = append(out, deckSource{path: item})
 			continue
 		}
 		var found []string
 		entries, err := os.ReadDir(item)
 		if err != nil {
-			return nil, err
+			return nil, gauntletMeta{}, err
 		}
 		for _, e := range entries {
 			if !e.IsDir() && filepath.Ext(e.Name()) == ".dck" {
@@ -174,12 +206,40 @@ func deckPaths(list string) ([]string, error) {
 			}
 		}
 		sort.Strings(found)
-		out = append(out, found...)
+		raw, err := os.ReadFile(filepath.Join(item, "gauntlet.toml"))
+		if os.IsNotExist(err) {
+			for _, f := range found {
+				out = append(out, deckSource{path: f})
+			}
+			continue
+		}
+		if err != nil {
+			return nil, gauntletMeta{}, err
+		}
+		g, err := deck.ParseGauntlet(raw)
+		if err != nil {
+			return nil, gauntletMeta{}, fmt.Errorf("%s: %w", item, err)
+		}
+		listed := map[string]bool{}
+		for _, d := range g.Decks {
+			path := filepath.Join(item, d.File)
+			if !slices.Contains(found, path) {
+				return nil, gauntletMeta{}, fmt.Errorf("%s: gauntlet.toml lists %s, which is not a .dck there", item, d.File)
+			}
+			listed[path] = true
+			out = append(out, deckSource{path: path, weight: d.Weight})
+		}
+		for _, f := range found {
+			if !listed[f] {
+				return nil, gauntletMeta{}, fmt.Errorf("%s: gauntlet.toml does not list %s", item, filepath.Base(f))
+			}
+		}
+		meta.snapshots = append(meta.snapshots, store.Snapshot{Dir: item, Format: g.Format, Date: g.Snapshot, Source: g.Source})
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("run: no decklists in %q", list)
+		return nil, gauntletMeta{}, fmt.Errorf("run: no decklists in %q", list)
 	}
-	return out, nil
+	return out, meta, nil
 }
 
 // loadSimDeck reads a .dck and resolves each main-deck and sticker-sheet name
@@ -217,7 +277,7 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 	return out, nil
 }
 
-func deckInfos(gt sim.Gauntlet) []store.DeckInfo {
+func deckInfos(gt sim.Gauntlet, weights []float64) []store.DeckInfo {
 	decks := []sim.Deck{gt.Target}
 	for _, o := range gt.Opponents {
 		decks = append(decks, o.Deck)
@@ -242,6 +302,9 @@ func deckInfos(gt sim.Gauntlet) []store.DeckInfo {
 		}
 		sum := sha256.Sum256([]byte(text))
 		infos[i] = store.DeckInfo{Name: d.Name, Hash: hex.EncodeToString(sum[:8])}
+		if i > 0 && i-1 < len(weights) {
+			infos[i].Weight = weights[i-1]
+		}
 	}
 	return infos
 }

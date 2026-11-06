@@ -493,15 +493,12 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // unconditionally (GO-7). Player.EnchantedBy (5) resolves from
 // Player.Attachments.
 //
-// Not resolved, skipped via hasAnyParam below: ValidSA/ValidSAonCard (a
-// SpellAbility, not a Card, Matches (valid.go) only evaluates one of
-// those), TargetsValid/CanTargetOtherCondition (this port's targeting has
-// no per-trigger target-inspection hook), NoColoredMana/
-// SnowSpentForCardsColor (no mana-payment-detail tracking past whether the
-// cost was paid), IsSingleTarget (no generic target-count reader),
-// and TriggersWhenSpent (a mana-ability-specific remembered-list this port
-// has no mana-ability ChosenPlayer/Remembered plumbing for). 1,163 of 1,435
-// real lines carry none of these.
+// ValidSA$ reads the spell or ability through spellAbilityMatches;
+// ValidSAonCard$, TargetsValid$, CanTargetOtherCondition$, IsSingleTarget$
+// and NoColoredMana$ through spellCastTargetsAndManaOK.
+// SnowSpentForCardsColor$ and TriggersWhenSpent$ are not resolved
+// (spellCastUnresolvedParams): a trigger that would fire but for one of them
+// is an error.
 //
 // ActivatorThisTurnCast/ActivatorThisTurnCastEach (Flurry and the "second
 // spell each turn" family, 115 lines) are resolved by activatorCastCountOK
@@ -604,9 +601,6 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 				// card outside play, as graveyardWatcher reads it.
 				continue
 			}
-			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {
-				continue
-			}
 			if hasAnyParam(t, "HasXManaCost") && (c.Def == nil || c.Def.Faces[0].ManaCost.CountX() == 0) {
 				continue
 			}
@@ -628,6 +622,15 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 					continue
 				}
 			}
+			if !g.spellCastTargetsAndManaOK(t, h, h.Controller(), c, spellID, face.Amounts) {
+				continue
+			}
+			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {
+				// The trigger would fire but for a test this port cannot
+				// make: an error, never a silent miss (GO-7).
+				g.recordPendingError(fmt.Errorf("engine: %s's SpellCast trigger: params %v not resolvable yet", h.Name(), spellCastUnresolvedParams))
+				continue
+			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
 					triggered: face.objects(triggeredObjects{spellAbility: spellID, card: c.ID, activator: activator,
@@ -639,11 +642,85 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 }
 
 // spellCastUnresolvedParams are the SpellCast params no check here resolves: a
-// trigger carrying one never fires, and a DelayedTrigger carrying one is
-// refused at registration.
-var spellCastUnresolvedParams = [...]string{"ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
-	"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
-	"TriggersWhenSpent"}
+// trigger carrying one that would otherwise fire is an error, and a
+// DelayedTrigger carrying one is refused at registration.
+// SnowSpentForCardsColor$ needs the color of each snow unit spent, which the
+// cast record does not keep; TriggersWhenSpent$ the spawning mana ability's
+// remembered spell.
+var spellCastUnresolvedParams = [...]string{"SnowSpentForCardsColor", "TriggersWhenSpent"}
+
+// spellCastTargetsAndManaOK is TriggerSpellAbilityCastOrCopy.java:125-203
+// past ValidSA$, for the spell or ability spellID cast from (or copied as) c:
+//   - ValidSAonCard$ reads it with c as the source and c's controller as You
+//     (matchesValidParam's srcCard form, CardTraitBase.java:209-221);
+//   - TargetsValid$: some target of it or a link of its chain is valid for
+//     host h, with you as "You";
+//   - CanTargetOtherCondition$: its first link with targets could target
+//     another card the condition admits;
+//   - IsSingleTarget$: it targets exactly one object across every link;
+//   - NoColoredMana$: no colored mana paid for it.
+func (g *Game) spellCastTargetsAndManaOK(t *compile.Ability, h *Card, you PlayerID, c *Card, spellID StackItemID, amounts map[string]expr.Amount) bool {
+	if !hasAnyParam(t, "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition", "IsSingleTarget", "NoColoredMana") {
+		return true
+	}
+	spell, found := g.stackItem(spellID)
+	if !found {
+		return false
+	}
+	if spec, ok := t.Param("ValidSAonCard"); ok {
+		m, known := g.spellAbilityMatches(spell, spec, c, c.Controller(), amounts)
+		if !known {
+			g.recordPendingError(fmt.Errorf("engine: %s's SpellCast trigger: ValidSAonCard$ %q not resolvable yet", h.Name(), spec))
+			return false
+		}
+		if !m {
+			return false
+		}
+	}
+	targets := allTargetsOf(*spell)
+	if spell.Target != NoCard {
+		targets = append(targets, CardEntity(spell.Target))
+	}
+	if spec, ok := t.Param("TargetsValid"); ok && !slices.ContainsFunc(targets, func(e EntityID) bool { return g.entityMatchesAnyAs(h, you, e, spec) }) {
+		return false
+	}
+	if spec, ok := t.Param("CanTargetOtherCondition"); ok && !g.canTargetOther(spell, spec) {
+		return false
+	}
+	if _, ok := t.Param("IsSingleTarget"); ok {
+		if distinct := slices.Compact(slices.Sorted(slices.Values(targets))); len(distinct) != 1 {
+			return false
+		}
+	}
+	if _, ok := t.Param("NoColoredMana"); ok && spell.spell && g.Card(spell.Source).castPaid != [5]int{} {
+		return false
+	}
+	return true
+}
+
+// canTargetOther is CanTargetOtherCondition$ (TriggerSpellAbilityCastOrCopy
+// .java:147-169): the first link of spell's chain with targets, the cards it
+// could target besides those it does, filtered by spec with the spell's
+// controller as You and its card as the source.
+func (g *Game) canTargetOther(spell *Ability, spec string) bool {
+	for _, link := range targetingLinks(spell) {
+		if len(link.Targets) == 0 {
+			continue
+		}
+		parsed := valid.Parse(spec)
+		defer g.inAbilityContext(spell)()
+		for _, id := range g.cardsInGame() {
+			if slices.Contains(link.Targets, CardEntity(id)) || !g.targetStillLegal(link, CardEntity(id)) {
+				continue
+			}
+			if Matches(g, g.Card(id), parsed, spell.Controller, spell.Source) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
 
 // activatorCastCountOK is TriggerSpellAbilityCastOrCopy.java:86-114: the
 // spells cast this turn that match ValidCard$ (default Card) from the host
@@ -732,8 +809,8 @@ var spellCopyModes = []string{"SpellCopy", "SpellAbilityCopy", "SpellCastOrCopy"
 
 // copyTriggerWatching reports whether any trait host has a copy trigger
 // (SpellCopy, SpellAbilityCopy, SpellCastOrCopy) carrying a param
-// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams: Grip of
-// Chaos's IsSingleTarget$), which would silently never fire.
+// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams), which
+// would silently never fire.
 func (g *Game) copyTriggerWatching() bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.traitHosts(pid) {

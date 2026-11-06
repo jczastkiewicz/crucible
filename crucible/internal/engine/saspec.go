@@ -38,7 +38,7 @@ var saUnresolvedPrefixes = []string{
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "Mayhem",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
-	"paidPhyrexianMana", "ManaSpent", "ManaFrom",
+	"paidPhyrexianMana", "ManaSpentBy", "ManaFrom",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }
 
@@ -198,6 +198,19 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		return a.spell && g.spellOptional(a.Source).has(optTeamwork), true
 	case strings.HasPrefix(prop, "numTargets"):
 		return g.saTargetCount(a, prop, host, amounts)
+	case strings.HasPrefix(prop, "ManaSpent "):
+		// SpellAbilityProperty.java:183-187: the mana spent on it
+		// (getTotalManaSpent) against an amount read for the host. A spell
+		// keeps it on its card (castManaSpent); an ability's is not kept.
+		rest := strings.TrimPrefix(prop, "ManaSpent ")
+		if !a.spell || len(rest) < 3 {
+			return false, false
+		}
+		want, ok := resolveNamedAmount(g, amounts, host, rest[2:])
+		if !ok {
+			return false, false
+		}
+		return compareOp(source.castManaSpent, rest[:2], want), true
 	case strings.HasPrefix(prop, "cmc"):
 		return g.saCMC(a, prop, host, amounts)
 	case strings.HasPrefix(prop, "XCost"):

@@ -1901,12 +1901,19 @@ func (g *Game) asIfHaste(mode string, c *Card, target EntityID) bool {
 // target): any comma-separated alternative of spec admits it,
 // read for host h. NoEntity matches nothing.
 func (g *Game) entityMatchesAny(h *Card, target EntityID, spec string) bool {
+	return g.entityMatchesAnyAs(h, h.Controller(), target, spec)
+}
+
+// entityMatchesAnyAs is entityMatchesAny with you as "You": a delayed
+// trigger's controller, the player whose ability made it
+// (CardTraitBase.java:215-219).
+func (g *Game) entityMatchesAnyAs(h *Card, you PlayerID, target EntityID, spec string) bool {
 	for _, alt := range strings.Split(spec, ",") {
 		if pid, ok := target.AsPlayer(); ok {
-			if matched, known := matchesPlayerSpec(g, pid, h.Controller(), h.ID, alt); known && matched {
+			if matched, known := matchesPlayerSpec(g, pid, you, h.ID, alt); known && matched {
 				return true
 			}
-		} else if id, ok := target.AsCard(); ok && Matches(g, g.Card(id), valid.Parse(alt), h.Controller(), h.ID) {
+		} else if id, ok := target.AsCard(); ok && Matches(g, g.Card(id), valid.Parse(alt), you, h.ID) {
 			return true
 		}
 	}

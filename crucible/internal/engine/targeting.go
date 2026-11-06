@@ -1812,9 +1812,22 @@ func readsTgtZone(api APIType) bool {
 // could target card id, as SpellAbility.canTarget reads it at resolution
 // (targetStillLegal).
 func (g *Game) canBeTargetedByChain(item *Ability, id CardID) bool {
-	e := CardEntity(id)
-	if _, ok := targetSpec(item); ok && !g.targetStillLegal(item, e) {
-		return false
+	for _, link := range targetingLinks(item) {
+		if !g.targetStillLegal(link, CardEntity(id)) {
+			return false
+		}
+	}
+	return true
+}
+
+// targetingLinks are item and the SubAbility$ links of its chain that target
+// (SpellAbility.usesTargeting), each as the Ability targetStillLegal reads:
+// a link carries its root's triggering objects and its parent's targets, as
+// dropIllegalChainTargets builds it.
+func targetingLinks(item *Ability) []*Ability {
+	var links []*Ability
+	if _, ok := targetSpec(item); ok {
+		links = append(links, item)
 	}
 	parents := item.Targets
 	ancestorTargeting := item.ancestorTargeting || linkUsesTargeting(item.Params)
@@ -1823,7 +1836,7 @@ func (g *Game) canBeTargetedByChain(item *Ability, id CardID) bool {
 		if !linkUsesTargeting(ct.Params) {
 			continue
 		}
-		link := Ability{Source: item.Source, Controller: item.Controller, Params: ct.Params, targetStamps: ct.Stamps,
+		link := &Ability{Source: item.Source, Controller: item.Controller, Params: ct.Params, targetStamps: ct.Stamps,
 			Amounts: item.Amounts, TriggerRemembered: item.TriggerRemembered, triggered: item.triggered, targeter: ct.Targeter,
 			choosing: item.choosing, hasChoosing: item.hasChoosing,
 			parentTargets: parents, ancestorTargeting: ancestorTargeting}
@@ -1831,12 +1844,10 @@ func (g *Game) canBeTargetedByChain(item *Ability, id CardID) bool {
 			link.API = api
 		}
 		link.Targets = ct.Targets
-		if !g.targetStillLegal(&link, e) {
-			return false
-		}
+		links = append(links, link)
 		if len(ct.Targets) > 0 {
 			parents = ct.Targets
 		}
 	}
-	return true
+	return links
 }

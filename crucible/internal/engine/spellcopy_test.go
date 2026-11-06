@@ -490,9 +490,9 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 	}
 
 	// A copy trigger carrying a param nothing resolves would silently never
-	// fire (Grip of Chaos's IsSingleTarget$): the copy is refused instead.
+	// fire (SnowSpentForCardsColor$): the copy is refused instead.
 	g, p, _ = newTwoPlayerGame(t)
-	g.NewCard(triggerWatcherDef(t, "Grip", "Mode$ SpellAbilityCopy | IsSingleTarget$ True | Execute$ TrigGain", "TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	g.NewCard(triggerWatcherDef(t, "Grip", "Mode$ SpellAbilityCopy | SnowSpentForCardsColor$ True | Execute$ TrigGain", "TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
 	spell := g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
 	if err := castWithCopyWatcher(t, g, p, spell, engine.NewScriptedController(), "Instant", "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility"); err == nil || !strings.Contains(err.Error(), "triggers not resolvable") {
 		t.Errorf("unresolvable copy trigger: err = %v", err)

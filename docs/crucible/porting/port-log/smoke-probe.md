@@ -69,6 +69,11 @@ Measured on the full corpus (34,134 cards):
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
+Largest refusal causes over the full corpus (cards blocked):
+
+| Cards | Refusal |
+| ---: | --- |
+
 No card is refused. A valid-string property no case of `valid.go` ports still errors (`checkTypeWord`, open plan R19b)
 instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
 

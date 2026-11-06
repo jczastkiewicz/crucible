@@ -162,8 +162,9 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 // delayedSpellCastMatches collects every live delayed Mode$ SpellCast trigger
 // the cast of c by activator satisfies, removing each one it collects (a
 // delayed trigger fires once, "when you next cast"). The checks are
-// appendSpellCastMatches': ValidCard$ against the spell, ValidActivatingPlayer$
-// and ValidSA$ read with the trigger's controller as "You". The spell is
+// appendSpellCastMatches': ValidCard$ against the spell, ValidActivatingPlayer$,
+// ValidSA$ and the target and mana tests (spellCastTargetsAndManaOK) read
+// with the trigger's controller as "You". The spell is
 // recorded as TriggeredSpellAbility, which CopySpellAbility reads.
 func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID StackItemID) []Ability {
 	var matches []Ability
@@ -245,6 +246,9 @@ func (g *Game) delayedSpellCastSatisfied(d delayedTrigger, c *Card, activator Pl
 		if m, known := g.spellAbilityMatches(spell, spec, g.Card(d.Host), d.Controller, d.Amounts); !known || !m {
 			return false
 		}
+	}
+	if !g.spellCastTargetsAndManaOK(t, g.Card(d.Host), d.Controller, c, spellID, d.Amounts) {
+		return false
 	}
 	return g.delayedPresentMatches(d)
 }

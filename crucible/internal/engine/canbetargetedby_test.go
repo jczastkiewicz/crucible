@@ -20,19 +20,15 @@ func (f *featherChoices) ChooseCardsForEffect(_ *engine.Game, _ engine.PlayerID,
 	return nil
 }
 
-// Feather's choice offers the other creatures the triggering spell could
-// target (CanBeTargetedByTriggeredSpellAbility, CardProperty.java:544-552):
-// not an opponent's hexproof one. Feather's own trigger carries
-// IsSingleTarget$ and TargetsValid$, which this port does not read, so the
-// choice hangs off a plain SpellCast trigger here.
+// Feather offers the other creatures the triggering spell could target
+// (CanBeTargetedByTriggeredSpellAbility, CardProperty.java:544-552): not an
+// opponent's hexproof one.
 func TestCanBeTargetedByTheTriggeringSpell(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 	g.SetTurnState(1, p, engine.Main1)
-	feather := g.NewCard(combatCreatureDef(t, "Test Arbiter", nil,
-		[]string{"Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | Execute$ TrigChoose | TriggerZones$ Battlefield"},
-		"TrigChoose", "DB$ ChooseCard | Choices$ Creature.Other+CanBeTargetedByTriggeredSpellAbility | MinAmount$ 0 | Amount$ 3"), p, engine.Battlefield)
+	feather := g.NewCard(corpusCard(t, "Feather, Radiant Arbiter"), p, engine.Battlefield)
 	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
 	ogre := g.NewCard(corpusCard(t, "Gray Ogre"), other, engine.Battlefield)
 	scout := g.NewCard(corpusCard(t, "Gladecover Scout"), other, engine.Battlefield)
@@ -40,6 +36,7 @@ func TestCanBeTargetedByTheTriggeringSpell(t *testing.T) {
 	g.Player(p).ManaPool.Add(mana.Green, 1)
 	c := &featherChoices{ScriptedController: engine.NewScriptedController()}
 	c.QueueTargets([]engine.EntityID{engine.CardEntity(feather)})
+	c.QueueConfirmPayCost(false) // no copy: Feather's {2} per chosen creature
 	if !g.CastSpell(p, growth, c) {
 		t.Fatalf("Giant Growth: %v", g.TakePendingError())
 	}
@@ -51,6 +48,6 @@ func TestCanBeTargetedByTheTriggeringSpell(t *testing.T) {
 	}
 	if !slices.Contains(c.offered, bears) || !slices.Contains(c.offered, ogre) ||
 		slices.Contains(c.offered, scout) || slices.Contains(c.offered, feather) {
-		t.Errorf("offered %v; want Bears %d and Ogre %d, not Scout %d or the source %d", c.offered, bears, ogre, scout, feather)
+		t.Errorf("offered %v; want Bears %d and Ogre %d, not Scout %d or Feather %d", c.offered, bears, ogre, scout, feather)
 	}
 }

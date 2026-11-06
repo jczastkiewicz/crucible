@@ -1,0 +1,8 @@
+# R20c gauntlet probe (Rest in Peace #bolt): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue targets 50
+tapformana human 100 R
+castspell human 2
+resolvestack

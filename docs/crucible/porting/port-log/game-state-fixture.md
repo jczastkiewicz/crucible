@@ -389,6 +389,11 @@ command zone; `compareGames` compares both by name. An unknown player is a `Load
 designation implies, so writing both would let a fixture say two contradicting things.
 `testdata/scenarios/monarch-draws-at-end-step-and-passes-by-combat-damage` is the example.
 
+**An effect card is neither dumped nor compared.** `GameState` writes no card without a paper card
+(`GameState.java:286-288`), and an Effect ability's command-zone card (`Card.IsEffect`: Explore's, Expressive
+Iteration's) has none. `Dump` leaves it out and `compareGames` counts a zone without it. Reason: a Java post-state never
+names one, so a Go state that did would differ from every L2 run of such a card.
+
 **`<player>numringtemptedyou=<n>` and `|IsRingBearer` are Java's own keys, applied.** `Load` follows
 `GameState.setupPlayerState` (`GameState.java:1157`, `:1213-1220`): after the player's cards, `Game.SetRingTemptedYou`
 sets the count and, when above zero, makes the player's "The Ring" card carrying every level up to it (no trigger runs).

@@ -265,13 +265,25 @@ func playerNameOrEmpty(g *engine.Game, pid engine.PlayerID) string {
 	return g.Player(pid).Name
 }
 
+// paperCards is ids less the effect cards: GameState writes no card without
+// a paper card (GameState.java:286-288), so an expect.state cannot name one.
+func paperCards(g *engine.Game, ids []engine.CardID) []engine.CardID {
+	var out []engine.CardID
+	for _, id := range ids {
+		if !g.Card(id).IsEffect {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got *engine.Game, gpid engine.PlayerID, want *engine.Game, wpid engine.PlayerID) {
 	t.Helper()
 
 	// Phased-out permanents included: expect.state names them in place
 	// (PhasedOut:), and comparing Cards() alone would let a scenario pass
 	// with the wrong permanent phased out (ADR-0021's fixture opt-in).
-	gc, wc := got.Zone(zone, gpid).CardsIncludingPhasedOut(), want.Zone(zone, wpid).CardsIncludingPhasedOut()
+	gc, wc := paperCards(got, got.Zone(zone, gpid).CardsIncludingPhasedOut()), paperCards(want, want.Zone(zone, wpid).CardsIncludingPhasedOut())
 	if len(gc) != len(wc) {
 		t.Errorf("%s %s has %d cards, want %d", playerName, zone, len(gc), len(wc))
 		return

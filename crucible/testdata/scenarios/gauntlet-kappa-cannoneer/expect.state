@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Id:1|Tapped;Island|Id:2|Tapped;Island|Id:3|Tapped;Island|Id:4|Tapped;Island|Id:5|Tapped;Island|Id:6|Tapped;Kappa Cannoneer|Id:7|SummonSick|Counters:P1P1=1
+humangraveyard=Lightning Bolt|Id:8;Grizzly Bears|Id:9
+humanlibrary=Island|Id:10;Island|Id:11;Island|Id:12;Island|Id:13;Island|Id:14;Island|Id:15
+ailife=20
+aibattlefield=Grizzly Bears|Id:16;Ornithopter|Id:17;Swamp|Id:18;Pacifism|Id:19|AttachedTo:16
+aihand=Island|Id:20;Lightning Bolt|Id:21;Grizzly Bears|Id:22
+aigraveyard=Shock|Id:23;Hill Giant|Id:24
+ailibrary=Island|Id:25;Island|Id:26;Island|Id:27;Island|Id:28;Island|Id:29;Island|Id:30

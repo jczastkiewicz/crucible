@@ -97,6 +97,11 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 		if g.IsDesignationCard(id) {
 			continue
 		}
+		// An effect card has no paper card, and GameState writes no card
+		// without one (GameState.java:286-288).
+		if g.Card(id).IsEffect {
+			continue
+		}
 		entries = append(entries, dumpCard(g, id))
 	}
 	return strings.Join(entries, ";")

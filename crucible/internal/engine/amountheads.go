@@ -158,6 +158,15 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		c := g.Card(source)
+		if c.Zone != Battlefield && c.Counters.Total() == 0 {
+			// A host that left the battlefield since (Engineered Explosives
+			// sacrificed as its own cost): Java's ability keeps the moved-
+			// from Card object, counters and all (GameAction.changeZone
+			// builds a new one for the destination), so the count is the
+			// last-known one. A card given counters where it is now (a
+			// suspended card's time counters in exile) reads them live.
+			c = g.lkiOrLive(source)
+		}
 		if count.Parameters[0] == "ALL" {
 			return c.Counters.Total(), true
 		}

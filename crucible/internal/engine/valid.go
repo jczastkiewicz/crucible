@@ -541,6 +541,38 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			return false
 		}
 		return containsCard(g.cardsWithExtremeCMC(remembered, strings.HasPrefix(name, "greatest")), c.ID)
+	case strings.HasPrefix(name, "greatestCMC_"):
+		// CardProperty.java:1261-1278: c has the highest mana value among the
+		// battlefield's cards of the type after the "_" ("NonLandPermanent",
+		// or a type word), those controlled by the players a
+		// "ControlledBy<defined>" suffix names (read with no ability, as Java
+		// passes null).
+		prop := strings.TrimPrefix(name, "greatestCMC_")
+		var controllers []PlayerID
+		filtered := false
+		if kind, def, ok := strings.Cut(prop, "ControlledBy"); ok {
+			prop, filtered = kind, true
+			ps, err := definedPlayers(g, sourceController, source, def, abilityRefs{})
+			if err != nil {
+				g.recordPendingError(err)
+				return false
+			}
+			controllers = ps
+		}
+		var cards []CardID
+		for _, pid := range g.Players() {
+			for _, id := range g.Zone(Battlefield, pid).Cards() {
+				o := g.Card(id)
+				if filtered && !slices.Contains(controllers, o.Controller()) {
+					continue
+				}
+				if prop == "NonLandPermanent" && o.Type().IsPermanent() && !o.Type().Has(cardtype.Land) ||
+					prop != "NonLandPermanent" && o.Type().HasStringType(prop) {
+					cards = append(cards, id)
+				}
+			}
+		}
+		return containsCard(g.cardsWithExtremeCMC(cards, true), c.ID)
 	case strings.HasPrefix(name, "lowestCMC"):
 		// CardProperty.java:1307-1316: no nonland permanent on the
 		// battlefield has a lower mana value than c.
@@ -739,6 +771,60 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		for _, att := range c.Attachments() {
 			if Matches(g, g.Card(att), nested, sourceController, source) {
 				return true
+			}
+		}
+		return false
+	case strings.HasPrefix(name, "EquippedBy") && name != "EquippedBy", strings.HasPrefix(name, "AttachedBy") && name != "AttachedBy":
+		// CardProperty.java:520-534: one of the defined cards the rest names
+		// (substring(10), so "EquippedByTargeted" reads Targeted) is attached
+		// to c.
+		for _, id := range g.validDefinedCards(name[len("EquippedBy"):], sourceController, source) {
+			if containsCard(c.Attachments(), id) {
+				return true
+			}
+		}
+		return false
+	case strings.HasPrefix(name, "EnchantedController"):
+		// CardProperty.java:249-258: the source is attached to a card that c's
+		// controller ("...Ctrl") or owner controls.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		host, attached := sc.AttachedTo()
+		who := c.Owner
+		if strings.HasSuffix(name, "Ctrl") {
+			who = c.Controller()
+		}
+		return attached && g.Card(host).Controller() == who
+	case name == "isDamaged":
+		// CardProperty.java:1125-1128: damage marked on c.
+		return c.Damage.Marked > 0
+	case strings.HasPrefix(name, "equalPT"):
+		// CardProperty.java:1379-1382.
+		p, _ := c.Power()
+		t, _ := c.Toughness()
+		return p == t
+	case strings.HasPrefix(name, "yardGreatestPower"):
+		// CardProperty.java:1226-1232: no creature card in the source
+		// controller's graveyard has greater power than c.
+		p, _ := c.Power()
+		for _, id := range g.Zone(Graveyard, sourceController).Cards() {
+			o := g.Card(id)
+			if op, _ := o.Power(); o.Type().Has(cardtype.Creature) && op > p {
+				return false
+			}
+		}
+		return true
+	case name == "attackersBandedWith":
+		// CardProperty.java:1684-1692: c attacks in the source's band, not
+		// as the source itself. A band of one is no entry of combat.bands.
+		if c.ID == source {
+			return false
+		}
+		for _, band := range g.combat.bands {
+			if containsCard(band, source) {
+				return containsCard(band, c.ID)
 			}
 		}
 		return false

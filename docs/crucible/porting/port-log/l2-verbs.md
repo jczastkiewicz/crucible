@@ -2,7 +2,7 @@
 
 - **Java source:** none ported. The runner drives upstream code: `GameState` (`parse`, `applyToGame`, `initFromGame`, `toString`), `PhaseHandler.setupFirstTurn`/`mainLoopStep`, and the test kit in `forge-gui-desktop/src/test/java/forge/gamesimulationtests/util/` (`PlayerControllerForTests`, which `ScenarioController` extends)
 - **Go target:** `crucible/tools/l2diff` (emit, normalise, report); Java side `crucible/oracle-java/src/main/java/crucible/oracle/` (`ScenarioRunner`, `ScenarioController`, `ScenarioLobbyPlayer`), built and run by `crucible/oracle-java/l2-run.sh`
-- **Status:** ADR-0060 phase 1 (report) runs locally on all 1,042 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `cardchoice`, `confirmeffect`, `optionaltrigger`, `confirmpaycost`, `discardchoice`, `sacrificechoice`, `modechoice`, `scry`, `surveil`, `payphyrexian`, `payx`, `colorchoice`, `numberchoice`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` and Java error lists are exactly `crucible/testdata/l2-baseline.txt`
+- **Status:** ADR-0060 phase 1 (report) runs locally on all 1,044 scenarios. Mapped: `startturn`, `advance`, `step`, the combat verbs, `tapformana`, `castspell`, `playland`, `resolvestack`, `passpriority` and the `attackers`, `blocks`, `attacktarget`, `targets`, `paygeneric`, `cardorder`, `cardchoice`, `confirmeffect`, `optionaltrigger`, `confirmpaycost`, `discardchoice`, `sacrificechoice`, `modechoice`, `scry`, `surveil`, `payphyrexian`, `payx`, `colorchoice`, `numberchoice`, `action` queue kinds; the scenarios using any other line are not runnable yet. Phase 2 gates: the `crucible-oracle` job in `.github/workflows/crucible-go.yml` fails unless the `differs` and Java error lists are exactly `crucible/testdata/l2-baseline.txt`
 
 ## What it does
 
@@ -83,7 +83,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 879 same, 4 differs, 0 random, 159 not runnable (154 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
+The current run: 881 same, 4 differs, 0 random, 159 not runnable (154 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |

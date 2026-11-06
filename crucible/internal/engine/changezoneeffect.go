@@ -1646,22 +1646,20 @@ func filterListByType(g *Game, a *Ability, list []CardID, spec string) ([]CardID
 	src := a.Source
 	switch {
 	case strings.HasPrefix(spec, "Triggered"):
-		// :792-835: the Card, Object, Attacker or Blocker run param.
-		defined := "TriggeredCard"
-		for _, kind := range [...]string{"Card", "Object", "Attacker", "Blocker"} {
-			if strings.Contains(spec, kind) {
-				defined = "Triggered" + kind
-				break
+		// :792-812: the Card (Object), Attacker or Blocker run param; one
+		// that is not a card, no cards.
+		trig := a.refs().triggered
+		src = trig.card
+		if !strings.Contains(spec, "Card") && !strings.Contains(spec, "Object") {
+			if strings.Contains(spec, "Attacker") {
+				src = trig.attacker
+			} else if strings.Contains(spec, "Blocker") {
+				src = trig.blocker
 			}
 		}
-		got, err := definedCards(host, defined, a.refs())
-		if err != nil {
-			return nil, err
-		}
-		if len(got) == 0 {
+		if src == NoCard {
 			return nil, nil
 		}
-		src = got[0]
 		switch spec {
 		case "Triggered", "TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker":
 			spec = "Card.Self"

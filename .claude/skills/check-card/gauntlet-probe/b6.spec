@@ -144,3 +144,23 @@ queue numberchoice 2
 queue confirmpaycost true
 queue cardorder 50,51,53
 resolvestack
+== Test of Talents
+nocast
+set +aibattlefield=Mountain|Id:54
+set aihand=Island|Id:60;Lightning Bolt|Id:61;Lightning Bolt|Id:63
+cost 1 U
+pre tapformana ai 54 R
+queue targets human
+queue targets 61
+queue cardchoice 61
+queue cardchoice 63
+queue action human pass
+queue action ai cast 61
+queue action human cast 1
+passpriority
+== Scapeshift
+cost 2 G G
+queue confirmeffect true
+queue cardchoice 100
+queue cardchoice 80
+resolvestack

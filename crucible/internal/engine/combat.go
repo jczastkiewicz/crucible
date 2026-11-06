@@ -245,5 +245,6 @@ func (c Combat) clone() Combat {
 
 		dealtFirstStrike: append([]CardID(nil), c.dealtFirstStrike...),
 		blockDecided:     append([]CardID(nil), c.blockDecided...),
+		hadToAttack:      append([]objectStamp(nil), c.hadToAttack...),
 	}
 }

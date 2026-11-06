@@ -5,4 +5,6 @@
 queue confirmreplacement true
 advance
 advance
+# Fasting's upkeep trigger puts its first hunger counter on it.
+resolvestack
 advance

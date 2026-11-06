@@ -1,6 +1,7 @@
 package crucible.oracle;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -519,13 +520,54 @@ final class ScenarioController extends PlayerControllerForTests {
         return v != null ? v : super.confirmAction(sa, mode, message, options, cardToShow, params);
     }
 
-    // An optional replacement (ETBReplacement's Optional: Clone's "you may
-    // have it enter as a copy") is Go's ConfirmEffect too.
+    // An optional replacement: an Optional$ line's "you may" (Fasting) is
+    // Go's ConfirmReplacementEffect, an ETBReplacement's Optional (Clone's
+    // "you may have it enter as a copy") Go's ConfirmEffect; Java asks both
+    // here, the first from the confirmreplacement queue.
     @Override
     public boolean confirmReplacementEffect(ReplacementEffect replacementEffect, SpellAbility effectSA,
             GameEntity affected, String question) {
-        Boolean v = answers.bound() ? answers.nextConfirmEffect() : null;
+        Boolean v = answers.bound() ? answers.nextConfirmReplacement() : null;
+        if (v == null && answers.bound()) {
+            v = answers.nextConfirmEffect();
+        }
         return v != null ? v : super.confirmReplacementEffect(replacementEffect, effectSA, affected, question);
+    }
+
+    // CR 616.1: which of several replacement effects applies first, Go's
+    // ChooseReplacementEffect index into its candidates. Java's damage path
+    // offers a HashMap's key order, which changes from run to run
+    // (ReplacementHandler.java:702), so the index reads the candidates in
+    // Go's order (eachReplacementRule, entryCandidates): an entering card's
+    // own lines first, then by seat, zone (battlefield, command, graveyard)
+    // and card, then the line's place on its card.
+    @Override
+    public ReplacementEffect chooseSingleReplacementEffect(List<ReplacementEffect> possibleReplacers) {
+        Integer i = answers.bound() ? answers.nextReplacement() : null;
+        if (i == null) {
+            return super.chooseSingleReplacementEffect(possibleReplacers);
+        }
+        if (i < 0 || i >= possibleReplacers.size()) {
+            throw new IllegalStateException("replacement " + i + " of " + possibleReplacers.size() + " candidates");
+        }
+        List<ReplacementEffect> ordered = new ArrayList<>(possibleReplacers);
+        ordered.sort(Comparator.comparingInt(ScenarioController::replacementRank)
+                .thenComparingInt(re -> re.getHostCard().getId())
+                .thenComparingInt(re -> re.getHostCard().getReplacementEffects().indexOf(re)));
+        return ordered.get(i);
+    }
+
+    // Go's walk order of a replacement's host: a card outside the zones
+    // eachReplacementRule walks is the one entering, whose own lines come
+    // first; then seat, then battlefield, command, graveyard.
+    private static int replacementRank(ReplacementEffect re) {
+        Card host = re.getHostCard();
+        int zone = host.isInZone(ZoneType.Battlefield) ? 0 : host.isInZone(ZoneType.Command) ? 1
+                : host.isInZone(ZoneType.Graveyard) ? 2 : -1;
+        if (zone < 0) {
+            return -1;
+        }
+        return host.getGame().getRegisteredPlayers().indexOf(host.getController()) * 3 + zone;
     }
 
     // Go's ConfirmPayCost for an unless cost (ward, echo, a shock land's

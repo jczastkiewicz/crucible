@@ -2,6 +2,6 @@ turn=2
 activeplayer=human
 activephase=Main1
 humanlife=22
-humanbattlefield=Fasting
+humanbattlefield=Fasting|Counters:HUNGER=1
 humanlibrary=Mountain;Grizzly Bears
 ailife=20

@@ -28,7 +28,7 @@ final class ScenarioAnswers {
     static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
             "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
-            "payphyrexian", "payx", "colorchoice", "numberchoice");
+            "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -60,6 +60,8 @@ final class ScenarioAnswers {
     private final Deque<Integer> xValues = new ArrayDeque<>();
     private final Deque<Byte> colorChoices = new ArrayDeque<>();
     private final Deque<Integer> numberChoices = new ArrayDeque<>();
+    private final Deque<Integer> replacements = new ArrayDeque<>();
+    private final Deque<Boolean> confirmReplacements = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -108,6 +110,8 @@ final class ScenarioAnswers {
             case "payx" -> xValues.add(Integer.parseInt(value.strip()));
             case "colorchoice" -> colorChoices.add(MagicColor.fromName(value.strip()));
             case "numberchoice" -> numberChoices.add(Integer.parseInt(value.strip()));
+            case "replacement" -> replacements.add(Integer.parseInt(value.strip()));
+            case "confirmreplacement" -> confirmReplacements.add(bool(value));
             default -> throw new IllegalStateException("queue kind " + kind);
         }
     }
@@ -369,6 +373,16 @@ final class ScenarioAnswers {
         return confirmEffects.poll();
     }
 
+    /** The next replacement answer (Go's ChooseReplacementEffect index), or null. */
+    Integer nextReplacement() {
+        return replacements.poll();
+    }
+
+    /** The next confirmreplacement answer (Go's ConfirmReplacementEffect), or null. */
+    Boolean nextConfirmReplacement() {
+        return confirmReplacements.poll();
+    }
+
     /** The next confirmpaycost answer (Go's ConfirmPayCost), or null. */
     Boolean nextConfirmPayCost() {
         return confirmPayCosts.poll();
@@ -409,6 +423,8 @@ final class ScenarioAnswers {
         rest.put("payx", xValues);
         rest.put("colorchoice", colorChoices);
         rest.put("numberchoice", numberChoices);
+        rest.put("replacement", replacements);
+        rest.put("confirmreplacement", confirmReplacements);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

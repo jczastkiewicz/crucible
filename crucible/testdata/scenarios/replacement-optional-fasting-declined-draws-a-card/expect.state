@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Draw
 humanlife=20
 humanhand=Mountain
-humanbattlefield=Fasting
+humanbattlefield=Fasting|Counters:HUNGER=1
 humanlibrary=Grizzly Bears
 ailife=20

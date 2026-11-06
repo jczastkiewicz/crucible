@@ -1636,75 +1636,12 @@ func (g *Game) retainCraftMaterials(a *Ability, id CardID, dest ZoneType) {
 }
 
 // filterListByType is AbilityUtils.filterListByType's prefix step
-// (AbilityUtils.java:790-875): a type naming the triggering, the first
-// targeted or the first remembered card reads that card as the source and
-// "Card" in its place (Surgical Extraction's Remembered.sameName); none
-// such, no cards. Imprinted only reads "Card"; any other type filters with
-// the host as the source.
+// (AbilityUtils.java:790-875) followed by the filter: listTypeSource reads
+// the source, then filterValid matches spec from it.
 func filterListByType(g *Game, a *Ability, list []CardID, spec string) ([]CardID, error) {
-	host := g.Card(a.Source)
-	src := a.Source
-	switch {
-	case strings.HasPrefix(spec, "Triggered"):
-		// :792-812: the Card (Object), Attacker or Blocker run param; one
-		// that is not a card, no cards.
-		trig := a.refs().triggered
-		src = trig.card
-		if !strings.Contains(spec, "Card") && !strings.Contains(spec, "Object") {
-			if strings.Contains(spec, "Attacker") {
-				src = trig.attacker
-			} else if strings.Contains(spec, "Blocker") {
-				src = trig.blocker
-			}
-		}
-		if src == NoCard {
-			return nil, nil
-		}
-		switch spec {
-		case "Triggered", "TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker":
-			spec = "Card.Self"
-		default:
-			replaced := false
-			for _, kind := range [...]string{"TriggeredCard", "TriggeredObject", "TriggeredAttacker", "TriggeredBlocker"} {
-				if strings.Contains(spec, kind) {
-					spec, replaced = strings.ReplaceAll(spec, kind, "Card"), true
-					break
-				}
-			}
-			if !replaced {
-				spec = strings.ReplaceAll(spec, "Triggered", "Card")
-			}
-		}
-	case strings.HasPrefix(spec, "Targeted"):
-		// :836-852: SpellAbility.findTargetedCards' first card.
-		got, err := definedCards(host, "Targeted", a.refs())
-		if err != nil {
-			return nil, err
-		}
-		if len(got) == 0 {
-			return nil, nil
-		}
-		src = got[0]
-		if strings.HasPrefix(spec, "TargetedCard") {
-			spec = strings.ReplaceAll(spec, "TargetedCard", "Card")
-		} else {
-			spec = strings.ReplaceAll(spec, "Targeted", "Card")
-		}
-	case strings.HasPrefix(spec, "Remembered"):
-		// :853-868: the first remembered card.
-		found := false
-		for _, e := range host.Memory.Remembered() {
-			if id, ok := e.AsCard(); ok {
-				src, found = id, true
-				break
-			}
-		}
-		if !found {
-			return nil, nil
-		}
-		spec = strings.ReplaceAll(spec, "Remembered", "Card")
-	case strings.HasPrefix(spec, "Imprinted"):
-		spec = strings.ReplaceAll(spec, "Imprinted", "Card")
+	spec, src, ok, err := listTypeSource(g, a, spec)
+	if err != nil || !ok {
+		return nil, err
 	}
 	return filterValid(g, list, spec, a.Controller, src), nil
 }

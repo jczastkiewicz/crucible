@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability amount condition control parts zone valid destroyeffect effecthelpers
+//enginelint:allow id card game ability amount condition control parts zone valid destroyeffect effecthelpers defined
 
 import (
 	"fmt"
@@ -52,6 +52,13 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 		validCards = strings.ReplaceAll(validCards, "X", strconv.Itoa(x))
 	}
+	// DestroyAllEffect.java:67: AbilityUtils.filterListByType -- a Targeted,
+	// Triggered or Remembered card is the valid string's source (Maelstrom
+	// Pulse's TargetedCard.Self and sharesNameWith).
+	validCards, src, found, err := listTypeSource(g, a, validCards)
+	if err != nil {
+		return fmt.Errorf("engine: DestroyAll: %w", err)
+	}
 	spec := valid.Parse(validCards)
 
 	targetPlayer := NoPlayer
@@ -69,7 +76,7 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			if targetPlayer != NoPlayer && c.Controller() != targetPlayer {
 				continue
 			}
-			if validCards == "" || Matches(g, c, spec, a.Controller, a.Source) {
+			if found && (validCards == "" || Matches(g, c, spec, a.Controller, src)) {
 				list = append(list, cid)
 			}
 		}
@@ -101,7 +108,7 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		c := g.Card(id)
 		return c.Zone != Battlefield || !canBeDestroyed(c)
 	})
-	list, err := g.orderCardsByTheirOwners(controller, list, Graveyard)
+	list, err = g.orderCardsByTheirOwners(controller, list, Graveyard)
 	if err != nil {
 		return fmt.Errorf("engine: DestroyAll: %w", err)
 	}

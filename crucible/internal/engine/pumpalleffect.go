@@ -127,6 +127,11 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if !ok {
 		return fmt.Errorf("engine: PumpAll: ValidCards$ missing")
 	}
+	// PumpAllEffect.java:142: AbilityUtils.filterListByType.
+	validCards, src, found, err := listTypeSource(g, a, validCards)
+	if err != nil {
+		return fmt.Errorf("engine: PumpAll: %w", err)
+	}
 	spec := valid.Parse(validCards)
 
 	var players []PlayerID
@@ -153,7 +158,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, pid := range players {
 		for _, z := range pumpAllZones(a.Params) {
 			for _, cid := range g.Zone(z, pid).Cards() {
-				if !Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
+				if !found || !Matches(g, g.Card(cid), spec, source.Controller(), src) {
 					continue
 				}
 				matched = append(matched, cid)

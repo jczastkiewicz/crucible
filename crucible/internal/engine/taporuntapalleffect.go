@@ -28,10 +28,15 @@ func (tapOrUntapAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	}
 	var cards []CardID
 	if spec, ok := a.Params.Param("ValidCards"); ok {
+		// TapOrUntapAllEffect.java:47: AbilityUtils.filterListByType.
+		spec, src, found, err := listTypeSource(g, a, spec)
+		if err != nil {
+			return fmt.Errorf("engine: TapOrUntapAll: %w", err)
+		}
 		parsed := valid.Parse(spec)
 		for _, pid := range g.Players() {
 			for _, id := range g.Zone(Battlefield, pid).Cards() {
-				if Matches(g, g.Card(id), parsed, a.Controller, a.Source) {
+				if found && Matches(g, g.Card(id), parsed, a.Controller, src) {
 					cards = append(cards, id)
 				}
 			}

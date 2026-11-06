@@ -860,6 +860,17 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// A permanent spell entering alone has none, so every card passes; this port
 		// keeps no such set for a batch of entries.
 		return true
+	case name == "NotDefinedTargeted":
+		// CardProperty.java:2067-2071: getDefinedCards(source, "Targeted", sa)
+		// does not contain c -- the resolving ability's targets, its parent's
+		// for a sub-ability (Maelstrom Pulse's "all other permanents with the
+		// same name"). True with no ability of source's resolving, Java's
+		// empty list.
+		a := g.resolvingFrom(source)
+		if a == nil {
+			return true
+		}
+		return !containsEntity(a.refs().targets, CardEntity(c.ID))
 	case name == "NotDefinedParentTarget":
 		// CardProperty.java:2067-2071: getDefinedCards(source, "ParentTarget", sa)
 		// does not contain c -- the targets the ability being targeted inherits
@@ -2217,8 +2228,8 @@ func (g *Game) sharesWithAny(c *Card, restriction string, sourceController Playe
 		// AbilityUtils.java:146-151: every target of the chain
 		// (getAllTargetChoices), the resolving ability's own then its
 		// ancestors'.
-		a := g.resolving
-		if a == nil || a.Source != source {
+		a := g.resolvingFrom(source)
+		if a == nil {
 			break
 		}
 		var cards []CardID
@@ -2233,6 +2244,22 @@ func (g *Game) sharesWithAny(c *Card, restriction string, sourceController Playe
 	// the card's filter being ignored (GO-7).
 	g.recordPendingError(fmt.Errorf("engine: sharesNameWith %s: restriction not evaluable in a valid string", restriction))
 	return false
+}
+
+// resolvingFrom is the resolving ability when source is its host or one
+// of the cards it targets: AbilityUtils.filterListByType makes a targeted
+// card the valid string's source (listTypeSource), and Java's property
+// still reads the ability (Maelstrom Pulse's "sharesNameWith Targeted").
+// Nil otherwise, as for a static read mid-resolution.
+func (g *Game) resolvingFrom(source CardID) *Ability {
+	a := g.resolving
+	if a == nil || source == NoCard {
+		return nil
+	}
+	if a.Source == source || containsEntity(a.Targets, CardEntity(source)) || containsEntity(a.parentTargets, CardEntity(source)) {
+		return a
+	}
+	return nil
 }
 
 // targetsPlayer reports whether the ability resolving from source has pid

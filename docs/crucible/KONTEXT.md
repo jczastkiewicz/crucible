@@ -18,7 +18,7 @@ this file only points at them (DOC-11).
 | Engine gaps              | [game-state.md](porting/port-log/game-state.md) "Not ported yet"               | The M6 backlog: silent misses, not refusals                                   |
 | Java oddities reproduced | [quirks.md](porting/port-log/quirks.md)                                        | One row per quirk or deviation                                                |
 | Java defects             | [forge-java-defects.md](porting/forge-java-defects.md)                         | `Not filed` rows wait for R3                                                  |
-| L2 runner                | [l2-verbs.md](porting/port-log/l2-verbs.md)                                    | CI gate on: 20 queue kinds mapped, 881 same, 4 differs; next paymanacost      |
+| L2 runner                | [l2-verbs.md](porting/port-log/l2-verbs.md)                                    | CI gate on: 20 queue kinds mapped, 882 same, 4 differs; next paymanacost      |
 
 ## Waiting on the owner
 

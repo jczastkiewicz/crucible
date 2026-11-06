@@ -124,3 +124,30 @@ func TestCardPropertiesReadThisTurnsAttacksAndBlocks(t *testing.T) {
 		}
 	}
 }
+
+// attackedLastTurn holds through the opponent's turn after the creature
+// attacked, and ends with its controller's next turn without an attack
+// (Card.onCleanupPhase, Card.java:7312).
+func TestAttackedLastTurnLastsUntilItsControllersNextCleanup(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	attacker := g.NewCard(corpusCard(t, "Hill Giant"), p, engine.Battlefield)
+	idle := g.NewCard(corpusCard(t, "Gray Ogre"), p, engine.Battlefield)
+	declareLoneAttacker(t, g, attacker)
+	c := engine.NewScriptedController()
+	attackedLast := func(id engine.CardID) bool {
+		return engine.Matches(g, g.Card(id), valid.Parse("Creature.attackedLastTurn"), other, engine.NoCard)
+	}
+	if attackedLast(attacker) {
+		t.Fatal("attackedLastTurn during the attack's own turn, want false until cleanup")
+	}
+	advanceUntil(t, g, c, func() bool { return g.Turn() == 3 && g.ActivePhase() == engine.Main1 })
+	if !attackedLast(attacker) || attackedLast(idle) {
+		t.Errorf("on the next turn attackedLastTurn = %v/%v (attacker/idle), want true/false", attackedLast(attacker), attackedLast(idle))
+	}
+	advanceUntil(t, g, c, func() bool { return g.Turn() == 5 && g.ActivePhase() == engine.Main1 })
+	if attackedLast(attacker) {
+		t.Error("attackedLastTurn after a turn of its controller's without an attack, want false")
+	}
+}

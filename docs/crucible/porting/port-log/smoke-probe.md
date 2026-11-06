@@ -58,8 +58,8 @@ Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,515 |
-| refused      |     80 |
+| plays        | 33,524 |
+| refused      |     71 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    453 |
@@ -73,15 +73,15 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 46 | `resolve: valid property not resolvable` |
-| 26 | `turns: valid property not resolvable` |
-| 7 | `activate: valid property not resolvable` |
+| 42 | `resolve: valid property not resolvable` |
+| 22 | `turns: valid property not resolvable` |
+| 6 | `activate: valid property not resolvable` |
 | 1 | `turns: static trigger of: valid property not resolvable` |
 
-All 80 are one gate: a valid-string property no case of `valid.go` ports that names no card type either
+All 71 are one gate: a valid-string property no case of `valid.go` ports that names no card type either
 (`checkTypeWord`, open plan R19b) errors instead of matching nothing. About 50 distinct properties, the most frequent
-`NoAbilities`, `attackedLastTurn`, `CastSaSource`, `ExiledWithEffectSource`, `set<CODE>`, `dealtDamagetoAny`,
-`CanBeSacrificedBy` and `IsTriggerRemembered`.
+`CastSaSource`, `ExiledWithEffectSource`, `set<CODE>`, `dealtDamagetoAny`, `CanBeSacrificedBy` and
+`IsTriggerRemembered`.
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

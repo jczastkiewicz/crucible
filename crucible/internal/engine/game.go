@@ -1324,6 +1324,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.blockedByThisTurn = nil
 		c.blockedThisTurn = nil
 		c.attackedThisTurn = nil
+		c.attackedLastTurnOf = nil
 		c.devoured = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
@@ -1466,6 +1467,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.blockedByThisTurn = nil
 		c.blockedThisTurn = nil
 		c.attackedThisTurn = nil
+		c.attackedLastTurnOf = nil
 		c.devoured = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
@@ -1919,6 +1921,7 @@ func (g *Game) Clone() *Game {
 		c.blockedByThisTurn = append([]CardID(nil), g.cards[i].blockedByThisTurn...)
 		c.blockedThisTurn = append([]CardID(nil), g.cards[i].blockedThisTurn...)
 		c.attackedThisTurn = append([]EntityID(nil), g.cards[i].attackedThisTurn...)
+		c.attackedLastTurnOf = append([]PlayerID(nil), g.cards[i].attackedLastTurnOf...)
 		c.devoured = append([]CardID(nil), g.cards[i].devoured...)
 		c.castPaidSources = append([]manaSource(nil), g.cards[i].castPaidSources...)
 		c.activations = g.cards[i].activations.clone()

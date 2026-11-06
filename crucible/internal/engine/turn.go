@@ -26,6 +26,8 @@
 
 package engine
 
+import "slices"
+
 // SetTurnState jumps the game directly to a turn, active player and phase,
 // with none of the per-step actions applied. This is fixture loading's tool
 // -- the same relationship Java's devAdvanceToPhase has to
@@ -832,6 +834,11 @@ func (g *Game) endCleanup() {
 	// getCardsIncludePhasingIn (Game.java:1347-1349).
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+			c := g.Card(id)
+			c.attackedLastTurnOf = slices.DeleteFunc(c.attackedLastTurnOf, func(p PlayerID) bool { return p == g.activePlayer })
+			if c.AttacksThisTurn > 0 {
+				c.attackedLastTurnOf = append(c.attackedLastTurnOf, g.activePlayer)
+			}
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false
 			g.Card(id).foughtThisTurn = false

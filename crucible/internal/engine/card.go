@@ -381,6 +381,12 @@ type Card struct {
 	// new Card. Read by the attackedYouThisTurn property (CardProperty.java:
 	// 1193-1196, valid.go).
 	attackedThisTurn []EntityID
+	// attackedLastTurnOf is CardDamageHistory.creatureAttackedLastTurnOf
+	// (CardDamageHistory.java:31, :111-126): each player during whose last
+	// turn this card attacked, set or dropped for the active player at every
+	// cleanup (Card.onCleanupPhase, Card.java:7312) from AttacksThisTurn.
+	// Read by the attackedLastTurn property (valid.go).
+	attackedLastTurnOf []PlayerID
 
 	// BecameTargetThisTurn is Card.hasBecomeTargetThisTurn's own flag --
 	// AttacksThisTurn's own boolean sibling, since Mode$ BecomesTarget's own

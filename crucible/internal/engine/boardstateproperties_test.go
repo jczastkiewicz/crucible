@@ -55,3 +55,28 @@ func TestCardPropertiesReadAttachmentsDamageAndBoardMaxima(t *testing.T) {
 		}
 	}
 }
+
+// NoAbilities is Card.hasNoAbilities: a vanilla creature and a spell whose
+// only ability is its mana-cost spell have none; a keyword, an activated
+// ability or a basic land type's mana ability is one (Card.java:3446-3468).
+func TestNoAbilitiesMatchesVanillaCardsOnly(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	for _, tc := range []struct {
+		name string
+		zone engine.ZoneType
+		want bool
+	}{
+		{"Grizzly Bears", engine.Battlefield, true},
+		{"Lightning Bolt", engine.Hand, true},
+		{"Llanowar Elves", engine.Battlefield, false},
+		{"Serra Angel", engine.Battlefield, false},
+		{"Forest", engine.Battlefield, false},
+	} {
+		id := g.NewCard(corpusCard(t, tc.name), p, tc.zone)
+		if got := engine.Matches(g, g.Card(id), valid.Parse("Card.NoAbilities"), p, engine.NoCard); got != tc.want {
+			t.Errorf("%s NoAbilities = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

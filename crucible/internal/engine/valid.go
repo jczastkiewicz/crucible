@@ -44,7 +44,9 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -634,7 +636,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case strings.HasPrefix(name, "attackedThisTurn"):
 		// CardProperty.java:1185-1188: CardDamageHistory.
 		// getCreatureAttacksThisTurn() > 0.
-		return len(c.attackedThisTurn) > 0
+		return c.AttacksThisTurn > 0
+	case strings.HasPrefix(name, "attackedLastTurn"):
+		// CardProperty.java:1197-1198: c attacked during its controller's
+		// last turn (CardDamageHistory.getCreatureAttackedLastTurnOf).
+		return slices.Contains(c.attackedLastTurnOf, c.Controller())
 	case name == "kicked", name == "kicked 1", name == "kicked 2":
 		// CardProperty.java:1691: the card was cast with a kicker paid (either,
 		// or the first/second for "kicked 1"/"kicked 2").
@@ -797,6 +803,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			who = c.Controller()
 		}
 		return attached && g.Card(host).Controller() == who
+	case name == "NoAbilities":
+		// CardProperty.java:1896-1899 over Card.hasNoAbilities
+		// (Card.java:3446-3468).
+		return c.hasNoAbilities()
 	case name == "isDamaged":
 		// CardProperty.java:1125-1128: damage marked on c.
 		return c.Damage.Marked > 0
@@ -2941,4 +2951,31 @@ func (g *Game) validDefinedCards(defined string, sourceController PlayerID, sour
 		return nil
 	}
 	return cards
+}
+
+// hasNoAbilities is Card.hasNoAbilities (Card.java:3446-3468): no keyword,
+// static ability, replacement effect or trigger, and no spell ability but a
+// spell whose cost is only mana. A basic land type's intrinsic mana ability
+// is one of Java's spell abilities, so a land with one has an ability.
+func (c *Card) hasNoAbilities() bool {
+	if len(c.KeywordLines()) > 0 {
+		return false
+	}
+	if c.Type().Has(cardtype.Land) && hasABasicLandType(c) {
+		return false
+	}
+	for _, f := range c.liveTraitFaces() {
+		if len(f.Statics) > 0 || len(f.Replacements) > 0 || len(f.Triggers) > 0 {
+			return false
+		}
+		for _, ab := range f.Abilities {
+			if ab.Record != compile.Spell {
+				return false
+			}
+			if text, ok := ab.Param("Cost"); ok && !cost.Parse(text).IsPureMana() {
+				return false
+			}
+		}
+	}
+	return true
 }

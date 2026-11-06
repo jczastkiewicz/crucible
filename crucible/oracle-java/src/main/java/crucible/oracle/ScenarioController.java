@@ -28,6 +28,7 @@ import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.keyword.Keyword;
 import forge.card.mana.ManaCost;
+import forge.card.mana.ManaCostParser;
 import forge.game.cost.Cost;
 import forge.game.cost.CostDecisionMakerBase;
 import forge.game.cost.CostPartMana;
@@ -95,6 +96,10 @@ final class ScenarioController extends PlayerControllerForTests {
             if (play.verb().equals("pass")) {
                 return null;
             }
+            if (play.verb().equals("paymanacost")) {
+                payFreeManaCost(play.arg());
+                continue;
+            }
             Card card = answers.card(play.id());
             if (play.verb().equals("tapformana")) {
                 tapForMana(card, play.arg());
@@ -133,6 +138,24 @@ final class ScenarioController extends PlayerControllerForTests {
             throw new Checkpoint();
         }
         return null;
+    }
+
+    // S19: Go's Game.PayManaCost, a mana cost paid outside any spell: X from
+    // the payx queue, then the pool pays it as applyManaToCost pays a
+    // spell's, Phyrexian answers included, on behalf of an empty ability.
+    private void payFreeManaCost(String text) {
+        ManaCostBeingPaid toPay = new ManaCostBeingPaid(new ManaCost(new ManaCostParser(text)));
+        Card host = new Card(player.getGame().nextCardId(), player.getGame());
+        host.setOwner(player);
+        SpellAbility sa = new SpellAbility.EmptySa(host, player);
+        if (toPay.getXcounter() > 0) {
+            Integer x = answers.nextPayX();
+            if (x == null) {
+                throw new IllegalStateException("paymanacost " + text + " needs a payx answer");
+            }
+            toPay.setXManaCostPaid(x, null);
+        }
+        applyManaToCost(toPay, sa, "paymanacost", null, false);
     }
 
     // S17: a play Go refused. Java refuses it too when the card offers no
@@ -300,6 +323,16 @@ final class ScenarioController extends PlayerControllerForTests {
         int life = 0;
         if (answers.bound()) {
             for (ManaCostShard shard : toPay.getUnpaidShards()) {
+                if (shard.isPhyrexian() && Integer.bitCount(shard.getColorMask() & MagicColor.ALL_COLORS) == 2) {
+                    // Go's ChoosePayHybridPhyrexian: "life" pays the shard
+                    // with 2 life, a color leaves it to the pool.
+                    if ("life".equals(answers.nextPayHybridPhyrexian())) {
+                        toPay.decreaseShard(shard, 1);
+                        ability.setSpendPhyrexianMana(true);
+                        life += 2;
+                    }
+                    continue;
+                }
                 if (!shard.isPhyrexian() || Integer.bitCount(shard.getColorMask() & MagicColor.ALL_COLORS) != 1) {
                     continue;
                 }

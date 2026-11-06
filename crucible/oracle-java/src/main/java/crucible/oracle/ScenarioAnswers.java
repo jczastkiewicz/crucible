@@ -1,6 +1,7 @@
 package crucible.oracle;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Deque;
@@ -28,7 +29,8 @@ final class ScenarioAnswers {
     static final Set<String> KINDS = Set.of("attackers", "blocks", "attacktarget", "targets", "paygeneric",
             "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
-            "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement");
+            "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
+            "paycolorlesshybrid", "payhybridphyrexian");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -62,6 +64,7 @@ final class ScenarioAnswers {
     private final Deque<Integer> numberChoices = new ArrayDeque<>();
     private final Deque<Integer> replacements = new ArrayDeque<>();
     private final Deque<Boolean> confirmReplacements = new ArrayDeque<>();
+    private final Deque<String> hybridPhyrexian = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -96,6 +99,11 @@ final class ScenarioAnswers {
             // the pool in Java's own order (ManaPool.payManaCostFromPool).
             case "paygeneric" -> {
             }
+            // Which snow mana pays {S}, and whether {2/W} or {C/W} takes its
+            // color: the pool pays in Java's own order too.
+            case "paysnow", "paymonocoloredhybrid", "paycolorlesshybrid" -> {
+            }
+            case "payhybridphyrexian" -> hybridPhyrexian.add(value.strip());
             case "cardorder" -> cardOrders.add(ids(value));
             case "confirmeffect" -> confirmEffects.add(bool(value));
             case "optionaltrigger" -> optionalTriggers.add(bool(value));
@@ -170,6 +178,19 @@ final class ScenarioAnswers {
             throw new IllegalArgumentException(verb + " " + String.join(" ", args));
         }
         plays.add(new Play(line, verb, args[0], turn, phase, Integer.parseInt(args[1]), null, resolved, true));
+        resolved = false;
+    }
+
+    /**
+     * Queues a `paymanacost <player> <cost...>` line, made at that player's
+     * priority in the turn and phase Go ran it in (S19); arg is the cost.
+     */
+    void payManaCost(int line, String[] args, int turn, PhaseType phase) {
+        if (args.length < 2) {
+            throw new IllegalArgumentException("paymanacost " + String.join(" ", args));
+        }
+        plays.add(new Play(line, "paymanacost", args[0], turn, phase, 0,
+                String.join(" ", Arrays.copyOfRange(args, 1, args.length)), resolved, false));
         resolved = false;
     }
 
@@ -370,6 +391,11 @@ final class ScenarioAnswers {
         return phyrexian.poll();
     }
 
+    /** The next payhybridphyrexian answer ("life" or a color letter), or null. */
+    String nextPayHybridPhyrexian() {
+        return hybridPhyrexian.poll();
+    }
+
     /** The next payx answer, or null. */
     Integer nextPayX() {
         return xValues.poll();
@@ -442,6 +468,7 @@ final class ScenarioAnswers {
         rest.put("numberchoice", numberChoices);
         rest.put("replacement", replacements);
         rest.put("confirmreplacement", confirmReplacements);
+        rest.put("payhybridphyrexian", hybridPhyrexian);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

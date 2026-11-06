@@ -2,5 +2,8 @@
 # the controller chooses -- ChooseHybridManaColor, manapay.go -- not a fixed
 # order. Only blue is in the pool, so the answer has to be blue for the
 # payment to succeed.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19).
+startturn human
+advance 3
 queue hybridmanacolor U
 paymanacost human W/U

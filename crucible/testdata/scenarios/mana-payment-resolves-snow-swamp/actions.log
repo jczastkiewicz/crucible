@@ -1,6 +1,9 @@
 # CR 106.3a: Snow-Covered Swamp produces snow B, not plain B --
 # mana-payment-resolves-snow already proves this for Snow-Covered Plains;
 # here for Snow-Covered Swamp, a snow requirement (queue paysnow) rather than a plain one.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19).
+startturn human
+advance 3
 tapformana human 1 B
 queue paysnow B
 paymanacost human S

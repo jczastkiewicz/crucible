@@ -58,7 +58,7 @@ public final class ScenarioRunner {
     // reported unmapped and not run (ADR-0060).
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
-            "tapformana", "castspell", "playland", "passpriority", "expecterror");
+            "tapformana", "castspell", "playland", "passpriority", "expecterror", "paymanacost");
     // The lines a seat makes at its priority, where Go ran them (S13).
     private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
@@ -182,6 +182,11 @@ public final class ScenarioRunner {
                     // A second startturn restarts Go's turn mid-game; Java
                     // sets up its first turn once (PhaseHandler.setupFirstTurn).
                     unmapped.add(line);
+                } else if ((PLAYS.contains(f[0]) || f[0].equals("expecterror") || f[0].equals("paymanacost"))
+                        && when.get(i)[0].equals("0")) {
+                    // S19: before any startturn there is no turn, so no
+                    // priority to make a play at; Go's harness acts anyway.
+                    unmapped.add(line);
                 } else if ((PLAYS.contains(f[0]) || f[0].equals("expecterror")) && when.get(i)[0].equals("1")
                         && when.get(i)[1].equals("DRAW")) {
                     // S18: Go's advance walks through the first player's
@@ -197,6 +202,10 @@ public final class ScenarioRunner {
                         answers.refusedPlay(i, all[2], Arrays.copyOfRange(all, 3, all.length), Integer.parseInt(when.get(i)[0]),
                                 PhaseType.smartValueOf(when.get(i)[1]));
                     }
+                } else if (f[0].equals("paymanacost")) {
+                    String[] all = line.split("\\s+");
+                    answers.payManaCost(i, Arrays.copyOfRange(all, 1, all.length), Integer.parseInt(when.get(i)[0]),
+                            PhaseType.smartValueOf(when.get(i)[1]));
                 } else if (f[0].equals("queue")) {
                     answers.queue(f[1], f[2]);
                 } else if (f[0].equals("resolvestack") && Set.of("UNTAP", "CLEANUP").contains(when.get(i)[1])) {
@@ -258,7 +267,7 @@ public final class ScenarioRunner {
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
                         "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority",
-                        "expecterror" -> {
+                        "expecterror", "paymanacost" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }

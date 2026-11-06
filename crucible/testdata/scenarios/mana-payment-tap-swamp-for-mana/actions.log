@@ -1,5 +1,8 @@
 # CR 305.6's intrinsic basic land mana ability, the same shape
 # mana-payment-tap-land-for-mana already proves for Plains -- here for
 # Swamp, taken to B instead.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19).
+startturn human
+advance 3
 tapformana human 1 B
 paymanacost human B

@@ -3,5 +3,8 @@
 # three-way choice, the zero mana.Colors answer meaning life
 # (queue payhybridphyrexian life). No mana in the pool at all: the payment
 # still succeeds because nothing here spends mana.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19).
+startturn human
+advance 3
 queue payhybridphyrexian life
 paymanacost human B/G/P

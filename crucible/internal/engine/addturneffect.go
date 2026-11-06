@@ -12,6 +12,10 @@ import (
 // addTurnEffect is AddTurnEffect.java: each target player (default You)
 // takes NumTurns$ extra turns after this one (Game.addExtraTurn, turn.go).
 // Extra turns stack: the most recently added is taken first (CR 500.7).
+// ExtraTurnDelayedTrigger$ hangs a delayed trigger on each extra turn, whose
+// ExtraTurnDelayedTriggerExecute$ the compiler has already made its Execute$
+// (compile.extraTurnTrigger, AddTurnEffect.java:47-54; Final Fortune's "you
+// lose the game" at that turn's end step).
 type addTurnEffect struct{}
 
 func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {

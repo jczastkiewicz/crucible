@@ -13,7 +13,10 @@ import (
 // after AfterPhase$ (default the current phase), the most recent insertion
 // running first (PhaseHandler.addExtraPhase). ExtraPhaseDelayedTrigger$
 // (AddPhaseEffect.java:70-76) hangs a delayed trigger on the first phase of
-// each insertion, registered when that phase is entered.
+// each insertion, registered when that phase is entered. Its
+// ExtraPhaseDelayedTriggerExcute$ (Java's spelling, and every script's) is
+// already the trigger's Execute$: the compiler builds the line with it
+// (compile.extraTurnTrigger, PORT-2).
 // BeforeFirstPostCombatMainEnd$ (World at War) adds nothing after the first
 // post-combat main phase.
 type addPhaseEffect struct{}

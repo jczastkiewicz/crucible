@@ -417,12 +417,192 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		}
 		match := (c.CMC()%2 == 0) == (sc.Memory.ChosenEvenOdd() == "Even")
 		return match == (name == "cmcChosenEvenOdd")
-	case name == "TopLibrary":
-		// CardProperty.java:610-624's plain form: c is the top card of its
-		// owner's library -- index 0, the end DrawCards reads from. The
-		// "TopLibrary_<valid>"/"BottomLibrary" forms are not resolved.
+	case strings.HasPrefix(name, "TopLibrary"), strings.HasPrefix(name, "BottomLibrary"):
+		// CardProperty.java:611-620: c is the top card of its owner's library
+		// -- index 0, the end DrawCards reads from -- or the bottom one; a
+		// "_<valid>" suffix first narrows the library to the cards that
+		// match it (Bring to Light's "the top land card").
 		lib := g.Zone(Library, c.Owner).Cards()
-		return len(lib) > 0 && lib[0] == c.ID
+		if _, spec, ok := strings.Cut(name, "_"); ok {
+			parsed := valid.Parse(spec)
+			var kept []CardID
+			for _, id := range lib {
+				if Matches(g, g.Card(id), parsed, sourceController, source) {
+					kept = append(kept, id)
+				}
+			}
+			lib = kept
+		}
+		if len(lib) == 0 {
+			return false
+		}
+		if strings.HasPrefix(name, "Bottom") {
+			return lib[len(lib)-1] == c.ID
+		}
+		return lib[0] == c.ID
+	case strings.HasPrefix(name, "TopGraveyard"), strings.HasPrefix(name, "BottomGraveyard"):
+		// CardProperty.java:582-610: c is the top card of its owner's
+		// graveyard (the last one put there), the top creature card
+		// (TopGraveyardCreature), one of the top N ("TopGraveyard<N>") or the
+		// bottom card.
+		grave := g.Zone(Graveyard, c.Owner).Cards()
+		if strings.HasPrefix(name, "Bottom") {
+			return len(grave) > 0 && grave[0] == c.ID
+		}
+		if strings.HasPrefix(name, "TopGraveyardCreature") {
+			for i := len(grave) - 1; i >= 0; i-- {
+				if g.Card(grave[i]).Type().Has(cardtype.Creature) {
+					return grave[i] == c.ID
+				}
+			}
+			return false
+		}
+		n := 1
+		if rest := name[len("TopGraveyard"):]; len(rest) >= 1 && len(rest) <= 2 {
+			if v, err := strconv.Atoi(rest); err == nil && rest[0] != '+' && rest[0] != '-' {
+				n = v
+			}
+		}
+		for i := len(grave) - 1; i >= 0 && i >= len(grave)-n; i-- {
+			if grave[i] == c.ID {
+				return true
+			}
+		}
+		return false
+	case name == "IsGoaded":
+		// CardProperty.java: Card.isGoaded.
+		return c.IsGoaded()
+	case name == "bargained", name == "surged", name == "Teamwork":
+		// CardProperty.java:1756-1798: the card's cast record paid its
+		// Bargain cost, was for its Surge cost, or paid Teamwork. The record
+		// ends as the card changes zones other than stack to battlefield,
+		// Java's isUnlinkedFromCastSA.
+		kind := optBargain
+		switch name {
+		case "surged":
+			kind = optSurge
+		case "Teamwork":
+			kind = optTeamwork
+		}
+		return c.wasCast && c.castOpt.has(kind)
+	case strings.HasPrefix(name, "firstTurnControlled"):
+		// CardProperty.java: Card.isFirstTurnControlled, the sickness flag
+		// itself, haste aside.
+		return c.SummonSick
+	case name == "TriggeredCard", name == "TriggeredNewCard", name == "TriggeredAttacker", name == "TriggeredBlocker",
+		name == "TriggeredSource", name == "TriggeredCards", name == "TriggeredSources", name == "TriggeredBlockers":
+		// CardProperty.java:2048-2063: c is (or is among) the root ability's
+		// triggering object under the key after "Triggered"; false with no
+		// ability of source's in context or nothing recorded under it.
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return false
+		}
+		ids, err := definedCards(g.Card(source), name, a.refs())
+		return err == nil && containsCard(ids, c.ID)
+	case name == "Transformed":
+		// CardProperty.java:144-147: Card.isTransformed, a transforming card
+		// showing its back face.
+		return c.InTransformedState()
+	case name == "AdventureCard":
+		// CardProperty.java:156-159: Card.isAdventureCard, a card whose
+		// second face is an Adventure.
+		def := c.PrintedDef()
+		return def != nil && def.SplitType == carddb.SplitAdventure
+	case strings.HasPrefix(name, "hasXCost"):
+		// CardProperty.java:1358-1362: c's mana cost has an {X}.
+		return c.manaCost().CountX() > 0
+	case name == "cmcEven", name == "cmcOdd":
+		// CardProperty.java:1399-1406.
+		return c.CMC()%2 == 0 == (name == "cmcEven")
+	case name == "powerEven", name == "powerOdd":
+		// CardProperty.java:1407-1414: Java's % keeps a negative power's
+		// sign, so an odd negative power is neither.
+		p, _ := c.Power()
+		if name == "powerEven" {
+			return p%2 == 0
+		}
+		return p%2 == 1
+	case strings.HasPrefix(name, "greatestRememberedCMC"), strings.HasPrefix(name, "lowestRememberedCMC"):
+		// CardProperty.java:1279-1306: c is among the source's remembered
+		// cards and has the highest (lowest) mana value of them
+		// (CardLists.getCardsWithHighestCMC/getCardsWithLowestCMC).
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		var remembered []CardID
+		for _, e := range sc.Memory.Remembered() {
+			if id, isCard := e.AsCard(); isCard {
+				remembered = append(remembered, id)
+			}
+		}
+		if !containsCard(remembered, c.ID) {
+			return false
+		}
+		return containsCard(g.cardsWithExtremeCMC(remembered, strings.HasPrefix(name, "greatest")), c.ID)
+	case strings.HasPrefix(name, "lowestCMC"):
+		// CardProperty.java:1307-1316: no nonland permanent on the
+		// battlefield has a lower mana value than c.
+		for _, pid := range g.Players() {
+			for _, id := range g.Zone(Battlefield, pid).Cards() {
+				if o := g.Card(id); !o.Type().Has(cardtype.Land) && !o.IsEffect && o.CMC() < c.CMC() {
+					return false
+				}
+			}
+		}
+		return true
+	case name == "targetedBy":
+		// CardProperty.java:271-277: the root of the ability of source in
+		// context targets c. This port sees the targets of the ability and
+		// of its nearest targeting ancestor, not those of a later sibling
+		// sub-ability (quirks.md).
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return false
+		}
+		return containsEntity(a.Targets, CardEntity(c.ID)) || containsEntity(a.refs().targets, CardEntity(c.ID))
+	case strings.HasPrefix(name, "blockedBySourceThisTurn"):
+		// CardProperty.java:1610-1611.
+		return containsCard(c.blockedByThisTurn, source)
+	case strings.HasPrefix(name, "blockedBySource"):
+		// CardProperty.java:1612-1615: source blocks c in the combat in
+		// progress; the LKI form reads the same pair, the LKI copy keeping
+		// source's ID.
+		return slices.Contains(g.combat.Blocks, Block{Blocker: source, Attacker: c.ID})
+	case strings.HasPrefix(name, "isBlockedByRemembered"), strings.HasPrefix(name, "blockedRemembered"), strings.HasPrefix(name, "blockedByRemembered"):
+		// CardProperty.java:1645-1679: a card the source remembers blocks c
+		// now (isBlockedByRemembered), was blocked by c this turn
+		// (blockedRemembered) or blocked c this turn (blockedByRemembered).
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		for _, e := range sc.Memory.Remembered() {
+			id, isCard := e.AsCard()
+			if !isCard {
+				continue
+			}
+			switch {
+			case strings.HasPrefix(name, "isBlocked"):
+				if slices.Contains(g.combat.Blocks, Block{Blocker: id, Attacker: c.ID}) {
+					return true
+				}
+			case strings.HasPrefix(name, "blockedBy"):
+				if containsCard(c.blockedByThisTurn, id) {
+					return true
+				}
+			default:
+				if containsCard(c.blockedThisTurn, id) {
+					return true
+				}
+			}
+		}
+		return false
+	case strings.HasPrefix(name, "attackedThisTurn"):
+		// CardProperty.java:1185-1188: CardDamageHistory.
+		// getCreatureAttacksThisTurn() > 0.
+		return len(c.attackedThisTurn) > 0
 	case name == "kicked", name == "kicked 1", name == "kicked 2":
 		// CardProperty.java:1691: the card was cast with a kicker paid (either,
 		// or the first/second for "kicked 1"/"kicked 2").
@@ -465,6 +645,53 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:748-751: a core type in common with the source.
 		sc, ok := sourceCard(g, source)
 		return ok && sharesCardType(c, sc)
+	case name == "sharesCreatureTypeWith":
+		// CardProperty.java:713-717: a creature type in common with the source.
+		sc, ok := sourceCard(g, source)
+		return ok && g.sharesCreatureType(c, sc)
+	case strings.HasPrefix(name, "sharesCreatureTypeWith"):
+		// CardProperty.java:718-744: with one of the restriction's defined
+		// cards (with all of them, "WithAll"), or with one of the source
+		// controller's commanders outside a hidden zone and not phased out.
+		_, restriction, _ := strings.Cut(name, " ")
+		if restriction == "Commander" {
+			for _, id := range g.Commanders(sourceController) {
+				if cmdr := g.Card(id); !hiddenZone(cmdr.Zone) && !cmdr.IsPhasedOut() && g.sharesCreatureType(c, cmdr) {
+					return true
+				}
+			}
+			return false
+		}
+		all := strings.HasPrefix(name, "sharesCreatureTypeWithAll")
+		for _, id := range g.validDefinedCards(restriction, sourceController, source) {
+			if g.sharesCreatureType(c, g.Card(id)) != all {
+				return !all
+			}
+		}
+		return all
+	case strings.HasPrefix(name, "sharesLandTypeWith "):
+		// CardProperty.java:791-795: one of the restriction's defined cards
+		// is a land with a land type c has (CardType.sharesLandTypeWith reads
+		// the defined card's getLandTypes, empty unless it is a land).
+		reg := g.db.Types()
+		for _, id := range g.validDefinedCards(strings.TrimPrefix(name, "sharesLandTypeWith "), sourceController, source) {
+			d := g.Card(id).Type()
+			if reg == nil || !d.Has(cardtype.Land) {
+				continue
+			}
+			for _, t := range d.Subtypes() {
+				if reg.IsLandType(t) && c.Type().HasSubtype(t) {
+					return true
+				}
+			}
+		}
+		return false
+	case strings.HasPrefix(name, "NotedName"), name == "NotedTypes", name == "NotedGuessPhantasm":
+		// CardProperty.java:2012-2047: the source controller's draft notes
+		// (Noble Banneret, Aether Searcher, Paliano Vanguard ...); no player
+		// here has any, as amountheads' DraftNotes counts say, so nothing
+		// matches.
+		return false
 	case strings.HasPrefix(name, "sharesCardTypeWith "):
 		return g.sharesCardTypeWithAny(c, strings.TrimPrefix(name, "sharesCardTypeWith "), sourceController, source)
 	case strings.HasPrefix(name, "sharesNameWith "):
@@ -2584,4 +2811,48 @@ func (g *Game) battlefieldMatching(spec string, controller PlayerID, source Card
 		}
 	}
 	return out
+}
+
+// cardsWithExtremeCMC is CardLists.getCardsWithHighestCMC (greatest) or
+// getCardsWithLowestCMC: the cards of ids tied at the highest (lowest) mana
+// value. The lowest starts from Java's 25, so a list of only higher mana
+// values has none.
+func (g *Game) cardsWithExtremeCMC(ids []CardID, greatest bool) []CardID {
+	best := 0
+	if !greatest {
+		best = 25
+	}
+	var tied []CardID
+	for _, id := range ids {
+		cmc := g.Card(id).CMC()
+		if greatest && cmc > best || !greatest && cmc < best {
+			best = cmc
+			tied = tied[:0]
+		}
+		if greatest && cmc >= best || !greatest && cmc <= best {
+			tied = append(tied, id)
+		}
+	}
+	return tied
+}
+
+// validDefinedCards is AbilityUtils.getDefinedCards(source, defined,
+// spellAbility) as a valid property reads it: with the refs of the ability of
+// source in context, none without one (Java's non-SpellAbility). A form this
+// port cannot resolve leaves a pending error (GO-7).
+func (g *Game) validDefinedCards(defined string, sourceController PlayerID, source CardID) []CardID {
+	sc, ok := sourceCard(g, source)
+	if !ok {
+		return nil
+	}
+	var refs abilityRefs
+	if a := g.resolving; a != nil && a.Source == source {
+		refs = a.refs()
+	}
+	cards, err := definedCardsInGame(g, sourceController, sc, defined, refs)
+	if err != nil {
+		g.recordPendingError(err)
+		return nil
+	}
+	return cards
 }

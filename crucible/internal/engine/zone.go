@@ -148,3 +148,14 @@ func (z *Zone) clone() *Zone {
 	}
 	return out
 }
+
+// hiddenZone is ZoneType.isHidden (ZoneType.java:14-34): stickers do not
+// survive a move into one (GameAction.java:268-270), and a commander there
+// shares no creature type (CardProperty.java:722-727).
+func hiddenZone(z ZoneType) bool {
+	switch z {
+	case Hand, Library, Sideboard, SchemeDeck, PlanarDeck, AttractionDeck, ContraptionDeck, Subgame, ExtraHand, None:
+		return true
+	}
+	return false
+}

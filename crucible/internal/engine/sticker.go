@@ -42,16 +42,6 @@ type appliedSticker struct {
 	namePos int
 }
 
-// hiddenZone is ZoneType.isHidden (ZoneType.java:14-34): stickers do not
-// survive a move into one (GameAction.java:268-270).
-func hiddenZone(z ZoneType) bool {
-	switch z {
-	case Hand, Library, Sideboard, SchemeDeck, PlanarDeck, AttractionDeck, ContraptionDeck, Subgame, ExtraHand, None:
-		return true
-	}
-	return false
-}
-
 // stickerAt is the compiled sticker Slot names on sheet, nil when the sheet
 // has no such slot (a sheet's slots are fixed once loaded).
 func (g *Game) stickerAt(sheet CardID, slot string) *compile.Sticker {

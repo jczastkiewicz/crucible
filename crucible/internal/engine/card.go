@@ -218,6 +218,10 @@ type Card struct {
 	zoneEntered   bool
 	zoneEntryTurn int
 	zoneEntryFrom ZoneType
+	// zoneEntryPlayer is Card.getTurnInController: the player whose zone the
+	// card last entered from another zone type (Zone.java:120-122), its owner
+	// as NewCard places it. EnteredUnder reads it.
+	zoneEntryPlayer PlayerID
 	// renowned is Card.isRenowned (CR 702.112): a Renown creature that has
 	// had its counters put on it; Move clears it when the card leaves the
 	// battlefield.
@@ -579,6 +583,9 @@ type Card struct {
 	// menace a suspected card has.
 	Suspected, Solved, Harnessed, Plotted bool
 	suspectedTS                           uint64
+	// unearthed is Card.isUnearthed: put onto the battlefield by an Unearth
+	// ability (ChangeZoneEffect.java:685), read by IsUnearthed; Move clears it.
+	unearthed bool
 
 	// Saddled is Card.isSaddled (CR 702.171): saddled until end of turn.
 	// saddledBy is Card.getSaddledByThisTurn, the creatures tapped for the

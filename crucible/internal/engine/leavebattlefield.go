@@ -43,12 +43,13 @@ func (g *Game) addLeaveBattlefieldReplacement(a *Ability, card CardID, zone stri
 // (the keyword.Expand template, CardFactoryUtil.java:3636-3648) put onto the
 // battlefield gains haste, is exiled instead if it would leave the
 // battlefield (one effect card carries both), and is exiled at the beginning
-// of the next end step. Card.setUnearthed has no reader outside a Vanguard
-// avatar (Malfegor Avatar's IsUnearthed), so it is not kept.
+// of the next end step, and is unearthed (Card.setUnearthed, read by
+// IsUnearthed).
 func (g *Game) unearthReturned(a *Ability, card CardID) error {
 	if keyword.Parse(a.Params.Keyword).Name != "Unearth" || g.Card(card).Zone != Battlefield {
 		return nil
 	}
+	g.Card(card).unearthed = true
 	haste := &compile.Ability{Record: compile.Static, Name: "Continuous", Params: []vocab.Param{
 		{Key: "Mode", Value: "Continuous"}, {Key: "Affected", Value: "Card.IsRemembered"},
 		{Key: "EffectZone", Value: "Command"}, {Key: "AddKeyword", Value: "Haste"},

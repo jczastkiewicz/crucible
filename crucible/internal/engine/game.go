@@ -920,6 +920,7 @@ func (g *Game) NewCard(def *compile.Card, owner PlayerID, zone ZoneType) CardID 
 		// entered its zone this turn.
 		cameUnderControl: true,
 		enteredTurn:      g.turn,
+		zoneEntryPlayer:  owner,
 	})
 	g.put(id, zone, owner)
 	if zone == Battlefield {
@@ -1233,7 +1234,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.toCommandZone = true
 	}
 	if from != kind {
-		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
+		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
 	}
 	if from == Stack && kind == Battlefield {
 		g.relinkExiledWith(id, leftStamp, c.zoneStamp)
@@ -1326,7 +1327,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.attackedThisTurn = nil
 		c.attackedLastTurnOf = nil
 		c.devoured = nil
-		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.Suspected, c.Solved, c.Harnessed, c.unearthed = false, false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
 		c.renowned, c.monstrous = false, false
 		c.classLevel = 0
@@ -1433,7 +1434,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.putFront(id, owner)
 	if from != Library {
-		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
+		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
 	}
 
 	melded := NoCard
@@ -1469,7 +1470,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.attackedThisTurn = nil
 		c.attackedLastTurnOf = nil
 		c.devoured = nil
-		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.Suspected, c.Solved, c.Harnessed, c.unearthed = false, false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
 		// Layer 3's text change ends with the object (CR 400.7), before the
 		// copy and face-down restores below read or replace Def.

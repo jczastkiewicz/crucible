@@ -136,3 +136,90 @@ func TestFreerunningExilesXCards(t *testing.T) {
 		}
 	}
 }
+
+// Spectacle (CardFactoryUtil.java:3524-3535) is offered once an opponent lost
+// life this turn, and Rafter Demon's "if its spectacle cost was paid" reads
+// the cast (CardProperty.java:1794-1801).
+func TestSpectacleCastNeedsAnOpponentsLifeLoss(t *testing.T) {
+	t.Parallel()
+
+	for _, spectacle := range []bool{true, false} {
+		g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+		demon := g.NewCard(corpusCard(t, "Rafter Demon"), p, engine.Hand)
+		island := g.NewCard(corpusCard(t, "Island"), other, engine.Hand)
+		c := engine.NewScriptedController()
+		g.Player(p).ManaPool.Add(mana.Black, 1)
+		g.Player(p).ManaPool.Add(mana.Red, 4)
+		if spectacle {
+			g.Player(other).LifeLostThisTurn = 1
+			c.QueueOption(1)
+			c.QueueDiscardChoice([]engine.CardID{island})
+		}
+		for range 3 {
+			c.QueuePayGeneric(mana.ShardR)
+		}
+		castThenResolve(t, g, p, demon, c)
+		if err := g.TakePendingError(); err != nil {
+			t.Fatalf("spectacle=%v: %v", spectacle, err)
+		}
+		if got, want := len(g.Zone(engine.Hand, other).Cards()), map[bool]int{true: 0, false: 1}[spectacle]; got != want {
+			t.Errorf("spectacle=%v: opponent's hand %d, want %d", spectacle, got, want)
+		}
+	}
+}
+
+// Web-slinging (CardFactoryUtil.java:3677-3701) casts the spell for its cost
+// plus the return of a tapped creature the caster controls.
+func TestWebSlingingReturnsATappedCreature(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	spider := g.NewCard(corpusCard(t, "Spider-Man, Web-Slinger"), p, engine.Hand)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Card(bears).Tapped = true
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	c.QueueReturnChoice([]engine.CardID{bears})
+	c.QueueCardChoice([]engine.CardID{bears})
+	castThenResolve(t, g, p, spider, c)
+	if err := g.TakePendingError(); err != nil {
+		t.Fatal(err)
+	}
+	if g.Card(spider).Zone != engine.Battlefield || g.Card(bears).Zone != engine.Hand {
+		t.Errorf("Spider-Man in %v, Bears in %v; want battlefield and hand", g.Card(spider).Zone, g.Card(bears).Zone)
+	}
+}
+
+// Prowl (CardFactoryUtil.java:3354-3374) is offered once a creature sharing a
+// creature type with the spell dealt combat damage to a player this turn.
+func TestProwlCastAfterARoguesCombatDamage(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	rogue := g.NewCard(corpusCard(t, "Bane Alley Blackguard"), p, engine.Battlefield)
+	fortune := g.NewCard(corpusCard(t, "Thieves' Fortune"), p, engine.Hand)
+	for range 4 {
+		g.NewCard(corpusCard(t, "Island"), p, engine.Library)
+	}
+	declareLoneAttacker(t, g, rogue)
+	declareBlockers(t, g, engine.NewScriptedController())
+	g.DealCombatDamage(engine.NewScriptedController())
+	if g.Player(other).Life != 19 {
+		t.Fatalf("defender at %d life after the Rogue's attack, want 19", g.Player(other).Life)
+	}
+	g.SetTurnState(2, p, engine.Main2)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Blue, 1)
+	c.QueueOption(1)
+	lib := append([]engine.CardID(nil), g.Zone(engine.Library, p).Cards()...)
+	c.QueueCardChoice([]engine.CardID{lib[0]})
+	c.QueueCardOrder(lib[1:])
+	castThenResolve(t, g, p, fortune, c)
+	if err := g.TakePendingError(); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand %d after the prowl cast, want the one card Dig kept", got)
+	}
+}

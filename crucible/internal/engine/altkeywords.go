@@ -68,6 +68,31 @@ func (g *Game) hasFreerunning(pid PlayerID) bool {
 	return false
 }
 
+// hasProwl is Player.hasProwl (Player.java:2170-2172): a creature pid
+// controlled (as it was when it dealt the damage) that shares a creature type
+// with c dealt combat damage to a player this turn.
+func (g *Game) hasProwl(pid PlayerID, c *Card) bool {
+	for i := range g.playerDamageThisTurn {
+		d := &g.playerDamageThisTurn[i]
+		if d.combat && d.source.Controller() == pid && g.sharesCreatureType(&d.source, c) {
+			return true
+		}
+	}
+	return false
+}
+
+// opponentLostLifeThisTurn is Player.getOpponentLostLifeThisTurn > 0
+// (Player.java:2162-2168), Spectacle's gate: an opponent of pid, one who left
+// the game included, lost life this turn.
+func (g *Game) opponentLostLifeThisTurn(pid PlayerID) bool {
+	for _, o := range g.Players() {
+		if o != pid && g.Player(o).LifeLostThisTurn > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // altKeywordOptions are the Surge, Freerunning, Dash, Blitz and Warp ways pid
 // may cast c from the hand (Warp's spell is restricted to it,
 // CardFactoryUtil.java:3672): those whose keyword c has and, for the first two,
@@ -83,13 +108,21 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	if mc, ok := altKeywordCost(c, "Freerunning"); ok && g.hasFreerunning(pid) {
 		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Freerunning"})
 	}
+	// Prowl (CardFactoryUtil.java:3354-3374) and Spectacle (:3524-3535) are
+	// such casts too, gated by SpellAbilityRestriction.java:393-397, :408-412.
+	if mc, ok := altKeywordCost(c, "Prowl"); ok && g.hasProwl(pid, c) {
+		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Prowl"})
+	}
+	if mc, ok := altKeywordCost(c, "Spectacle"); ok && g.opponentLostLifeThisTurn(pid) {
+		out = append(out, castOption{hasAlt: true, alt: mc, altKeyword: "Spectacle"})
+	}
 	if o, ok := awakenOption(c); ok {
 		out = append(out, o)
 	}
 	if o, ok := prototypeOption(c); ok {
 		out = append(out, o)
 	}
-	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow"} {
+	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow", "Web-slinging"} {
 		if name == "Bestow" && !c.Type().Has(cardtype.Creature) {
 			continue
 		}
@@ -125,6 +158,11 @@ func (g *Game) keywordCastOption(pid PlayerID, c *Card, name string) (castOption
 		}
 		if details == "" || strings.Contains(details, ":") {
 			return castOption{}, false
+		}
+		if name == "Web-slinging" {
+			// CardFactoryUtil.java:3677-3701: the keyword's mana and the
+			// return of a tapped creature, in place of the mana cost.
+			details += " Return<1/Creature.tapped>"
 		}
 		uc, ok := parseUnlessCost(details)
 		if !ok || (uc.hasMana && uc.mana.CountX() > 0) {

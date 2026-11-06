@@ -58,30 +58,30 @@ Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,530 |
-| refused      |     65 |
+| plays        | 33,550 |
+| refused      |     45 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    453 |
 | inconclusive |     86 |
 
-99.8% of the 33,595 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
+99.9% of the 33,595 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.9% of 8,695 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 39 | `resolve: valid property not resolvable` |
-| 21 | `turns: valid property not resolvable` |
-| 4 | `activate: valid property not resolvable` |
+| 25 | `resolve: valid property not resolvable` |
+| 16 | `turns: valid property not resolvable` |
+| 3 | `activate: valid property not resolvable` |
 | 1 | `turns: static trigger of: valid property not resolvable` |
 
-All 65 are one gate: a valid-string property no case of `valid.go` ports that names no card type either
-(`checkTypeWord`, open plan R19b) errors instead of matching nothing. About 45 distinct properties, the most frequent
-`CastSaSource`, `ExiledWithEffectSource`, `set<CODE>`, `dealtDamagetoAny`, `CanBeSacrificedBy` and
-`IsTriggerRemembered`.
+All 45 are one gate: a valid-string property no case of `valid.go` ports that names no card type either
+(`checkTypeWord`, open plan R19b) errors instead of matching nothing. About 30 distinct properties, the most frequent
+`IsTriggerRemembered`, `CastSaSource`, `ExiledWithEffectSource`, `set<CODE>`, `dealtDamagetoAny` and the per-turn
+flags (`DrawnThisTurn`, `milledThisTurn`, `CrewedThisTurn`).
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

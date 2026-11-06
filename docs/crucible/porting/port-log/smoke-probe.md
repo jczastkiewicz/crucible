@@ -58,14 +58,14 @@ Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,550 |
-| refused      |     45 |
+| plays        | 33,585 |
+| refused      |      9 |
 | panicked     |      0 |
 | hung         |      0 |
-| placed       |    453 |
+| placed       |    454 |
 | inconclusive |     86 |
 
-99.9% of the 33,595 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
+100.0% of the 33,594 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
@@ -73,15 +73,16 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 25 | `resolve: valid property not resolvable` |
-| 16 | `turns: valid property not resolvable` |
-| 3 | `activate: valid property not resolvable` |
+| 4 | `turns: valid property not resolvable` |
+| 2 | `activate: valid property not resolvable` |
+| 2 | `resolve: valid property not resolvable` |
 | 1 | `turns: static trigger of: valid property not resolvable` |
 
-All 45 are one gate: a valid-string property no case of `valid.go` ports that names no card type either
-(`checkTypeWord`, open plan R19b) errors instead of matching nothing. About 30 distinct properties, the most frequent
-`IsTriggerRemembered`, `CastSaSource`, `ExiledWithEffectSource`, `set<CODE>`, `dealtDamagetoAny` and the per-turn
-flags (`DrawnThisTurn`, `milledThisTurn`, `CrewedThisTurn`).
+All 9 are one gate: a valid-string property no case of `valid.go` ports that names no card type either (`checkTypeWord`,
+open plan R19b) errors instead of matching nothing. Five properties remain: `set<CODE>` (Apocalypse Chime, Golgothian
+Sylex, City in a Bottle), which needs edition data, `ExiledWithEffectSource` and `IsTriggerRemembered`, which need the
+effect-source and trigger-remembered stamps, and `couldAttackButNotAttacking` and `hadToAttackThisCombat` (Season of the
+Witch, Firkraag), which read the attack constraints.
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

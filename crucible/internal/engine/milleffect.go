@@ -129,6 +129,7 @@ func (g *Game) millCards(controller PlayerController, pid PlayerID, numCards int
 	}
 	for _, id := range topN {
 		g.moveToGraveyard(controller, id)
+		g.Card(id).milled = true // Player.java:1604
 		g.checkMilledTriggers(controller, pid, id)
 	}
 	g.checkMilledOnceTriggers(controller, pid, topN)

@@ -118,6 +118,12 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 		if g.activePhase == Cleanup {
 			g.endCleanup()
 			g.turn++
+			// PhaseHandler.java:855-857, phased-out permanents included.
+			for _, pid := range g.Players() {
+				for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+					g.Card(id).startedTurnUntapped = !g.Card(id).Tapped
+				}
+			}
 			g.previousPlayer = g.activePlayer
 			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
 			// MagicStack.onNextTurn (MagicStack.java:965-979): this turn's
@@ -676,6 +682,7 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	if !g.redirectMove(controller, id, Hand) {
 		g.Move(id, Hand, pid)
 	}
+	g.Card(id).drawnThisTurn = true
 	// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
 	// says a card moved, CardDrawn says why, which is what makes a draw
 	// countable without inspecting every zone change for the ones that
@@ -730,6 +737,12 @@ func (g *Game) endCombat() {
 	g.runScheduledActions(boundaryEndCombat, g.activePlayer)
 	g.runEndOfCombatCommands(nil)
 	g.combat = Combat{}
+	// Combat.java:181-183: every battlefield card's damagedThisCombat.
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+			g.Card(id).combatDamagedPlayers = nil
+		}
+	}
 	// Combat.endCombat's playerWhoAttacks.clearAttackedPlayersMyCombat
 	// (Combat.java:170): the attacking player's list only, as Java clears it.
 	// A game with no turn begun has no attacking player and nothing recorded.
@@ -851,6 +864,13 @@ func (g *Game) endCleanup() {
 			g.Card(id).Saddled, g.Card(id).saddledBy, g.Card(id).timesSaddled = false, nil, 0
 			// Card.onCleanupPhase (Card.java:7275).
 			g.Card(id).regeneratedThisTurn = 0
+			g.Card(id).exertedThisTurn = 0
+			g.Card(id).crewedBy = nil
+			g.Card(id).combatDamagedPlayers = nil
+		}
+		// Player.onCleanupPhase (Player.java:2493-2495).
+		for _, id := range g.Zone(Hand, pid).Cards() {
+			g.Card(id).drawnThisTurn = false
 		}
 		p := g.Player(pid)
 		if pid == g.activePlayer {

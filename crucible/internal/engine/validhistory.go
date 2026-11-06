@@ -42,6 +42,40 @@ func turnHistoryMatches(g *Game, c *Card, name string, sourceController PlayerID
 			}
 		}
 		return false, true
+	case strings.HasPrefix(name, "dealtDamagetoAny"):
+		// CardProperty.java:1181-1182: this object has dealt damage.
+		return c.dealtDamage != 0, true
+	case strings.HasPrefix(name, "dealtCombatDamagetoAny"):
+		// CardProperty.java:1183-1184: combat damage.
+		return c.dealtDamage&dealtCombat != 0, true
+	case strings.HasPrefix(name, "dealtCombatDamageThisCombat"):
+		// CardProperty.java:1140-1143: combat damage to a player this combat.
+		return len(c.combatDamagedPlayers) > 0, true
+	case strings.HasPrefix(name, "dealtDamageToOppThisTurn"):
+		// CardProperty.java:1148-1151, Card.hasDealtDamageToOpponentThisTurn
+		// (Card.java:6126-6128): damage to an opponent of c's controller.
+		for i := range g.playerDamageThisTurn {
+			d := &g.playerDamageThisTurn[i]
+			if d.target != c.Controller() && d.source.ID == c.ID && d.source.zoneStamp == c.zoneStamp {
+				return true, true
+			}
+		}
+		return false, true
+	case strings.HasPrefix(name, "dealtCombatDamageThisTurn "):
+		// CardProperty.java:1152-1155, getDamageDoneThisTurn(true, true, null,
+		// <valid>, card): combat damage this object dealt this turn to an
+		// entity the valid string names, read from c's view.
+		return dealtCombatDamageTo(g, c, strings.TrimPrefix(name, "dealtCombatDamageThisTurn "), sourceController), true
+	case name == "wasDealtNonCombatDamageThisTurn":
+		// CardProperty.java:1160-1163, getAssignedDamage(false, null): this
+		// object was dealt noncombat damage this turn.
+		for i := range g.cardDamageThisTurn {
+			d := &g.cardDamageThisTurn[i]
+			if !d.combat && d.target.ID == c.ID && d.target.zoneStamp == c.zoneStamp {
+				return true, true
+			}
+		}
+		return false, true
 	case strings.HasPrefix(name, "wasDealtDamageThisTurn"):
 		// CardProperty.java:1156-1159: GameEntity.getAssignedDamage, the sum
 		// of damageReceivedThisTurn (GameEntity.java:377-392). Every instance
@@ -182,6 +216,29 @@ func blockedValidMatches(g *Game, c *Card, list []CardID, spec string, source Ca
 	}
 	for _, id := range defined {
 		if slices.Contains(list, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// dealtCombatDamageTo reports combat damage c, this object, dealt this turn
+// to a player or a card spec names (Player or Creature in the corpus).
+func dealtCombatDamageTo(g *Game, c *Card, spec string, sourceController PlayerID) bool {
+	same := func(src *Card) bool { return src.ID == c.ID && src.zoneStamp == c.zoneStamp }
+	parsed := valid.Parse(spec)
+	for i := range g.playerDamageThisTurn {
+		d := &g.playerDamageThisTurn[i]
+		if !d.combat || !same(&d.source) {
+			continue
+		}
+		if matched, ok := matchesPlayerSpec(g, d.target, sourceController, c.ID, spec); ok && matched {
+			return true
+		}
+	}
+	for i := range g.cardDamageThisTurn {
+		d := &g.cardDamageThisTurn[i]
+		if d.combat && same(&d.source) && Matches(g, &d.target, parsed, sourceController, c.ID) {
 			return true
 		}
 	}

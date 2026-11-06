@@ -85,6 +85,7 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			_, rememberKept := a.Params.Param("RememberKept")
 			for _, id := range toGraveyard {
 				g.moveToGraveyard(controller, id)
+				g.Card(id).surveilled = true
 				if rememberMoved {
 					source.Memory.Remember(CardEntity(id))
 				}

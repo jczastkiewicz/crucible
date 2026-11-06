@@ -230,6 +230,7 @@ func (g *Game) chooseExerters(controller PlayerController, attackers []CardID) [
 // payoff resolves. Paid with no rollback, as Java pays it.
 func (g *Game) exertAttacker(controller PlayerController, id CardID) {
 	g.Card(id).Exerted = true
+	g.Card(id).exertedThisTurn++
 	g.checkExertedTriggers(controller, id)
 	g.resolveOptionalAttackCostPayoff(controller, id)
 }

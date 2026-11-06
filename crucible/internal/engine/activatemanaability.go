@@ -476,6 +476,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		g.payCostCards(controller, pid, chosen, &Ability{Source: card, Controller: pid, Params: ability})
 		if shape.SelfExert {
 			c.Exerted = true
+			c.exertedThisTurn++
 			g.checkExertedTriggers(controller, card)
 		}
 		if shape.PayEnergyN > 0 {

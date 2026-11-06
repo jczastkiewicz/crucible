@@ -62,7 +62,15 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		if count.Argument != "" {
 			spec += " " + count.Argument // a valid string with a space in it (ControlledBy Player.Active)
 		}
-		return g.thisTurnCastCount(source, spec)
+		// A "$<def>" after the valid string is handlePaid over the matches
+		// (AbilityUtils.java:1600, :2775-2781, :2870-2871): Call Forth the
+		// Tempest's $CardManaCost sums their mana values.
+		spec, def, paid := strings.Cut(spec, "$")
+		cards, ok := g.thisTurnCastCards(source, spec)
+		if !ok || !paid {
+			return len(cards), ok
+		}
+		return handlePaid(g, nil, g.Card(source).Controller(), source, cards, def, nil, 0)
 	}
 	if spec, ok := strings.CutPrefix(count.Head, "CastSinceBeginningOfYourLastTurn_"); ok {
 		// ParseCount cuts the head at the first `.`; the valid string is the

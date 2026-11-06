@@ -84,6 +84,10 @@ type Card struct {
 	// (CR 400.7: the card is a new object). castManaSpent is the mana paid for
 	// that cast (SpellAbility.getTotalManaSpent), 0 for a free one.
 	wasCast bool
+	// castSeq names the cast that put the card on the stack, Card.getCastSA's
+	// identity: a number unique in the game, kept and cleared with wasCast.
+	// CastSaSource compares it.
+	castSeq uint64
 	// firstOfCreator marks a token that was its creator's first this turn
 	// (CardZoneTable.addToken's firstTime), which TokenCreatedOnce's OnlyFirst$ reads.
 	firstOfCreator bool
@@ -110,6 +114,14 @@ type Card struct {
 	// had then; rebuilt, never appended in place (Clone shares them).
 	damagedPlayers []PlayerID
 	damagedCards   []damagedCard
+	// dealtDamage is CardDamageHistory.hasdealtDamagetoAny for this object:
+	// dealtNoncombat and dealtCombat bits, set as it deals damage
+	// (CardDamageHistory.java:241); Move clears it, Java's new object.
+	dealtDamage uint8
+	// combatDamagedPlayers is CardDamageHistory.damagedThisCombat: the players
+	// it dealt combat damage this combat, cleared as combat ends
+	// (CardDamageHistory.java:243-244, :305-306), at cleanup and by Move.
+	combatDamagedPlayers []PlayerID
 	// storedRolls are the RollDice StoreResults$ results kept on this card,
 	// ascending (Card.storedRolls), read by Count$MaxSameStoredRolls.
 	storedRolls []int
@@ -689,6 +701,28 @@ type Card struct {
 	// leaves the battlefield (Java's next zone's object is a new Card). The
 	// slice is replaced, never appended in place.
 	devoured []CardID
+	// exploited is Card.getExploited: the creatures this card's Exploit
+	// sacrificed (SacrificeEffect.java:170-171), as devoured is kept.
+	exploited []CardID
+	// drawnThisTurn is Card.getDrawnThisTurn: drawn this turn
+	// (Player.java:1253). Move keeps it only onto the stack
+	// (GameAction.java:218); the cleanup clears it for the cards in hand
+	// (Player.java:2493-2495).
+	drawnThisTurn bool
+	// discarded, milled and surveilled are Card.wasDiscarded, wasMilled and
+	// wasSurveilled: the card a discard, mill or surveil moved
+	// (Player.java:1461, :1604, :1069). Move clears them, Java's new object.
+	discarded, milled, surveilled bool
+	// startedTurnUntapped is Card.hasStartedTheTurnUntapped: untapped as the
+	// turn began (PhaseHandler.java:855-857).
+	startedTurnUntapped bool
+	// exertedThisTurn is Card.getExertedThisTurn: exerted this turn, cleared
+	// at cleanup (Card.java:7319) and by Move.
+	exertedThisTurn int
+	// crewedBy is Card.getCrewedByThisTurn: the creatures tapped to crew this
+	// card this turn, each with its zone stamp (Card.becomesCrewed,
+	// Card.java:6819-6823); cleared at cleanup and by Move.
+	crewedBy []crewStamp
 
 	// goadedBy are this creature's goads (CR 701.15).
 	goadedBy []goad
@@ -1909,4 +1943,11 @@ func transformBack(front *compile.Card) *compile.Card {
 type prototypeChars struct {
 	cost             mana.Cost
 	power, toughness int
+}
+
+// crewStamp is one creature of Card.crewedBy: its id and its zone stamp as it
+// was tapped to crew.
+type crewStamp struct {
+	card  CardID
+	stamp uint64
 }

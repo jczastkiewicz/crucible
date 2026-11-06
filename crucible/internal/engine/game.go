@@ -242,6 +242,8 @@ type Game struct {
 	// and from where (Count$ThisTurnCast_<valid>, castrecord.go); cleared when
 	// a new turn starts.
 	castThisTurn []castRecord
+	// castSeq numbers the casts of the game (Card.castSeq).
+	castSeq uint64
 	// castLastTurn is MagicStack.lastTurnCast (MagicStack.java:961-979): the
 	// previous turn's castThisTurn, rotated as a new turn starts. The
 	// Werewolf trigger conditions read it (amountrecords.go).
@@ -1187,7 +1189,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.onAdventure = false
 	}
 	if kind != Stack && kind != Battlefield {
-		c.wasCast, c.castManaSpent, c.castSnow, c.castPaidSources = false, 0, 0, nil
+		c.wasCast, c.castManaSpent, c.castSnow, c.castPaidSources, c.castSeq = false, 0, 0, nil, 0
 	}
 	flashbackExiled := false
 	if from == Stack && c.flashbackCast {
@@ -1235,6 +1237,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	if from != kind {
 		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
+		c.newObjectFlags(kind)
 	}
 	if from == Stack && kind == Battlefield {
 		g.relinkExiledWith(id, leftStamp, c.zoneStamp)
@@ -1326,7 +1329,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.blockedThisTurn = nil
 		c.attackedThisTurn = nil
 		c.attackedLastTurnOf = nil
-		c.devoured = nil
+		c.devoured, c.exploited = nil, nil
 		c.Suspected, c.Solved, c.Harnessed, c.unearthed = false, false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
 		c.renowned, c.monstrous = false, false
@@ -1435,6 +1438,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	g.putFront(id, owner)
 	if from != Library {
 		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom, c.zoneEntryPlayer = true, g.turn, from, owner
+		c.newObjectFlags(Library)
 	}
 
 	melded := NoCard
@@ -1469,7 +1473,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.blockedThisTurn = nil
 		c.attackedThisTurn = nil
 		c.attackedLastTurnOf = nil
-		c.devoured = nil
+		c.devoured, c.exploited = nil, nil
 		c.Suspected, c.Solved, c.Harnessed, c.unearthed = false, false, false, false
 		c.Saddled, c.saddledBy, c.timesSaddled = false, nil, 0
 		// Layer 3's text change ends with the object (CR 400.7), before the
@@ -1924,6 +1928,8 @@ func (g *Game) Clone() *Game {
 		c.attackedThisTurn = append([]EntityID(nil), g.cards[i].attackedThisTurn...)
 		c.attackedLastTurnOf = append([]PlayerID(nil), g.cards[i].attackedLastTurnOf...)
 		c.devoured = append([]CardID(nil), g.cards[i].devoured...)
+		c.exploited = append([]CardID(nil), g.cards[i].exploited...)
+		c.crewedBy = append([]crewStamp(nil), g.cards[i].crewedBy...)
 		c.castPaidSources = append([]manaSource(nil), g.cards[i].castPaidSources...)
 		c.activations = g.cards[i].activations.clone()
 		c.trigActs = g.cards[i].trigActs.clone()
@@ -1988,6 +1994,8 @@ type castRecord struct {
 	// warp is SpellAbility.isWarp of the cast: it was for the card's Warp
 	// cost (Game.isVoid reads it).
 	warp bool
+	// seq is the card's castSeq for this cast.
+	seq uint64
 }
 
 // zoneEntry is one card's zone change this turn (Zone.cardsAddedThisTurn): the
@@ -2168,4 +2176,17 @@ type triggerEventCheck struct {
 	source     CardID
 	controller PlayerID
 	objects    triggeredObjects
+}
+
+// newObjectFlags clears what a card's next object does not keep
+// (GameAction.changeZone's copyCard, GameAction.java:206-218): the turn's
+// discard, mill, surveil, exert and crew records, and the draw unless it
+// moves onto the stack.
+func (c *Card) newObjectFlags(to ZoneType) {
+	c.drawnThisTurn = c.drawnThisTurn && to == Stack
+	c.discarded, c.milled, c.surveilled = false, false, false
+	c.startedTurnUntapped = false
+	c.exertedThisTurn = 0
+	c.crewedBy = nil
+	c.dealtDamage, c.combatDamagedPlayers = 0, nil
 }

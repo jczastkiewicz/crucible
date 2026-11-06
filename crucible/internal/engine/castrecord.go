@@ -65,28 +65,31 @@ func (g *Game) recordSpellCast(pid PlayerID, card CardID) {
 	g.Player(pid).SpellsCastThisTurn++
 	g.Player(pid).spellsCastThisGame++
 	c := g.Card(card)
-	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp, warp: c.castFor("Warp")})
+	g.castSeq++
+	c.castSeq = g.castSeq
+	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp, warp: c.castFor("Warp"), seq: c.castSeq})
 	g.noteCommanderCast(pid, card)
 }
 
-// thisTurnCastCount is Count$ThisTurnCast_<spec>: the spells cast so far this
-// turn whose card, read as its caster controlled it, matches spec from
-// source's controller's point of view.
-func (g *Game) thisTurnCastCount(source CardID, spec string) (int, bool) {
+// thisTurnCastCards is Count$ThisTurnCast_<spec>'s list: the spells cast so
+// far this turn whose card, read as its caster controlled it and with that
+// cast as its own, matches spec from source's controller's point of view.
+func (g *Game) thisTurnCastCards(source CardID, spec string) ([]*Card, bool) {
 	if source == NoCard {
-		return 0, false
+		return nil, false
 	}
 	parsed := valid.Parse(strings.TrimSpace(spec))
 	host := g.Card(source)
-	n := 0
+	var matched []*Card
 	for _, rec := range g.castThisTurn {
 		view := *g.Card(rec.card)
 		view.controller = rec.controller
+		view.castSeq = rec.seq
 		if Matches(g, &view, parsed, host.Controller(), source) {
-			n++
+			matched = append(matched, &view)
 		}
 	}
-	return n, true
+	return matched, true
 }
 
 // thisTurnCastTypes is CardUtil.getThisTurnCast(spec, source): the type line of

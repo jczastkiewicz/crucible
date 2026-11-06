@@ -25,10 +25,11 @@ import (
 // when one applies (discardReplaced), else through the graveyard's own Moved
 // replacements (moveToGraveyard). The caller fires the Discarded triggers.
 func (g *Game) discardToGraveyard(controller PlayerController, id CardID, cause discardCause) {
-	if g.discardReplaced(controller, id, cause) {
-		return
+	if !g.discardReplaced(controller, id, cause) {
+		g.moveToGraveyard(controller, id)
 	}
-	g.moveToGraveyard(controller, id)
+	// Player.java:1461: the moved card was discarded, wherever it went.
+	g.Card(id).discarded = true
 }
 
 // discardLine is one Discard$ True line that applies to a discard: its host,

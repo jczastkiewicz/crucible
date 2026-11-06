@@ -109,6 +109,14 @@ func TestCardStatePropertiesReadTheCardAndTheSourcesLists(t *testing.T) {
 		{"Creature.NotDefinedRemembered", ogre, giant, false},
 		{"Creature.NotDefinedRemembered", bears, giant, true},
 		{"Card.ThisTurnCast", bears, engine.NoCard, false},
+		{"Card.Chosen", bears, giant, false},
+		{"Card.ManaSpentEQ0", bears, engine.NoCard, false},
+		{"Creature.sharesCardTypeWithOther Remembered", bears, giant, true},
+		{"Creature.sharesCardTypeWithOther Remembered", ogre, giant, false},
+		{"Creature.sharesAllCardTypesWithOther Remembered", bears, giant, true},
+		{"Creature.SharesColorWithOther Remembered", giant, giant, true},
+		{"Creature.SharesColorWithOther Remembered", bears, giant, false},
+		{"Creature.CanBeSacrificedBy", bears, giant, false},
 	}
 	for _, tc := range cases {
 		if got := engine.Matches(g, g.Card(tc.card), valid.Parse(tc.spec), p, tc.source); got != tc.want {
@@ -149,5 +157,59 @@ func TestThisTurnCastAndIsUnearthedReadTheCastAndTheReturn(t *testing.T) {
 	activateOrFail(t, g, p, uc, elemental, 0)
 	if g.Card(elemental).Zone != engine.Battlefield || !isUnearthed() {
 		t.Errorf("after the unearth: zone %v, IsUnearthed %v; want battlefield, true", g.Card(elemental).Zone, isUnearthed())
+	}
+}
+
+// CastSaSource is the cast of the source itself (Card.getCastSA), kept as the
+// spell resolves into a permanent; Count$ThisTurnCast_<valid>$CardManaCost
+// sums the mana values of the spells the valid string keeps (Call Forth the
+// Tempest's "other spells").
+func TestCastSaSourceNamesTheSourcesOwnCast(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Hand)
+	giant := g.NewCard(corpusCard(t, "Hill Giant"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	castThenResolve(t, g, p, bears, c)
+	g.Player(p).ManaPool.Add(mana.Red, 4)
+	c = engine.NewScriptedController()
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	castThenResolve(t, g, p, giant, c)
+	for _, tc := range []struct {
+		card engine.CardID
+		want bool
+	}{{giant, true}, {bears, false}} {
+		if got := engine.Matches(g, g.Card(tc.card), valid.Parse("Card.CastSaSource"), p, giant); got != tc.want {
+			t.Errorf("CastSaSource on %s = %v, want %v", g.Card(tc.card).Name(), got, tc.want)
+		}
+	}
+	before := g.Player(p).Life
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$ThisTurnCast_Card.YouCtrl+!CastSaSource$CardManaCost")
+	if got := g.Player(p).Life - before; got != 6 {
+		t.Errorf("gained %d, want 6 (the Bears' 2 and the Giant's 4)", got)
+	}
+}
+
+// NameNotEnchantingEnchantedPlayer: no card attached to the player the source
+// enchants has c's name (CardProperty.java:455-459, Curse of Misfortunes).
+func TestNameNotEnchantingEnchantedPlayerReadsThePlayersAttachments(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	curse := g.NewCard(corpusCard(t, "Curse of Misfortunes"), p, engine.Battlefield)
+	g.AttachToPlayer(curse, other)
+	twin := g.NewCard(corpusCard(t, "Curse of Misfortunes"), p, engine.Library)
+	heart := g.NewCard(corpusCard(t, "Curse of the Pierced Heart"), p, engine.Library)
+	spec := valid.Parse("Aura.Curse+NameNotEnchantingEnchantedPlayer")
+	if engine.Matches(g, g.Card(twin), spec, p, curse) || !engine.Matches(g, g.Card(heart), spec, p, curse) {
+		t.Errorf("twin %v, other curse %v; want false, true",
+			engine.Matches(g, g.Card(twin), spec, p, curse), engine.Matches(g, g.Card(heart), spec, p, curse))
 	}
 }

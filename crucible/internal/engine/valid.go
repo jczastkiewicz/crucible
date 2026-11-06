@@ -755,10 +755,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		}
 		host, ok := c.AttachedTo()
 		return ok && Matches(g, g.Card(host), valid.Parse(restriction), sourceController, source)
-	case name == "EnchantedPlayer", name == "EnchantedPlayerCtrl":
-		// CardProperty.java:238: the card's owner (or, with Ctrl, its
+	case strings.HasPrefix(name, "EnchantedPlayer"):
+		// CardProperty.java:239-248: the card's owner (or, ending in Ctrl, its
 		// controller) is the player source enchants; a source enchanting
-		// anything else matches nothing.
+		// anything else matches nothing. Any other suffix reads the owner, as
+		// Curse of Clinging Webs' EnchantedPlayerCtr does (card-script-defects.md).
 		sc, ok := sourceCard(g, source)
 		if !ok {
 			return false
@@ -767,7 +768,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		if !attached {
 			return false
 		}
-		if name == "EnchantedPlayerCtrl" {
+		if strings.HasSuffix(name, "Ctrl") {
 			return c.Controller() == pid
 		}
 		return c.Owner == pid
@@ -3276,6 +3277,123 @@ func cardStateMatches(g *Game, c *Card, name string, sourceController PlayerID, 
 		return relationWithDefinedMatches(g, c, name, sourceController, source), true
 	case strings.HasPrefix(name, "doesNotShareNameWith"):
 		return !doesShareNameWith(g, c, name, sourceController, source), true
+	case name == "CanBeSacrificedBy":
+		// CardProperty.java:433-437, Card.canBeSacrificedBy(sa, false)
+		// (Card.java:7067-7091): with the ability of source in context, a
+		// permanent no Mode$ CantSacrifice protects from it. Without one Java
+		// skips the branch and reads a type, false.
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return false, true
+		}
+		return c.Zone == Battlefield && !c.IsPhasedOut() && !g.cantSacrifice(c, false, a), true
+	case strings.HasPrefix(name, "ManaSpent"):
+		// Not a CardProperty: Java reads it off a SpellAbility
+		// (SpellAbilityProperty.java:183-187), which a ConditionDefined$
+		// Targeted spell is there and its card on the stack is here (Nix).
+		// Any other card is read as a type, false.
+		return c.Zone == Stack && castSaManaSpent("Spell."+name, c.castManaSpent), true
+	case name == "CastSaSource":
+		// CardProperty.java:1915-1922: c was cast by the same cast as the
+		// source (Card.getCastSA): "other spells" in Count$ThisTurnCast.
+		sc, ok := sourceCard(g, source)
+		return ok && c.castSeq != 0 && c.castSeq == sc.castSeq, true
+	case name == "NameNotEnchantingEnchantedPlayer":
+		// CardProperty.java:455-459: the source enchants a player, and no card
+		// attached to that player has c's name (GameEntity.isEnchantedBy,
+		// any attachment, CR 303.4k).
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false, true
+		}
+		pid, attached := sc.AttachedToPlayer()
+		if !attached {
+			return false, true
+		}
+		for _, owner := range g.Players() {
+			for _, id := range g.Zone(Battlefield, owner).Cards() {
+				if on, onPlayer := g.Card(id).AttachedToPlayer(); onPlayer && on == pid && g.Card(id).Name() == c.Name() {
+					return false, true
+				}
+			}
+		}
+		return true, true
+	case name == "Chosen":
+		// No branch names a bare Chosen (the property is ChosenCard), so Java
+		// reads it as a type, false for every card: Dawnbreak Reclaimer's
+		// Count$ValidGraveyard Card.Chosen is 0 (card-script-defects.md).
+		return false, true
+	case strings.HasPrefix(name, "sharesCardTypeWithOther "), strings.HasPrefix(name, "sharesAllCardTypesWithOther "), strings.HasPrefix(name, "SharesColorWithOther "):
+		// CardProperty.java:647-652, :754-759, :786-790: some card of the
+		// Defined$ list but c itself shares a card type, all of its card
+		// types, or a color with c (none for a colorless c).
+		head, defined, _ := strings.Cut(name, " ")
+		if head == "SharesColorWithOther" && c.Colors().IsColorless() {
+			return false, true
+		}
+		for _, id := range g.validDefinedCards(defined, sourceController, source) {
+			if id == c.ID {
+				continue
+			}
+			o := g.Card(id)
+			switch head {
+			case "sharesCardTypeWithOther":
+				if sharesCardType(o, c) {
+					return true, true
+				}
+			case "sharesAllCardTypesWithOther":
+				if sameCoreTypes(o, c) {
+					return true, true
+				}
+			default:
+				if c.Colors().HasAny(o.Colors()) {
+					return true, true
+				}
+			}
+		}
+		return false, true
+	case strings.HasPrefix(name, "DrawnThisTurn"):
+		// CardProperty.java:1067-1070.
+		return c.drawnThisTurn, true
+	case name == "DiscardedThisTurn", name == "milledThisTurn", name == "surveilledThisTurn":
+		// CardProperty.java:987-1007: c entered its zone this turn
+		// (Card.enteredThisTurn) by the discard, mill or surveil.
+		flag := map[string]bool{"DiscardedThisTurn": c.discarded, "milledThisTurn": c.milled, "surveilledThisTurn": c.surveilled}[name]
+		return flag && c.zoneEntered && c.zoneEntryTurn == g.turn, true
+	case strings.HasPrefix(name, "startedTheTurnUntapped"):
+		// CardProperty.java:1079-1082.
+		return c.startedTurnUntapped, true
+	case strings.HasPrefix(name, "notExertedThisTurn"):
+		// CardProperty.java:1203-1206.
+		return c.exertedThisTurn == 0, true
+	case strings.HasPrefix(name, "exploited"):
+		// CardProperty.java:1375-1378: c is among the creatures the source's
+		// Exploit sacrificed, by id.
+		sc, ok := sourceCard(g, source)
+		return ok && slices.Contains(sc.exploited, c.ID), true
+	case strings.HasPrefix(name, "attackedBattleThisTurn"):
+		// CardProperty.java:1189-1192, CardDamageHistory.java:63-68: c attacked
+		// a battle this turn. Java notes the battle as the attack is declared;
+		// this reads the attacked card's type now.
+		for _, e := range c.attackedThisTurn {
+			if id, isCard := e.AsCard(); isCard && g.Card(id).Type().Has(cardtype.Battle) {
+				return true, true
+			}
+		}
+		return false, true
+	case name == "CrewedThisTurn", name == "CrewedBySourceThisTurn":
+		// CardProperty.java:1822-1825, hasTimestampMatch: c crewed the source
+		// this turn (CrewedThisTurn), or the source crewed c, each object
+		// with its zone stamp.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false, true
+		}
+		crew, vehicle := c, sc
+		if name == "CrewedBySourceThisTurn" {
+			crew, vehicle = sc, c
+		}
+		return slices.Contains(vehicle.crewedBy, crewStamp{card: crew.ID, stamp: crew.zoneStamp}), true
 	case strings.HasPrefix(name, "NotDefined"):
 		// CardProperty.java:2067-2071: c is not among the Defined$ cards the
 		// rest of the name names (none without an ability in context).
@@ -3403,4 +3521,10 @@ func doesShareNameWith(g *Game, c *Card, name string, sourceController PlayerID,
 		return len(same) > 1 || len(same) == 1 && same[0] != c.ID
 	}
 	return anyShares(g.battlefieldMatching(restriction, sourceController, source))
+}
+
+// sameCoreTypes is CardType.sharesAllCardTypesWith: the same set of card
+// types.
+func sameCoreTypes(a, b *Card) bool {
+	return slices.Equal(a.Type().CoreTypes(), b.Type().CoreTypes())
 }

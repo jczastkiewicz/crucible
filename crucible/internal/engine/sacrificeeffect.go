@@ -399,6 +399,8 @@ func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []C
 			g.noteDevoured(controller, a.Source, id)
 		}
 		if isExploitAbility(a) {
+			h := g.Card(a.Source)
+			h.exploited = append(append([]CardID(nil), h.exploited...), id)
 			g.checkExploitedTriggers(controller, a.Source, id)
 		}
 	}

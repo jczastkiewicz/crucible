@@ -578,10 +578,20 @@ func (g *Game) inGamePlayers() []PlayerID {
 }
 
 // noteDamagedThisGame is CardDamageHistory.registerDamage's per-game list
-// (getThisGameDamaged): source has dealt damage to target.
-func (g *Game) noteDamagedThisGame(source CardID, target EntityID) {
+// (getThisGameDamaged): source has dealt damage to target. It notes the kind
+// of damage dealt and, for combat damage to a player, the player damaged this
+// combat too.
+func (g *Game) noteDamagedThisGame(source CardID, target EntityID, combat bool) {
 	c := g.Card(source)
+	if combat {
+		c.dealtDamage |= dealtCombat
+	} else {
+		c.dealtDamage |= dealtNoncombat
+	}
 	if pid, ok := target.AsPlayer(); ok {
+		if combat {
+			c.combatDamagedPlayers = append(slices.Clone(c.combatDamagedPlayers), pid)
+		}
 		if !slices.Contains(c.damagedPlayers, pid) {
 			c.damagedPlayers = append(slices.Clone(c.damagedPlayers), pid)
 		}
@@ -599,3 +609,9 @@ func (g *Game) noteDamagedThisGame(source CardID, target EntityID) {
 	}
 	c.damagedCards = append(slices.Clone(c.damagedCards), damagedCard{id, stamp})
 }
+
+// The bits of Card.dealtDamage.
+const (
+	dealtNoncombat uint8 = 1 << iota
+	dealtCombat
+)

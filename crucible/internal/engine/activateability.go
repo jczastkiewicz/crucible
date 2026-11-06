@@ -510,6 +510,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.SelfExert {
 		c.Exerted = true
+		c.exertedThisTurn++
 		g.checkExertedTriggers(controller, card)
 	}
 	if shape.DiscardN > 0 {

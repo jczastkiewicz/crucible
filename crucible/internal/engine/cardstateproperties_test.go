@@ -213,3 +213,66 @@ func TestNameNotEnchantingEnchantedPlayerReadsThePlayersAttachments(t *testing.T
 			engine.Matches(g, g.Card(twin), spec, p, curse), engine.Matches(g, g.Card(heart), spec, p, curse))
 	}
 }
+
+// IsTriggerRemembered reads the remembered list of the trigger in context
+// while its targets are chosen: Espers to Magicite's reflexive trigger may
+// target only a creature card it exiled (CardProperty.java:164-176).
+func TestIsTriggerRememberedNamesTheReflexiveTriggersCards(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	ogre := g.NewCard(corpusCard(t, "Gray Ogre"), other, engine.Graveyard)
+	espers := g.NewCard(corpusCard(t, "Espers to Magicite"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Black, 4)
+	c := engine.NewScriptedController()
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardB)
+	}
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(ogre)})
+	castThenResolve(t, g, p, espers, c)
+	if err := g.TakePendingError(); err != nil {
+		t.Fatal(err)
+	}
+	if g.Card(ogre).Zone != engine.Exile {
+		t.Fatalf("Gray Ogre in %v, want exile", g.Card(ogre).Zone)
+	}
+	tokens := 0
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if g.Card(id).IsToken && g.Card(id).Name() == "Gray Ogre" {
+			tokens++
+		}
+	}
+	if tokens != 1 {
+		t.Errorf("%d Gray Ogre tokens, want 1", tokens)
+	}
+}
+
+// ExiledWithEffectSource reads the effect card's maker: a card exiled with the
+// host matches from the effect the same host made (CardProperty.java:414-420).
+func TestExiledWithEffectSourceReadsTheEffectsMaker(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	ogre := g.NewCard(corpusCard(t, "Gray Ogre"), other, engine.Graveyard)
+	bolt := g.NewCard(corpusCard(t, "Lightning Bolt"), other, engine.Exile)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ ChangeZoneAll | ChangeType$ Creature | Origin$ Graveyard | Destination$ Exile | SubAbility$ DBEffect",
+		"DBEffect", "DB$ Effect | Duration$ Permanent"); err != nil {
+		t.Fatal(err)
+	}
+	var effect engine.CardID
+	for _, id := range g.Zone(engine.Command, p).Cards() {
+		if g.Card(id).IsEffect {
+			effect = id
+		}
+	}
+	if effect == engine.NoCard {
+		t.Fatal("no effect card made")
+	}
+	spec := valid.Parse("Card.ExiledWithEffectSource")
+	if !engine.Matches(g, g.Card(ogre), spec, p, effect) || engine.Matches(g, g.Card(bolt), spec, p, effect) {
+		t.Errorf("exiled Ogre %v, other exiled card %v; want true, false",
+			engine.Matches(g, g.Card(ogre), spec, p, effect), engine.Matches(g, g.Card(bolt), spec, p, effect))
+	}
+}

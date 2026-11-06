@@ -31,7 +31,7 @@ func (g *Game) becomesCrewed(controller PlayerController, a *Ability) {
 	host := a.Source
 	g.crewedThisTurn = append(g.crewedThisTurn, host)
 	for _, id := range a.paid.tapped {
-		g.Card(host).crewedBy = append(g.Card(host).crewedBy, crewStamp{card: id, stamp: g.Card(id).zoneStamp})
+		g.Card(host).crewedBy = append(g.Card(host).crewedBy, objectStamp{card: id, stamp: g.Card(id).zoneStamp})
 	}
 	times := 0
 	for _, id := range g.crewedThisTurn {

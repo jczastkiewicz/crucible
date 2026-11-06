@@ -3318,6 +3318,41 @@ func cardStateMatches(g *Game, c *Card, name string, sourceController PlayerID, 
 			}
 		}
 		return true, true
+	case name == "IsTriggerRemembered":
+		// CardProperty.java:164-176: c is one of the cards the trigger of the
+		// ability in context remembered (RememberObjects$, carried down its
+		// sub-abilities), read while its targets are chosen or it resolves.
+		// Java compares each with its game timestamp; the list here holds ids,
+		// as every other reader of it does (quirks.md).
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return false, true
+		}
+		return containsEntity(a.TriggerRemembered, CardEntity(c.ID)), true
+	case name == "ExiledWithEffectSource":
+		// CardProperty.java:414-420: c was exiled with the object that made
+		// the source effect card (Card.getEffectSource, with its game
+		// timestamp): King Narfi's Betrayal's exiled cards.
+		sc, ok := sourceCard(g, source)
+		if !ok || !sc.IsEffect || sc.effectLife.host == NoCard {
+			return false, true
+		}
+		ew := c.exiledWith
+		return ew.host == sc.effectLife.host && ew.stamp == sc.effectLife.hostStamp, true
+	case name == "hadToAttackThisCombat":
+		// CardProperty.java:1693-1697: c, this object, had an attack
+		// requirement as attackers were declared this combat.
+		return slices.Contains(g.combat.hadToAttack, objectStamp{card: c.ID, stamp: c.zoneStamp}), true
+	case name == "couldAttackButNotAttacking":
+		// CardProperty.java:1698-1700: on its controller's turn only.
+		if c.Controller() != g.activePlayer {
+			return false, true
+		}
+		could, err := g.couldAttackButNotAttacking(c.ID)
+		if err != nil {
+			g.recordPendingError(err)
+		}
+		return could, true
 	case name == "Chosen":
 		// No branch names a bare Chosen (the property is ChosenCard), so Java
 		// reads it as a type, false for every card: Dawnbreak Reclaimer's
@@ -3393,7 +3428,7 @@ func cardStateMatches(g *Game, c *Card, name string, sourceController PlayerID, 
 		if name == "CrewedBySourceThisTurn" {
 			crew, vehicle = sc, c
 		}
-		return slices.Contains(vehicle.crewedBy, crewStamp{card: crew.ID, stamp: crew.zoneStamp}), true
+		return slices.Contains(vehicle.crewedBy, objectStamp{card: crew.ID, stamp: crew.zoneStamp}), true
 	case strings.HasPrefix(name, "NotDefined"):
 		// CardProperty.java:2067-2071: c is not among the Defined$ cards the
 		// rest of the name names (none without an ability in context).

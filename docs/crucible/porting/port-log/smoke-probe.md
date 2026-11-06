@@ -58,8 +58,8 @@ Measured on the full corpus (34,134 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,585 |
-| refused      |      9 |
+| plays        | 33,591 |
+| refused      |      3 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -73,16 +73,12 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 4 | `turns: valid property not resolvable` |
 | 2 | `activate: valid property not resolvable` |
-| 2 | `resolve: valid property not resolvable` |
-| 1 | `turns: static trigger of: valid property not resolvable` |
+| 1 | `resolve: valid property not resolvable` |
 
-All 9 are one gate: a valid-string property no case of `valid.go` ports that names no card type either (`checkTypeWord`,
-open plan R19b) errors instead of matching nothing. Five properties remain: `set<CODE>` (Apocalypse Chime, Golgothian
-Sylex, City in a Bottle), which needs edition data, `ExiledWithEffectSource` and `IsTriggerRemembered`, which need the
-effect-source and trigger-remembered stamps, and `couldAttackButNotAttacking` and `hadToAttackThisCombat` (Season of the
-Witch, Firkraag), which read the attack constraints.
+All 3 are one gate: a valid-string property no case of `valid.go` ports that names no card type either (`checkTypeWord`,
+open plan R19b) errors instead of matching nothing. One property remains: `set<CODE>` (Apocalypse Chime, Golgothian
+Sylex, City in a Bottle), which needs edition data.
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

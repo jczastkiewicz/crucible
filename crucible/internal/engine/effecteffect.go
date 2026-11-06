@@ -407,6 +407,10 @@ type effectLifetime struct {
 	player   PlayerID
 	armed    bool
 	host     CardID
+	// hostStamp is the host object's stamp as the effect is made
+	// (SpellAbilityEffect.getEffectSource's Card, its game timestamp):
+	// ExiledWithEffectSource compares it.
+	hostStamp uint64
 	// until is a Duration$ addUntilCommand puts the ending command on
 	// (AsLongAsControl, UntilUntaps, UntilYourNextEndStep, ...): the effect is
 	// permanent until that command runs, not a lifetime this struct's
@@ -437,6 +441,7 @@ type effectLifetime struct {
 func effectDurationOf(g *Game, a *Ability) (life effectLifetime, ok bool, err error) {
 	d, has := a.Params.Param("Duration")
 	life.host = a.Source
+	life.hostStamp, _ = g.hostObjectStamp(a.Source)
 	switch {
 	case !has:
 		life.duration = effectUntilEndOfTurn

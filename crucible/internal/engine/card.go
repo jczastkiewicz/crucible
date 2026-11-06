@@ -722,7 +722,7 @@ type Card struct {
 	// crewedBy is Card.getCrewedByThisTurn: the creatures tapped to crew this
 	// card this turn, each with its zone stamp (Card.becomesCrewed,
 	// Card.java:6819-6823); cleared at cleanup and by Move.
-	crewedBy []crewStamp
+	crewedBy []objectStamp
 
 	// goadedBy are this creature's goads (CR 701.15).
 	goadedBy []goad
@@ -1945,9 +1945,9 @@ type prototypeChars struct {
 	power, toughness int
 }
 
-// crewStamp is one creature of Card.crewedBy: its id and its zone stamp as it
-// was tapped to crew.
-type crewStamp struct {
+// objectStamp is one object: a card's id and its zone stamp then (Java's
+// equalsWithGameTimestamp identity).
+type objectStamp struct {
 	card  CardID
 	stamp uint64
 }

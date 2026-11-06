@@ -44,6 +44,11 @@ type Combat struct {
 	// (banding.go, ADR-0057), in declaration order; every other attacker is
 	// a band of one.
 	bands [][]CardID
+	// hadToAttack are the creatures with an attack requirement as attackers
+	// were declared (AttackConstraints.getRequirements, AttackRequirement.
+	// hasRequirement), each as the object it was then: the
+	// hadToAttackThisCombat property reads it.
+	hadToAttack []objectStamp
 }
 
 // isUnblocked is Combat.isUnblocked: an attacker whose blocked status was

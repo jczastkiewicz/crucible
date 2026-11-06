@@ -1929,7 +1929,7 @@ func (g *Game) Clone() *Game {
 		c.attackedLastTurnOf = append([]PlayerID(nil), g.cards[i].attackedLastTurnOf...)
 		c.devoured = append([]CardID(nil), g.cards[i].devoured...)
 		c.exploited = append([]CardID(nil), g.cards[i].exploited...)
-		c.crewedBy = append([]crewStamp(nil), g.cards[i].crewedBy...)
+		c.crewedBy = append([]objectStamp(nil), g.cards[i].crewedBy...)
 		c.castPaidSources = append([]manaSource(nil), g.cards[i].castPaidSources...)
 		c.activations = g.cards[i].activations.clone()
 		c.trigActs = g.cards[i].trigActs.clone()

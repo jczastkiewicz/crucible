@@ -102,6 +102,11 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	}
 	g.combat.AttackTargets = targets
 	g.combat.bands = bands
+	for i := range v.ac.requirements {
+		if r := &v.ac.requirements[i]; r.hasRequirement() {
+			g.combat.hadToAttack = append(g.combat.hadToAttack, objectStamp{card: r.attacker, stamp: g.Card(r.attacker).zoneStamp})
+		}
+	}
 	// One batch for every mode the declaration runs (Taps, Exerted, Attacks,
 	// AttackersDeclared...): Java collects them all before any reaches the
 	// stack (beginTriggerBatch).

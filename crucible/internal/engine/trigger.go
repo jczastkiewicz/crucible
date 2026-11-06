@@ -3131,8 +3131,11 @@ func triggerResolvedLimitMet(host *Card, t, execute *compile.Ability) bool {
 // accepts those through otherOptionalDecider (TriggeredCardController, 43;
 // TriggeredSourceController, 5; TriggeredPlayer/Opponent, 4 each, and the
 // rest), and optionalTriggerDecider resolves the player at resolution as a
-// defined player (TriggerHandler.java:515-517). True (11 lines) names no
-// player, so its line is skipped (GO-7).
+// defined player (TriggerHandler.java:515-517). True is left out: no real
+// T: line carries it (its 11 lines are all DB$ Draw SVar bodies), and
+// getDefinedPlayers would answer it from its default branch, every seated
+// player in turn order (AbilityUtils.java:1187-1190), get(0) the first seat,
+// a decider no Defined$ form here names, so such a line is skipped (GO-7).
 //
 // 83 more real lines name OptionalDecider$ on a sub-ability's own SVar body
 // rather than a T: line (a chained SubAbility$'s own independent "may," CR
@@ -3153,8 +3156,9 @@ func triggerIsOptional(t *compile.Ability) (optional, ok bool) {
 
 // otherOptionalDecider reports whether t names an OptionalDecider$ other than
 // You that optionalTriggerDecider resolves at resolution: any Defined$ player
-// form but True (11 lines, which AbilityUtils.getDefinedPlayers answers with
-// no player, so TriggerHandler.java:517's get(0) has no decider to read).
+// form but True, which no real T: line carries and which getDefinedPlayers'
+// default branch would answer with the first seated player
+// (AbilityUtils.java:1187-1190, triggerIsOptional's own doc comment).
 func otherOptionalDecider(t *compile.Ability) bool {
 	decider, ok := t.Param("OptionalDecider")
 	return ok && !strings.EqualFold(decider, "You") && !strings.EqualFold(decider, "True")

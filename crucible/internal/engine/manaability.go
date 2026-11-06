@@ -179,8 +179,18 @@ func canProduceManaColor(c *Card, color string) bool {
 		if !ok || ab.Record != compile.Activated || ab.Name != "Mana" {
 			continue
 		}
+		// AbilityManaPart.canProduce/mana (:510-523, :601-613, :644-684):
+		// "Any" anywhere in Produced$ makes every color but colorless; a
+		// Combo line drops its "Combo " word and Chosen becomes the host's
+		// chosen colors before the letter test, so neither word's own C
+		// reads as colorless (Fiery Islet's Combo U R, a Thriving land).
 		produced, _ := ab.Param("Produced")
-		if produced == "Any" && short != "C" || strings.Contains(produced, short) {
+		if strings.Contains(produced, "Any") && short != "C" {
+			return true
+		}
+		produced = strings.ReplaceAll(produced, "Combo ", "")
+		produced = strings.ReplaceAll(produced, "Chosen", c.Memory.ChosenColors().String())
+		if strings.Contains(produced, short) {
 			return true
 		}
 	}

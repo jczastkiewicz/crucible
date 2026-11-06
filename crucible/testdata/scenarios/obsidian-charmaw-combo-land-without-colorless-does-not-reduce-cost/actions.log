@@ -1,0 +1,17 @@
+# Obsidian Charmaw costs {1} less per opponent land that could produce {C}
+# (canProduceManaColor, CardProperty.java:804-811). Fiery Islet's
+# "Produced$ Combo U R" holds a C only in the word Combo, which
+# AbilityManaPart strips first (:644-684), so only Wastes counts: one less,
+# not two. L2: same as Java.
+startturn human
+advance 3
+queue paygeneric R
+queue paygeneric R
+queue targets 56
+tapformana human 100 R
+tapformana human 101 R
+tapformana human 102 R
+tapformana human 103 R
+castspell human 1
+resolvestack
+resolvestack

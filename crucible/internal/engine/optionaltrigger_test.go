@@ -99,9 +99,10 @@ func TestDeclinedOptionalTriggerSkipsWholeAbilityChain(t *testing.T) {
 }
 
 // TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking proves the
-// fail-closed half: OptionalDecider$ True, which getDefinedPlayers answers
-// with no player (TriggerHandler.java:517 has no decider to read), skips the
-// whole trigger line before ever reaching ConfirmOptionalTrigger -- if it
+// fail-closed half: OptionalDecider$ True, a value no real T: line carries
+// and this port does not resolve (Java's getDefinedPlayers default branch
+// would pick the first seat, AbilityUtils.java:1187-1190), skips the whole
+// trigger line before ever reaching ConfirmOptionalTrigger -- if it
 // asked, the scripted controller's own empty queue would panic, so a clean
 // run with nothing drawn or lost proves the question was never posed at all.
 func TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking(t *testing.T) {

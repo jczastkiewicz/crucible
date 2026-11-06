@@ -894,6 +894,11 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it sacrificed", defined)
 		}
 		return append([]CardID(nil), refs.paid.sacrificedMoved...), nil
+	case "Milled":
+		if !refs.paid.recorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it milled", defined)
+		}
+		return append([]CardID(nil), refs.paid.milled...), nil
 	case "Tapped":
 		if !refs.paid.recorded {
 			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it tapped", defined)

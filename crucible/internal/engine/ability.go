@@ -871,7 +871,10 @@ type paidLists struct {
 	// returned is what a Return<..> cost returned to hand (Defined$ Returned,
 	// ReturnedCards): ids, so a last-known-information read still names what an
 	// Aura was attached to (CardCopyService.java:75).
-	returned     []CardID
+	returned []CardID
+	// milled is what a Mill<N> cost put into the graveyard (CostMill.java:100,
+	// getPaidList("Milled")): Charmed Pendant's mana reads it.
+	milled       []CardID
 	recorded     bool
 	mana         []manaSource
 	manaRecorded bool

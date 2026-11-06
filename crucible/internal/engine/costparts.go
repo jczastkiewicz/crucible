@@ -466,6 +466,9 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 			g.moveToGraveyard(controller, id)
 			milled = append(milled, id)
 		}
+		if rec != nil {
+			rec.milled = append(rec.milled, milled...)
+		}
 		g.checkLeftZoneTriggers(controller, milled, Library)
 		g.checkChangesZoneAllTriggers(controller, milled, Library, Graveyard)
 	}

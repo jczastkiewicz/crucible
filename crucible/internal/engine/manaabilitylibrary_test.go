@@ -85,3 +85,31 @@ func TestTapLandForColorlessUsesTheCAbility(t *testing.T) {
 		t.Errorf("tapped = %v, pool = %d; want tapped and 1", g.Card(wastes).Tapped, g.Player(p).ManaPool.Total())
 	}
 }
+
+// Charmed Pendant's ability, a stack ability for its Mill cost, adds one mana
+// per colored symbol of the milled card (ManaEffect.java:237-254, Defined$
+// Milled the cost's paid list): Counterspell's {U}{U} makes two blue.
+func TestCharmedPendantAddsTheMilledCardsColoredSymbols(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Counterspell"), p, engine.Library)
+	pendant := g.NewCard(corpusCard(t, "Charmed Pendant"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, pendant, 0, c) {
+		t.Fatalf("ActivateAbility failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 2, 0, 0, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want two blue", got)
+	}
+	if got := g.Zone(engine.Graveyard, p).Len(); got != 1 {
+		t.Errorf("graveyard = %d cards, want the milled Counterspell", got)
+	}
+}

@@ -19,8 +19,9 @@
 // resolve, trimmed hard: that file also handles isComboMana's own
 // specifyManaCombo multi-symbol-at-once choice (a different controller
 // decision from the single-color-per-target ChooseManaColor this file
-// reuses), isSpecialMana's own EnchantedManaCost/EachColoredManaSymbol/
-// DoubleManaInPool/LastNotedType/EachColorAmong reference vocabulary, and
+// reuses), isSpecialMana's DoubleManaInPool/EachColorAmong reference
+// vocabulary (LastNotedType, EnchantedManaCost and EachColoredManaSymbol
+// resolve below), and
 // Chooser$'s own delegated-decider override -- 0 real (SP|DB)$ Mana lines
 // name Chooser$ at all, so nothing here is silently ignored by skipping it.
 
@@ -165,6 +166,31 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				}
 				if colorless > 0 {
 					pool.addProduced(producedMana{colorless: true, amount: colorless, restrict: restrict, combat: combat}, src)
+				}
+			}
+		case strings.HasPrefix(produced, "Special EachColoredManaSymbol_"):
+			// ManaEffect.java:237-254: one mana per colored symbol of the Defined
+			// cards' mana costs (Charmed Pendant's milled card), the player's
+			// choice of color for a multicolored symbol; colorless and generic
+			// symbols make nothing.
+			cards, err := definedCardsInGame(g, a.Controller, g.Card(a.Source), strings.TrimPrefix(produced, "Special EachColoredManaSymbol_"), a.refs())
+			if err != nil {
+				return err
+			}
+			for _, id := range cards {
+				for _, sh := range g.Card(id).manaCost().Shards() {
+					colors := sh.Colors()
+					switch {
+					case colors == 0:
+						continue
+					case colors.Count() > 1:
+						color := controller.ChooseManaColor(g, pid, a.Source, colors)
+						if color.Count() != 1 || !colors.Has(color) {
+							return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with one color of the symbol")
+						}
+						colors = color
+					}
+					pool.addProduced(producedMana{color: colors, amount: 1, restrict: restrict, combat: combat}, src)
 				}
 			}
 		case strings.HasPrefix(produced, "Combo "):

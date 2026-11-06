@@ -150,6 +150,7 @@ queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker p
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue discardchoice <id>[,...]  ScriptedController.QueueDiscardChoice, ChooseCardsToDiscard's pick (a Discard<N/Card> cost), ids from Loaded.CardByFixtureID
+queue entitychoice <t>[,...]|none  ScriptedController.QueueEntityChoice, an effect's ChooseEntitiesForEffect pick (Proliferate), each <t> a card's Loaded.CardByFixtureID or a seated player's name; none is an empty pick
 queue tapchoice <id>[,...]      ScriptedController.QueueTapChoice, a tapXType cost's ChoosePermanentsToTap pick (Station, Crew), ids from Loaded.CardByFixtureID
 queue triggerorder <i>[,...]    ScriptedController.QueueTriggerOrder, a player's OrderSimultaneousTriggers answer (CR 603.3b): indices of their triggers in the order found, listed in the order they resolve
 queue cardchoice <id>[,...]|none  ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID; none is an empty pick (a declined Optional$ Discard)

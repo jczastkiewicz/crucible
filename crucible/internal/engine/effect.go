@@ -113,6 +113,9 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if a.evolve != NoCard && !g.Card(a.Source).evolvedBy(g.Card(a.evolve)) {
 		return nil
 	}
+	if g != nil && !g.interveningIfHolds(a) {
+		return nil
+	}
 	if a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
 		return nil
 	}

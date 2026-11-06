@@ -1,0 +1,10 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Forest|Id:2|Tapped
+humangraveyard=Evolving Wilds
+humanlibrary=Island
+ailife=21
+aibattlefield=Archivist of Oghma|Id:4
+aihand=Plains

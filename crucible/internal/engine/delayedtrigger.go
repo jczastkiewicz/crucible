@@ -111,7 +111,7 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -148,7 +148,7 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -181,7 +181,7 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -214,7 +214,7 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -338,7 +338,7 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 			continue
 		}
 		matches = append(matches, Ability{
-			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -422,7 +422,7 @@ func (g *Game) delayedFire(d delayedTrigger, objs triggeredObjects) (Ability, bo
 		return Ability{}, false
 	}
 	return Ability{
-		API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+		API: api, Source: d.Host, Controller: d.Controller, Params: sub, firedDelayed: d.Trigger,
 		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, rememberedStamps: d.RememberedStamps,
 		triggered: objs, spawnerTriggered: d.spawner(),
 		hostTransforms: d.HostTransforms, hasHostTransforms: true,

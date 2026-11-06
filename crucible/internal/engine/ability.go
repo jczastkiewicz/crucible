@@ -184,6 +184,10 @@ type Ability struct {
 	// simply never read. Replaced, never written in place: a stack item
 	// copied by value (copySpell, Game.Clone) shares it.
 	divided []dividedShare
+	// firedDelayed is the delayed trigger line that fired this ability,
+	// nil for any other: its conditions are rechecked as it resolves
+	// (interveningIfHolds), as a card trigger's are off Ability.trigger.
+	firedDelayed *compile.Ability
 	// evolve is the creature that entered for a trigger naming Condition$
 	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
 	// ability resolves, against the creatures' values by then. NoCard for

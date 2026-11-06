@@ -1,0 +1,9 @@
+# Mode$ Exerted (CR 701.39, TriggerExerted): Resolute Survivors is exerted as
+# it attacks; "whenever you exert a creature, deals 1 damage to each opponent
+# and you gain 1 life" fires off its own exertion.
+startturn human
+advance 5
+queue attackers 1
+queue exertattackers 1
+declareattackers
+resolvestack

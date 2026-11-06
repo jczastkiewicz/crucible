@@ -3017,13 +3017,8 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // integers, as Integer.parseInt reads them; one that is not refuses, GO-7).
 // pushTriggeredAbilities counts a firing as the trigger goes on the stack.
 func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
-	// CR 603.2i: ResolvedLimit$ counts resolutions this turn (Trigger.
-	// checkResolvedLimit), where ActivationLimit$ counts firings.
-	if raw, ok := t.Param("ResolvedLimit"); ok {
-		limit, err := strconv.Atoi(raw)
-		if resolved, _ := host.trigResolved.of(execute); err != nil || resolved >= limit {
-			return false
-		}
+	if !triggerResolvedLimitMet(host, t, execute) {
+		return false
 	}
 	turn, game := host.trigActs.of(execute)
 	for _, k := range [...]struct {
@@ -3040,6 +3035,19 @@ func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
 		}
 	}
 	return true
+}
+
+// triggerResolvedLimitMet is Trigger.checkResolvedLimit (CR 603.2i):
+// ResolvedLimit$ counts resolutions this turn, where ActivationLimit$ counts
+// firings; a value that is not an integer refuses (GO-7).
+func triggerResolvedLimitMet(host *Card, t, execute *compile.Ability) bool {
+	raw, ok := t.Param("ResolvedLimit")
+	if !ok {
+		return true
+	}
+	limit, err := strconv.Atoi(raw)
+	resolved, _ := host.trigResolved.of(execute)
+	return err == nil && resolved < limit
 }
 
 // triggerIsOptional is CR 603.3d's own "may" trigger, WrappedAbility.java's

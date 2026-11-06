@@ -636,6 +636,21 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueCardChoice(ids)
 
+	case "entitychoice":
+		// ChooseEntitiesForEffect: players and permanents an effect picks
+		// among (Proliferate's "choose any number"), each a card's
+		// CardByFixtureID or a seated player's name; "none" is an empty pick,
+		// the answer Java still asks for when nothing qualifies.
+		if value == "none" {
+			c.QueueEntityChoice(nil)
+			break
+		}
+		chosen, err := resolveTargetEntities(l, value)
+		if err != nil {
+			return fmt.Errorf("queue entitychoice: %w", err)
+		}
+		c.QueueEntityChoice(chosen)
+
 	case "tapchoice":
 		// ChoosePermanentsToTap: a tapXType cost's pick (Station, Crew).
 		ids, err := resolveCardIDs(l, value)

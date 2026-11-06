@@ -1,0 +1,19 @@
+# Mode$ BecomeMonstrous (CR 701.37b, TriggerBecomeMonstrous): Arbor
+# Colossus's monstrosity ability puts three +1/+1 counters on it and it
+# becomes monstrous; the trigger destroys the opponent's creature with
+# flying. The ground creature is not a legal target.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+tapformana human 7 G
+queue action human activate 1 0
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue targets 8
+passpriority
+passpriority

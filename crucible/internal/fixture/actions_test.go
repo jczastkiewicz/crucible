@@ -758,6 +758,31 @@ func TestRunActionsQueueCardChoiceResolvesFixtureIDs(t *testing.T) {
 	}
 }
 
+// queue entitychoice answers an effect's ChooseEntitiesForEffect with a card
+// by its Id: number and a player by name; none is an empty pick.
+func TestRunActionsQueueEntityChoice(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue entitychoice 1,ai\nqueue entitychoice none\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+	got := c.ChooseEntitiesForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil, 0, 2)
+	want := []engine.EntityID{engine.CardEntity(l.CardByFixtureID[1]), engine.PlayerEntity(l.Game.Players()[1])}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("entity choice %v, want %v", got, want)
+	}
+	if got := c.ChooseEntitiesForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil, 0, 0); len(got) != 0 {
+		t.Errorf("none: entity choice %v, want empty", got)
+	}
+	if err := runActions(t, l, c, "queue entitychoice abc\n"); err == nil {
+		t.Error("an unknown entity did not error")
+	}
+}
+
 // queue abilitychoice answers an effect's ChooseAbilitiesForEffect with mode
 // indices.
 func TestRunActionsQueueAbilityChoice(t *testing.T) {

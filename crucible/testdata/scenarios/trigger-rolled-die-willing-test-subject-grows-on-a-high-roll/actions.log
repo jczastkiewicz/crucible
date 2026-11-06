@@ -1,0 +1,19 @@
+# Mode$ RolledDie (CR 706.2, TriggerRolledDie): Willing Test Subject's {6}
+# rolls a six-sided die off the game's seeded RNG; "whenever you roll a 4 or
+# higher" (ValidResult$ GE4) puts a +1/+1 counter on it.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+tapformana human 7 G
+queue action human activate 1 0
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+passpriority

@@ -123,3 +123,39 @@ func (g *Game) triggerRefs(source CardID) (refs abilityRefs, controller PlayerID
 	}
 	return abilityRefs{}, NoPlayer, false
 }
+
+// interveningIfHolds is WrappedAbility.resolve's recheck (CR 603.4,
+// WrappedAbility.java:402-412): a triggered ability off the stack checks its
+// trigger's conditions again, against the triggering objects it fired with,
+// before the "you may" is asked or any cost is paid. Trigger.requirementsCheck
+// is the common conditions (triggerCommonRequirementsMet) and ResolvedLimit$;
+// the zones, phases and ActivationLimit$ are not checked again. Mode$ Always
+// (its ResolvingCheck$ instead, recheckFails) and NoResolvingCheck$ True
+// lines skip it. A failed recheck leaves the stack with no effect and no
+// resolution counted, yet AbilityResolves still fires: MagicStack.java:712-718
+// runs it after AbilityUtils.resolve whatever the wrapper did (quirks.md,
+// PORT-7). A static trigger resolves at the instant its conditions were
+// read, so it has nothing to recheck.
+func (g *Game) interveningIfHolds(a *Ability) bool {
+	if !a.isTrigger || !a.stackRoot || a.Params == nil {
+		return true
+	}
+	t := a.trigger
+	if a.firedDelayed != nil {
+		t = a.firedDelayed
+	}
+	if t == nil || strings.EqualFold(t.Name, "Always") {
+		return true
+	}
+	if _, ok := t.Param("NoResolvingCheck"); ok {
+		return true
+	}
+	host := g.Card(a.Source)
+	reader := host.Controller()
+	if a.firedDelayed != nil {
+		reader = a.Controller
+	}
+	return g.withTriggerEvent(a.Source, reader, a.triggered, func() bool {
+		return triggerCommonRequirementsMet(g, host, a.Amounts, t) && triggerResolvedLimitMet(host, t, a.Params)
+	})
+}

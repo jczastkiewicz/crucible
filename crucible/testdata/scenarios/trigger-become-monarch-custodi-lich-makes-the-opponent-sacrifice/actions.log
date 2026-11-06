@@ -1,0 +1,17 @@
+# Mode$ BecomeMonarch (CR 724.1, TriggerBecomeMonarch): Custodi Lich enters
+# and makes its controller the monarch; "whenever you become the monarch,
+# target player sacrifices a creature" makes the opponent sacrifice the Bears.
+startturn human
+advance 3
+tapformana human 1 B
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+castspell human 6
+queue targets ai
+queue sacrificechoice 7
+resolvestack

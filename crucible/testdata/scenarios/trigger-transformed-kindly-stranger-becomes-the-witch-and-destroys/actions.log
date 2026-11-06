@@ -1,0 +1,16 @@
+# Mode$ Transformed (CR 701.28, TriggerTransformed): with delirium (land,
+# creature, instant and sorcery in the graveyard) Kindly Stranger's {2}{B}
+# transforms it; "when this creature transforms into Demon-Possessed Witch,
+# you may destroy target creature" fires off the back face and the Angel dies.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+queue action human activate 1 0
+queue paygeneric B
+queue paygeneric B
+queue optionaltrigger true
+queue targets 8
+passpriority
+passpriority

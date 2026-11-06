@@ -38,7 +38,14 @@ func (g *Game) reboundResolved(controller PlayerController, a Ability, c *Card) 
 					chain = sub.Ability
 				}
 			}
+			// The override is a ChangeZone from the stack, which marks the
+			// card exiled with its own host before the move
+			// (ChangeZoneEffect.java:734-738, SpellAbilityEffect.java:
+			// 1084-1117): the spell on the stack, listed on that object.
+			stamp, listed := g.hostObjectStamp(a.Source)
+			exiler := c.Controller()
 			g.Move(a.Source, Exile, c.Owner)
+			c.exiledWith = exiledWithMark{host: a.Source, stamp: stamp, listed: listed, exiler: exiler, hasExiler: true}
 			c.Memory.Remember(CardEntity(a.Source))
 			g.runMovedChain(controller, &movedPost{host: c, amounts: face.Amounts, chain: chain})
 			return true

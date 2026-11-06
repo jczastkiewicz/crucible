@@ -28,7 +28,7 @@ func roomDB(t *testing.T) *compile.DB {
 
 // UnlockedRoom: (GameState.java:1419/:445) loads a battlefield Room's
 // unlocked doors and dumps them back last, left then right, under the
-// printed card's name.
+// paper card's name, both doors joined with " // " (GameState.java:298).
 func TestRoomUnlockedDoorsRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -41,7 +41,7 @@ func TestRoomUnlockedDoorsRoundTrip(t *testing.T) {
 	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	if want := "Left Hall|Id:1|UnlockedRoom:LeftSplit|UnlockedRoom:RightSplit"; !strings.Contains(buf.String(), want) {
+	if want := "Left Hall // Right Hall|Id:1|UnlockedRoom:LeftSplit|UnlockedRoom:RightSplit"; !strings.Contains(buf.String(), want) {
 		t.Errorf("dump %q, want it to contain %q", buf.String(), want)
 	}
 }

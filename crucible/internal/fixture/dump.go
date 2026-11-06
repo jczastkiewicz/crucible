@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
@@ -118,7 +120,7 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		b.WriteString("T:")
 		b.WriteString(c.PrintedDef().Filename)
 	} else {
-		b.WriteString(c.PrintedDef().Name)
+		b.WriteString(paperName(c.PrintedDef()))
 	}
 	b.WriteString("|Id:")
 	b.WriteString(strconv.FormatUint(uint64(id), 10))
@@ -320,4 +322,14 @@ func dumpManaPool(pool engine.Pool) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// paperName is the name GameState writes for a card, its PaperCard's
+// (GameState.java:298): a Split card's halves joined with " // " in every
+// zone, whichever half it was cast as (CardRules.java:246-272, CR 709.4).
+func paperName(def *compile.Card) string {
+	if def.SplitType == carddb.SplitSplit && def.Faces[carddb.FaceAlternate].Name != "" {
+		return def.Name + " // " + def.Faces[carddb.FaceAlternate].Name
+	}
+	return def.Name
 }

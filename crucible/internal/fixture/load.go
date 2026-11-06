@@ -281,6 +281,15 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 	} else {
 		card, ok := ld.game.DB().Card(name)
 		if !ok {
+			// A Split card is written under its paper name, both halves
+			// joined with " // " (paperName); the database keys it by its
+			// first half.
+			if first, _, split := strings.Cut(name, " // "); split {
+				card, ok = ld.game.DB().Card(first)
+				ok = ok && paperName(card) == name
+			}
+		}
+		if !ok {
 			return fmt.Errorf("card %q: not in the database", name)
 		}
 		def = card

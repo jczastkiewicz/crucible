@@ -45,6 +45,16 @@ func (g *Game) entryReplaced(controller PlayerController, moved CardID, origin Z
 	if card.Def == nil {
 		return false
 	}
+	if g.entryCantHappen(card, origin, entering) {
+		// GameAction.java:347-356: a Prevented move leaves the card where it
+		// is, with no zone change, table entry or trigger; a permanent spell
+		// whose entry cannot happen goes to its owner's graveyard instead.
+		card.pendingEnter, card.devoured = nil, nil
+		if card.Zone == Stack {
+			g.moveToGraveyard(controller, card.ID)
+		}
+		return true
+	}
 	// Java matches the entry on the card as it would exist on the battlefield,
 	// controlled by whoever it enters under.
 	savedController := card.controller
@@ -87,6 +97,55 @@ func (g *Game) entryReplaced(controller PlayerController, moved CardID, origin Z
 		card.controller = savedController
 	}
 	return replaced
+}
+
+// entryCantHappen is ReplacementHandler.run's CantHappen layer for card's
+// entry from origin under entering: an Event$ Moved | Prevent$ True |
+// Layer$ CantHappen line ("creature cards in graveyards and libraries can't
+// enter the battlefield", Grafdigger's Cage) stops the move before it
+// happens. The layer runs before Control, Copy, Transform and Other
+// (ReplacementLayer.java:9), the first match ends the scan with no choice
+// (ReplacementHandler.collectReplacer), and Prevent$ True returns Prevented
+// (ReplacementHandler.java:382-395). ValidLKI$ reads the card in its origin
+// zone, ValidCard$ the card as it would enter, under entering
+// (ReplaceMoved.java:42-49). A host never stops its own entry unless the line
+// is ValidCard$ Card.Self (ReplacementEffect.canReplaceETB); no corpus line
+// is. A matching line with a param this does not read records a pending
+// error and does not apply (GO-7).
+func (g *Game) entryCantHappen(card *Card, origin ZoneType, entering PlayerID) bool {
+	prevented := false
+	g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+		if prevented || h.ID == card.ID || !strings.EqualFold(r.Name, "Moved") || replacementLayerOf(r) != replacementLayerCantHappen {
+			return
+		}
+		if v, _ := r.Param("Prevent"); !strings.EqualFold(v, "True") {
+			return
+		}
+		if !replacementZoneMatches(r, "Destination", Battlefield) || !replacementZoneMatches(r, "Origin", origin) || !hostInActiveZones(h, r, z) {
+			return
+		}
+		if vc, ok := r.Param("ValidLKI"); ok && !Matches(g, card, valid.Parse(vc), h.Controller(), h.ID) {
+			return
+		}
+		if vc, ok := r.Param("ValidCard"); ok {
+			saved := card.controller
+			card.controller = entering
+			m := Matches(g, card, valid.Parse(vc), h.Controller(), h.ID)
+			card.controller = saved
+			if !m {
+				return
+			}
+		}
+		if !replacementRequirementsCheck(g, h, amounts, r) {
+			return
+		}
+		if !onlyParams(r, "layer", "prevent", "origin", "destination", "validlki", "validcard") {
+			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved Layer$ CantHappen: a param not resolvable yet", h.Def.Name))
+			return
+		}
+		prevented = true
+	})
+	return prevented
 }
 
 // runEntryLayer runs one ReplacementLayer's pre-entry Moved replacements for

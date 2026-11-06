@@ -1,0 +1,15 @@
+# Soulless Jailer's Event$ Moved | Prevent$ True | Layer$ CantHappen line stops Zombify's
+# return before the move (GameAction.java:338-364): Griselbrand stays in the
+# graveyard, no ETB. L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue targets 74
+tapformana human 100 B
+tapformana human 101 B
+tapformana human 102 B
+tapformana human 103 B
+castspell human 1
+resolvestack

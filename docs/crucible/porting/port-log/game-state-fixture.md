@@ -365,7 +365,9 @@ either, only on who they name. An attachment is compared by its host's controlle
 Aura moved to the wrong one of two creatures fails. `SummonSick` is compared, and dumped, as `Card.IsSick`, the
 summoning sickness that `GameState` writes (`Card.isSick`, `Card.java:3665-3671`). A noncreature permanent, or a creature
 with haste, writes none, so its `expect.state` names none. A transformed card is dumped and compared under its front
-face's name, as `GameState` writes the paper card, then `|Transformed`.
+face's name, as `GameState` writes the paper card, then `|Transformed`. A Split card (a Room too) is dumped under its
+paper name, both halves joined with ` // ` (`Wear // Tear`), in every zone and whichever half it was cast as
+(`GameState.java:298`); `Load` reads either that name or its first half.
 
 **`Lost`, `Won` and `Over` have their own keys: `lost=`, `won=`, `over=`.** `GameState.java`'s own format has none of
 these — a Java fixture is always a still-being-played snapshot, never one that asserts the game already ended — so this

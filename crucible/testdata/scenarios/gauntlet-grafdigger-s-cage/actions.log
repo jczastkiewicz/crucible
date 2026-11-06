@@ -1,0 +1,10 @@
+# R20c gauntlet probe (Grafdigger's Cage): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+queue targets 74
+tapformana human 100 B
+tapformana human 101 B
+castspell human 2
+resolvestack

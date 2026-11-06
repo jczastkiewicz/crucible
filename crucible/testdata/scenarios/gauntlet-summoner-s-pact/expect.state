@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Grizzly Bears|Id:5
+humangraveyard=Lightning Bolt|Id:2;Grizzly Bears|Id:3;Summoner's Pact|Id:1
+humanlibrary=Island|Id:4;Island|Id:6
+ailife=20
+aibattlefield=Grizzly Bears|Id:7;Ornithopter|Id:8;Swamp|Id:9;Pacifism|Id:10|AttachedTo:7
+aihand=Island|Id:11;Lightning Bolt|Id:12;Grizzly Bears|Id:13
+aigraveyard=Shock|Id:14;Hill Giant|Id:15
+ailibrary=Island|Id:16;Island|Id:17;Island|Id:18;Island|Id:19;Island|Id:20;Island|Id:21

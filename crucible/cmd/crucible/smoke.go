@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jczastkiewicz/crucible/internal/boosters"
-	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/smoke"
@@ -73,18 +72,7 @@ func cardSmoke(args []string) error {
 
 // smokeCards resolves the card set to names the database holds.
 func smokeCards(db *compile.DB, decks, cards string, all bool) (names []string, source string, err error) {
-	byLower := map[string]string{}
-	for _, n := range db.Names() {
-		byLower[strings.ToLower(n)] = n
-	}
-	resolve := func(name string) (string, bool) {
-		for _, k := range []string{strings.ToLower(name), strings.ToLower(carddb.NormalizeName(name))} {
-			if n, ok := byLower[k]; ok {
-				return n, true
-			}
-		}
-		return "", false
-	}
+	resolve := db.Resolve
 
 	switch {
 	case all:

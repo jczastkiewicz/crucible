@@ -26,6 +26,10 @@ type DB struct {
 	// all is every compiled card, including those whose primary face name another
 	// script shares (Start // Fire and Start // Finish), which byName keeps one of.
 	all []*Card
+	// decklist maps a lowercased decklist spelling to the name byName holds:
+	// the name, its accent-folded form, and a split card's two halves joined
+	// with " // " (Resolve).
+	decklist map[string]string
 	// tokens is every token script, keyed by its file name without the
 	// extension -- the name TokenScript$ uses (Java's TokenDb, keyed the
 	// same way). Kept apart from byName: many token scripts share a printed
@@ -104,6 +108,7 @@ func LoadDB(root, typeList string) (*DB, error) {
 		db.names = append(db.names, name)
 		db.all = append(db.all, card)
 	}
+	db.indexDecklistNames()
 	return db, nil
 }
 
@@ -119,7 +124,42 @@ func NewDB(cards map[string]*Card) *DB {
 		db.names = append(db.names, name)
 	}
 	sort.Strings(db.names)
+	db.indexDecklistNames()
 	return db
+}
+
+// indexDecklistNames fills decklist once, as the DB is built.
+func (d *DB) indexDecklistNames() {
+	d.decklist = make(map[string]string, len(d.names))
+	for _, n := range d.names {
+		d.decklist[strings.ToLower(n)] = n
+		d.decklist[strings.ToLower(carddb.NormalizeName(n))] = n
+		// Forge's .dck files name a split card by both halves (Wear //
+		// Tear, carddb.Card.Name); byName keys it by the first. Only the
+		// card byName holds gets the alias: Start // Finish shares Start
+		// with Start // Fire, and must not resolve to it.
+		c := d.byName[n]
+		if alt := c.Faces[carddb.FaceAlternate].Name; c.SplitType == carddb.SplitSplit && alt != "" {
+			full := n + " // " + alt
+			d.decklist[strings.ToLower(full)] = n
+			d.decklist[strings.ToLower(carddb.NormalizeName(full))] = n
+		}
+	}
+}
+
+// Resolve finds the name DB.Card holds for the card a decklist line names:
+// case and accents ignored, and a split card by both halves joined with
+// " // ", the way Forge's .dck files write it.
+func (d *DB) Resolve(name string) (string, bool) {
+	if d == nil {
+		return "", false
+	}
+	for _, k := range []string{strings.ToLower(name), strings.ToLower(carddb.NormalizeName(name))} {
+		if n, ok := d.decklist[k]; ok {
+			return n, true
+		}
+	}
+	return "", false
 }
 
 // LoadTokenScripts parses and compiles every token script under root, keyed

@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -192,10 +191,6 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 		return sim.Deck{}, err
 	}
 	d := deck.Parse(strings.TrimSuffix(filepath.Base(path), ".dck"), raw)
-	byLower := map[string]string{}
-	for _, n := range db.Names() {
-		byLower[strings.ToLower(n)] = n
-	}
 	out := sim.Deck{Name: d.Name}
 	var missing []string
 	for _, sec := range []struct {
@@ -203,10 +198,7 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 		into    *[]string
 	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}, {deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes}} {
 		for _, e := range d.Cards(sec.section) {
-			name, ok := byLower[strings.ToLower(e.Name)]
-			if !ok {
-				name, ok = byLower[strings.ToLower(carddb.NormalizeName(e.Name))]
-			}
+			name, ok := db.Resolve(e.Name)
 			if !ok {
 				missing = append(missing, e.Name)
 				continue

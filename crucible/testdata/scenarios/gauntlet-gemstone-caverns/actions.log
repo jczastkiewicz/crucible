@@ -1,0 +1,5 @@
+# R20c gauntlet probe (Gemstone Caverns): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+playland human 1

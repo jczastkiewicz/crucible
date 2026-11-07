@@ -1,0 +1,9 @@
+# R20c gauntlet probe (Emperor of Bones): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+tapformana human 100 B
+tapformana human 101 B
+castspell human 1
+resolvestack

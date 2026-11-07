@@ -61,9 +61,12 @@ public final class ScenarioRunner {
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
             "tapformana", "castspell", "playland", "passpriority", "expecterror", "paymanacost", "dealopeninghands",
-            "mulligan");
+            "mulligan", "foretell", "plot", "suspend", "turnfaceup");
     // The lines a seat makes at its priority, where Go ran them (S13).
-    private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland");
+    private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland", "foretell", "plot", "suspend",
+            "turnfaceup");
+    // The special actions among them (S26), which a refused expecterror does not cover.
+    static final Set<String> SPECIAL = Set.of("foretell", "plot", "suspend", "turnfaceup");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
     // value, or the P<i> value of a player token (GameState.getPlayerString).
     // Never a counter type such as P1P1.
@@ -208,7 +211,8 @@ public final class ScenarioRunner {
                     if (all.length == 3 && (all[2].equals("declareattackers") || all[2].equals("declareblockers"))) {
                         // S23: Go refused the declaration queued last.
                         answers.refuseDeclaration(all[2]);
-                    } else if (all.length != 5 || !all[1].equals("refused") || !PLAYS.contains(all[2]) || all[2].equals("tapformana")) {
+                    } else if (all.length != 5 || !all[1].equals("refused") || !PLAYS.contains(all[2]) || all[2].equals("tapformana")
+                            || SPECIAL.contains(all[2])) {
                         unmapped.add(line);
                     } else {
                         answers.refusedPlay(i, all[2], Arrays.copyOfRange(all, 3, all.length), Integer.parseInt(when.get(i)[0]),
@@ -297,7 +301,7 @@ public final class ScenarioRunner {
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
                         "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority",
-                        "expecterror", "paymanacost" -> {
+                        "expecterror", "paymanacost", "foretell", "plot", "suspend", "turnfaceup" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }

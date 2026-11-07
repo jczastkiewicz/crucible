@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanbattlefield=Mountain|Tapped;Mountain|Tapped
-humanexile=Demon Bolt
+humanexile=Demon Bolt|FaceDown|Foretold|ForetoldThisTurn
 ailife=20

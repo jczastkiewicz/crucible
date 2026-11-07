@@ -579,3 +579,37 @@ func TestOnAdventureRoundTripsAndNeedsExile(t *testing.T) {
 		t.Errorf("OnAdventure in a hand: err = %v, want it refused", err)
 	}
 }
+
+// Foretold loads an exiled card foretold and face down, ForetoldThisTurn
+// marks it foretold this turn; both dump back, and are refused anywhere but
+// exile (GameState.java:1435-1440, :445-449).
+func TestForetoldRoundTripsAndNeedsExile(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Beast", "Mountain")
+	l := load(t, db, "turn=2\nhumanexile=Beast|Id:1|Foretold;Beast|Id:2|Foretold|ForetoldThisTurn;Beast|Id:3\nailife=20\n")
+	earlier, now, plain := l.CardByFixtureID[1], l.CardByFixtureID[2], l.CardByFixtureID[3]
+	if !l.Game.Card(earlier).Foretold() || !l.Game.Card(earlier).IsFaceDown() || l.Game.ForetoldThisTurn(earlier) {
+		t.Error("Foretold did not mark the first card foretold, face down, on an earlier turn")
+	}
+	if !l.Game.ForetoldThisTurn(now) || l.Game.Card(plain).Foretold() {
+		t.Error("ForetoldThisTurn did not mark exactly the second card")
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Count(buf.String(), "|Foretold"), 3; got != want {
+		t.Errorf("dump wrote |Foretold %d times, want %d (two Foretold, one ForetoldThisTurn):\n%s", got, want, buf.String())
+	}
+	if got := strings.Count(buf.String(), "ForetoldThisTurn"); got != 1 {
+		t.Errorf("dump wrote ForetoldThisTurn %d times, want once:\n%s", got, buf.String())
+	}
+	st, err := fixture.Parse(strings.NewReader("humanhand=Mountain|Id:1|Foretold\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil || !strings.Contains(err.Error(), "Foretold") {
+		t.Errorf("Foretold in a hand: err = %v, want it refused", err)
+	}
+}

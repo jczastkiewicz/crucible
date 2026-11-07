@@ -56,6 +56,10 @@ func (g *Game) Foretell(pid PlayerID, card CardID, controller PlayerController) 
 	g.moveByEffect(controller, card, Exile, 0, NoPlayer, false)
 	c = g.Card(card)
 	c.foretold, c.foretoldTurn = true, g.turn
+	// CR 702.143a: exiled face down (CardFactoryUtil.java:2986-2995).
+	if c.Zone == Exile {
+		g.turnFaceDownInExile(card)
+	}
 	g.checkChangesZoneAllTriggers(controller, []CardID{card}, Hand, Exile)
 	g.checkForetellTriggers(controller, pid)
 	return true
@@ -81,6 +85,13 @@ func (g *Game) foretellCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 	if c.Zone != Exile || c.Owner != pid || c.Def == nil || !c.foretold || c.foretoldTurn >= g.turn {
 		return mana.Cost{}, false
 	}
+	if c.IsFaceDown() {
+		// A foretold card lies face down (CR 702.143a); its Foretell and mana
+		// cost are its own face's, which the cast turns face up.
+		blank := c.Def
+		c.Def = c.faceUpDef
+		defer func() { c.Def = blank }()
+	}
 	if c.foretoldByEffect {
 		// GameActionUtil.java:229-239: the card's mana cost less up to {2}
 		// of its generic part, no cost at all for a card without one.
@@ -105,6 +116,32 @@ func (g *Game) foretellCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 		return mc, true
 	}
 	return mana.Cost{}, false
+}
+
+// Foretold reports whether c lies in exile foretold (Card.isForetold).
+func (c *Card) Foretold() bool { return c.Zone == Exile && c.foretold }
+
+// ForetoldThisTurn reports whether id was foretold this turn, GameState's
+// ForetoldThisTurn (GameState.java:445-449).
+func (g *Game) ForetoldThisTurn(id CardID) bool {
+	c := g.Card(id)
+	return c.Foretold() && c.foretoldTurn == g.turn
+}
+
+// SetForetold marks an exiled card foretold and turns it face down, this
+// turn or an earlier one: a fixture's Foretold and ForetoldThisTurn
+// (GameState.java:1435-1440). False when id is not in exile.
+func (g *Game) SetForetold(id CardID, thisTurn bool) bool {
+	c := g.Card(id)
+	if c.Zone != Exile {
+		return false
+	}
+	c.foretold, c.foretoldTurn = true, g.turn-1
+	if thisTurn {
+		c.foretoldTurn = g.turn
+	}
+	g.turnFaceDownInExile(id)
+	return true
 }
 
 // foretellAnyTurnParams are the Mode$ ForetellAnyTurn params

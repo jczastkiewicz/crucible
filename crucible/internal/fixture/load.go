@@ -318,6 +318,12 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.SetRenowned(true)
 		case strings.HasPrefix(info, "Monstrous"):
 			c.SetMonstrous(true)
+		case info == "Foretold", info == "ForetoldThisTurn":
+			// GameState.java:1435-1440: foretold, face down; ThisTurn on this
+			// turn, so not castable before the next.
+			if !ld.game.SetForetold(id, info == "ForetoldThisTurn" || ld.game.ForetoldThisTurn(id)) {
+				return fmt.Errorf("%s: %s: not in exile", name, info)
+			}
 		case strings.HasPrefix(info, "OnAdventure"):
 			// GameState.java:1366: an exiled Adventure card that may be cast
 			// as its creature.

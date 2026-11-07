@@ -123,6 +123,9 @@ final class ScenarioController extends PlayerControllerForTests {
                 }
                 continue;
             }
+            if (ScenarioRunner.SPECIAL.contains(play.verb())) {
+                return List.of(specialAction(card, play.verb()));
+            }
             boolean land = play.verb().equals("playland");
             if (play.refused()) {
                 refuse(card, land);
@@ -164,6 +167,23 @@ final class ScenarioController extends PlayerControllerForTests {
             toPay.setXManaCostPaid(x, null);
         }
         applyManaToCost(toPay, sa, "paymanacost", null, false);
+    }
+
+    // S26: a foretell, plot, suspend or turnfaceup line plays the card's
+    // special action of that kind (CR 116.2).
+    private SpellAbility specialAction(Card card, String verb) {
+        for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
+            boolean match = switch (verb) {
+                case "foretell" -> sa.isForetelling();
+                case "plot" -> sa.isPlotting();
+                case "suspend" -> !sa.isSpell() && sa.isKeyword(Keyword.SUSPEND);
+                default -> sa.isTurnFaceUp();
+            };
+            if (match) {
+                return sa;
+            }
+        }
+        throw new IllegalStateException(player + " cannot " + verb + " " + card);
     }
 
     // S22: a spell with more than one way to cast it takes the next option

@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Combat Damage
 humanlife=20
 humanbattlefield=Dream Devourer|Tapped|Attacking;Mountain|Tapped;Mountain|Tapped
-humanexile=Demon Bolt
+humanexile=Demon Bolt|FaceDown|Foretold|ForetoldThisTurn
 ailife=18

@@ -246,6 +246,13 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString(strconv.FormatUint(uint64(target), 10))
 		}
 	}
+	if c.Foretold() {
+		// GameState.java:445-449.
+		b.WriteString("|Foretold")
+		if g.ForetoldThisTurn(c.ID) {
+			b.WriteString("|ForetoldThisTurn")
+		}
+	}
 	if c.OnAdventure() {
 		// GameState.java:443-447 writes this for every exiled Adventure card (its
 		// own TODO); only a card actually on an adventure is written here.

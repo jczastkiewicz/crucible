@@ -29,6 +29,11 @@ func TestForetoldCardIsCastableOnlyByItsOwnerOnALaterTurn(t *testing.T) {
 	if got := g.Card(bolt).Zone; got != engine.Exile {
 		t.Fatalf("Demon Bolt is in %v after foretelling, want Exile", got)
 	}
+	// CR 702.143a: face down, and cast from there face up.
+	if !g.Card(bolt).IsFaceDown() || !g.ForetoldThisTurn(bolt) {
+		t.Errorf("the foretold Demon Bolt is face down %v, foretold this turn %v; want both",
+			g.Card(bolt).IsFaceDown(), g.ForetoldThisTurn(bolt))
+	}
 
 	// The turn it was foretold it cannot be cast.
 	g.Player(p).ManaPool.Add(mana.Red, 1)

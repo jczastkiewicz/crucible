@@ -11,6 +11,7 @@ import forge.game.cost.CostDiscard;
 import forge.game.cost.CostExile;
 import forge.game.cost.CostForage;
 import forge.game.cost.CostPutCounter;
+import forge.game.cost.CostReturn;
 import forge.game.cost.CostReveal;
 import forge.game.cost.CostSacrifice;
 import forge.game.cost.PaymentDecision;
@@ -88,6 +89,19 @@ final class ScenarioCostDecision extends AiCostDecision {
         }
         int n = cost.getAbilityAmount(ability);
         List<Card> chosen = answers.nextDiscardChoice(valid(player.getCardsIn(ZoneType.Hand), type), n, n);
+        return chosen != null ? PaymentDecision.card(chosen) : super.visit(cost);
+    }
+
+    // Return<1/Creature.attacking+unblocked>: Go's ChooseReturn (a Sneak or
+    // Beam Me Up cost).
+    @Override
+    public PaymentDecision visit(CostReturn cost) {
+        if (cost.payCostFromSource()) {
+            return super.visit(cost);
+        }
+        int n = cost.getAbilityAmount(ability);
+        List<Card> chosen = answers.nextReturnChoice(
+                valid(player.getCardsIn(ZoneType.Battlefield), cost.getType()), n, n);
         return chosen != null ? PaymentDecision.card(chosen) : super.visit(cost);
     }
 

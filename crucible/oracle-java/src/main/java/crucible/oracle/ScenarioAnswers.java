@@ -30,7 +30,7 @@ final class ScenarioAnswers {
             "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
             "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
-            "paycolorlesshybrid", "payhybridphyrexian");
+            "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -65,6 +65,9 @@ final class ScenarioAnswers {
     private final Deque<Integer> replacements = new ArrayDeque<>();
     private final Deque<Boolean> confirmReplacements = new ArrayDeque<>();
     private final Deque<String> hybridPhyrexian = new ArrayDeque<>();
+    private final Deque<List<Integer>> returnChoices = new ArrayDeque<>();
+    private final Deque<Integer> enchantTargets = new ArrayDeque<>();
+    private final Deque<List<Integer>> divisions = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -104,6 +107,9 @@ final class ScenarioAnswers {
             case "paysnow", "paymonocoloredhybrid", "paycolorlesshybrid" -> {
             }
             case "payhybridphyrexian" -> hybridPhyrexian.add(value.strip());
+            case "returnchoice" -> returnChoices.add(ids(value));
+            case "enchanttarget" -> enchantTargets.add(Integer.parseInt(value.strip()));
+            case "divide" -> divisions.add(ids(value));
             case "cardorder" -> cardOrders.add(ids(value));
             case "confirmeffect" -> confirmEffects.add(bool(value));
             case "optionaltrigger" -> optionalTriggers.add(bool(value));
@@ -322,6 +328,33 @@ final class ScenarioAnswers {
         return out != null ? out : nextCardChoice(options, min, max);
     }
 
+    /** The next returnchoice answer (Go's ChooseReturn for a Return cost), else the next card choice. */
+    List<Card> nextReturnChoice(Iterable<? extends GameEntity> options, int min, int max) {
+        List<Card> out = nextCards(returnChoices, options, min, max);
+        return out != null ? out : nextCardChoice(options, min, max);
+    }
+
+    /** The next enchanttarget answer when it is one of options (Go's ChooseEnchantTarget), else null. */
+    Card nextEnchantTarget(Iterable<? extends GameEntity> options) {
+        Integer next = enchantTargets.peek();
+        if (next == null) {
+            return null;
+        }
+        int javaId = card(next).getId();
+        for (GameEntity e : options) {
+            if (e instanceof Card c && c.getId() == javaId) {
+                enchantTargets.poll();
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /** The next divide answer (Go's DivideAmongTargets shares, in target order), or null. */
+    List<Integer> nextDivision() {
+        return divisions.poll();
+    }
+
     /** The next sacrificechoice answer (Go's ChoosePermanentsToSacrifice), else the next card choice. */
     List<Card> nextSacrificeChoice(Iterable<? extends GameEntity> options, int min, int max) {
         List<Card> out = nextCards(sacrificeChoices, options, min, max);
@@ -470,6 +503,9 @@ final class ScenarioAnswers {
         rest.put("replacement", replacements);
         rest.put("confirmreplacement", confirmReplacements);
         rest.put("payhybridphyrexian", hybridPhyrexian);
+        rest.put("returnchoice", returnChoices);
+        rest.put("enchanttarget", enchantTargets);
+        rest.put("divide", divisions);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

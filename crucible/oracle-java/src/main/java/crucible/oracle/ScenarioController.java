@@ -268,6 +268,12 @@ final class ScenarioController extends PlayerControllerForTests {
         }
         if (currentAbility.isSpell() && currentAbility.getHostCard().isAura()) {
             List<GameEntity> candidates = tgt.getAllCandidates(currentAbility);
+            // Go's castAura asks ChooseEnchantTarget for the Aura's target.
+            Card enchanted = answers.nextEnchantTarget(candidates);
+            if (enchanted != null) {
+                currentAbility.getTargets().add(enchanted);
+                return true;
+            }
             if (candidates.size() == 1) {
                 currentAbility.getTargets().add(candidates.get(0));
                 return true;
@@ -297,11 +303,16 @@ final class ScenarioController extends PlayerControllerForTests {
             // queue divide, not mapped yet.
             List<GameObject> chosen = List.copyOf(currentAbility.getTargets());
             int total = currentAbility.getStillToDivide();
+            List<Integer> shares = chosen.size() != 1 && chosen.size() != total ? answers.nextDivision() : null;
             if (chosen.size() != 1 && chosen.size() != total) {
-                throw new IllegalStateException("dividing " + total + " among " + chosen + " needs queue divide");
+                if (shares == null || shares.size() != chosen.size()
+                        || shares.stream().mapToInt(Integer::intValue).sum() != total) {
+                    throw new IllegalStateException("dividing " + total + " among " + chosen + " needs a fitting queue divide, got " + shares);
+                }
             }
-            for (GameObject o : chosen) {
-                currentAbility.addDividedAllocation(o, chosen.size() == 1 ? total : 1);
+            for (int k = 0; k < chosen.size(); k++) {
+                currentAbility.addDividedAllocation(chosen.get(k),
+                        shares != null ? shares.get(k) : chosen.size() == 1 ? total : 1);
             }
         }
         return true;
@@ -501,6 +512,15 @@ final class ScenarioController extends PlayerControllerForTests {
     public <T extends GameEntity> T chooseSingleEntityForEffect(FCollectionView<T> optionList,
             DelayedReveal delayedReveal, SpellAbility sa, String title, boolean isOptional, Player targetedPlayer,
             Map<String, Object> params) {
+        // An Aura entering without being cast picks what it enchants
+        // (GameAction.attachAuraOnIndirectETB): Go's ChooseEnchantTarget.
+        if (answers.bound() && sa != null && sa.getHostCard() != null
+                && sa == sa.getHostCard().getCurrentState().getAuraSpell()) {
+            Card aura = answers.nextEnchantTarget(optionList);
+            if (aura != null) {
+                return (T) aura;
+            }
+        }
         List<Card> chosen = answers.bound() ? answers.nextCardChoice(optionList, isOptional ? 0 : 1, 1) : null;
         if (chosen == null) {
             return super.chooseSingleEntityForEffect(optionList, delayedReveal, sa, title, isOptional, targetedPlayer,

@@ -3,4 +3,7 @@
 # the AI's Control Magic takes Khârn at load, and the trigger's controller
 # becomes the player who lost control, the human, who draws two cards.
 startturn ai
+# The triggers wait for the upkeep, the first step with priority (CR 502.4,
+# L2 S14).
+advance
 resolvestack

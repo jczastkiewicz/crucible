@@ -5,6 +5,9 @@ queue targets ai
 queue targets ai
 queue cardorder 2,3,4
 startturn human
+# The triggers wait for the upkeep, the first step with priority (CR 502.4,
+# L2 S14).
+advance
 resolvestack
 resolvestack
 resolvestack

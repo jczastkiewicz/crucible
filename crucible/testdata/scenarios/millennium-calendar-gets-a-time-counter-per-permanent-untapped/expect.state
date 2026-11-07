@@ -1,6 +1,6 @@
 turn=1
 activeplayer=human
-activephase=Untap
+activephase=Upkeep
 humanlife=20
 humanbattlefield=The Millennium Calendar|Id:1|Counters:TIME=3;Forest|Id:2;Forest|Id:3;Grizzly Bears|Id:4
 ailife=20

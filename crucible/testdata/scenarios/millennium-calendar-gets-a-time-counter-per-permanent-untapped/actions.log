@@ -3,4 +3,7 @@
 # three time counters on it (TriggerCount$Amount). The opponent's tapped Hill
 # Giant does not untap on human's turn and is not counted.
 startturn human
+# The triggers wait for the upkeep, the first step with priority (CR 502.4,
+# L2 S14).
+advance
 resolvestack

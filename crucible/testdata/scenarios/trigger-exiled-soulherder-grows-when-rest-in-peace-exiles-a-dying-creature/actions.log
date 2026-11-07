@@ -3,4 +3,7 @@
 # Origin Battlefield, and Soulherder gets a +1/+1 counter (CR 614.6: the
 # creature is exiled from the battlefield instead of dying).
 startturn human
+# The triggers wait for the upkeep, the first step with priority (CR 502.4,
+# L2 S14).
+advance
 resolvestack

@@ -1,6 +1,6 @@
 turn=1
 activeplayer=ai
-activephase=Untap
+activephase=Upkeep
 humanlife=20
 humanhand=Forest;Mountain
 ailife=20

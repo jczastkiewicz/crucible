@@ -220,9 +220,11 @@ public final class ScenarioRunner {
                             PhaseType.smartValueOf(when.get(i)[1]));
                 } else if (f[0].equals("queue")) {
                     answers.queue(f[1], f[2]);
-                } else if (f[0].equals("resolvestack") && Set.of("UNTAP", "CLEANUP").contains(when.get(i)[1])) {
+                } else if (f[0].equals("resolvestack") && when.get(i)[1].equals("UNTAP")) {
                     // S14: Go's harness resolves where Java gives no priority
-                    // (CR 502.4, 514.3); Java's triggers wait for the next step.
+                    // (CR 502.4); Java's triggers wait for the upkeep. Cleanup
+                    // gives priority once a trigger or state-based action
+                    // happens there (CR 514.3a, PhaseHandler.java:428-452).
                     unmapped.add(line);
                 } else if (f[0].equals("resolvestack") || f[0].equals("passpriority")) {
                     answers.resolveStack();

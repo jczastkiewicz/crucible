@@ -1,6 +1,6 @@
 turn=1
 activeplayer=human
-activephase=Untap
+activephase=Upkeep
 humanlife=20
 humanbattlefield=Rest in Peace;Soulherder|Counters:P1P1=1
 ailife=20

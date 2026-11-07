@@ -35,7 +35,8 @@ final class ScenarioAnswers {
             "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
             "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
-            "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice");
+            "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
+            "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -75,12 +76,18 @@ final class ScenarioAnswers {
     private final Deque<List<Integer>> divisions = new ArrayDeque<>();
     private final Deque<List<Integer>> abilityChoices = new ArrayDeque<>();
     private final Deque<String> playerChoices = new ArrayDeque<>();
+    private final Deque<List<Integer>> discards = new ArrayDeque<>();
+    private final Deque<List<Integer>> exerts = new ArrayDeque<>();
+    private final Deque<Integer> legendaryKeeps = new ArrayDeque<>();
+    private final Deque<Integer> options = new ArrayDeque<>();
+    private final Deque<Boolean> coinCalls = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
     private boolean resolved;
     private int lastRound = -1;
     private boolean resolvedForAction;
+    private boolean applied;
     private Game game;
     private Map<Integer, Card> idToCard;
     private final List<Integer> pushes = new ArrayList<>();
@@ -109,8 +116,18 @@ final class ScenarioAnswers {
             }
             // Which snow mana pays {S}, and whether {2/W} or {C/W} takes its
             // color: the pool pays in Java's own order too.
-            case "paysnow", "paymonocoloredhybrid", "paycolorlesshybrid" -> {
+            // So does the color a hybrid shard takes (Go's ChooseHybridManaColor).
+            case "paysnow", "paymonocoloredhybrid", "paycolorlesshybrid", "hybridmanacolor" -> {
             }
+            case "discard" -> discards.add(ids(value));
+            case "exertattackers" -> exerts.add(value.strip().equals("none") ? List.of() : ids(value));
+            case "legendarykeep" -> legendaryKeeps.add(Integer.parseInt(value.strip()));
+            case "option" -> options.add(Integer.parseInt(value.strip()));
+            case "coincall" -> coinCalls.add(switch (value.strip()) {
+                case "heads" -> true;
+                case "tails" -> false;
+                default -> throw new IllegalArgumentException("coincall " + value);
+            });
             case "payhybridphyrexian" -> hybridPhyrexian.add(value.strip());
             case "returnchoice" -> returnChoices.add(ids(value));
             case "enchanttarget" -> enchantTargets.add(Integer.parseInt(value.strip()));
@@ -403,6 +420,79 @@ final class ScenarioAnswers {
         return null;
     }
 
+    /**
+     * The cleanup step's discard (Go's ChooseDiscardToHandSize) as cards in
+     * p's hand, or null when none is queued; exactly n of them.
+     */
+    List<Card> nextDiscard(Player p, int n) {
+        List<Integer> next = discards.poll();
+        if (next == null) {
+            return null;
+        }
+        List<Card> out = new ArrayList<>();
+        for (int id : next) {
+            Card c = card(id);
+            if (!p.getCardsIn(forge.game.zone.ZoneType.Hand).contains(c) || out.contains(c)) {
+                throw new IllegalStateException("discard " + next + ": " + c + " is not in " + p + "'s hand");
+            }
+            out.add(c);
+        }
+        if (out.size() != n) {
+            throw new IllegalStateException("discard " + next + " for " + n + " cards");
+        }
+        return out;
+    }
+
+    /**
+     * The next exertattackers answer (Go's ExertAttackers) as cards of the
+     * attackers offered, or null when none is queued.
+     */
+    List<Card> nextExert(List<Card> offered) {
+        List<Integer> next = exerts.poll();
+        if (next == null) {
+            return null;
+        }
+        List<Card> out = new ArrayList<>();
+        for (int id : next) {
+            Card c = card(id);
+            if (!offered.contains(c)) {
+                throw new IllegalStateException("exert " + c + ": not one of " + offered);
+            }
+            out.add(c);
+        }
+        return out;
+    }
+
+    /**
+     * The next legendarykeep answer (Go's ChooseLegendaryToKeep) when it is
+     * one of options, else null. Asked from the setup's own state-based pass
+     * too, so it needs only attach.
+     */
+    Card nextLegendaryKeep(Iterable<? extends GameEntity> optionList) {
+        Integer next = legendaryKeeps.peek();
+        if (next == null || game == null) {
+            return null;
+        }
+        int javaId = card(next).getId();
+        for (GameEntity e : optionList) {
+            if (e instanceof Card c && c.getId() == javaId) {
+                legendaryKeeps.poll();
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /** The next option answer (Go's ChooseOption index), or null. */
+    Integer nextOption() {
+        return options.poll();
+    }
+
+    /** The next coincall answer, true for heads (Go's CallCoinFlip), or null. */
+    Boolean nextCoinCall() {
+        return coinCalls.poll();
+    }
+
     /** The next divide answer (Go's DivideAmongTargets shares, in target order), or null. */
     List<Integer> nextDivision() {
         return divisions.poll();
@@ -561,6 +651,11 @@ final class ScenarioAnswers {
         rest.put("divide", divisions);
         rest.put("abilitychoice", abilityChoices);
         rest.put("playerchoice", playerChoices);
+        rest.put("discard", discards);
+        rest.put("exertattackers", exerts);
+        rest.put("legendarykeep", legendaryKeeps);
+        rest.put("option", options);
+        rest.put("coincall", coinCalls);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());
@@ -570,13 +665,22 @@ final class ScenarioAnswers {
 
     /** True once bind ran: the setup is applied. */
     boolean bound() {
-        return game != null;
+        return applied;
+    }
+
+    /**
+     * Attaches the game and GameState's own id map before applyToGame, which
+     * fills the map before its state-based pass: a legend rule there asks for
+     * its legendarykeep answer.
+     */
+    void attach(Game game0, Map<Integer, Card> idToCard0) {
+        game = game0;
+        idToCard = idToCard0;
     }
 
     /** Binds the answers to the game GameState set up, once applyToGame ran. */
-    void bind(Game game0, Map<Integer, Card> idToCard0) {
-        game = game0;
-        idToCard = idToCard0;
+    void bind() {
+        applied = true;
         game.subscribeToEvents(this);
     }
 

@@ -27,11 +27,13 @@ import forge.game.player.PlayerActionConfirmMode;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.keyword.Keyword;
+import forge.game.ability.ApiType;
 import forge.card.CardStateName;
 import forge.card.mana.ManaCost;
 import forge.card.mana.ManaCostParser;
 import forge.game.cost.Cost;
 import forge.game.cost.CostDecisionMakerBase;
+import forge.game.cost.CostExert;
 import forge.game.cost.CostPartMana;
 import forge.game.cost.CostPayment;
 import forge.ai.ComputerUtilCost;
@@ -126,12 +128,16 @@ final class ScenarioController extends PlayerControllerForTests {
                 refused = true;
                 continue;
             }
+            List<SpellAbility> ways = new ArrayList<>();
             for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
                 if (land ? sa.isLandAbility() : sa.isSpell() && castsFace(card, sa, play.arg())) {
-                    return List.of(sa);
+                    ways.add(sa);
                 }
             }
-            throw new IllegalStateException(player + " cannot " + play.verb() + " " + card + " " + play.arg());
+            if (ways.isEmpty()) {
+                throw new IllegalStateException(player + " cannot " + play.verb() + " " + card + " " + play.arg());
+            }
+            return List.of(castOption(card, ways));
         }
         // A refused play changed nothing: the checkpoint it held back may be
         // this priority, before the seat passes the step away (S17).
@@ -157,6 +163,24 @@ final class ScenarioController extends PlayerControllerForTests {
             toPay.setXManaCostPaid(x, null);
         }
         applyManaToCost(toPay, sa, "paymanacost", null, false);
+    }
+
+    // S22: a spell with more than one way to cast it takes the next option
+    // answer, an index into the ways Java offers (getAllPossibleAbilities
+    // order: the printed spell, then keyword and alternative-cost spells), as
+    // Go's chooseCastOption indexes its castOptions. None queued: the first.
+    private SpellAbility castOption(Card card, List<SpellAbility> ways) {
+        if (ways.size() == 1 || ways.get(0).isLandAbility()) {
+            return ways.get(0);
+        }
+        Integer pick = answers.nextOption();
+        if (pick == null) {
+            return ways.get(0);
+        }
+        if (pick < 0 || pick >= ways.size()) {
+            throw new IllegalStateException("option " + pick + " of " + card + "'s casts " + ways);
+        }
+        return ways.get(pick);
     }
 
     // S20: a castspell's face argument. None casts the card's first spell;
@@ -518,6 +542,35 @@ final class ScenarioController extends PlayerControllerForTests {
     // A card choice for an effect pops queue cardchoice when the answer fits
     // the question; Go asks ChooseCardsForEffect where Java asks any of
     // these four. Otherwise the upstream default answers.
+    // The cleanup step's discard to hand size (PhaseHandler.java:387): Go's
+    // ChooseDiscardToHandSize.
+    @Override
+    public CardCollectionView chooseCardsToDiscardToMaximumHandSize(int numDiscard) {
+        List<Card> chosen = answers.nextDiscard(player, numDiscard);
+        return chosen != null ? new CardCollection(chosen) : super.chooseCardsToDiscardToMaximumHandSize(numDiscard);
+    }
+
+    // The attackers to exert (CR 508.1g, PhaseHandler.java:575): Go's
+    // ExertAttackers. Upstream's default exerts every one offered.
+    @Override
+    public List<Card> exertAttackers(List<Card> attackers) {
+        List<Card> chosen = answers.nextExert(attackers);
+        return chosen != null ? chosen : super.exertAttackers(attackers);
+    }
+
+    // A coin flip's call (FlipCoinEffect.flipCoin): Go's CallCoinFlip, true
+    // for heads, as Java compares the call with nextBoolean's result.
+    @Override
+    public boolean chooseBinary(SpellAbility sa, String question, BinaryChoiceType kindOfChoice, Boolean defaultVal) {
+        if (kindOfChoice == BinaryChoiceType.HeadsOrTails) {
+            Boolean call = answers.nextCoinCall();
+            if (call != null) {
+                return call;
+            }
+        }
+        return super.chooseBinary(sa, question, kindOfChoice, defaultVal);
+    }
+
     @Override
     public CardCollectionView chooseCardsForEffect(CardCollectionView sourceList, SpellAbility sa, String title,
             int min, int max, boolean isOptional, Map<String, Object> params) {
@@ -531,6 +584,14 @@ final class ScenarioController extends PlayerControllerForTests {
     public <T extends GameEntity> T chooseSingleEntityForEffect(FCollectionView<T> optionList,
             DelayedReveal delayedReveal, SpellAbility sa, String title, boolean isOptional, Player targetedPlayer,
             Map<String, Object> params) {
+        // The legend rule's keep (GameAction.handleLegendRule): Go's
+        // ChooseLegendaryToKeep, asked from the setup's own pass too.
+        if (sa != null && sa.getApi() == ApiType.InternalLegendaryRule) {
+            Card keep = answers.nextLegendaryKeep(optionList);
+            if (keep != null) {
+                return (T) keep;
+            }
+        }
         // Go's ChoosePlayerForEffect: a list of players (Captive Audience's
         // opponent).
         if (answers.bound()) {
@@ -715,6 +776,12 @@ final class ScenarioController extends PlayerControllerForTests {
     // Go's ConfirmPayCost for an attack cost (Propaganda, Ghostly Prison).
     @Override
     public boolean payCombatCost(Card c, Cost cost, SpellAbility sa, String prompt) {
+        // An exert the player already chose (exertAttackers) is the whole
+        // cost (getAttackCost starts from a zero mana part): Go's ExertAttackers answer exerts it, with no confirmation.
+        if (cost.getCostParts().stream().allMatch(part -> part instanceof CostExert
+                || part instanceof CostPartMana m && m.getMana().isZero())) {
+            return pay(cost, sa);
+        }
         Boolean v = answers.nextConfirmPayCost();
         if (v == null) {
             throw new IllegalStateException("an attack cost for " + c + " needs queue confirmpaycost");

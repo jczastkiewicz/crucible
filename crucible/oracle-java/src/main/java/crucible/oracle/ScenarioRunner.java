@@ -245,8 +245,9 @@ public final class ScenarioRunner {
         Map<Integer, Integer> damage = deferDamage(setupLines);
         GameState setup = new GameState();
         setup.parse(setupLines);
+        answers.attach(game, idToCard(setup));
         setup.applyToGame(game);
-        answers.bind(game, idToCard(setup));
+        answers.bind();
         if (markDamage(setup, damage)) {
             game.getAction().checkStateEffects(true);
         }

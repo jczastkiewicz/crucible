@@ -3,3 +3,4 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 ailife=20
+humanbattlefield=Island|Id:1|Tapped

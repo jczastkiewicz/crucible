@@ -43,6 +43,7 @@ How the runner turns a fixture into a Java game. Each is a place the Go harness 
 | S17 | An `expecterror refused castspell` or `expecterror refused playland` line is a play Java must refuse too: the card offers no playable spell or land ability, playing it fails, or its turn and phase pass with no priority for the seat. A play that goes through is a Java error. After a refusal the seat's priority is the checkpoint when it is due, before the seat passes the step away. A target set below the ability's minimum fails the selection, as `TargetSelection`'s does | Go's harness reports the refusal as an error and changes nothing; a Java play would leave a state Go never had |
 | S18 | A play in turn 1's Draw step makes the scenario not runnable | Go's `advance` walks through the first player's skipped draw step (CR 103.8a, `drivenSkips` is the driver's only), Java skips it and gives no priority there |
 | S19 | A `paymanacost` line is a play (S13): at the seat's priority in Go's turn and phase, the cost (X from the `payx` queue) is paid through `applyManaToCost` on behalf of an empty ability, as a spell's is. A play before any `startturn` (turn 0) makes the scenario not runnable. The 13 payment scenarios that paid outside any turn now start turn 1 and pay in its main phase; the 10 that load mana with `manapool=` keep turn 0, since the pool empties as the steps pass | Go's `Game.PayManaCost` pays outside the priority loop, and Go's harness acts with no turn at all; Java needs a priority to act at |
+| S20 | A `castspell` line's `face` argument casts the card's second face (an Adventure, Omen, Aftermath, Vengeance or Disturb spell, a Split card's right half: a spell ability of any state but `Original` and `LeftSplit`), `fuse` a Split card's fused spell, the one `AbilityFactory.buildFusedAbility` puts on the `Original` state | Go's `CastFace` and `CastFused` (`face.go`) pick the face by name; Java offers every face's spell from `getAllPossibleAbilities` |
 
 ## Verbs
 
@@ -59,7 +60,7 @@ An `actions.log` line is mapped to a Java answer, a checkpoint, or nothing. A sc
 | `step [n]` | 12 | A checkpoint, the stack empty (S8) | mapped |
 | `resolvestack` | 316 | A checkpoint, the stack empty (S8); the next play waits for it (S13). Unmapped in Untap or Cleanup (S14) | mapped |
 | `passpriority` | 103 | A checkpoint, the stack empty (S8); the round that takes the queued actions (S15) | mapped |
-| `castspell <player> <id>`, `playland <player> <id>` | 250, 24 | A play (S13). A face or fuse argument is unmapped | mapped |
+| `castspell <player> <id>`, `playland <player> <id>` | 250, 24 | A play (S13); a `face` or `fuse` argument picks the face (S20) | mapped |
 | `expecterror` | 18 | A refused `castspell` or `playland` (S17). The combat forms (`508.1d`, `509.1b`, `alone`) and `outside resolvestack` are unmapped | mapped for a refused play |
 | `mulligan`, `dealopeninghands` | 5, 3 | — | unmapped |
 | `foretell`, `plot`, `suspend`, `turnfaceup` | 2, 1, 1, 1 | — | unmapped |
@@ -86,7 +87,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 949 same, 4 differs, 0 random, 111 not runnable (106 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
+The current run: 956 same, 4 differs, 0 random, 104 not runnable (99 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
@@ -98,7 +99,7 @@ The current run: 949 same, 4 differs, 0 random, 111 not runnable (106 with an un
 ## Not ported yet
 
 - `ScenarioController`'s answers for the other queue kinds (ADR-0060), Go's defaults and panics, and dividing combat damage among several blockers (`queue damage`)
-- The other verbs and queue kinds. By the first unmapped line per scenario: `resolvestack` in Untap or Cleanup 10, `paymanacost` at turn 0 10, a face or fuse `castspell` 7, `queue returnchoice`, `enchanttarget` and `divide` 6 each, `queue targets stack:N`, `startingplayer` and `abilitychoice` 4 each
+- The other verbs and queue kinds. By the first unmapped line per scenario: `resolvestack` in Untap or Cleanup 10, `paymanacost` at turn 0 10, `queue returnchoice`, `enchanttarget` and `divide` 6 each, `queue targets stack:N`, `startingplayer` and `abilitychoice` 4 each
 - A seat's own order of its simultaneous triggers: they go on the stack in upstream's list order, Go's in its default order (`queue triggerorder`, which no scenario queues)
 - A created id (ADR-0059, open plan R21a-c)
-- Go's `ScriptedController` does not fail on an answer left queued; the Java leftover check found three such stale lines, now removed: two `queue confirmpaycost` (Rathi Assassin, Blood Moon) and a `queue targets` for a spell with no legal target (Raise Dead in the Control Magic scenario)
+- Go's `ScriptedController` does not fail on an answer left queued; the Java leftover check found four such stale lines, now removed: two `queue confirmpaycost` (Rathi Assassin, Blood Moon), a `queue targets` for a spell with no legal target (Raise Dead in the Control Magic scenario) and one for a spell that targets nothing (Ribbons)

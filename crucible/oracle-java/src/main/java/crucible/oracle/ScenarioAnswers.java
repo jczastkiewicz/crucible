@@ -126,7 +126,8 @@ final class ScenarioAnswers {
 
     /** Queues a play line; args are the line's words after the verb. */
     void play(int line, String verb, String[] args, int turn, PhaseType phase) {
-        if (verb.equals("castspell") || verb.equals("playland") ? args.length != 2 : args.length != 3) {
+        boolean face = verb.equals("castspell") && args.length == 3 && (args[2].equals("face") || args[2].equals("fuse"));
+        if (!face && (verb.equals("castspell") || verb.equals("playland") ? args.length != 2 : args.length != 3)) {
             throw new IllegalArgumentException(verb + " " + String.join(" ", args));
         }
         plays.add(new Play(line, verb, args[0], turn, phase, Integer.parseInt(args[1]),

@@ -27,6 +27,7 @@ import forge.game.player.PlayerActionConfirmMode;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.keyword.Keyword;
+import forge.card.CardStateName;
 import forge.card.mana.ManaCost;
 import forge.card.mana.ManaCostParser;
 import forge.game.cost.Cost;
@@ -126,11 +127,11 @@ final class ScenarioController extends PlayerControllerForTests {
                 continue;
             }
             for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
-                if (land ? sa.isLandAbility() : sa.isSpell()) {
+                if (land ? sa.isLandAbility() : sa.isSpell() && castsFace(card, sa, play.arg())) {
                     return List.of(sa);
                 }
             }
-            throw new IllegalStateException(player + " cannot " + play.verb() + " " + card);
+            throw new IllegalStateException(player + " cannot " + play.verb() + " " + card + " " + play.arg());
         }
         // A refused play changed nothing: the checkpoint it held back may be
         // this priority, before the seat passes the step away (S17).
@@ -156,6 +157,22 @@ final class ScenarioController extends PlayerControllerForTests {
             toPay.setXManaCostPaid(x, null);
         }
         applyManaToCost(toPay, sa, "paymanacost", null, false);
+    }
+
+    // S20: a castspell's face argument. None casts the card's first spell;
+    // "face" its second face's (an Adventure, Omen, Aftermath or Disturb
+    // spell, a Split card's right half: any state but Original and
+    // LeftSplit); "fuse" a Split card's fused spell, which
+    // AbilityFactory.buildFusedAbility puts on the Original state.
+    private static boolean castsFace(Card card, SpellAbility sa, String arg) {
+        CardStateName state = sa.getCardStateName();
+        if ("fuse".equals(arg)) {
+            return card.isSplitCard() && state == CardStateName.Original;
+        }
+        if ("face".equals(arg)) {
+            return state != CardStateName.Original && state != CardStateName.LeftSplit;
+        }
+        return true;
     }
 
     // S17: a play Go refused. Java refuses it too when the card offers no

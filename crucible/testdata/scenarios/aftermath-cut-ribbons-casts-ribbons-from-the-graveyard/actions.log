@@ -8,6 +8,5 @@ tapformana human 3 B
 tapformana human 4 B
 queue payx 1
 queue paygeneric B
-queue targets ai
 castspell human 1 face
 resolvestack

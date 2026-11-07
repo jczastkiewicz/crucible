@@ -1,3 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
 humanlife=20
 ailife=20
 humanmanapool=W
+humanbattlefield=Plains|Tapped;Plains|Tapped;Mountain|Tapped

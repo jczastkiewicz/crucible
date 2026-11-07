@@ -2,5 +2,11 @@
 # ChoosePayMonocoloredHybrid true -- spends exactly one white mana, not the
 # two generic mana-payment-monocolored-hybrid-generic's own false branch asks
 # for instead.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19); the
+# lands are tapped there, since a pool loaded by setup.state empties as the
+# steps pass (CR 500.4).
+startturn human
+advance 3
+tapformana human 1 W
 queue paymonocoloredhybrid true
 paymanacost human 2/W

@@ -1,5 +1,11 @@
 # CR 601.2h: a colourless hybrid shard ({C/W}) paid on its coloured side --
 # ChoosePayColorlessHybrid true, manapay.go -- spends a white mana from the
 # pool rather than a colourless one.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19); the
+# lands are tapped there, since a pool loaded by setup.state empties as the
+# steps pass (CR 500.4).
+startturn human
+advance 3
+tapformana human 1 W
 queue paycolorlesshybrid true
 paymanacost human C/W

@@ -41,6 +41,7 @@ import forge.game.spellability.OptionalCostValue;
 import forge.game.cost.CostPartWithList;
 import forge.game.mana.ManaConversionMatrix;
 import forge.game.mana.ManaCostBeingPaid;
+import forge.game.mana.Mana;
 import forge.game.player.PlaySpellAbility;
 import forge.game.spellability.AbilityManaPart;
 import forge.game.player.Player;
@@ -418,7 +419,17 @@ final class ScenarioController extends PlayerControllerForTests {
                 }
             }
         }
-        while (!player.getManaPool().payManaCostFromPool(toPay, ability, false, ability.getPayingMana())) {
+        if (answers.bound()) {
+            payGenericAsAnswered(toPay, ability);
+        }
+        // payManaCostFromPool pays each unpaid shard once a call: a {2/W}
+        // paid with colorless becomes {1}, paid by the next call.
+        for (String before = toPay.toString();
+                !player.getManaPool().payManaCostFromPool(toPay, ability, false, ability.getPayingMana());
+                before = toPay.toString()) {
+            if (!toPay.toString().equals(before)) {
+                continue;
+            }
             ScenarioAnswers.Play tap = answers.nextTapNow();
             if (tap == null) {
                 throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + ability);
@@ -434,6 +445,36 @@ final class ScenarioController extends PlayerControllerForTests {
     // Go's DeclareCombatAttackers: each queued attacker attacks the only
     // defender there is, or the next queued attack target when there are
     // several (attack.go chooseAttackTargets).
+    // S25: Go asks ChoosePayGeneric once per generic unit, a declined {2/W}
+    // adding two (manapay.go); each answer spends a mana of that type from
+    // the pool first, as Go spends the resolved shards. A mana not in the
+    // pool yet (one tapped during the payment) is left to the pool.
+    private void payGenericAsAnswered(ManaCostBeingPaid toPay, SpellAbility ability) {
+        int generic = toPay.getGenericManaAmount();
+        for (ManaCostShard shard : toPay.getUnpaidShards()) {
+            if (shard.isOr2Generic()) {
+                Boolean color = answers.nextPayMonocoloredHybrid();
+                if (color != null && !color) {
+                    generic += shard.getCmc();
+                }
+            }
+        }
+        for (int i = 0; i < generic; i++) {
+            String kind = answers.nextPayGeneric();
+            if (kind == null) {
+                return;
+            }
+            for (Mana m : player.getManaPool()) {
+                boolean match = kind.equalsIgnoreCase("C") ? m.isColorless()
+                        : !m.isColorless() && m.getColor() == MagicColor.fromName(kind.charAt(0));
+                if (match && player.getManaPool().tryPayCostWithMana(ability, toPay, m, false)) {
+                    ability.getPayingMana().add(m);
+                    break;
+                }
+            }
+        }
+    }
+
     @Override
     public void declareAttackers(Player attacker, Combat combat) {
         List<Integer> ids = answers.nextAttackers();

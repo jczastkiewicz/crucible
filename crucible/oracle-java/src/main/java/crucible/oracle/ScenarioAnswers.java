@@ -86,6 +86,8 @@ final class ScenarioAnswers {
     private final Deque<Integer> options = new ArrayDeque<>();
     private final Deque<Boolean> coinCalls = new ArrayDeque<>();
     private final Deque<List<int[]>> damages = new ArrayDeque<>();
+    private final Deque<String> generics = new ArrayDeque<>();
+    private final Deque<Boolean> monoHybrids = new ArrayDeque<>();
     private final Deque<String> startingPlayers = new ArrayDeque<>();
     private final Deque<Boolean> keepHands = new ArrayDeque<>();
     private final Deque<List<Integer>> tucks = new ArrayDeque<>();
@@ -114,14 +116,14 @@ final class ScenarioAnswers {
             case "targets" -> {
                 targets.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
             }
-            // Which pool mana pays a generic shard: payManaCost pays from
-            // the pool in Java's own order (ManaPool.payManaCostFromPool).
-            case "paygeneric" -> {
-            }
-            // Which snow mana pays {S}, and whether {2/W} or {C/W} takes its
-            // color: the pool pays in Java's own order too.
-            // So does the color a hybrid shard takes (Go's ChooseHybridManaColor).
-            case "paysnow", "paymonocoloredhybrid", "paycolorlesshybrid", "hybridmanacolor" -> {
+            // The mana that pays each generic unit (S25), and whether {2/W}
+            // takes its color or two generic units.
+            case "paygeneric" -> generics.add(value.strip());
+            case "paymonocoloredhybrid" -> monoHybrids.add(bool(value));
+            // Which snow mana pays {S}, whether {C/W} takes its color, and the
+            // color a hybrid shard takes (Go's ChooseHybridManaColor): the
+            // pool pays in Java's own order.
+            case "paysnow", "paycolorlesshybrid", "hybridmanacolor" -> {
             }
             case "discard" -> discards.add(ids(value));
             case "exertattackers" -> exerts.add(value.strip().equals("none") ? List.of() : ids(value));
@@ -550,6 +552,16 @@ final class ScenarioAnswers {
             throw new IllegalStateException("tuck " + next + " for " + n + " cards");
         }
         return out;
+    }
+
+    /** The next paygeneric answer, a mana letter (Go's ChoosePayGeneric), or null. */
+    String nextPayGeneric() {
+        return generics.poll();
+    }
+
+    /** The next paymonocoloredhybrid answer (Go's ChoosePayMonocoloredHybrid), or null. */
+    Boolean nextPayMonocoloredHybrid() {
+        return monoHybrids.poll();
     }
 
     /** The next option answer (Go's ChooseOption index), or null. */

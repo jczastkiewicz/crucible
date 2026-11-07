@@ -2,6 +2,13 @@
 # generic side adds its own CMC (2) onto the cost's generic amount instead of
 # spending white -- ChoosePayMonocoloredHybrid false, manapay.go -- so two
 # units of generic are still asked for even though no coloured pip is paid.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19); the
+# lands are tapped there, since a pool loaded by setup.state empties as the
+# steps pass (CR 500.4).
+startturn human
+advance 3
+tapformana human 1 C
+tapformana human 2 C
 queue paymonocoloredhybrid false
 queue paygeneric C
 queue paygeneric C

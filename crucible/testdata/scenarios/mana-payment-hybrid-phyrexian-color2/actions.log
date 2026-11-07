@@ -2,5 +2,11 @@
 # ChoosePayHybridPhyrexian answering green -- proving the choice is not
 # fixed to the first-named colour the way a careless implementation reading
 # only s.Colors()'s first bit might get away with against color1 alone.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19); the
+# lands are tapped there, since a pool loaded by setup.state empties as the
+# steps pass (CR 500.4).
+startturn human
+advance 3
+tapformana human 1 G
 queue payhybridphyrexian G
 paymanacost human B/G/P

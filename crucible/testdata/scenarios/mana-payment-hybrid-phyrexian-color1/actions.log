@@ -2,5 +2,11 @@
 # colour -- ChoosePayHybridPhyrexian answering a nonzero mana.Colors instead
 # of the zero one mana-payment-hybrid-phyrexian-life's own "life" answer
 # means -- spends black mana, no life.
+# Main phase of turn 1, so the payment is made at a priority (L2 S19); the
+# lands are tapped there, since a pool loaded by setup.state empties as the
+# steps pass (CR 500.4).
+startturn human
+advance 3
+tapformana human 1 B
 queue payhybridphyrexian B
 paymanacost human B/G/P

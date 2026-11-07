@@ -626,7 +626,31 @@ final class ScenarioController extends PlayerControllerForTests {
         if (!answers.bound()) {
             return "";
         }
-        throw new IllegalStateException("naming a card for " + sa + " needs queue cardname");
+        // Go's ChooseOption by name (queue optionname), when cpp allows it.
+        String name = answers.nextOptionName(n -> {
+            forge.item.PaperCard pc = forge.StaticData.instance().getCommonCards().getCard(n);
+            return pc != null && (cpp == null || cpp.test(pc.getRules().getMainPart()));
+        });
+        if (name == null) {
+            throw new IllegalStateException("naming a card for " + sa + " needs queue optionname");
+        }
+        return name;
+    }
+
+    // A type an effect chooses (ChooseType): Go's ChooseOption by name.
+    @Override
+    public String chooseSomeType(String kindOfType, SpellAbility sa, java.util.Collection<String> validTypes,
+            boolean isOptional) {
+        String name = answers.bound() ? answers.nextOptionName(validTypes::contains) : null;
+        return name != null ? name : super.chooseSomeType(kindOfType, sa, validTypes, isOptional);
+    }
+
+    // The sector a creature is assigned as it enters (Space Beleren's
+    // planet): Go's ChooseSector, asked from the setup's own pass too.
+    @Override
+    public String chooseSector(Card assignee, String ai, List<String> sectors) {
+        String sector = answers.nextSector(sectors);
+        return sector != null ? sector : super.chooseSector(assignee, ai, sectors);
     }
 
     // A card choice for an effect pops queue cardchoice when the answer fits
@@ -697,6 +721,15 @@ final class ScenarioController extends PlayerControllerForTests {
     public <T extends GameEntity> T chooseSingleEntityForEffect(FCollectionView<T> optionList,
             DelayedReveal delayedReveal, SpellAbility sa, String title, boolean isOptional, Player targetedPlayer,
             Map<String, Object> params) {
+        // A battle's protector (CR 704.5w, GameAction.java:1711): Go's
+        // ChooseBattleProtector, asked from the setup's own pass too.
+        if (sa != null && sa.getApi() == ApiType.ChoosePlayer && sa.getHostCard() != null
+                && sa.getHostCard().isBattle()) {
+            Player protector = answers.nextBattleProtector(optionList);
+            if (protector != null) {
+                return (T) protector;
+            }
+        }
         // The legend rule's keep (GameAction.handleLegendRule): Go's
         // ChooseLegendaryToKeep, asked from the setup's own pass too.
         if (sa != null && sa.getApi() == ApiType.InternalLegendaryRule) {
@@ -735,6 +768,11 @@ final class ScenarioController extends PlayerControllerForTests {
     public <T extends GameEntity> List<T> chooseEntitiesForEffect(FCollectionView<T> optionList, int min, int max,
             DelayedReveal delayedReveal, SpellAbility sa, String title, Player relatedPlayer,
             Map<String, Object> params) {
+        // Go's ChooseEntitiesForEffect (queue entitychoice), else a card choice.
+        List<GameEntity> entities = answers.bound() ? answers.nextEntityChoice(optionList, min, max) : null;
+        if (entities != null) {
+            return (List<T>) entities;
+        }
         List<Card> chosen = answers.bound() ? answers.nextCardChoice(optionList, min, max) : null;
         return chosen != null ? (List<T>) chosen
                 : super.chooseEntitiesForEffect(optionList, min, max, delayedReveal, sa, title, relatedPlayer, params);

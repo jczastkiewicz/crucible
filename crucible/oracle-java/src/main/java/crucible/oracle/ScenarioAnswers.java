@@ -37,7 +37,8 @@ final class ScenarioAnswers {
             "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
             "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
             "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage",
-            "startingplayer", "keephand", "tuck");
+            "startingplayer", "keephand", "tuck", "battleprotector", "sector", "tapchoice", "entitychoice",
+            "optionname");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -87,6 +88,11 @@ final class ScenarioAnswers {
     private final Deque<Boolean> coinCalls = new ArrayDeque<>();
     private final Deque<List<int[]>> damages = new ArrayDeque<>();
     private final Deque<String> generics = new ArrayDeque<>();
+    private final Deque<String> protectors = new ArrayDeque<>();
+    private final Deque<String> sectors = new ArrayDeque<>();
+    private final Deque<List<Integer>> tapChoices = new ArrayDeque<>();
+    private final Deque<List<String>> entityChoices = new ArrayDeque<>();
+    private final Deque<String> optionNames = new ArrayDeque<>();
     private final Deque<Boolean> monoHybrids = new ArrayDeque<>();
     private final Deque<String> startingPlayers = new ArrayDeque<>();
     private final Deque<Boolean> keepHands = new ArrayDeque<>();
@@ -111,6 +117,12 @@ final class ScenarioAnswers {
             case "attacktarget" -> attackTargets.add(value.strip());
             case "damage" -> damages.add(pairs(value));
             case "startingplayer" -> startingPlayers.add(value.strip());
+            case "battleprotector" -> protectors.add(value.strip());
+            case "sector" -> sectors.add(value.strip());
+            case "tapchoice" -> tapChoices.add(ids(value));
+            case "entitychoice" -> entityChoices.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
+            // Spaces in a name are written "_" (fixture/actions.go).
+            case "optionname" -> optionNames.add(value.strip().replace('_', ' '));
             case "keephand" -> keepHands.add(bool(value));
             case "tuck" -> tucks.add(ids(value));
             case "targets" -> {
@@ -564,6 +576,81 @@ final class ScenarioAnswers {
         return monoHybrids.poll();
     }
 
+    /**
+     * The next battleprotector answer (Go's ChooseBattleProtector) when it
+     * names one of options, else null. Asked from the setup's own pass too.
+     */
+    Player nextBattleProtector(Iterable<? extends GameEntity> options) {
+        String next = protectors.peek();
+        if (next == null) {
+            return null;
+        }
+        for (GameEntity e : options) {
+            if (e instanceof Player p && p.getName().equalsIgnoreCase(next)) {
+                protectors.poll();
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /** The next sector answer (Go's ChooseSector) as one of sectors, by name, or null. */
+    String nextSector(List<String> offered) {
+        String next = sectors.poll();
+        if (next == null) {
+            return null;
+        }
+        for (String s : offered) {
+            if (s.equalsIgnoreCase(next)) {
+                return s;
+            }
+        }
+        throw new IllegalStateException("sector " + next + " is not one of " + offered);
+    }
+
+    /** The next tapchoice answer (Go's ChoosePermanentsToTap) when it fits, as cards of options, or null. */
+    List<Card> nextTapChoice(Iterable<? extends GameEntity> options, int min, int max) {
+        return nextCards(tapChoices, options, min, max);
+    }
+
+    /**
+     * The next entitychoice answer (Go's ChooseEntitiesForEffect): cards and
+     * players of options, popped only when each is one of them and the count
+     * is within min and max; else null.
+     */
+    List<GameEntity> nextEntityChoice(Iterable<? extends GameEntity> options, int min, int max) {
+        List<String> next = entityChoices.peek();
+        if (next == null || next.size() < min || next.size() > max) {
+            return null;
+        }
+        List<GameEntity> out = new ArrayList<>();
+        for (String v : next) {
+            GameEntity want = entity(v.strip());
+            GameEntity match = null;
+            for (GameEntity e : options) {
+                if (e.getId() == want.getId() && e.getClass() == want.getClass() && !out.contains(e)) {
+                    match = e;
+                    break;
+                }
+            }
+            if (match == null) {
+                return null;
+            }
+            out.add(match);
+        }
+        entityChoices.poll();
+        return out;
+    }
+
+    /** The next optionname answer (Go's ChooseOption by name) when it is one of offered, else null. */
+    String nextOptionName(java.util.function.Predicate<String> offered) {
+        String next = optionNames.peek();
+        if (next == null || !offered.test(next)) {
+            return null;
+        }
+        return optionNames.poll();
+    }
+
     /** The next option answer (Go's ChooseOption index), or null. */
     Integer nextOption() {
         return options.poll();
@@ -741,6 +828,11 @@ final class ScenarioAnswers {
         rest.put("startingplayer", startingPlayers);
         rest.put("keephand", keepHands);
         rest.put("tuck", tucks);
+        rest.put("battleprotector", protectors);
+        rest.put("sector", sectors);
+        rest.put("tapchoice", tapChoices);
+        rest.put("entitychoice", entityChoices);
+        rest.put("optionname", optionNames);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

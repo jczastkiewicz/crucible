@@ -14,6 +14,7 @@ import forge.game.cost.CostPutCounter;
 import forge.game.cost.CostReturn;
 import forge.game.cost.CostReveal;
 import forge.game.cost.CostSacrifice;
+import forge.game.cost.CostTapType;
 import forge.game.cost.PaymentDecision;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
@@ -115,6 +116,16 @@ final class ScenarioCostDecision extends AiCostDecision {
         List<Card> chosen = answers.nextSacrificeChoice(
                 valid(player.getCardsIn(ZoneType.Battlefield), cost.getType()), n, n);
         return chosen != null ? PaymentDecision.card(chosen) : super.visit(cost);
+    }
+
+    // tapXType<N/Type>: Go's ChoosePermanentsToTap (Station, Crew), from the
+    // untapped permanents the cost lists; the AI's pick when none fits.
+    @Override
+    public PaymentDecision visit(CostTapType cost) {
+        PaymentDecision ai = super.visit(cost);
+        List<Card> chosen = answers.nextTapChoice(
+                CardLists.filter(player.getCardsIn(ZoneType.Battlefield), CardPredicates.UNTAPPED), 1, Integer.MAX_VALUE);
+        return chosen != null ? PaymentDecision.card(chosen) : ai;
     }
 
     private CardCollectionView valid(CardCollectionView cards, String type) {

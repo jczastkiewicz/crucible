@@ -437,23 +437,61 @@ final class ScenarioController extends PlayerControllerForTests {
     @Override
     public void declareAttackers(Player attacker, Combat combat) {
         List<Integer> ids = answers.nextAttackers();
+        if (ids != null && answers.refused(ids)) {
+            // S23: Go refused this declaration; Java must find it illegal too.
+            // It is undone and the next answer declared.
+            List<Card> added = addAttackers(combat, ids);
+            if (CombatUtil.validateAttackers(combat)) {
+                throw new IllegalStateException("Java accepts the attack declaration Go refused: " + ids);
+            }
+            added.forEach(combat::removeFromCombat);
+            ids = answers.nextAttackers();
+        }
         if (ids == null) {
             return;
         }
-        for (int id : ids) {
-            List<GameEntity> defenders = List.copyOf(combat.getDefenders());
-            GameEntity defender = defenders.size() == 1 ? defenders.get(0) : answers.nextAttackTarget();
-            combat.addAttacker(answers.card(id), defender);
-        }
+        addAttackers(combat, ids);
         if (!CombatUtil.validateAttackers(combat)) {
             throw new IllegalStateException("illegal attack declaration " + ids);
         }
+    }
+
+    private List<Card> addAttackers(Combat combat, List<Integer> ids) {
+        List<Card> added = new ArrayList<>();
+        for (int id : ids) {
+            List<GameEntity> defenders = List.copyOf(combat.getDefenders());
+            GameEntity defender = defenders.size() == 1 ? defenders.get(0) : answers.nextAttackTarget();
+            Card c = answers.card(id);
+            combat.addAttacker(c, defender);
+            added.add(c);
+        }
+        return added;
     }
 
     // Go's DeclareCombatBlockers: the queued blocker=attacker pairs.
     @Override
     public void declareBlockers(Player defender, Combat combat) {
         List<int[]> pairs = answers.nextBlocks();
+        if (pairs != null && answers.refused(pairs)) {
+            // S23: Go refused these blocks; Java must find them illegal too:
+            // a blocker that can't block its attacker, or validateBlocks.
+            boolean each = pairs.stream()
+                    .allMatch(pair -> CombatUtil.canBlock(answers.card(pair[1]), answers.card(pair[0])));
+            if (each) {
+                List<Card> added = new ArrayList<>();
+                for (int[] pair : pairs) {
+                    Card blocker = answers.card(pair[0]);
+                    combat.addBlocker(answers.card(pair[1]), blocker);
+                    added.add(blocker);
+                }
+                String invalid = CombatUtil.validateBlocks(combat, defender);
+                added.forEach(combat::undoBlockingAssignment);
+                if (invalid == null) {
+                    throw new IllegalStateException("Java accepts the blocks Go refused");
+                }
+            }
+            pairs = answers.nextBlocks();
+        }
         if (pairs == null) {
             return;
         }
@@ -479,7 +517,18 @@ final class ScenarioController extends PlayerControllerForTests {
     public Map<Card, Integer> assignCombatDamage(Card attacker, CardCollectionView blockers, CardCollectionView remaining,
             int damageDealt, GameEntity defender, boolean overrideOrder) {
         if (blockers.size() != 1) {
-            throw new IllegalStateException("dividing " + attacker + "'s damage among " + blockers + " needs queue damage");
+            // Go's AssignCombatDamage, asked only with several recipients;
+            // with trample what is left goes to what is attacked, as
+            // combatdamage.go deals it, else it is not dealt.
+            Map<Card, Integer> map = answers.nextDamage(blockers);
+            if (map == null) {
+                throw new IllegalStateException("dividing " + attacker + "'s damage among " + blockers + " needs queue damage");
+            }
+            int left = damageDealt - map.values().stream().mapToInt(Integer::intValue).sum();
+            if (left > 0 && attacker.hasKeyword(Keyword.TRAMPLE) && attacker.isAttacking()) {
+                map.put(null, left);
+            }
+            return map;
         }
         Card blocker = blockers.get(0);
         int toBlocker = damageDealt;

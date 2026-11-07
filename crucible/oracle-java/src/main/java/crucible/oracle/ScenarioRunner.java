@@ -196,7 +196,10 @@ public final class ScenarioRunner {
                 } else if (f[0].equals("expecterror")) {
                     // S17: only a refused cast or land play is mapped.
                     String[] all = line.split("\\s+");
-                    if (all.length != 5 || !all[1].equals("refused") || !PLAYS.contains(all[2]) || all[2].equals("tapformana")) {
+                    if (all.length == 3 && (all[2].equals("declareattackers") || all[2].equals("declareblockers"))) {
+                        // S23: Go refused the declaration queued last.
+                        answers.refuseDeclaration(all[2]);
+                    } else if (all.length != 5 || !all[1].equals("refused") || !PLAYS.contains(all[2]) || all[2].equals("tapformana")) {
                         unmapped.add(line);
                     } else {
                         answers.refusedPlay(i, all[2], Arrays.copyOfRange(all, 3, all.length), Integer.parseInt(when.get(i)[0]),

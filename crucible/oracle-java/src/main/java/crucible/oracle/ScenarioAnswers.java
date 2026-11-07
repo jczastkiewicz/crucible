@@ -36,7 +36,7 @@ final class ScenarioAnswers {
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
             "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
             "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
-            "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall");
+            "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -52,6 +52,9 @@ final class ScenarioAnswers {
 
     private final Deque<List<Integer>> attackers = new ArrayDeque<>();
     private final Deque<List<int[]>> blocks = new ArrayDeque<>();
+    // The attackers and blocks answers an expecterror line says Go refused,
+    // by identity (S23).
+    private final Set<Object> refusedDeclarations = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final Deque<String> attackTargets = new ArrayDeque<>();
     private final Deque<List<String>> targets = new ArrayDeque<>();
     private final Deque<List<Integer>> cardOrders = new ArrayDeque<>();
@@ -81,6 +84,7 @@ final class ScenarioAnswers {
     private final Deque<Integer> legendaryKeeps = new ArrayDeque<>();
     private final Deque<Integer> options = new ArrayDeque<>();
     private final Deque<Boolean> coinCalls = new ArrayDeque<>();
+    private final Deque<List<int[]>> damages = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -95,18 +99,11 @@ final class ScenarioAnswers {
     /** Queues one `queue <kind> <value>` line (fixture/actions.go's grammar). */
     void queue(String kind, String value) {
         switch (kind) {
-            case "attackers" -> attackers.add(value.equals("none") ? List.of() : ids(value));
-            case "blocks" -> {
-                List<int[]> pairs = new ArrayList<>();
-                if (!value.equals("none")) {
-                    for (String pair : value.split(",")) {
-                        String[] half = pair.split("=", 2);
-                        pairs.add(new int[] {Integer.parseInt(half[0].strip()), Integer.parseInt(half[1].strip())});
-                    }
-                }
-                blocks.add(pairs);
-            }
+            // A fresh list for none: S23 marks answers by identity.
+            case "attackers" -> attackers.add(value.equals("none") ? new ArrayList<>() : ids(value));
+            case "blocks" -> blocks.add(value.equals("none") ? new ArrayList<>() : pairs(value));
             case "attacktarget" -> attackTargets.add(value.strip());
+            case "damage" -> damages.add(pairs(value));
             case "targets" -> {
                 targets.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
             }
@@ -483,6 +480,26 @@ final class ScenarioAnswers {
         return null;
     }
 
+    /**
+     * The next damage answer (Go's AssignCombatDamage) as the amount each of
+     * recipients gets, in the answer's order, or null when none is queued.
+     */
+    Map<Card, Integer> nextDamage(CardCollectionView recipients) {
+        List<int[]> next = damages.poll();
+        if (next == null) {
+            return null;
+        }
+        Map<Card, Integer> out = new LinkedHashMap<>();
+        for (int[] pair : next) {
+            Card c = card(pair[0]);
+            if (!recipients.contains(c) || out.containsKey(c)) {
+                throw new IllegalStateException("damage to " + c + ": not one of " + recipients);
+            }
+            out.put(c, pair[1]);
+        }
+        return out;
+    }
+
     /** The next option answer (Go's ChooseOption index), or null. */
     Integer nextOption() {
         return options.poll();
@@ -656,6 +673,7 @@ final class ScenarioAnswers {
         rest.put("legendarykeep", legendaryKeeps);
         rest.put("option", options);
         rest.put("coincall", coinCalls);
+        rest.put("damage", damages);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());
@@ -692,6 +710,27 @@ final class ScenarioAnswers {
     /** The next blocks answer as blocker/attacker id pairs, or null. */
     List<int[]> nextBlocks() {
         return blocks.poll();
+    }
+
+    /**
+     * Marks the last attackers (declareattackers) or blocks
+     * (declareblockers) answer queued as one Go refused: an `expecterror
+     * <text> declareattackers|declareblockers` line (S23).
+     */
+    void refuseDeclaration(String verb) {
+        Object last = switch (verb) {
+            case "declareattackers" -> attackers.peekLast();
+            case "declareblockers" -> blocks.peekLast();
+            default -> null;
+        };
+        if (last == null || !refusedDeclarations.add(last)) {
+            throw new IllegalArgumentException("expecterror " + verb + " with no answer queued for it");
+        }
+    }
+
+    /** True when an expecterror line says Go refused this declaration (S23). */
+    boolean refused(Object declaration) {
+        return refusedDeclarations.contains(declaration);
     }
 
     /**
@@ -752,6 +791,19 @@ final class ScenarioAnswers {
         }
         if (out.size() == 1) {
             out.add(List.of());
+        }
+        return out;
+    }
+
+    // id=number pairs, comma-separated: a blocks or damage value.
+    private static List<int[]> pairs(String value) {
+        List<int[]> out = new ArrayList<>();
+        for (String pair : value.split(",")) {
+            String[] half = pair.split("=", 2);
+            if (half.length != 2) {
+                throw new IllegalArgumentException("pair " + pair);
+            }
+            out.add(new int[] {Integer.parseInt(half[0].strip()), Integer.parseInt(half[1].strip())});
         }
         return out;
     }

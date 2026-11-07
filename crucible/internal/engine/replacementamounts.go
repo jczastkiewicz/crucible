@@ -86,7 +86,8 @@ func (g *Game) playerAmountReplaced(controller PlayerController, event, amountNa
 				if api, ok := APIByName(sub.Name); ok {
 					if _, isReplace := replaceEffectFor(api); isReplace {
 						if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
-							g.recordPendingError(fmt.Errorf("engine: %q: Event$ %s: ReplaceWith$ %s is not resolvable yet", h.Def.Name, event, sub.Name))
+							// runReplaceWith recorded why a Replace* effect could
+							// not resolve; false otherwise is the line not applying.
 							return replacementNotReplaced
 						}
 						amount = ev.amount

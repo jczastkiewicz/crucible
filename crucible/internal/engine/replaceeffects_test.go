@@ -206,21 +206,19 @@ func TestReplaceManaChangesTypeAndAmount(t *testing.T) {
 	}
 }
 
-// TestReplaceEffectUnportedVarTypeLeavesDamage proves a ReplaceWith$ the
-// effect rejects is skipped whole: VarType$ PlanarDice on VarName$ Affected is
-// no object swap this port models, so the damage happens unchanged.
-func TestReplaceEffectUnportedVarTypeLeavesDamage(t *testing.T) {
+// TestReplaceEffectUnportedVarTypeEndsTheGame proves a ReplaceWith$ the
+// effect cannot resolve ends the game rather than letting the damage through
+// unreplaced: VarType$ PlanarDice on VarName$ Affected is no object swap this
+// port models.
+func TestReplaceEffectUnportedVarTypeEndsTheGame(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
-	resolveLine(t, g, p, engine.NewScriptedController(),
+	wantReplaceError(t, g, p, `VarType$ "PlanarDice"`,
 		"DB$ Effect | ReplacementEffects$ Swap | SubAbility$ DBDamage",
 		"Swap", "Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DBSwap | Description$ Swap.",
 		"DBSwap", "DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ PlanarDice",
 		"DBDamage", "DB$ DealDamage | Defined$ You | NumDmg$ 2")
-	if got := g.Player(p).Life; got != 18 {
-		t.Errorf("life = %d, want 18 -- the unported replacement skipped", got)
-	}
 }
 
 // TestReplaceTokenAmountOperators proves doXMath's other operators past the
@@ -373,20 +371,23 @@ func TestReplaceCounterValidCounterTypeMismatchStillLetsAMatchingReplacementRun(
 	}
 }
 
-// TestReplaceEffectFailsClosedOnMalformedLines proves ReplaceEffect's own
-// error branches leave the event unedited rather than propagating: a
-// rejected VarKey$, an unmet Condition gate, a VarName$ that does not name
-// the event being replaced, and a missing VarValue$ each make the
-// replacement fail to resolve, so eachReplacement treats it as not applied
-// and the damage lands whole.
-func TestReplaceEffectFailsClosedOnMalformedLines(t *testing.T) {
+// TestReplaceEffectLinesThatCannotResolveEndTheGame proves ReplaceEffect's
+// error branches end the game rather than letting the damage through
+// unreplaced (CR 614.6): a rejected VarKey$ and a VarName$ that does not name
+// the event being replaced. An unmet Condition gate is no error: the
+// replacement does nothing and the damage lands whole. A missing VarValue$
+// stores 0, as Java's calculateAmount(null) does (AbilityUtils.java:370).
+func TestReplaceEffectLinesThatCannotResolveEndTheGame(t *testing.T) {
 	t.Parallel()
 
-	for name, replaceWith := range map[string]string{
-		"VarKeyRejected":    "DB$ ReplaceEffect | VarKey$ Bogus | VarName$ DamageAmount | VarValue$ 0",
-		"ConditionUnmet":    "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ 0 | ConditionCheckSVar$ Armed | ConditionSVarCompare$ GE1",
-		"VarNameMismatched": "DB$ ReplaceEffect | VarName$ Bogus | VarValue$ 0",
-		"NoVarValue":        "DB$ ReplaceEffect | VarName$ DamageAmount",
+	for name, tc := range map[string]struct {
+		replaceWith, reason string
+		life                int
+	}{
+		"VarKeyRejected":    {"DB$ ReplaceEffect | VarKey$ Bogus | VarName$ DamageAmount | VarValue$ 0", "VarKey$ not resolvable yet", 0},
+		"ConditionUnmet":    {"DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ 0 | ConditionCheckSVar$ Armed | ConditionSVarCompare$ GE1", "", 18},
+		"VarNameMismatched": {"DB$ ReplaceEffect | VarName$ Bogus | VarValue$ 0", `VarName$ "Bogus"`, 0},
+		"NoVarValue":        {"DB$ ReplaceEffect | VarName$ DamageAmount", "", 20},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -394,21 +395,26 @@ func TestReplaceEffectFailsClosedOnMalformedLines(t *testing.T) {
 			g, p, _ := newTwoPlayerGame(t)
 			g.NewCard(replacementEnchantmentDefWithSVars(t, "Test "+name,
 				"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ Swap | Description$ Swap.",
-				map[string]string{"Swap": replaceWith, "Armed": "0"}), p, engine.Battlefield)
+				map[string]string{"Swap": tc.replaceWith, "Armed": "0"}), p, engine.Battlefield)
+			if tc.reason != "" {
+				wantReplaceError(t, g, p, tc.reason, "DB$ DealDamage | Defined$ You | NumDmg$ 2")
+				return
+			}
 			resolveLine(t, g, p, engine.NewScriptedController(), "DB$ DealDamage | Defined$ You | NumDmg$ 2")
-			if got := g.Player(p).Life; got != 18 {
-				t.Errorf("life = %d, want 18 -- the malformed replacement must fail closed, unapplied", got)
+			if got := g.Player(p).Life; got != tc.life {
+				t.Errorf("life = %d, want %d", got, tc.life)
 			}
 		})
 	}
 }
 
-// TestReplaceDamageFailsClosedAndDefaultsAmountToOne proves an unmet
-// Condition gate leaves the damage unedited, a mismatched event (this API
-// wired to something other than DamageDone) fails to resolve rather than
-// misreading a different event's amount, and Amount$'s own default of 1
-// applies when the param is absent.
-func TestReplaceDamageFailsClosedAndDefaultsAmountToOne(t *testing.T) {
+// TestReplaceDamageEndsTheGameOnBadLinesAndDefaultsAmountToOne proves an
+// unmet Condition gate leaves the damage unedited, a mismatched event (this
+// API wired to something other than DamageDone) or a line that cannot
+// resolve ends the game rather than misreading a different event's amount or
+// letting the event through unreplaced (CR 614.6), and Amount$'s own default
+// of 1 applies when the param is absent.
+func TestReplaceDamageEndsTheGameOnBadLinesAndDefaultsAmountToOne(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ConditionUnmet", func(t *testing.T) {
@@ -429,11 +435,7 @@ func TestReplaceDamageFailsClosedAndDefaultsAmountToOne(t *testing.T) {
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Wrong Event",
 			"Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Creature.YouCtrl | ValidCounterType$ P1P1 | ReplaceWith$ WrongAPI | Description$ Wrong API for this event.",
 			"WrongAPI", "DB$ ReplaceDamage | Amount$ 1"), p, engine.Battlefield)
-		host := resolveLine(t, g, p, engine.NewScriptedController(),
-			"DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
-		if got := g.Card(host).Counters.Count(engine.P1P1); got != 2 {
-			t.Errorf("+1/+1 counters = %d, want 2 -- ReplaceDamage wired to AddCounter must fail closed, not misread CounterNum as damage", got)
-		}
+		wantReplaceError(t, g, p, "not replacing damage", "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
 	})
 
 	t.Run("AmountDefaultsToOne", func(t *testing.T) {
@@ -448,20 +450,17 @@ func TestReplaceDamageFailsClosedAndDefaultsAmountToOne(t *testing.T) {
 		}
 	})
 
-	for name, op := range map[string]string{
-		"UnknownTokenScript":        "DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ no_such_token",
-		"ChosenWithoutValidChoices": "DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ Chosen",
+	for name, tc := range map[string]struct{ op, reason string }{
+		"UnknownTokenScript":        {"DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ no_such_token", "no_such_token"},
+		"ChosenWithoutValidChoices": {"DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ Chosen", "TokenScript$ Chosen with no ValidChoices$"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			g, p, _ := newTokenGame(t)
 			g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Bad Replace",
 				"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
-				"Op", op), p, engine.Battlefield)
-			resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
-			if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
-				t.Errorf("soldiers = %d, want 3 -- a ReplaceWith$ that fails leaves the token table as it was", n)
-			}
+				"Op", tc.op), p, engine.Battlefield)
+			wantReplaceError(t, g, p, tc.reason, "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
 		})
 	}
 
@@ -471,35 +470,39 @@ func TestReplaceDamageFailsClosedAndDefaultsAmountToOne(t *testing.T) {
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Amount Unresolvable",
 			"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ Shield | Description$ Shield.",
 			"Shield", "DB$ ReplaceDamage | Amount$ Bogus"), p, engine.Battlefield)
-		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ DealDamage | Defined$ You | NumDmg$ 2")
-		if got := g.Player(p).Life; got != 18 {
-			t.Errorf("life = %d, want 18 -- Amount$ Bogus is not resolvable, replacement fails closed", got)
-		}
+		wantReplaceError(t, g, p, `Amount$ "Bogus"`, "DB$ DealDamage | Defined$ You | NumDmg$ 2")
 	})
 }
 
-// TestReplaceSplitDamageDefaultsAndFailsClosed proves VarName$'s own
-// default of 1, a Condition gate, and DamageTarget$'s two failure shapes
-// (absent, unresolvable) each leave the damage whole rather than redirected.
-func TestReplaceSplitDamageDefaultsAndFailsClosed(t *testing.T) {
+// TestReplaceSplitDamageGateAndBadLines proves a Condition gate leaves the
+// damage whole, unredirected, and DamageTarget$'s two failure shapes
+// (absent, unresolvable) and an unresolvable VarName$ end the game rather
+// than letting the damage through unreplaced (CR 614.6).
+func TestReplaceSplitDamageGateAndBadLines(t *testing.T) {
 	t.Parallel()
 
-	for name, replaceWith := range map[string]string{
-		"ConditionUnmet":      "DB$ ReplaceSplitDamage | DamageTarget$ You | ConditionCheckSVar$ Armed | ConditionSVarCompare$ GE1",
-		"NoDamageTarget":      "DB$ ReplaceSplitDamage",
-		"DamageTargetBogus":   "DB$ ReplaceSplitDamage | DamageTarget$ BogusSpec",
-		"VarNameUnresolvable": "DB$ ReplaceSplitDamage | DamageTarget$ You | VarName$ Bogus",
+	for name, tc := range map[string]struct{ replaceWith, reason string }{
+		"ConditionUnmet":      {"DB$ ReplaceSplitDamage | DamageTarget$ You | ConditionCheckSVar$ Armed | ConditionSVarCompare$ GE1", ""},
+		"NoDamageTarget":      {"DB$ ReplaceSplitDamage", "no DamageTarget$"},
+		"DamageTargetBogus":   {"DB$ ReplaceSplitDamage | DamageTarget$ BogusSpec", "DamageTarget$"},
+		"VarNameUnresolvable": {"DB$ ReplaceSplitDamage | DamageTarget$ You | VarName$ Bogus", `VarName$ "Bogus"`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			g, p, _ := newTwoPlayerGame(t)
-			host := resolveLine(t, g, p, engine.NewScriptedController(),
+			chain := []string{
 				"DB$ Effect | RememberObjects$ Self | ReplacementEffects$ RedirectDamage | Duration$ Permanent | SubAbility$ DBDamage",
 				"RedirectDamage", "Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ RedirectDmg | Description$ Redirect.",
-				"RedirectDmg", replaceWith,
+				"RedirectDmg", tc.replaceWith,
 				"Armed", "0",
-				"DBDamage", "DB$ DealDamage | Defined$ Self | NumDmg$ 3")
+				"DBDamage", "DB$ DealDamage | Defined$ Self | NumDmg$ 3",
+			}
+			if tc.reason != "" {
+				wantReplaceError(t, g, p, tc.reason, chain[0], chain[1:]...)
+				return
+			}
+			host := resolveLine(t, g, p, engine.NewScriptedController(), chain[0], chain[1:]...)
 			if got := g.Player(p).Life; got != 20 {
 				t.Errorf("controller life = %d, want 20 -- the malformed/gated replacement must not redirect", got)
 			}
@@ -512,7 +515,8 @@ func TestReplaceSplitDamageDefaultsAndFailsClosed(t *testing.T) {
 
 // TestReplaceTokenUnknownTypeAndBadAmount proves an unknown Type$ changes
 // nothing (Java's own fall-through), and an Amount$ naming an unresolvable op
-// fails the replacement rather than guessing a count or crashing.
+// ends the game rather than guessing a count or creating the tokens
+// unreplaced (CR 614.6).
 func TestReplaceTokenUnknownTypeAndBadAmount(t *testing.T) {
 	t.Parallel()
 
@@ -534,10 +538,7 @@ func TestReplaceTokenUnknownTypeAndBadAmount(t *testing.T) {
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Bad Amount Op",
 			"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
 			"Op", "DB$ ReplaceToken | Type$ Amount | Amount$ Bogus"), p, engine.Battlefield)
-		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
-		if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
-			t.Errorf("soldiers = %d, want 3 -- Amount$ Bogus is not resolvable, replacement fails closed", n)
-		}
+		wantReplaceError(t, g, p, `Amount$ "Bogus"`, "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
 	})
 
 	t.Run("PlusOperandNotANumber", func(t *testing.T) {
@@ -546,10 +547,7 @@ func TestReplaceTokenUnknownTypeAndBadAmount(t *testing.T) {
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Bad Plus Operand",
 			"Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ Op | Description$ Op.",
 			"Op", "DB$ ReplaceToken | Type$ Amount | Amount$ Plus.Bogus"), p, engine.Battlefield)
-		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
-		if n := len(tokensOn(g, p, "Soldier Token")); n != 3 {
-			t.Errorf("soldiers = %d, want 3 -- Plus.Bogus's operand is not a number, replacement fails closed", n)
-		}
+		wantReplaceError(t, g, p, "Plus.Bogus", "DB$ Token | TokenScript$ w_1_1_soldier | TokenAmount$ 3")
 	})
 
 	t.Run("ConditionUnmet", func(t *testing.T) {
@@ -574,9 +572,10 @@ func TestReplaceTokenUnknownTypeAndBadAmount(t *testing.T) {
 	})
 }
 
-// TestReplaceCounterFailsClosedOnMissingAmount proves ReplaceCounter with
-// no Amount$ fails the line rather than defaulting to something.
-func TestReplaceCounterFailsClosedOnMissingAmount(t *testing.T) {
+// TestReplaceCounterWithoutAmountPutsNone proves ReplaceCounter with no
+// Amount$ replaces the count with 0, as Java's calculateAmount(null) does
+// (ReplaceCounterEffect.java:59, AbilityUtils.java:370).
+func TestReplaceCounterWithoutAmountPutsNone(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
@@ -585,15 +584,16 @@ func TestReplaceCounterFailsClosedOnMissingAmount(t *testing.T) {
 		"NoAmount", "DB$ ReplaceCounter"), p, engine.Battlefield)
 	host := resolveLine(t, g, p, engine.NewScriptedController(),
 		"DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
-	if got := g.Card(host).Counters.Count(engine.P1P1); got != 2 {
-		t.Errorf("+1/+1 counters = %d, want 2 -- no Amount$, replacement fails closed", got)
+	if got := g.Card(host).Counters.Count(engine.P1P1); got != 0 {
+		t.Errorf("+1/+1 counters = %d, want 0 -- no Amount$ replaces the count with 0", got)
 	}
 }
 
-// TestReplaceCounterFailsClosedOnValidSourceAndWrongEventWiring proves
-// ValidSource$ is rejected (not silently ignored) and an amountName
-// mismatch (this API wired to a non-AddCounter event) fails to resolve.
-func TestReplaceCounterFailsClosedOnValidSourceAndWrongEventWiring(t *testing.T) {
+// TestReplaceCounterBadLinesEndTheGame proves an unreadable ValidSource$, an
+// unresolvable Amount$ and an amountName mismatch (this API wired to a
+// non-AddCounter event) end the game rather than letting the event through
+// unreplaced (CR 614.6).
+func TestReplaceCounterBadLinesEndTheGame(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ValidSourceRejected", func(t *testing.T) {
@@ -602,11 +602,7 @@ func TestReplaceCounterFailsClosedOnValidSourceAndWrongEventWiring(t *testing.T)
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Valid Source",
 			"Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Creature.YouCtrl | ValidCounterType$ P1P1 | ReplaceWith$ Src | Description$ Src.",
 			"Src", "DB$ ReplaceCounter | ValidSource$ Spell | Amount$ 99"), p, engine.Battlefield)
-		host := resolveLine(t, g, p, engine.NewScriptedController(),
-			"DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
-		if got := g.Card(host).Counters.Count(engine.P1P1); got != 2 {
-			t.Errorf("+1/+1 counters = %d, want 2 -- ValidSource$ rejected, replacement fails closed", got)
-		}
+		wantReplaceError(t, g, p, `ValidSource$ "Spell"`, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
 	})
 
 	t.Run("AmountUnresolvable", func(t *testing.T) {
@@ -615,11 +611,7 @@ func TestReplaceCounterFailsClosedOnValidSourceAndWrongEventWiring(t *testing.T)
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Amount Unresolvable Counter",
 			"Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Creature.YouCtrl | ValidCounterType$ P1P1 | ReplaceWith$ Bad | Description$ Bad.",
 			"Bad", "DB$ ReplaceCounter | Amount$ Bogus"), p, engine.Battlefield)
-		host := resolveLine(t, g, p, engine.NewScriptedController(),
-			"DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
-		if got := g.Card(host).Counters.Count(engine.P1P1); got != 2 {
-			t.Errorf("+1/+1 counters = %d, want 2 -- Amount$ Bogus is not resolvable, replacement fails closed", got)
-		}
+		wantReplaceError(t, g, p, `Amount$ "Bogus"`, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2")
 	})
 
 	t.Run("WrongEventWiring", func(t *testing.T) {
@@ -628,18 +620,15 @@ func TestReplaceCounterFailsClosedOnValidSourceAndWrongEventWiring(t *testing.T)
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Wrong Event Counter",
 			"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ WrongAPI | Description$ Wrong API for this event.",
 			"WrongAPI", "DB$ ReplaceCounter | Amount$ 99"), p, engine.Battlefield)
-		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ DealDamage | Defined$ You | NumDmg$ 2")
-		if got := g.Player(p).Life; got != 18 {
-			t.Errorf("life = %d, want 18 -- ReplaceCounter wired to DamageDone must fail closed", got)
-		}
+		wantReplaceError(t, g, p, "not replacing counters", "DB$ DealDamage | Defined$ You | NumDmg$ 2")
 	})
 }
 
-// TestReplaceManaFailsClosedOnBadAmountAndUnresolvableColor proves
+// TestReplaceManaBadAmountAndUnresolvableColorEndTheGame proves
 // ReplaceAmount$'s own non-numeric error and manaTypeByName's own rejection
-// of an unrecognized color name each fail closed, the mana produced
-// unedited.
-func TestReplaceManaFailsClosedOnBadAmountAndUnresolvableColor(t *testing.T) {
+// of an unrecognized color name leave the mana unedited and end the game
+// (CR 614.6: an applicable replacement must change the event).
+func TestReplaceManaBadAmountAndUnresolvableColorEndTheGame(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ReplaceAmountNotANumber", func(t *testing.T) {
@@ -656,6 +645,7 @@ func TestReplaceManaFailsClosedOnBadAmountAndUnresolvableColor(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- ReplaceAmount$ Bogus fails closed", got)
 		}
+		wantPendingError(t, g, "ReplaceAmount$")
 	})
 
 	t.Run("UnrecognizedColorName", func(t *testing.T) {
@@ -672,6 +662,7 @@ func TestReplaceManaFailsClosedOnBadAmountAndUnresolvableColor(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- ReplaceType$ Bogus fails closed", got)
 		}
+		wantPendingError(t, g, `"Bogus"`)
 	})
 }
 
@@ -706,10 +697,7 @@ func TestReplaceManaMoreShapes(t *testing.T) {
 		g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Wrong Event Mana",
 			"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ WrongAPI | Description$ Wrong API for this event.",
 			"WrongAPI", "DB$ ReplaceMana | ReplaceType$ B"), p, engine.Battlefield)
-		resolveLine(t, g, p, engine.NewScriptedController(), "DB$ DealDamage | Defined$ You | NumDmg$ 2")
-		if got := g.Player(p).Life; got != 18 {
-			t.Errorf("life = %d, want 18 -- ReplaceMana wired to DamageDone must fail closed", got)
-		}
+		wantReplaceError(t, g, p, "not replacing mana", "DB$ DealDamage | Defined$ You | NumDmg$ 2")
 	})
 
 	t.Run("NoReplaceParamErrors", func(t *testing.T) {
@@ -726,6 +714,7 @@ func TestReplaceManaMoreShapes(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- no replace param at all", got)
 		}
+		wantPendingError(t, g, "no ReplaceMana$")
 	})
 
 	t.Run("ChosenColorApplies", func(t *testing.T) {
@@ -760,6 +749,7 @@ func TestReplaceManaMoreShapes(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- Chosen with no chosen color fails closed", got)
 		}
+		wantPendingError(t, g, "Chosen with no chosen color")
 	})
 
 	t.Run("ReplaceColorUnresolvableName", func(t *testing.T) {
@@ -776,6 +766,7 @@ func TestReplaceManaMoreShapes(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- ReplaceColor$ Bogus fails closed", got)
 		}
+		wantPendingError(t, g, `"Bogus"`)
 	})
 
 	t.Run("ColorlessUnitNeverRecolors", func(t *testing.T) {
@@ -810,6 +801,7 @@ func TestReplaceManaMoreShapes(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- Any with no controller to ask fails closed", got)
 		}
+		wantPendingError(t, g, "needs a controller")
 	})
 
 	t.Run("AnyWithUnusableAnswerErrors", func(t *testing.T) {
@@ -828,6 +820,7 @@ func TestReplaceManaMoreShapes(t *testing.T) {
 		if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 0, 0, 0, 1, 0} {
 			t.Errorf("pool = %v, want one green unedited -- two colors is not exactly one color, fails closed", got)
 		}
+		wantPendingError(t, g, "exactly one color")
 	})
 
 	t.Run("WordColorNames", func(t *testing.T) {
@@ -881,5 +874,29 @@ func TestReplaceEffectsOutsideAReplacement(t *testing.T) {
 		if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, line); err != nil {
 			t.Errorf("%q: err = %v, want a silent no-op", line, err)
 		}
+	}
+}
+
+// wantReplaceError resolves trig and wants the game to end on the
+// replacement that applies but cannot resolve: CR 614.6 has an applicable
+// replacement change the event, so the original event must not go on in its
+// place (runReplaceWith records the error, GO-7).
+func wantReplaceError(t *testing.T, g *engine.Game, p engine.PlayerID, reason, trig string, svars ...string) {
+	t.Helper()
+	_, err := castETBChain(t, g, p, etbChainDef(t, "Test Shape", trig, svars...), engine.NewScriptedController())
+	if err == nil {
+		err = g.TakePendingError()
+	}
+	if err == nil || !strings.Contains(err.Error(), reason) {
+		t.Errorf("%q: err = %v, want the game to end on %q", trig, err, reason)
+	}
+}
+
+// wantPendingError wants the game to end on reason: a replacement that
+// applied but could not resolve (runReplaceWith, GO-7).
+func wantPendingError(t *testing.T, g *engine.Game, reason string) {
+	t.Helper()
+	if err := g.TakePendingError(); err == nil || !strings.Contains(err.Error(), reason) {
+		t.Errorf("pending error = %v, want the game to end on %q", err, reason)
 	}
 }

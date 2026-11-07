@@ -210,7 +210,9 @@ func (replaceEffectEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 		return nil
 	}
 	if !ok {
-		return fmt.Errorf("engine: ReplaceEffect: no VarValue$")
+		// ReplaceEffect.java:59 stores calculateAmount(null), which is 0 for
+		// a blank expression (AbilityUtils.java:370).
+		varValue = "0"
 	}
 	if cur, extra := ev.vars[strings.ToLower(varName)]; extra && !strings.EqualFold(varName, ev.amountName) {
 		// A second number the event carries (RollDice's Ignore beside Number).
@@ -661,7 +663,9 @@ func (replaceCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 	}
 	value, ok := a.Params.Param("Amount")
 	if !ok {
-		return fmt.Errorf("engine: ReplaceCounter: no Amount$")
+		// ReplaceCounterEffect.java:59 reads calculateAmount(null): 0
+		// (AbilityUtils.java:370), so no counters are put.
+		value = "0"
 	}
 	if ct, ok := a.Params.Param("ValidCounterType"); ok && !strings.EqualFold(ct, string(ev.counterType)) {
 		return nil

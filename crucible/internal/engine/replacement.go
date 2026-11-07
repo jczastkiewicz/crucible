@@ -2033,8 +2033,16 @@ func resolveGainLifeReplacementAmount(g *Game, amounts map[string]expr.Amount, h
 // spot with ev as its replacing object, which is how ReplacementHandler
 // runs a ReplaceWith$ ability. Reports whether it ran and changed the
 // event. A chained SubAbility$ resolves once the head has changed the event
-// (runReplaceWithChain). A param the effect itself rejects skips the line,
-// never half applied (GO-7), and ev is left as it was.
+// (runReplaceWithChain). A sub that names no Replace* API reports false and
+// nothing else: the caller tries its own shapes (replaceWithDispatchable).
+//
+// An effect that cannot resolve -- a param or value this port does not
+// read, a malformed script -- records a pending error and leaves ev as it
+// was, never half applied (GO-7). The game then ends Errored: CR 614.6 has
+// an applicable replacement change the event, so letting the original
+// event happen would play a game the rules never allow. A part of the
+// modified event that cannot be carried out is no error; the effect skips
+// it, as CR 614.6 does.
 func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) bool {
 	api, ok := APIByName(sub.Name)
 	if !ok {
@@ -2051,6 +2059,7 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 	saved := *ev
 	if err := eff.Resolve(g, &a, controller); err != nil {
 		*ev = saved
+		g.recordPendingError(fmt.Errorf("engine: %q: ReplaceWith$ %s: %w", h.Def.Name, sub.Name, err))
 		return false
 	}
 	if ev.result == replacementNotReplaced {
@@ -2063,6 +2072,18 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 		}
 	}
 	return true
+}
+
+// replaceWithDispatchable reports whether runReplaceWith runs sub: a
+// Replace* API or a GenericChoice. A caller that has no shape of its own for
+// anything else reports that one as not resolvable.
+func replaceWithDispatchable(sub *compile.Ability) bool {
+	api, ok := APIByName(sub.Name)
+	if !ok {
+		return false
+	}
+	_, isReplace := replaceEffectFor(api)
+	return isReplace || api == APIGenericChoice
 }
 
 // runReplaceWithChain resolves chain, the SubAbility$ a Replace* ReplaceWith$
@@ -2099,11 +2120,16 @@ func (g *Game) runReplaceWithChoice(controller PlayerController, h *Card, amount
 		switch strings.ToLower(p.Key) {
 		case "db", "choices", "spelldescription", "stackdescription":
 		default:
+			g.recordPendingError(fmt.Errorf("engine: %q: ReplaceWith$ GenericChoice: %s$ not resolvable yet", h.Def.Name, p.Key))
 			return false
 		}
 	}
 	choices := additionalAbilities(sub, "Choices")
-	if len(choices) == 0 || controller == nil {
+	if len(choices) == 0 {
+		g.recordPendingError(fmt.Errorf("engine: %q: ReplaceWith$ GenericChoice: no Choices$", h.Def.Name))
+		return false
+	}
+	if controller == nil {
 		return false
 	}
 	names := make([]string, len(choices))

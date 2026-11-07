@@ -377,7 +377,9 @@ func (g *Game) lifeReduced(controller PlayerController, pid PlayerID, amount int
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
 				ev := replacementEvent{amountName: "Amount", amount: amount}
 				if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
-					g.recordPendingError(fmt.Errorf("engine: %q: Event$ LifeReduced: ReplaceWith$ %s is not resolvable yet", h.Def.Name, sub.Name))
+					if !replaceWithDispatchable(sub) {
+						g.recordPendingError(fmt.Errorf("engine: %q: Event$ LifeReduced: ReplaceWith$ %s is not resolvable yet", h.Def.Name, sub.Name))
+					}
 					return replacementNotReplaced
 				}
 				amount = ev.amount
@@ -487,7 +489,9 @@ func (g *Game) loseManaConversion(controller PlayerController, pid PlayerID) (co
 				// Java asks with the mana "C" and reads back what ReplaceMana made of it.
 				ev := replacementEvent{amountName: "Mana", mana: producedMana{colorless: true, amount: 1}}
 				if !g.runReplaceWith(controller, h, amounts, sub, &ev) {
-					g.recordPendingError(fmt.Errorf("engine: %q: Event$ LoseMana: ReplaceWith$ %s is not resolvable yet", h.Def.Name, sub.Name))
+					if !replaceWithDispatchable(sub) {
+						g.recordPendingError(fmt.Errorf("engine: %q: Event$ LoseMana: ReplaceWith$ %s is not resolvable yet", h.Def.Name, sub.Name))
+					}
 					return replacementNotReplaced
 				}
 				color, colorless = ev.mana.color, ev.mana.colorless

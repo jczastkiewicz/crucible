@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -104,8 +105,28 @@ func LoadDB(root, typeList string) (*DB, error) {
 		if name == "" {
 			return nil, fmt.Errorf("%s: no name", parsed.Filename)
 		}
-		db.byName[name] = card
-		db.names = append(db.names, name)
+		key := name
+		if prev, taken := db.byName[name]; taken {
+			// Two cards share a first face (CopyFaceFrom: Bind // Liberate's
+			// Bind is Bind, Start // Fire's Start is Start // Finish's). The
+			// card whose own name is that face keeps the key, as Forge's card
+			// database names a Split card by both halves; a Split card is held
+			// under its full name instead, the later of two by walk order.
+			switch {
+			case parsed.Name() == name && fullName(prev) != name:
+				db.byName[fullName(prev)] = prev
+				db.names[slices.Index(db.names, name)] = fullName(prev)
+			case parsed.Name() != name:
+				key = parsed.Name()
+			default:
+				return nil, fmt.Errorf("%s: card name %q is taken", parsed.Filename, name)
+			}
+			if _, again := db.byName[key]; again && key != name {
+				return nil, fmt.Errorf("%s: card name %q is taken", parsed.Filename, key)
+			}
+		}
+		db.byName[key] = card
+		db.names = append(db.names, key)
 		db.all = append(db.all, card)
 	}
 	db.indexDecklistNames()
@@ -135,16 +156,23 @@ func (d *DB) indexDecklistNames() {
 		d.decklist[strings.ToLower(n)] = n
 		d.decklist[strings.ToLower(carddb.NormalizeName(n))] = n
 		// Forge's .dck files name a split card by both halves (Wear //
-		// Tear, carddb.Card.Name); byName keys it by the first. Only the
-		// card byName holds gets the alias: Start // Finish shares Start
-		// with Start // Fire, and must not resolve to it.
+		// Tear, carddb.Card.Name); byName keys it by the first unless another
+		// card holds that face (LoadDB), where its full name is the key.
 		c := d.byName[n]
-		if alt := c.Faces[carddb.FaceAlternate].Name; c.SplitType == carddb.SplitSplit && alt != "" {
-			full := n + " // " + alt
+		if full := fullName(c); full != n {
 			d.decklist[strings.ToLower(full)] = n
 			d.decklist[strings.ToLower(carddb.NormalizeName(full))] = n
 		}
 	}
+}
+
+// fullName is c's card name: a Split card's halves joined with " // "
+// (carddb.Card.Name), else its first face's.
+func fullName(c *Card) string {
+	if alt := c.Faces[carddb.FaceAlternate].Name; c.SplitType == carddb.SplitSplit && alt != "" {
+		return c.Name + " // " + alt
+	}
+	return c.Name
 }
 
 // Resolve finds the name DB.Card holds for the card a decklist line names:

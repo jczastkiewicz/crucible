@@ -209,6 +209,14 @@ that claim the whole corpus compiles clean go through `tools/carddump` and `comp
 already call `ResolvePlaceholders` themselves. Fixed by splitting `LoadDB` into the same two passes: parse every file,
 resolve placeholders once across all of them, then compile.
 
+## Two cards sharing a first face
+
+`DB.Card` keys a card by its first face's name, and `CopyFaceFrom:` makes two cards share one: Bind // Liberate's Bind
+is Bind, Start // Fire's Start is Start // Finish's. The card whose own name is that face (Bind) keeps the key; a Split
+card is held under its full name (`Bind // Liberate`), the later of two Split cards by walk order (`Start // Fire`), in
+`Names` as well. Reason: Forge's card database names a Split card by both halves, so a GameState or decklist line
+`Bind` is the standalone card; one key for both left one card unreachable and `card-smoke -all` probing the other twice.
+
 ## Token scripts and the subtype vocabulary on `compile.DB`
 
 `LoadTokenScripts` compiles every `res/tokenscripts` file, keyed by file name without `.txt` -- the name `TokenScript$`

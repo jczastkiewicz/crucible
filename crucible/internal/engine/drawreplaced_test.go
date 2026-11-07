@@ -495,3 +495,31 @@ func TestConniveDrawCarriesItsAbilityAsTheCause(t *testing.T) {
 		t.Errorf("%d cards in hand, want none drawn", got)
 	}
 }
+
+// Street Wraith's K:Cycling:PayLife<2> (CardFactoryUtil.java:3718-3726): its
+// owner pays 2 life and discards it from the hand to draw a card. A life cost
+// is paid from any zone.
+func TestStreetWraithCyclesForTwoLifeFromTheHand(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	wraith := g.NewCard(corpusCard(t, "Street Wraith"), p, engine.Hand)
+	libraryCards(t, g, p, 2)
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, wraith, 0, c) {
+		t.Fatalf("cycling not activated: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 18 {
+		t.Errorf("life %d, want 18", got)
+	}
+	if got := g.Card(wraith).Zone; got != engine.Graveyard {
+		t.Errorf("Street Wraith in %v, want Graveyard", got)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 1 {
+		t.Errorf("%d cards in hand, want the one drawn", got)
+	}
+}

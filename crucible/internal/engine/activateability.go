@@ -87,8 +87,9 @@ import (
 // rather than to the ability's own other params, an ActivationZone$ this
 // port does not build (Exile/Stack -- Graveyard, Hand and Command are the
 // only non-Battlefield zones supported), a Graveyard-zone ability naming
-// any primitive but ExileFromGrave, a Hand-zone ability naming any
-// primitive but Discard's or ExileFromHand's own self-reference shape, or a
+// any primitive but ExileFromGrave and PayLife, a Hand-zone ability naming
+// any primitive but PayLife and Discard's or ExileFromHand's own
+// self-reference shape, or a
 // Battlefield-zone ability naming ExileFromGrave/Discard-self/
 // ExileFromHand, a Planeswalker$ ability
 // already activated once this turn (CR 606.3, Card.LoyaltyAbilityActivated),
@@ -315,9 +316,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.AddCounterType != "" && (c.IsPhasedOut() || g.cantPutCounter(CardEntity(card), CounterType(strings.ToUpper(shape.AddCounterType)))) {
 		return false
 	}
+	// Paying life touches no card, so it is paid from any zone (Street
+	// Wraith's cycling, Cleaving Reaper's return).
 	nonBattlefield := fromGraveyard || fromHand
 	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfReturn || shape.SelfExert ||
-		shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.ReturnTypeN > 0 ||
+		shape.DiscardN > 0 || shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.ReturnTypeN > 0 ||
 		shape.AddCounterType != "" || shape.SubCounterType != "" ||
 		shape.SacTypeN > 0 || shape.ExileTypeN > 0 || shape.ExileGraveN > 0) {
 		return false

@@ -1082,8 +1082,29 @@ final class ScenarioController extends PlayerControllerForTests {
     // Go's ChooseColors: one queued color, for a one-color or a set choice.
     @Override
     public byte chooseColor(String message, SpellAbility sa, ColorSet colors) {
+        // One mana of a Mana effect (ManaEffect.java:118, :161): Go's
+        // ChooseManaColor (S29).
+        if (answers.bound() && sa != null && sa.getApi() == ApiType.Mana && answers.hasManaColor()) {
+            return answers.nextManaColor();
+        }
         Byte v = answers.bound() ? answers.nextColorChoice() : null;
         return v != null ? v : super.chooseColor(message, sa, colors);
+    }
+
+    // S29: a Mana effect's Amount$ above 1 in any combination of colors
+    // (ManaEffect.java:70-91), asked at once; Go asks ChooseManaColor once per
+    // mana, so the answers are counted by color.
+    @Override
+    public Map<Byte, Integer> specifyManaCombo(SpellAbility sa, ColorSet colorSet, int manaAmount, boolean different) {
+        Map<Byte, Integer> out = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < manaAmount; i++) {
+            Byte color = answers.bound() ? answers.nextManaColor() : null;
+            if (color == null) {
+                return super.specifyManaCombo(sa, colorSet, manaAmount, different);
+            }
+            out.merge(color, 1, Integer::sum);
+        }
+        return out;
     }
 
     @Override

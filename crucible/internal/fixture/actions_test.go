@@ -854,6 +854,15 @@ func TestRunActionsQueueCardChoiceNoneAndPlayerChoice(t *testing.T) {
 	if err := runActions(t, l, c, "queue colorchoice Q\n"); err == nil {
 		t.Error("a bad color letter did not error")
 	}
+	if err := runActions(t, l, c, "queue manacolor G\n"); err != nil {
+		t.Fatalf("queue manacolor G: %v", err)
+	}
+	if got := c.ChooseManaColor(l.Game, l.Game.Players()[0], engine.NoCard, mana.AllColors); got != mana.Green {
+		t.Errorf("mana color %v, want green", got)
+	}
+	if err := runActions(t, l, c, "queue manacolor Q\n"); err == nil {
+		t.Error("a bad mana color letter did not error")
+	}
 	if err := runActions(t, l, c, "queue option 2\n"); err != nil {
 		t.Fatalf("queue option 2: %v", err)
 	}

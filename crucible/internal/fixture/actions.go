@@ -782,6 +782,15 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueModeChoice(idx)
 
+	case "manacolor":
+		// The color one mana of a Produced$ Any or Combo ability takes
+		// (ChooseManaColor): Manamorphose's two, one line each.
+		color, err := resolveManaColor(value)
+		if err != nil {
+			return fmt.Errorf("queue manacolor %q: %w", value, err)
+		}
+		c.QueueManaColor(color)
+
 	case "colorchoice":
 		// The color an effect's own "choose a color" picks (ChooseColors):
 		// Sanctuary Blade's, as it becomes attached.

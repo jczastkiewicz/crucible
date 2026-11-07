@@ -38,7 +38,7 @@ final class ScenarioAnswers {
             "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
             "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage",
             "startingplayer", "keephand", "tuck", "battleprotector", "sector", "tapchoice", "entitychoice",
-            "optionname", "roomdoor", "assistant", "assistamount");
+            "optionname", "roomdoor", "assistant", "assistamount", "manacolor");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -96,6 +96,7 @@ final class ScenarioAnswers {
     private final Deque<String> roomDoors = new ArrayDeque<>();
     private final Deque<String> assistants = new ArrayDeque<>();
     private final Deque<Integer> assistAmounts = new ArrayDeque<>();
+    private final Deque<Byte> manaColors = new ArrayDeque<>();
     private final Deque<Boolean> monoHybrids = new ArrayDeque<>();
     private final Deque<String> startingPlayers = new ArrayDeque<>();
     private final Deque<Boolean> keepHands = new ArrayDeque<>();
@@ -124,6 +125,7 @@ final class ScenarioAnswers {
             case "roomdoor" -> roomDoors.add(value.strip());
             case "assistant" -> assistants.add(value.strip());
             case "assistamount" -> assistAmounts.add(Integer.parseInt(value.strip()));
+            case "manacolor" -> manaColors.add(MagicColor.fromName(value.strip()));
             case "sector" -> sectors.add(value.strip());
             case "tapchoice" -> tapChoices.add(ids(value));
             case "entitychoice" -> entityChoices.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
@@ -696,6 +698,16 @@ final class ScenarioAnswers {
         return assistAmounts.poll();
     }
 
+    /** The next manacolor answer (Go's ChooseManaColor) as a color mask, or null. */
+    Byte nextManaColor() {
+        return manaColors.poll();
+    }
+
+    /** True while a manacolor answer is queued. */
+    boolean hasManaColor() {
+        return !manaColors.isEmpty();
+    }
+
     /** The next roomdoor answer (Go's ChooseRoomDoor), LeftSplit or RightSplit, or null. */
     String nextRoomDoor() {
         return roomDoors.poll();
@@ -886,6 +898,7 @@ final class ScenarioAnswers {
         rest.put("roomdoor", roomDoors);
         rest.put("assistant", assistants);
         rest.put("assistamount", assistAmounts);
+        rest.put("manacolor", manaColors);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

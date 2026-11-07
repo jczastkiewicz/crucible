@@ -161,6 +161,7 @@ queue cardorder <id>[,...]    ScriptedController.QueueCardOrder, the order cards
 queue abilitychoice <i>[,...]  ScriptedController.QueueAbilityChoice, ChooseAbilitiesForEffect's 0-based branches (GenericChoice's pick)
 queue modechoice <i>[,...]     ScriptedController.QueueModeChoice, ChooseModesForAbility's 0-based Charm modes, among those that can be chosen
 queue colorchoice <color>     ScriptedController.QueueColorChoice, ChooseColors' pick (Sanctuary Blade's color), a bare color letter
+queue manacolor <color>       ScriptedController.QueueManaColor, ChooseManaColor's pick for one mana of a Produced$ Any or Combo ability (Manamorphose), a bare color letter
 queue playerchoice <p>        ScriptedController.QueuePlayerChoice, ChoosePlayer's pick (Captive Audience's opponent), a seated player's name
 queue sacrificechoice <id>[,...]  ScriptedController.QueueSacrificeChoice, the permanents a Sac<N/Type> cost or a sacrifice effect picks, ids from Loaded.CardByFixtureID
 queue returnchoice <id>[,...]     ScriptedController.QueueReturnChoice, the permanents a Return<N/Type> cost picks, ids from Loaded.CardByFixtureID

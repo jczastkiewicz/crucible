@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=19
+humanbattlefield=Swamp|Id:5
+humangraveyard=Lightning Bolt|Id:2;Grizzly Bears|Id:3;Bloodstained Mire|Id:1
+humanlibrary=Island|Id:6;Island|Id:7;Island|Id:4
+ailife=20
+aibattlefield=Grizzly Bears|Id:8;Ornithopter|Id:9;Swamp|Id:10;Pacifism|Id:11|AttachedTo:8
+aihand=Island|Id:12;Lightning Bolt|Id:13;Grizzly Bears|Id:14
+aigraveyard=Shock|Id:15;Hill Giant|Id:16
+ailibrary=Island|Id:17;Island|Id:18;Island|Id:19;Island|Id:20;Island|Id:21;Island|Id:22

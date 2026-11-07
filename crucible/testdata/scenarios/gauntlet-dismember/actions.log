@@ -1,0 +1,11 @@
+# R20c gauntlet probe (Dismember): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric U
+queue payphyrexian false
+queue payphyrexian false
+queue targets 50
+tapformana human 100 U
+castspell human 1
+resolvestack

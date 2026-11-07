@@ -1,0 +1,7 @@
+# R20c gauntlet probe (Simic Growth Chamber): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue cardchoice 1
+playland human 1
+resolvestack

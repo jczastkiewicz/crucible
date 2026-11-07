@@ -1,8 +1,9 @@
-turn=1
+turn=3
 activeplayer=human
 activephase=Upkeep
 humanlife=20
 humanbattlefield=Mountain|Id:2;Mountain|Id:3;Mountain|Id:4
 humangraveyard=Staggershock
 ailife=18
+aihand=Swamp|Id:6
 aigraveyard=Grizzly Bears

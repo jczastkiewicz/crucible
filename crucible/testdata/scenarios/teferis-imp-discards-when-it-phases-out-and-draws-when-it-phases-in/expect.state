@@ -1,10 +1,11 @@
-turn=1
+turn=3
 activeplayer=human
-activephase=Untap
+activephase=Upkeep
 humanlife=20
 humanbattlefield=Teferi's Imp|Id:1
 humanhand=Mountain|Id:3;Swamp|Id:4
 humangraveyard=Island|Id:2
 humanlibrary=Swamp|Id:5
 ailife=20
-ailibrary=Swamp|Id:6;Swamp|Id:7
+aihand=Swamp|Id:6
+ailibrary=Swamp|Id:7

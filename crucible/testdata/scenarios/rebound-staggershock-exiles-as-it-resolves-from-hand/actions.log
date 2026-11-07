@@ -13,8 +13,10 @@ queue targets 5
 castspell human 1
 resolvestack
 # The delayed trigger (Phase$ Upkeep, ValidPlayer$ You) fires at human's next
-# upkeep: human casts Staggershock from exile for free, at the AI's face.
-startturn human
+# upkeep, turn 3, after ai's turn 2 (ai draws its Swamp): human casts
+# Staggershock from exile for free, at the AI's face.
+run 2
+advance
 advance
 queue optionaltrigger true
 queue confirmeffect true

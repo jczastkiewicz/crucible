@@ -4,11 +4,16 @@
 # 2213-2216, PhaseHandler.java:257). In ai's upkeep the count is 0 and the
 # cast is refused with the mana paid for; in ai's draw step it is 1, Reset is
 # cast and untaps every land human controls, the two tapped to pay for it
-# and the two tapped from the start included.
-startturn ai
+# and the four tapped in the upkeep included. ai's turn 2, since the first
+# player skips the draw step of turn 1 (CR 103.8a).
+startturn human
+run 1
+advance
 advance
 tapformana human 2 U
 tapformana human 3 U
+tapformana human 6 U
+tapformana human 7 U
 expecterror refused castspell human 1
 # Draw: the upkeep has finished, and the unspent mana is gone.
 advance

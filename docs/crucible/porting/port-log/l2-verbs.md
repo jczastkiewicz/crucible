@@ -97,7 +97,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 1,047 same, 4 differs, 0 random, 13 not runnable (8 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
+The current run: 1,050 same, 4 differs, 0 random, 10 not runnable (5 with an unmapped line, 4 with a setup card outside `GameState`'s pool, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |
@@ -109,7 +109,7 @@ The current run: 1,047 same, 4 differs, 0 random, 13 not runnable (8 with an unm
 ## Not ported yet
 
 - `ScenarioController`'s answers for the other queue kinds (ADR-0060), Go's defaults and panics
-- The other verbs and queue kinds. By the first unmapped line per scenario: `resolvestack` in Untap 2, the rest 1 each: a second `startturn` (Rebound), a play in turn 1's skipped draw step (Reset), an opening-hand answer after the game started (subgame, restart), `paymanacost` at turn 0 and `expecterror outside`
+- The other verbs and queue kinds. By the first unmapped line per scenario: `resolvestack` in Untap 1 (an ongoing Scheme outside `GameState`'s pool), an opening-hand answer after the game started 2 (subgame, restart), `paymanacost` at turn 0 1 and `expecterror outside` 1. The scenarios that restarted a turn with a second `startturn` (Rebound, Teferi's Imp) or played in the first player's skipped draw step (Reset) now play on through the opponent's turn with `run`
 - A seat's own order of its simultaneous triggers: they go on the stack in upstream's list order, Go's in its default order (`queue triggerorder`, which no scenario queues)
 - A created id (ADR-0059, open plan R21a-c)
 - Go's `ScriptedController` does not fail on an answer left queued; the Java leftover check found four such stale lines, now removed: two `queue confirmpaycost` (Rathi Assassin, Blood Moon), a `queue targets` for a spell with no legal target (Raise Dead in the Control Magic scenario) and one for a spell that targets nothing (Ribbons)

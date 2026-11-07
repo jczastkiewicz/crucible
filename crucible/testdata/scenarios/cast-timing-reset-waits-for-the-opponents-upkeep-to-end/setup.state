@@ -1,4 +1,5 @@
 humanlife=20
 ailife=20
 humanhand=Reset|Id:1
-humanbattlefield=Island|Id:2;Island|Id:3;Island|Id:4;Island|Id:5;Island|Id:6|Tapped;Island|Id:7|Tapped
+humanbattlefield=Island|Id:2;Island|Id:3;Island|Id:4;Island|Id:5;Island|Id:6;Island|Id:7
+ailibrary=Swamp|Id:8

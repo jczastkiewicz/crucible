@@ -1,7 +1,8 @@
-turn=1
+turn=2
 activeplayer=ai
 activephase=Draw
 humanlife=20
 humangraveyard=Reset
 humanbattlefield=Island;Island;Island;Island;Island;Island
 ailife=20
+aihand=Swamp

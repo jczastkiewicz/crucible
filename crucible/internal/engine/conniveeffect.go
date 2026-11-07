@@ -66,7 +66,7 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			continue
 		}
 		pid := g.Card(id).Controller()
-		g.DrawCards(pid, num, controller)
+		g.drawCardsFor(a, pid, num, controller)
 
 		hand := g.Zone(Hand, pid).Cards()
 		amt := num

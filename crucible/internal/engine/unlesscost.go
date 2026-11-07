@@ -1169,7 +1169,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 	}
 	if uc.drawN > 0 {
 		for _, drawer := range g.unlessDrawers(pid, a.Source, uc) {
-			g.DrawCards(drawer, uc.drawN, controller)
+			g.drawCardsFor(a, drawer, uc.drawN, controller)
 		}
 	}
 	if uc.exileGraveN > 0 {

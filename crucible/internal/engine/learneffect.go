@@ -67,7 +67,7 @@ func (learnEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 			continue
 		}
 		discardCards(g, controller, []CardID{c}, p, effectDiscardCause(a))
-		g.DrawCards(p, 1, controller)
+		g.drawCardsFor(a, p, 1, controller)
 	}
 	return nil
 }

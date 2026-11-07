@@ -72,14 +72,7 @@ func (drawEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		times[pid]++
 	}
-	// The draws' cause is a, or the replaced draw's when a runs as a
-	// replacement's ability (Player.java:1198-1201).
-	outerCause := g.drawCause
-	g.drawCause = a
-	if a.replacing != nil {
-		g.drawCause = a.replacing.cause
-	}
-	defer func() { g.drawCause = outerCause }()
+	defer g.setDrawCause(a)()
 	for _, pid := range order {
 		if g.Player(pid).Lost {
 			continue // DrawEffect.java:70-72: !p.isInGame()
@@ -115,4 +108,25 @@ func (drawEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		g.DrawCards(pid, num, controller)
 	}
 	return nil
+}
+
+// setDrawCause makes a the cause of the draws that follow, Player.drawCards's
+// SpellAbility argument, until the returned restore runs: the replaced draw's
+// cause when a runs as a replacement's ability (Player.java:1198-1201). Draw,
+// Connive, Recruit, Learn and a cost's draw pass their ability (DrawEffect.
+// java:100, ConniveEffect.java:51, RecruitEffect.java:46, Player.java:3984,
+// CostDraw.java:99); the draw step and the mulligans pass none.
+func (g *Game) setDrawCause(a *Ability) (restore func()) {
+	outer := g.drawCause
+	g.drawCause = a
+	if a != nil && a.replacing != nil {
+		g.drawCause = a.replacing.cause
+	}
+	return func() { g.drawCause = outer }
+}
+
+// drawCardsFor is DrawCards with a as the draws' cause (setDrawCause).
+func (g *Game) drawCardsFor(a *Ability, pid PlayerID, n int, controller PlayerController) {
+	defer g.setDrawCause(a)()
+	g.DrawCards(pid, n, controller)
 }

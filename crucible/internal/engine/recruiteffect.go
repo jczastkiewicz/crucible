@@ -30,7 +30,7 @@ func (recruitEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: Recruit: %w", err)
 	}
 	for _, p := range players {
-		g.DrawCards(p, 1, controller)
+		g.drawCardsFor(a, p, 1, controller)
 		hand := append([]CardID(nil), g.Zone(Hand, p).Cards()...)
 		if len(hand) == 0 {
 			continue

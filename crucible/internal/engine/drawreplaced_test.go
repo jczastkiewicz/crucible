@@ -463,3 +463,35 @@ func TestUnpredictableCycloneReplacesOnlyACyclingDraw(t *testing.T) {
 		t.Errorf("%d cards in hand, want Divination's 2 drawn (filler %v)", got, filler)
 	}
 }
+
+// Connive's draw has its ability as cause (ConniveEffect.java:51), as Recruit,
+// Learn and a cost's draw have theirs (Player.drawCards's SpellAbility
+// argument): a Draw replacement with ValidCause$ Activated sees an activated
+// Connive's draw and replaces it.
+func TestConniveDrawCarriesItsAbilityAsTheCause(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Cause Watcher",
+		"Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ValidCause$ Activated | ReplaceWith$ GainThree | Description$ Gain 3 life instead.",
+		"GainThree", "DB$ GainLife | Defined$ You | LifeAmount$ 3"), p, engine.Battlefield)
+	conniver := g.NewCard(scriptDef(t, "Test Conniver", "Creature Rogue",
+		"A:AB$ Connive | Cost$ 1 | Defined$ Self | SpellDescription$ CARDNAME connives."), p, engine.Battlefield)
+	libraryCards(t, g, p, 2)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.ActivateAbility(p, conniver, 0, c) {
+		t.Fatalf("Connive not activated: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life %d, want 23: the connive draw replaced by the ValidCause$ Activated line", got)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 0 {
+		t.Errorf("%d cards in hand, want none drawn", got)
+	}
+}

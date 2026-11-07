@@ -38,7 +38,7 @@ final class ScenarioAnswers {
             "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
             "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage",
             "startingplayer", "keephand", "tuck", "battleprotector", "sector", "tapchoice", "entitychoice",
-            "optionname");
+            "optionname", "roomdoor", "assistant", "assistamount");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -93,6 +93,9 @@ final class ScenarioAnswers {
     private final Deque<List<Integer>> tapChoices = new ArrayDeque<>();
     private final Deque<List<String>> entityChoices = new ArrayDeque<>();
     private final Deque<String> optionNames = new ArrayDeque<>();
+    private final Deque<String> roomDoors = new ArrayDeque<>();
+    private final Deque<String> assistants = new ArrayDeque<>();
+    private final Deque<Integer> assistAmounts = new ArrayDeque<>();
     private final Deque<Boolean> monoHybrids = new ArrayDeque<>();
     private final Deque<String> startingPlayers = new ArrayDeque<>();
     private final Deque<Boolean> keepHands = new ArrayDeque<>();
@@ -118,6 +121,9 @@ final class ScenarioAnswers {
             case "damage" -> damages.add(pairs(value));
             case "startingplayer" -> startingPlayers.add(value.strip());
             case "battleprotector" -> protectors.add(value.strip());
+            case "roomdoor" -> roomDoors.add(value.strip());
+            case "assistant" -> assistants.add(value.strip());
+            case "assistamount" -> assistAmounts.add(Integer.parseInt(value.strip()));
             case "sector" -> sectors.add(value.strip());
             case "tapchoice" -> tapChoices.add(ids(value));
             case "entitychoice" -> entityChoices.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
@@ -208,9 +214,13 @@ final class ScenarioAnswers {
         int want = switch (kind) {
             case "pass" -> 2;
             case "cast", "playland" -> 3;
-            case "activate", "manaability", "tapformana" -> 4;
+            case "activate", "manaability", "tapformana", "unlockdoor" -> 4;
             default -> -1;
         };
+        // A cast may name the Room door it casts (S28).
+        if (kind.equals("cast") && args.length == 4) {
+            want = 4;
+        }
         if (args.length != want) {
             throw new IllegalArgumentException(String.join(" ", args));
         }
@@ -667,6 +677,30 @@ final class ScenarioAnswers {
         return optionNames.poll();
     }
 
+    /** The next assistant answer (Go's ChooseAssistant) as one of options, by name, or null. */
+    Player nextAssistant(Iterable<Player> options) {
+        String next = assistants.poll();
+        if (next == null) {
+            return null;
+        }
+        for (Player p : options) {
+            if (p.getName().equalsIgnoreCase(next)) {
+                return p;
+            }
+        }
+        throw new IllegalStateException("assistant " + next + " is not one of " + options);
+    }
+
+    /** The next assistamount answer (Go's AssistAmount), or null. */
+    Integer nextAssistAmount() {
+        return assistAmounts.poll();
+    }
+
+    /** The next roomdoor answer (Go's ChooseRoomDoor), LeftSplit or RightSplit, or null. */
+    String nextRoomDoor() {
+        return roomDoors.poll();
+    }
+
     /** The next option answer (Go's ChooseOption index), or null. */
     Integer nextOption() {
         return options.poll();
@@ -849,6 +883,9 @@ final class ScenarioAnswers {
         rest.put("tapchoice", tapChoices);
         rest.put("entitychoice", entityChoices);
         rest.put("optionname", optionNames);
+        rest.put("roomdoor", roomDoors);
+        rest.put("assistant", assistants);
+        rest.put("assistamount", assistAmounts);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

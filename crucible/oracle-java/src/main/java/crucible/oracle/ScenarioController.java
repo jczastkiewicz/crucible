@@ -135,6 +135,12 @@ final class ScenarioController extends PlayerControllerForTests {
                 }
                 continue;
             }
+            if (play.verb().equals("unlockdoor")) {
+                // S28: the Room's unlock special action for that door.
+                SpellAbility sa = card.getUnlockAbility(CardStateName.smartValueOf(play.arg()));
+                sa.setActivatingPlayer(player);
+                return List.of(sa);
+            }
             if (ScenarioRunner.SPECIAL.contains(play.verb())) {
                 return List.of(specialAction(card, play.verb()));
             }
@@ -228,6 +234,10 @@ final class ScenarioController extends PlayerControllerForTests {
         }
         if ("face".equals(arg)) {
             return state != CardStateName.Original && state != CardStateName.LeftSplit;
+        }
+        // S28: a cast naming a Room door casts that door's spell.
+        if ("LeftSplit".equals(arg) || "RightSplit".equals(arg)) {
+            return state == CardStateName.smartValueOf(arg);
         }
         return true;
     }
@@ -667,6 +677,47 @@ final class ScenarioController extends PlayerControllerForTests {
             throw new IllegalStateException("naming a card for " + sa + " needs queue optionname");
         }
         return name;
+    }
+
+    // Assist (CR 702.132a, CostAdjustment.adjustCostByAssist): the caster's
+    // ChooseAssistant, then the assistant's AssistAmount, paid from the
+    // assistant's pool as any cost is (applyManaToCost, S25).
+    @Override
+    public Player choosePlayerToAssistPayment(FCollectionView<Player> optionList, SpellAbility sa, String title,
+            int max) {
+        Player assistant = answers.bound() ? answers.nextAssistant(optionList) : null;
+        return assistant != null ? assistant : super.choosePlayerToAssistPayment(optionList, sa, title, max);
+    }
+
+    @Override
+    public boolean helpPayForAssistSpell(ManaCostBeingPaid cost, SpellAbility sa, int max, int requested) {
+        Integer n = answers.bound() ? answers.nextAssistAmount() : null;
+        if (n == null || n == 0) {
+            return super.helpPayForAssistSpell(cost, sa, max, requested);
+        }
+        if (n > max) {
+            throw new IllegalStateException("assistamount " + n + " over the " + max + " generic left");
+        }
+        applyManaToCost(new ManaCostBeingPaid(ManaCost.get(n)), sa, "assist", null, false);
+        cost.decreaseGenericMana(n);
+        return true;
+    }
+
+    // A Room door an effect locks or unlocks (UnlockDoorEffect's
+    // LockOrUnlock): Go's ChooseRoomDoor.
+    @Override
+    public forge.game.card.CardState chooseSingleCardState(SpellAbility sa, List<forge.game.card.CardState> states,
+            String message, Map<String, Object> params) {
+        String door = answers.bound() ? answers.nextRoomDoor() : null;
+        if (door == null) {
+            return super.chooseSingleCardState(sa, states, message, params);
+        }
+        for (forge.game.card.CardState st : states) {
+            if (st.getStateName() == CardStateName.smartValueOf(door)) {
+                return st;
+            }
+        }
+        throw new IllegalStateException("roomdoor " + door + " is not one of " + states);
     }
 
     // A type an effect chooses (ChooseType): Go's ChooseOption by name.

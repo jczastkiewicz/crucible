@@ -61,7 +61,7 @@ public final class ScenarioRunner {
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
             "tapformana", "castspell", "playland", "passpriority", "expecterror", "paymanacost", "dealopeninghands",
-            "mulligan", "foretell", "plot", "suspend", "turnfaceup", "concede");
+            "mulligan", "foretell", "plot", "suspend", "turnfaceup", "concede", "run");
     // The lines a seat makes at its priority, where Go ran them (S13).
     private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland", "foretell", "plot", "suspend",
             "turnfaceup", "concede");
@@ -301,7 +301,8 @@ public final class ScenarioRunner {
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
                         "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority",
-                        "expecterror", "paymanacost", "foretell", "plot", "suspend", "turnfaceup", "concede" -> {
+                        "expecterror", "paymanacost", "foretell", "plot", "suspend", "turnfaceup", "concede",
+                        "run" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }

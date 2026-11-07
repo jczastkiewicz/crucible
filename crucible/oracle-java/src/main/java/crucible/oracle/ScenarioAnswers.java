@@ -174,7 +174,17 @@ final class ScenarioAnswers {
 
     /** Queues a play line; args are the line's words after the verb. */
     void play(int line, String verb, String[] args, int turn, PhaseType phase) {
-        boolean face = verb.equals("castspell") && args.length == 3 && (args[2].equals("face") || args[2].equals("fuse"));
+        if (verb.equals("concede")) {
+            // S27: no card; made at whichever seat's priority comes first.
+            if (args.length != 1) {
+                throw new IllegalArgumentException("concede " + String.join(" ", args));
+            }
+            plays.add(new Play(line, verb, args[0], turn, phase, 0, null, resolved, false));
+            resolved = false;
+            return;
+        }
+        boolean face = (verb.equals("castspell") || verb.equals("playland")) && args.length == 3
+                && (args[2].equals("face") || args[2].equals("fuse") && verb.equals("castspell"));
         boolean twoArgs = verb.equals("castspell") || verb.equals("playland") || ScenarioRunner.SPECIAL.contains(verb);
         if (!face && (twoArgs ? args.length != 2 : args.length != 3)) {
             throw new IllegalArgumentException(verb + " " + String.join(" ", args));
@@ -263,6 +273,11 @@ final class ScenarioAnswers {
         Play next = plays.peek();
         // A tapformana is made at whoever's priority comes first: Go's
         // harness taps outside the priority loop.
+        // A concede is made at the first priority at or after Go's step, which
+        // may give none (S27).
+        if (next != null && next.verb().equals("concede") && due(next)) {
+            return plays.poll();
+        }
         if (next != null && (next.player().equalsIgnoreCase(p.getName()) || next.verb().equals("tapformana"))
                 && now(next)
                 && (!next.afterResolve() || game.getStack().isEmpty())) {

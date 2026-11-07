@@ -100,6 +100,18 @@ final class ScenarioController extends PlayerControllerForTests {
             if (play.verb().equals("pass")) {
                 return null;
             }
+            if (play.verb().equals("concede")) {
+                // S27: Go's Concede, at once; the game may be over after it.
+                for (Player p : player.getGame().getPlayers()) {
+                    if (p.getName().equalsIgnoreCase(play.player())) {
+                        p.concede();
+                    }
+                }
+                if (player.getGame().isGameOver()) {
+                    return null;
+                }
+                continue;
+            }
             if (play.verb().equals("paymanacost")) {
                 payFreeManaCost(play.arg());
                 continue;
@@ -134,7 +146,7 @@ final class ScenarioController extends PlayerControllerForTests {
             }
             List<SpellAbility> ways = new ArrayList<>();
             for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
-                if (land ? sa.isLandAbility() : sa.isSpell() && castsFace(card, sa, play.arg())) {
+                if ((land ? sa.isLandAbility() : sa.isSpell()) && castsFace(card, sa, play.arg())) {
                     ways.add(sa);
                 }
             }

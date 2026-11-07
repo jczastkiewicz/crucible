@@ -166,6 +166,27 @@ func (g *Game) PlayLandFace(pid PlayerID, card CardID, controller PlayerControll
 	return false
 }
 
+// OnModalBackFace reports whether c is a Modal card on the battlefield showing
+// its back face (CardStateName.Backside of a modal card, GameState's
+// `|Modal`, GameState.java:357-359).
+func (c *Card) OnModalBackFace() bool {
+	return c.Zone == Battlefield && c.faceDef != nil && c.faceDef.SplitType == carddb.SplitModal &&
+		c.castDoor == carddb.FaceAlternate
+}
+
+// SetModalBackFace puts a Modal permanent on its back face, a fixture's
+// `Modal` (GameState.java:1343-1345). False when id is not a Modal card on
+// the battlefield on its front face.
+func (g *Game) SetModalBackFace(id CardID) bool {
+	c := g.Card(id)
+	if c.Zone != Battlefield || c.faceDef != nil || c.Def == nil || c.Def.SplitType != carddb.SplitModal ||
+		!faceCastable(c.Def) {
+		return false
+	}
+	c.castAsFace()
+	return true
+}
+
 // faceZoneCost is the mana cost of casting c from a zone other than the hand
 // because of its face: an Aftermath second face from its owner's graveyard
 // (SpellAbilityRestriction.java:359-361, CardFactoryUtil.java:2617-2623), and

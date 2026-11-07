@@ -61,10 +61,10 @@ public final class ScenarioRunner {
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
             "tapformana", "castspell", "playland", "passpriority", "expecterror", "paymanacost", "dealopeninghands",
-            "mulligan", "foretell", "plot", "suspend", "turnfaceup");
+            "mulligan", "foretell", "plot", "suspend", "turnfaceup", "concede");
     // The lines a seat makes at its priority, where Go ran them (S13).
     private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland", "foretell", "plot", "suspend",
-            "turnfaceup");
+            "turnfaceup", "concede");
     // The special actions among them (S26), which a refused expecterror does not cover.
     static final Set<String> SPECIAL = Set.of("foretell", "plot", "suspend", "turnfaceup");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
@@ -212,7 +212,7 @@ public final class ScenarioRunner {
                         // S23: Go refused the declaration queued last.
                         answers.refuseDeclaration(all[2]);
                     } else if (all.length != 5 || !all[1].equals("refused") || !PLAYS.contains(all[2]) || all[2].equals("tapformana")
-                            || SPECIAL.contains(all[2])) {
+                            || SPECIAL.contains(all[2]) || all[2].equals("concede")) {
                         unmapped.add(line);
                     } else {
                         answers.refusedPlay(i, all[2], Arrays.copyOfRange(all, 3, all.length), Integer.parseInt(when.get(i)[0]),
@@ -301,7 +301,7 @@ public final class ScenarioRunner {
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
                         "combatdamage", "resolvestack", "tapformana", "castspell", "playland", "passpriority",
-                        "expecterror", "paymanacost", "foretell", "plot", "suspend", "turnfaceup" -> {
+                        "expecterror", "paymanacost", "foretell", "plot", "suspend", "turnfaceup", "concede" -> {
                 }
                 default -> throw new IllegalStateException("unmapped: " + line);
             }
@@ -444,9 +444,11 @@ public final class ScenarioRunner {
             if (p.hasLost()) {
                 sb.append("p").append(i).append("lost=true\n");
             }
-            // Player.hasWon reads an outcome that only means a win once the
-            // game is over; Go writes won= only then.
-            if (game.isGameOver() && p.hasWon()) {
+            // The game's own outcome (Game.setGameOver): Player.hasWon also
+            // asks cantWin, so a player left alone under "you can't win"
+            // (Abyssal Persecutor) would read as no winner of a game Java
+            // ended with AllOpponentsLost. Go writes won= only at game end.
+            if (game.isGameOver() && game.getOutcome() != null && game.getOutcome().isWinner(p.getRegisteredPlayer())) {
                 sb.append("p").append(i).append("won=true\n");
             }
         }

@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/fixture"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
@@ -611,5 +614,43 @@ func TestForetoldRoundTripsAndNeedsExile(t *testing.T) {
 	}
 	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil || !strings.Contains(err.Error(), "Foretold") {
 		t.Errorf("Foretold in a hand: err = %v, want it refused", err)
+	}
+}
+
+// Modal puts a Modal permanent on its back face and dumps back; a card that
+// is not a Modal card refuses it (GameState.java:1343-1345, :357-359).
+func TestModalBackFaceRoundTripsAndNeedsAModalCard(t *testing.T) {
+	t.Parallel()
+
+	raw := &carddb.Card{Filename: "test_warrior", SplitType: carddb.SplitModal}
+	raw.Faces[carddb.FacePrimary] = carddb.Face{Present: true, Name: "Test Warrior", Type: cardtype.ParseToken("Creature")}
+	raw.Faces[carddb.FaceAlternate] = carddb.Face{Present: true, Name: "Test Teeth", Type: cardtype.ParseToken("Land")}
+	warrior, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	mountain, err := compile.Compile(&carddb.Card{Filename: "mountain",
+		Faces: [carddb.NumFaces]carddb.Face{{Present: true, Name: "Mountain"}}})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	db := compile.NewDB(map[string]*compile.Card{"Test Warrior": warrior, "Mountain": mountain})
+	l := load(t, db, "humanbattlefield=Test Warrior|Id:1|Modal;Test Warrior|Id:2\nailife=20\n")
+	if !l.Game.Card(l.CardByFixtureID[1]).OnModalBackFace() || l.Game.Card(l.CardByFixtureID[2]).OnModalBackFace() {
+		t.Fatal("Modal did not put exactly the first card on its back face")
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(buf.String(), "|Modal"); got != 1 {
+		t.Errorf("dump wrote |Modal %d times, want once:\n%s", got, buf.String())
+	}
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=Mountain|Id:1|Modal\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil || !strings.Contains(err.Error(), "Modal") {
+		t.Errorf("Modal on a Mountain: err = %v, want it refused", err)
 	}
 }

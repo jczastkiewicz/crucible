@@ -342,6 +342,11 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			if !ld.game.Transform(id) {
 				return fmt.Errorf("%s: Transformed: not a transforming double-faced permanent", name)
 			}
+		case info == "Modal":
+			// GameState.java:1343-1345: a Modal permanent on its back face.
+			if !ld.game.SetModalBackFace(id) {
+				return fmt.Errorf("%s: Modal: not a Modal card on the battlefield", name)
+			}
 		case info == "FaceDown":
 			// GameState.java:1338-1339; the :Manifested and :Cloaked
 			// suffixes stay unapplied.

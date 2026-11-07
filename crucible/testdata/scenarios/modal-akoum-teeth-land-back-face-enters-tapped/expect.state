@@ -3,5 +3,5 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanlandsplayed=1
-humanbattlefield=Akoum Warrior|Id:1|Tapped
+humanbattlefield=Akoum Warrior|Id:1|Modal|Tapped
 ailife=20

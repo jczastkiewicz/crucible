@@ -36,7 +36,8 @@ final class ScenarioAnswers {
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
             "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
             "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
-            "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage");
+            "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage",
+            "startingplayer", "keephand", "tuck");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -85,6 +86,9 @@ final class ScenarioAnswers {
     private final Deque<Integer> options = new ArrayDeque<>();
     private final Deque<Boolean> coinCalls = new ArrayDeque<>();
     private final Deque<List<int[]>> damages = new ArrayDeque<>();
+    private final Deque<String> startingPlayers = new ArrayDeque<>();
+    private final Deque<Boolean> keepHands = new ArrayDeque<>();
+    private final Deque<List<Integer>> tucks = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -104,6 +108,9 @@ final class ScenarioAnswers {
             case "blocks" -> blocks.add(value.equals("none") ? new ArrayList<>() : pairs(value));
             case "attacktarget" -> attackTargets.add(value.strip());
             case "damage" -> damages.add(pairs(value));
+            case "startingplayer" -> startingPlayers.add(value.strip());
+            case "keephand" -> keepHands.add(bool(value));
+            case "tuck" -> tucks.add(ids(value));
             case "targets" -> {
                 targets.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
             }
@@ -500,6 +507,51 @@ final class ScenarioAnswers {
         return out;
     }
 
+    /**
+     * The next startingplayer answer (Go's ChooseStartingPlayer) as one of
+     * players, found by name, or null. A subgame asks with its own players.
+     */
+    Player nextStartingPlayer(Iterable<Player> players) {
+        String next = startingPlayers.poll();
+        if (next == null) {
+            return null;
+        }
+        for (Player p : players) {
+            if (p.getName().equalsIgnoreCase(next)) {
+                return p;
+            }
+        }
+        throw new IllegalStateException("startingplayer " + next + " is not one of " + players);
+    }
+
+    /** The next keephand answer (Go's MulliganKeepHand), or null. */
+    Boolean nextKeepHand() {
+        return keepHands.poll();
+    }
+
+    /**
+     * The next tuck answer (Go's ChooseCardsToTuck) as n cards of hand, or
+     * null when none is queued.
+     */
+    List<Card> nextTuck(CardCollectionView hand, int n) {
+        List<Integer> next = tucks.poll();
+        if (next == null) {
+            return null;
+        }
+        List<Card> out = new ArrayList<>();
+        for (int id : next) {
+            Card c = card(id);
+            if (!hand.contains(c) || out.contains(c)) {
+                throw new IllegalStateException("tuck " + next + ": " + c + " is not in hand " + hand);
+            }
+            out.add(c);
+        }
+        if (out.size() != n) {
+            throw new IllegalStateException("tuck " + next + " for " + n + " cards");
+        }
+        return out;
+    }
+
     /** The next option answer (Go's ChooseOption index), or null. */
     Integer nextOption() {
         return options.poll();
@@ -674,6 +726,9 @@ final class ScenarioAnswers {
         rest.put("option", options);
         rest.put("coincall", coinCalls);
         rest.put("damage", damages);
+        rest.put("startingplayer", startingPlayers);
+        rest.put("keephand", keepHands);
+        rest.put("tuck", tucks);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());

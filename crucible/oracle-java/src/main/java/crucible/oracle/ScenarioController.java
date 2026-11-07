@@ -591,6 +591,29 @@ final class ScenarioController extends PlayerControllerForTests {
     // A card choice for an effect pops queue cardchoice when the answer fits
     // the question; Go asks ChooseCardsForEffect where Java asks any of
     // these four. Otherwise the upstream default answers.
+    // Who goes first (GameAction.determineFirstTurnPlayer): Go's
+    // ChooseStartingPlayer.
+    @Override
+    public Player chooseStartingPlayer(boolean isFirstGame) {
+        Player first = answers.nextStartingPlayer(player.getGame().getPlayers());
+        return first != null ? first : super.chooseStartingPlayer(isFirstGame);
+    }
+
+    // MulliganService's keep question: Go's MulliganKeepHand.
+    @Override
+    public boolean mulliganKeepHand(Player firstPlayer, int cardsToReturn) {
+        Boolean keep = answers.nextKeepHand();
+        return keep != null ? keep : super.mulliganKeepHand(firstPlayer, cardsToReturn);
+    }
+
+    // The London mulligan's cards put on the bottom (LondonMulligan.
+    // mulliganDraw): Go's ChooseCardsToTuck.
+    @Override
+    public CardCollectionView tuckCardsViaMulligan(CardCollectionView hand, int cardsToReturn) {
+        List<Card> chosen = answers.nextTuck(hand, cardsToReturn);
+        return chosen != null ? new CardCollection(chosen) : super.tuckCardsViaMulligan(hand, cardsToReturn);
+    }
+
     // The cleanup step's discard to hand size (PhaseHandler.java:387): Go's
     // ChooseDiscardToHandSize.
     @Override

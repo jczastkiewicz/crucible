@@ -31,6 +31,8 @@ import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import forge.game.zone.ZoneType;
+import forge.game.mulligan.MulliganService;
+import forge.util.Aggregates;
 import forge.gui.GuiBase;
 import forge.localinstance.properties.ForgePreferences.FPref;
 import forge.model.FModel;
@@ -58,7 +60,8 @@ public final class ScenarioRunner {
     // reported unmapped and not run (ADR-0060).
     private static final Set<String> MAPPED = Set.of("startturn", "advance", "step", "queue",
             "declareattackers", "declareblockers", "firststrikedamage", "combatdamage", "resolvestack",
-            "tapformana", "castspell", "playland", "passpriority", "expecterror", "paymanacost");
+            "tapformana", "castspell", "playland", "passpriority", "expecterror", "paymanacost", "dealopeninghands",
+            "mulligan");
     // The lines a seat makes at its priority, where Go ran them (S13).
     private static final Set<String> PLAYS = Set.of("tapformana", "castspell", "playland");
     // A player seat in GameState text: a p<i> key prefix, the activeplayer
@@ -178,6 +181,12 @@ public final class ScenarioRunner {
                     }
                 } else if (!MAPPED.contains(f[0]) || f[0].equals("queue") && (f.length < 3 || !ScenarioAnswers.KINDS.contains(f[1]))) {
                     unmapped.add(line);
+                } else if (f[0].equals("queue") && Set.of("startingplayer", "keephand", "tuck").contains(f[1])
+                        && actions.subList(0, i).stream().anyMatch(l -> l.startsWith("startturn "))) {
+                    // S24: an opening-hand answer after the game started is
+                    // for a startGame inside it (a subgame, a restart), which
+                    // Java plays on its own.
+                    unmapped.add(line);
                 } else if (f[0].equals("startturn") && actions.subList(0, i).stream().anyMatch(l -> l.startsWith("startturn "))) {
                     // A second startturn restarts Go's turn mid-game; Java
                     // sets up its first turn once (PhaseHandler.setupFirstTurn).
@@ -242,8 +251,9 @@ public final class ScenarioRunner {
             // GameState.applyGameOnThread indexes the active player's state
             // and fails without one; Go's fixture.Load needs none. The first
             // startturn names the player Go starts (l2-verbs.md).
-            actions.stream().filter(l -> l.startsWith("startturn ")).findFirst()
-                    .ifPresent(l -> setupLines.add("activeplayer=" + l.split("\\s+")[1]));
+            // With none (S24), the first seat: the game never starts.
+            setupLines.add("activeplayer=" + actions.stream().filter(l -> l.startsWith("startturn ")).findFirst()
+                    .map(l -> l.split("\\s+")[1]).orElse("human"));
         }
         Map<Integer, Integer> damage = deferDamage(setupLines);
         GameState setup = new GameState();
@@ -267,6 +277,20 @@ public final class ScenarioRunner {
                     game.getPhaseHandler().devModeSet(null, p, false, 0);
                     game.getPhaseHandler().setupFirstTurn(p, null);
                 }
+                // S24: Go's DealOpeningHands, GameAction.startGame's first
+                // steps: a random player (or, after a game, its loser) picks
+                // who goes first, then each player shuffles and draws.
+                case "dealopeninghands" -> {
+                    List<Player> players = game.getPlayers();
+                    boolean after = f.length == 3 && f[1].equals("after");
+                    Player decider = after ? player(game, f[2]) : Aggregates.random(players);
+                    decider.getController().chooseStartingPlayer(!after);
+                    for (Player p : players) {
+                        p.getZone(ZoneType.Library).shuffle();
+                        p.drawCards(p.getStartingHandSize());
+                    }
+                }
+                case "mulligan" -> new MulliganService(player(game, f[1])).perform();
                 // Checkpoints: Java's own loop reaches the phase Go walks to,
                 // asking the controllers for the queued answers on the way.
                 case "advance", "step", "queue", "declareattackers", "declareblockers", "firststrikedamage",
@@ -289,7 +313,9 @@ public final class ScenarioRunner {
         target.armed = true;
         int steps = 0;
         try {
-            while (!game.isGameOver()) {
+            // S24: a scenario that never starts a turn ends before the game
+            // does; Java's loop would start it.
+            while (turn > 0 && !game.isGameOver()) {
                 if (target.reachedStep() && !givesPriority(ph)) {
                     break;
                 }
@@ -307,10 +333,21 @@ public final class ScenarioRunner {
         // A card choice is popped only when it fits a question (S16); an
         // answer left over means Java never asked what Go did.
         answers.checkAnswersUsed();
+        if (turn == 0) {
+            // S24: GameState.initFromGame writes the phase, which a game that
+            // never started has none of.
+            ph.devModeSet(PhaseType.UNTAP, ph.getPlayerTurn(), false, 0);
+        }
 
         GameState post = new GameState();
         post.initFromGame(game);
-        return new String[] {"state", withProtectors(game, registeredIndexes(game, post.toString())) + crucibleKeys(game)};
+        String text = registeredIndexes(game, post.toString());
+        if (turn == 0) {
+            // S24: the turn, active player and phase of a game that never
+            // started are the runner's, set for initFromGame; Go writes none.
+            text = text.replaceAll("(?m)^(turn|activeplayer|activephase)=.*\\R", "");
+        }
+        return new String[] {"state", withProtectors(game, text) + crucibleKeys(game)};
     }
 
     // GameState.processCardsForZone looks a card up in the common cards only

@@ -189,6 +189,25 @@ final class ScenarioController extends PlayerControllerForTests {
         }
     }
 
+    // Go's ChooseAbilitiesForEffect: indices into the abilities offered, in
+    // Choices$ order (GenericChoice, ChooseGenericEffect.java:102).
+    @Override
+    public List<SpellAbility> chooseSpellAbilitiesForEffect(List<SpellAbility> spells, SpellAbility sa, String title,
+            int num, Map<String, Object> params) {
+        List<Integer> picks = answers.bound() ? answers.nextAbilityChoice() : null;
+        if (picks == null) {
+            return super.chooseSpellAbilitiesForEffect(spells, sa, title, num, params);
+        }
+        List<SpellAbility> out = new ArrayList<>();
+        for (int i : picks) {
+            if (i < 0 || i >= spells.size()) {
+                throw new IllegalStateException("abilitychoice " + i + " of " + spells.size() + " abilities");
+            }
+            out.add(spells.get(i));
+        }
+        return out;
+    }
+
     @Override
     public boolean playChosenSpellAbility(SpellAbility sa) {
         if (!PlaySpellAbility.playSpellAbility(this, player, sa)) {
@@ -279,7 +298,7 @@ final class ScenarioController extends PlayerControllerForTests {
                 return true;
             }
         }
-        for (GameEntity e : answers.nextTargets()) {
+        for (GameObject e : answers.nextTargets()) {
             // A card id on the stack names the spell (Go's TargetStack).
             GameObject o = e instanceof Card c && c.isInZone(ZoneType.Stack)
                     ? c.getGame().getStack().getSpellMatchingHost(c) : e;
@@ -512,6 +531,14 @@ final class ScenarioController extends PlayerControllerForTests {
     public <T extends GameEntity> T chooseSingleEntityForEffect(FCollectionView<T> optionList,
             DelayedReveal delayedReveal, SpellAbility sa, String title, boolean isOptional, Player targetedPlayer,
             Map<String, Object> params) {
+        // Go's ChoosePlayerForEffect: a list of players (Captive Audience's
+        // opponent).
+        if (answers.bound()) {
+            Player chosenPlayer = answers.nextPlayerChoice(optionList);
+            if (chosenPlayer != null) {
+                return (T) chosenPlayer;
+            }
+        }
         // An Aura entering without being cast picks what it enchants
         // (GameAction.attachAuraOnIndirectETB): Go's ChooseEnchantTarget.
         if (answers.bound() && sa != null && sa.getHostCard() != null

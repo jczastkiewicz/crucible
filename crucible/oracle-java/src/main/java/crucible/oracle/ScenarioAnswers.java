@@ -16,6 +16,11 @@ import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardCollectionView;
 import forge.game.phase.PhaseType;
+import com.google.common.eventbus.Subscribe;
+import forge.game.GameObject;
+import forge.game.event.GameEventSpellAbilityCast;
+import forge.game.spellability.SpellAbility;
+import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.player.Player;
 
 /**
@@ -30,7 +35,7 @@ final class ScenarioAnswers {
             "cardorder", "cardchoice", "confirmeffect", "optionaltrigger",
             "confirmpaycost", "discardchoice", "sacrificechoice", "modechoice", "scry", "surveil",
             "payphyrexian", "payx", "colorchoice", "numberchoice", "replacement", "confirmreplacement", "paysnow", "paymonocoloredhybrid",
-            "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide");
+            "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -68,6 +73,8 @@ final class ScenarioAnswers {
     private final Deque<List<Integer>> returnChoices = new ArrayDeque<>();
     private final Deque<Integer> enchantTargets = new ArrayDeque<>();
     private final Deque<List<Integer>> divisions = new ArrayDeque<>();
+    private final Deque<List<Integer>> abilityChoices = new ArrayDeque<>();
+    private final Deque<String> playerChoices = new ArrayDeque<>();
     private final Deque<Play> plays = new ArrayDeque<>();
     // Go's ScriptedController keeps one action queue per player (TakeAction).
     private final Map<String, Deque<Play>> actions = new LinkedHashMap<>();
@@ -76,6 +83,7 @@ final class ScenarioAnswers {
     private boolean resolvedForAction;
     private Game game;
     private Map<Integer, Card> idToCard;
+    private final List<Integer> pushes = new ArrayList<>();
 
     /** Queues one `queue <kind> <value>` line (fixture/actions.go's grammar). */
     void queue(String kind, String value) {
@@ -93,9 +101,6 @@ final class ScenarioAnswers {
             }
             case "attacktarget" -> attackTargets.add(value.strip());
             case "targets" -> {
-                if (value.contains("stack:")) {
-                    throw new IllegalArgumentException("a stack-item target");
-                }
                 targets.add(value.strip().equals("none") ? List.of() : List.of(value.strip().split(",")));
             }
             // Which pool mana pays a generic shard: payManaCost pays from
@@ -110,6 +115,8 @@ final class ScenarioAnswers {
             case "returnchoice" -> returnChoices.add(ids(value));
             case "enchanttarget" -> enchantTargets.add(Integer.parseInt(value.strip()));
             case "divide" -> divisions.add(ids(value));
+            case "abilitychoice" -> abilityChoices.add(ids(value));
+            case "playerchoice" -> playerChoices.add(value.strip());
             case "cardorder" -> cardOrders.add(ids(value));
             case "confirmeffect" -> confirmEffects.add(bool(value));
             case "optionaltrigger" -> optionalTriggers.add(bool(value));
@@ -271,17 +278,43 @@ final class ScenarioAnswers {
         return actions.values().stream().allMatch(Deque::isEmpty);
     }
 
-    /** The next targets answer as entities. */
-    List<GameEntity> nextTargets() {
+    /**
+     * The next targets answer: cards and players, and `stack:N`, the Nth push
+     * onto the stack this game (Go's StackItemID, assigned in push order from
+     * 1) as the spell or ability it put there (S21).
+     */
+    List<GameObject> nextTargets() {
         List<String> next = targets.poll();
         if (next == null) {
             throw new IllegalStateException("no targets queued");
         }
-        List<GameEntity> out = new ArrayList<>();
+        List<GameObject> out = new ArrayList<>();
         for (String v : next) {
-            out.add(entity(v.strip()));
+            v = v.strip();
+            out.add(v.startsWith("stack:") ? stackItem(Integer.parseInt(v.substring("stack:".length()))) : entity(v));
         }
         return out;
+    }
+
+    // S21: the spell or ability the nth push put on the stack, still there.
+    private SpellAbility stackItem(int n) {
+        if (n < 1 || n > pushes.size()) {
+            throw new IllegalStateException("stack:" + n + " of " + pushes.size() + " pushes");
+        }
+        int id = pushes.get(n - 1);
+        for (SpellAbilityStackInstance si : game.getStack()) {
+            if (si.getId() == id) {
+                return si.getSpellAbility();
+            }
+        }
+        throw new IllegalStateException("stack:" + n + " is no longer on the stack");
+    }
+
+    // Every push onto the stack fires GameEventSpellAbilityCast with its
+    // stack instance (MagicStack.java:379), on the posting thread.
+    @Subscribe
+    public void onPush(GameEventSpellAbilityCast e) {
+        pushes.add(e.si().getId());
     }
 
     /**
@@ -345,6 +378,26 @@ final class ScenarioAnswers {
             if (e instanceof Card c && c.getId() == javaId) {
                 enchantTargets.poll();
                 return c;
+            }
+        }
+        return null;
+    }
+
+    /** The next abilitychoice answer (Go's ChooseAbilitiesForEffect indices), or null. */
+    List<Integer> nextAbilityChoice() {
+        return abilityChoices.poll();
+    }
+
+    /** The next playerchoice answer when it is one of options (Go's ChoosePlayerForEffect), else null. */
+    Player nextPlayerChoice(Iterable<? extends GameEntity> options) {
+        String next = playerChoices.peek();
+        if (next == null) {
+            return null;
+        }
+        for (GameEntity e : options) {
+            if (e instanceof Player p && p.getName().equalsIgnoreCase(next)) {
+                playerChoices.poll();
+                return p;
             }
         }
         return null;
@@ -506,6 +559,8 @@ final class ScenarioAnswers {
         rest.put("returnchoice", returnChoices);
         rest.put("enchanttarget", enchantTargets);
         rest.put("divide", divisions);
+        rest.put("abilitychoice", abilityChoices);
+        rest.put("playerchoice", playerChoices);
         for (Map.Entry<String, Deque<?>> e : rest.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 throw new IllegalStateException(e.getKey() + " answers never asked for: " + e.getValue());
@@ -522,6 +577,7 @@ final class ScenarioAnswers {
     void bind(Game game0, Map<Integer, Card> idToCard0) {
         game = game0;
         idToCard = idToCard0;
+        game.subscribeToEvents(this);
     }
 
     /** The next attackers answer, or null when none is queued (declare none). */

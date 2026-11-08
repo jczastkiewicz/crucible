@@ -1,0 +1,15 @@
+# Tunnel Ignus' CheckOnTriggeredCard$ X GT1 (TriggerChangesZone.java:136-145)
+# counts the lands that entered this turn under the moved land's
+# controller. The human's land drop is the first (X = 1, no trigger); the
+# Forest Rampant Growth fetches is the second (X = 2), so Ignus deals 3.
+startturn human
+advance 3
+queue action human playland 1
+passpriority
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+queue cardchoice 6
+castspell human 5
+resolvestack
+resolvestack

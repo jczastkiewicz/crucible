@@ -84,7 +84,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) || !g.checkOnTriggeredCardMet(c, face.Amounts, t, entered) {
 					continue
 				}
 				evolve, ok := evolveCheck(g, c, t, entered)
@@ -150,7 +150,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) {
+					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) || !g.checkOnTriggeredCardMet(w, face.Amounts, t, entered) {
 						continue
 					}
 					evolve, ok := evolveCheck(g, w, t, entered)
@@ -241,7 +241,8 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, Graveyard) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, Graveyard) ||
+					!g.checkOnTriggeredCardMet(c, face.Amounts, t, left) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -320,7 +321,8 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, dying, Battlefield, Graveyard) {
+					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, dying, Battlefield, Graveyard) ||
+						!g.checkOnTriggeredCardMet(w, face.Amounts, t, left) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
@@ -2710,15 +2712,15 @@ func hasZoneOrAny(t *compile.Ability, key string, zone ZoneType) bool {
 // ValidCause$/NotThisAbility$/ConditionYouCastThisTurn$ (1 each --
 // AbilityKey.Cause tracking, a "did I cause my own trigger" self-reference,
 // and a per-turn cast-count condition, none of which this port tracks
-// anywhere a trigger could read); CheckOnTriggeredCard$ (6 -- a second
-// AbilityUtils.calculateAmount comparison against the moved card itself,
-// needing a reference vocabulary this predicate does not have);
+// anywhere a trigger could read). CheckOnTriggeredCard$ is
+// checkOnTriggeredCardMet's, read where the moved card is known (the
+// enters and dies paths, the only zones its corpus lines name);
 // ExcludedOrigins$/ExcludedDestinations$ are hasZoneOrAny's. Fizzle$ is only on the Haunt
 // keyword's synthesized stack-to-graveyard line, which
 // checkSpellToGraveyardTriggers (haunteffect.go) reads instead.
 var changesZoneUnresolvedParams = [...]string{
 	"ValidCause", "NotThisAbility", "ConditionYouCastThisTurn",
-	"CheckOnTriggeredCard", "Fizzle",
+	"Fizzle",
 }
 
 func changesZoneResolvable(t *compile.Ability) bool {
@@ -4365,4 +4367,49 @@ func (g *Game) triggerPushOrder(controller PlayerController, pid PlayerID, match
 		pushed[len(idx)-1-pos] = idx[k]
 	}
 	return pushed
+}
+
+// checkOnTriggeredCardMet is TriggerChangesZone's CheckOnTriggeredCard$
+// (TriggerChangesZone.java:136-145): "<amount> <op><reference>" (bare is
+// GE1). The reference is calculateAmount on the trigger's host; the amount
+// is calculateAmount on the moved card, its SVar looked up on the trigger
+// first and the moved card second (AbilityUtils.java:398-410), and evaluated
+// with the moved card as source (Tunnel Ignus counts the lands that land's
+// controller had enter this turn). An amount this port cannot compute fails
+// the line (GO-7): Burning-Eye and Rushing-Tide Zubera's
+// Count$TotalDamageReceivedThisTurn has no Go head, so they do not fire.
+func (g *Game) checkOnTriggeredCardMet(host *Card, amounts map[string]expr.Amount, t *compile.Ability, moved CardID) bool {
+	raw, ok := t.Param("CheckOnTriggeredCard")
+	if !ok {
+		return true
+	}
+	subject, comparator, has := strings.Cut(raw, " ")
+	if !has {
+		comparator = "GE1"
+	}
+	if len(comparator) < 3 {
+		return false
+	}
+	reference, ok := resolveNamedAmount(g, amounts, host, comparator[2:])
+	if !ok {
+		return false
+	}
+	m := g.Card(moved)
+	actual, err := strconv.Atoi(subject)
+	if err != nil {
+		key := strings.ToLower(subject)
+		pool := amounts
+		amt, named := pool[key]
+		if !named && m.Def != nil {
+			pool = m.Def.Faces[0].Amounts
+			amt, named = pool[key]
+		}
+		if !named {
+			return false
+		}
+		if actual, ok = resolveAmount(g, pool, m.Controller(), moved, amt); !ok {
+			return false
+		}
+	}
+	return compareOp(actual, comparator[:2], reference)
 }

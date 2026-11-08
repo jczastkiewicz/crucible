@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+humanhand=Forest|Id:1;Rampant Growth|Id:5
+humanbattlefield=Forest|Id:2;Forest|Id:3
+humanlibrary=Forest|Id:6
+aibattlefield=Tunnel Ignus|Id:9
+ailibrary=Island|Id:8

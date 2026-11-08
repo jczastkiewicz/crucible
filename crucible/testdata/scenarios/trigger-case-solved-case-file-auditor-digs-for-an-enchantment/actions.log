@@ -1,0 +1,9 @@
+# Mode$ CaseSolved (AlterAttributeEffect.java:97, triggerpack.go): with seven
+# lands, Case of the Locked Hothouse solves at the end step, which fires
+# Case File Auditor's "whenever you solve a Case": look at the top six, take
+# Pacifism (an enchantment), the rest to the bottom.
+queue cardchoice 10
+startturn human
+advance 11
+resolvestack
+resolvestack

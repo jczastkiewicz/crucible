@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=End of Turn
+humanlife=20
+humanhand=Pacifism
+humanbattlefield=Case File Auditor;Case of the Locked Hothouse;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+humanlibrary=Island;Island;Island;Island;Island;Island
+ailife=20

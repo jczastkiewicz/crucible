@@ -1,0 +1,17 @@
+# Mode$ ManifestDread (ManifestDreadEffect.java:39, triggerhooks.go):
+# Unnerving Grasp, with no target, manifests dread: of the top two the
+# human manifests Grizzly Bears and puts Mountain into the graveyard, so
+# Paranormal Analyst returns the Mountain to the hand.
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue targets none
+queue cardchoice 6
+queue cardchoice 7
+castspell human 1
+resolvestack
+resolvestack

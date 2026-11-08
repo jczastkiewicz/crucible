@@ -1,0 +1,10 @@
+# Mode$ ElementalBend (triggerhooks.go): Avatar Aang attacks, its
+# Firebending 2 adds {R}{R}, and its "whenever you waterbend, earthbend,
+# firebend, or airbend" draws a card; not every bend was done this turn, so
+# it does not transform.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+resolvestack
+resolvestack

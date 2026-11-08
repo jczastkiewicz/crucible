@@ -1,0 +1,17 @@
+# Mode$ SpellAbilityCopy (MagicStack.java:445, trigger.go): Twincast copies
+# Disfigure, and the copy fires Grip of Chaos' "if it has a single target,
+# reselect its target at random" (as Disfigure's and Twincast's casts fire
+# its SpellAbilityCast line). Hill Giant is the one creature and Disfigure
+# the one spell Twincast may target, so every reselection keeps its target:
+# both -2/-2 land and the Giant dies.
+startturn human
+advance 3
+tapformana human 4 B
+queue targets 7
+castspell human 1
+tapformana human 5 U
+tapformana human 6 U
+queue targets stack:1
+castspell human 2
+queue confirmeffect false
+resolvestack

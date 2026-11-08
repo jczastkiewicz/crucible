@@ -1,0 +1,9 @@
+# Mode$ CounterRemovedOnce (Card.java:1942, counterremoved.go): Vanishing's
+# upkeep trigger removes a time counter, which fires Regenerations Restored's
+# "whenever one or more time counters are removed": scry 1 (kept on top),
+# gain 1 life. Two counters remain, so it is not exiled.
+queue scry 2
+startturn human
+advance
+resolvestack
+resolvestack

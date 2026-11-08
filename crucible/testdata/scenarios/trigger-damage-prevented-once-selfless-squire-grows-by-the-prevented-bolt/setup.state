@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Selfless Squire|Id:1
+humanbattlefield=Plains|Id:2;Plains|Id:3;Plains|Id:4;Plains|Id:5
+aibattlefield=Mountain|Id:10
+aihand=Lightning Bolt|Id:11

@@ -1,0 +1,6 @@
+# Mode$ PhaseOutAll (Untap.java:241, phasing.go): Teferi's Isle phases out
+# in the untap step, so The War Doctor's "whenever one or more other
+# permanents phase out" puts a time counter on it.
+startturn human
+advance
+resolvestack

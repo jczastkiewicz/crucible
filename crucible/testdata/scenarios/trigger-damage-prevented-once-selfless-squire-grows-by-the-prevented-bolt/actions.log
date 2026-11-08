@@ -1,0 +1,22 @@
+# Mode$ DamagePreventedOnce (CardDamageTable.java:49, triggerpack.go):
+# Selfless Squire's ETB effect prevents all damage to the human this turn;
+# the AI's Lightning Bolt at the human is prevented, so the Squire's
+# "whenever damage that would be dealt to you is prevented" puts three
+# +1/+1 counters on it.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+castspell human 1
+resolvestack
+resolvestack
+tapformana ai 10 R
+queue targets human
+castspell ai 11
+resolvestack
+resolvestack

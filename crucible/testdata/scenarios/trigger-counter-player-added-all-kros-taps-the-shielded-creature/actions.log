@@ -1,0 +1,9 @@
+# Mode$ CounterPlayerAddedAll (GameEntityCounterTable.java:104,
+# counteradded.go): Kros' upkeep trigger puts a shield counter on the AI's
+# Grizzly Bears; the human put a counter on a creature it does not control,
+# so Kros' second trigger taps (and goads) that creature.
+queue targets 2
+startturn human
+advance
+resolvestack
+resolvestack

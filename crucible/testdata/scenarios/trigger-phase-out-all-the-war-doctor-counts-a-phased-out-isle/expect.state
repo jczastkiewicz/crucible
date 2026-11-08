@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Upkeep
+humanlife=20
+humanbattlefield=The War Doctor|Counters:TIME=1;Teferi's Isle|PhasedOut:human
+humanlibrary=Plains
+ailife=20

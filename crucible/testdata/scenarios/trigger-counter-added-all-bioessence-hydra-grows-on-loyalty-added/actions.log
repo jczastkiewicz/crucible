@@ -1,0 +1,9 @@
+# Mode$ CounterAddedAll (GameEntityCounterTable.java:108, counteradded.go):
+# Ajani Goldmane's +1 cost puts a loyalty counter on a planeswalker the human
+# controls, so Bioessence Hydra gets that many +1/+1 counters.
+startturn human
+advance 3
+queue action human activate 1 0
+passpriority
+resolvestack
+resolvestack

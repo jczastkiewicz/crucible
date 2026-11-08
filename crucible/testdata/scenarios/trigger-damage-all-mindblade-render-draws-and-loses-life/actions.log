@@ -1,0 +1,14 @@
+# Mode$ DamageAll (CardDamageTable.java:110, trigger.go): Mindblade Render, a
+# Warrior, deals combat damage to the opponent, so its "whenever your Warriors
+# deal combat damage to a player" trigger draws a card and loses 1 life.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage
+resolvestack

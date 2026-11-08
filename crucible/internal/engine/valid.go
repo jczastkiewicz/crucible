@@ -1848,6 +1848,26 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 	if rest, ok := strings.CutPrefix(property, "controls"); ok {
 		return controlsMatches(g, candidate, host, source, rest)
 	}
+	if source != NoCard {
+		switch property {
+		case "Activator":
+			// PlayerProperty.java:26-29: the controller of the trait's host
+			// card (spellAbility.getHostCard()), which source is here: the
+			// DontUntap effects' ValidStepTurnToController$ Player.Activator
+			// (Pinecrest Ridge, Deep Spawn) name the effect card's controller.
+			return candidate == g.Card(source).Controller(), true
+		case "CardOwner":
+			// PlayerProperty.java:71-74: Xantcha's Target$ Player.CardOwner.
+			return candidate == g.Card(source).Owner, true
+		case "attackedBySourceThisTurn":
+			// PlayerProperty.java:173-176, CardDamageHistory.hasAttackedThisTurn.
+			return slices.Contains(g.Card(source).attackedThisTurn, PlayerEntity(candidate)), true
+		case "attackedBySourceThisCombat":
+			// PlayerProperty.java:169-172, Combat.getDefenderPlayerByAttacker.
+			def, ok := g.defenderPlayerByAttacker(source)
+			return ok && def == candidate, true
+		}
+	}
 	// PlayerProperty.java:258-261: the player the source card chose.
 	if property == "Chosen" && source != NoCard {
 		return g.Card(source).Memory.ChosenPlayer() == candidate, true

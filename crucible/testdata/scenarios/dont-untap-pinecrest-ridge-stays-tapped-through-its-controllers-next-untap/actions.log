@@ -1,0 +1,11 @@
+# Pinecrest Ridge's {R} ability creates an effect whose DontUntap
+# replacement reads ValidStepTurnToController$ Player.Activator: the untap
+# step's active player must be the effect card's controller
+# (PlayerProperty.java:26-29, ReplaceUntap.java:51-52). Tapped for {R} on
+# turn 1, the land stays tapped through the human's next untap step (turn 3), checked at its draw step.
+startturn human
+advance 3
+queue manacolor R
+queue action human manaability 1 1
+passpriority
+advance 25

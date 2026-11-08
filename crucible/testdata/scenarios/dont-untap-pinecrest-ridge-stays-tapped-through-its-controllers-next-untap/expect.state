@@ -1,0 +1,8 @@
+turn=3
+activeplayer=human
+activephase=Draw
+humanlife=20
+humanhand=Mountain
+humanbattlefield=Pinecrest Ridge|Tapped
+ailife=20
+aihand=Mountain

@@ -1,0 +1,10 @@
+# Mode$ AbilityResolves (MagicStack.java:717, triggerhooks.go): History of
+# Benalia's third chapter resolves, which fires Narci, Fable Singer's
+# "whenever the final chapter ability of a Saga you control resolves": each
+# opponent loses and the human gains life equal to the Saga's mana value, 3.
+# The Saga is then sacrificed, and Narci's own sacrifice trigger draws.
+startturn human
+advance 3
+resolvestack
+resolvestack
+resolvestack

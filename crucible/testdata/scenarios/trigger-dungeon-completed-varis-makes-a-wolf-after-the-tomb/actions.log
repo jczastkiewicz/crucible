@@ -1,0 +1,31 @@
+# Mode$ DungeonCompleted (GameAction.java:2811, ventureeffect.go): three
+# Fates' Reversals venture through Tomb of Annihilation, Trapped Entry
+# (each player loses 1), Oubliette (discard the Plains, sacrifice Grizzly
+# Bears and a Swamp) and Cradle of the Death God (The Atropal). Completing
+# the dungeon fires Varis' "whenever you complete a dungeon": a 2/2 Wolf.
+startturn human
+advance 3
+tapformana human 10 B
+tapformana human 11 B
+queue paygeneric B
+queue targets none
+queue optionname Tomb_of_Annihilation
+castspell human 1
+resolvestack
+tapformana human 12 B
+tapformana human 13 B
+queue paygeneric B
+queue targets none
+queue abilitychoice 1
+queue discardchoice 4
+queue sacrificechoice 6
+queue sacrificechoice 10
+queue cardorder 6,10
+castspell human 2
+resolvestack
+tapformana human 14 B
+tapformana human 15 B
+queue paygeneric B
+queue targets none
+castspell human 3
+resolvestack

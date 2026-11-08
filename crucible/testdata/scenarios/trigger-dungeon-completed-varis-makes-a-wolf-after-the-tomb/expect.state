@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=19
+humanbattlefield=Varis, Silverymoon Ranger;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;T:the_atropal|SummonSick;T:g_2_2_wolf|SummonSick
+humangraveyard=Fates' Reversal;Fates' Reversal;Plains;Grizzly Bears;Swamp;Fates' Reversal
+ailife=19

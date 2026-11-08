@@ -1,0 +1,20 @@
+# Mode$ CollectEvidence (CostCollectEvidence.java:78, triggerpack.go):
+# Surveillance Monitor's ETB collects evidence 4 by exiling Hill Giant
+# (mana value 4) from the graveyard, which fires its "whenever you collect
+# evidence": a 1/1 flying Thopter.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue optionaltrigger true
+queue confirmpaycost true
+queue cardchoice 6
+castspell human 1
+resolvestack
+resolvestack
+resolvestack

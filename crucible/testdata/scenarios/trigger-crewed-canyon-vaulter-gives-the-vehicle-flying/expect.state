@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Declare Blockers
+humanlife=20
+humanbattlefield=Canyon Vaulter|Tapped;Renegade Freighter|Tapped|Attacking
+ailife=20
+aibattlefield=Grizzly Bears

@@ -1,0 +1,18 @@
+# Mode$ Crewed (MagicStack.java:416, activateability.go): Canyon Vaulter
+# crews Renegade Freighter in the main phase, so the Vehicle gains flying.
+# Attacking, it cannot be blocked by Grizzly Bears.
+startturn human
+advance 3
+queue cardchoice 1
+queue action human activate 2 0
+passpriority
+resolvestack
+resolvestack
+advance 2
+queue attackers 2
+declareattackers
+advance
+queue blocks 5=2
+expecterror 509.1b declareblockers
+queue blocks none
+declareblockers

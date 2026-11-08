@@ -1,0 +1,10 @@
+# Mode$ PayEcho (SacrificeEffect.java:48, triggerpack.go): Shah of Naar
+# Isle's echo {0} is paid at the upkeep, which fires "when its echo cost is
+# paid, each opponent may draw up to three cards": the AI draws two.
+queue confirmpaycost true
+queue confirmeffect true
+queue numberchoice 2
+startturn human
+advance
+resolvestack
+resolvestack

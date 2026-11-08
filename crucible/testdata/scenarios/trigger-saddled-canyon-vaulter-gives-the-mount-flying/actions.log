@@ -1,0 +1,23 @@
+# Mode$ Saddled (MagicStack.java:426, activateability.go): Canyon Vaulter
+# saddles Stubborn Burrowfiend in the main phase, so the Mount gains flying
+# (its own BecomesSaddled trigger mills two first). Attacking, it cannot be
+# blocked by Grizzly Bears and deals 2.
+startturn human
+advance 3
+queue cardchoice 1
+queue cardorder 3,4
+queue action human activate 2 0
+passpriority
+resolvestack
+resolvestack
+advance 2
+queue attackers 2
+declareattackers
+advance
+queue blocks 5=2
+expecterror 509.1b declareblockers
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -1,0 +1,16 @@
+# Nightkin Ambusher's CantBlockBy names ValidDefender$ Player.Condition
+# Counters.RAD (PlayerProperty.java:484-487): the defending player has rad
+# counters, so a Grizzly Bears block is refused and, with none, the Ambusher
+# deals 4.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+expecterror 509.1b declareblockers
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

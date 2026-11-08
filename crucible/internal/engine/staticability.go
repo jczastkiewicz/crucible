@@ -811,7 +811,11 @@ func matchesValidDefender(g *Game, defender PlayerID, spec string, host *Card) b
 	if typ, ok := strings.CutPrefix(spec, "Player.controls"); ok {
 		return controllerControlsType(g, defender, typ, host)
 	}
-	return false
+	// Any other player property (Nightkin Ambusher's Player.Condition
+	// Counters.RAD) is Player.isValid's, as Java matches ValidDefender$
+	// (StaticAbilityCantAttackBlock.java:269).
+	matched, _ := matchesPlayerSpec(g, defender, host.Controller(), host.ID, spec)
+	return matched
 }
 
 // controllerControlsType reports whether pid controls at least one

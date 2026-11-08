@@ -1,0 +1,14 @@
+# The same CantBlockBy with no rad counter on the defending player:
+# Player.Condition Counters.RAD counts zero, so Grizzly Bears blocks and
+# dies to the 4/4.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

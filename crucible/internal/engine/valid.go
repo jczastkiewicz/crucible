@@ -1848,6 +1848,13 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 	if rest, ok := strings.CutPrefix(property, "controls"); ok {
 		return controlsMatches(g, candidate, host, source, rest)
 	}
+	if strings.HasPrefix(property, "Condition") {
+		// PlayerProperty.java:484-487, AbilityUtils.playerXCount's Condition
+		// branch for this one player: Nightkin Ambusher's ValidDefender$
+		// Player.Condition Counters.RAD.
+		n, ok := conditionPlayerCount(g, amounts, host, source, []PlayerID{candidate}, property, nil, depth)
+		return ok && n != 0, ok
+	}
 	if source != NoCard {
 		switch property {
 		case "Activator":

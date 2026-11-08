@@ -36,9 +36,10 @@ import (
 // "activate only if..." restriction this port has no general resolving-
 // ability gate for (distinct from subAbilityConditionMet's own Condition-
 // prefixed pair, which a *resolving* Mana ability never carries in the real
-// corpus); TriggersWhenSpent$/AddsKeywords$/AddsKeywordsValid$/
-// AddsKeywordsUntil$ (16 combined) tag the mana itself with a further effect
-// this port's own Pool cannot carry; AILogic$/AINoRecursiveCheck$/
+// corpus); TriggersWhenSpent$ is admitted: the units it makes carry its
+// trigger (poolUnit.whenSpent); AddsKeywords$/AddsKeywordsValid$/
+// AddsKeywordsUntil$ tag the mana itself with a further effect this port's
+// own Pool cannot carry; AILogic$/AINoRecursiveCheck$/
 // PrecostDesc$/Activation$ (13 combined) are AI hinting or a further
 // "Activate only as..." cost-description gate, neither read here.
 // Planeswalker$ (CR 606.3's own loyalty-ability marker, SpellAbility.
@@ -56,7 +57,8 @@ import (
 // above).
 var manaAbilityAllowedParams = map[string]bool{
 	"ab": true, "cost": true, "spelldescription": true, "produced": true, "amount": true, "subability": true,
-	"planeswalker": true, "ultimate": true, "activationzone": true, "activationphases": true,
+	"triggerswhenspent": true,
+	"planeswalker":      true, "ultimate": true, "activationzone": true, "activationphases": true,
 	"playerturn": true, "opponentturn": true, "activationfirstcombat": true, "activationafterblockers": true,
 	// AI hints and a description: neither changes what the ability does.
 	"ailogic": true, "ainorecursivecheck": true, "precostdesc": true,
@@ -512,6 +514,13 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	// it resolves.
 	g.recordActivation(&Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true}, &before)
 
+	// TriggersWhenSpent$ (AbilityManaPart.java:113): the units made now
+	// carry the trigger their spending registers.
+	if w := spentTriggerOf(ability, card, pid, c.Def); w != nil {
+		pool := &g.Player(pid).ManaPool
+		pool.stampWhenSpent = w
+		defer func() { pool.stampWhenSpent = nil }()
+	}
 	var made producedMana
 	if produced == "Special LastNotedType" {
 		restrict, _ := ability.Param("RestrictValid")
@@ -623,4 +632,20 @@ func (g *Game) payManaAbilityGeneral(controller PlayerController, act *Ability, 
 		g.pushTriggeredAbilities(controller, g.untapAllMatches(pid, []CardID{act.Source}))
 	}
 	return true
+}
+
+// spentTriggerOf is ability's TriggersWhenSpent$ trigger, compiled as a
+// this-turn DelayedTrigger line (compile's spentTrigger), for mana pid makes
+// with card's ability; nil without one.
+func spentTriggerOf(ability *compile.Ability, card CardID, pid PlayerID, def *compile.Card) *spentTrigger {
+	for _, sub := range ability.Subs {
+		if strings.EqualFold(sub.Key, "TriggersWhenSpent") && sub.Ability != nil {
+			w := &spentTrigger{line: sub.Ability, host: card, controller: pid}
+			if def != nil {
+				w.amounts = def.Faces[0].Amounts
+			}
+			return w
+		}
+	}
+	return nil
 }

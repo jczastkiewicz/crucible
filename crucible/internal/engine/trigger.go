@@ -496,9 +496,9 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // ValidSA$ reads the spell or ability through spellAbilityMatches;
 // ValidSAonCard$, TargetsValid$, CanTargetOtherCondition$, IsSingleTarget$
 // and NoColoredMana$ through spellCastTargetsAndManaOK.
-// SnowSpentForCardsColor$ and TriggersWhenSpent$ are not resolved
-// (spellCastUnresolvedParams): a trigger that would fire but for one of them
-// is an error.
+// SnowSpentForCardsColor$ reads the colors of the snow mana spent casting
+// the spell (Card.castSnowColors); a TriggersWhenSpent$ trigger is the mana
+// ability's delayed trigger, registered as the mana pays (registerSpentTriggers).
 //
 // ActivatorThisTurnCast/ActivatorThisTurnCastEach (Flurry and the "second
 // spell each turn" family, 115 lines) are resolved by activatorCastCountOK
@@ -625,10 +625,9 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if !g.spellCastTargetsAndManaOK(t, h, h.Controller(), c, spellID, face.Amounts) {
 				continue
 			}
-			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {
-				// The trigger would fire but for a test this port cannot
-				// make: an error, never a silent miss (GO-7).
-				g.recordPendingError(fmt.Errorf("engine: %s's SpellCast trigger: params %v not resolvable yet", h.Name(), spellCastUnresolvedParams))
+			// TriggerSpellAbilityCastOrCopy.java:205-219: a snow unit spent
+			// casting it shares one of the spell's colors (Boreal Outrider).
+			if _, snowSpent := t.Param("SnowSpentForCardsColor"); snowSpent && !c.Colors().HasAny(c.castSnowColors) {
 				continue
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
@@ -641,13 +640,12 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 	return matches
 }
 
-// spellCastUnresolvedParams are the SpellCast params no check here resolves: a
-// trigger carrying one that would otherwise fire is an error, and a
-// DelayedTrigger carrying one is refused at registration.
-// SnowSpentForCardsColor$ needs the color of each snow unit spent, which the
-// cast record does not keep; TriggersWhenSpent$ the spawning mana ability's
-// remembered spell.
-var spellCastUnresolvedParams = [...]string{"SnowSpentForCardsColor", "TriggersWhenSpent"}
+// spellCastUnresolvedParams are the SpellCast params the copy and delayed
+// checks do not resolve: a copy trigger carrying one is reported
+// (copyTriggerWatching), and a DelayedTrigger carrying one is refused at
+// registration. SnowSpentForCardsColor$ is read off a cast card only
+// (castSnowColors); a copy has no paying mana.
+var spellCastUnresolvedParams = [...]string{"SnowSpentForCardsColor"}
 
 // spellCastTargetsAndManaOK is TriggerSpellAbilityCastOrCopy.java:125-203
 // past ValidSA$, for the spell or ability spellID cast from (or copied as) c:

@@ -577,6 +577,10 @@ func (g *Game) effectCardsSeeMove(moved CardID, from, to ZoneType) {
 			continue
 		}
 		if life.exileOnMoved.has(from) {
+			if from == Stack && to == Battlefield && g.heldEffectExiles != nil {
+				*g.heldEffectExiles = append(*g.heldEffectExiles, id)
+				continue
+			}
 			g.exileEffect(id)
 			continue
 		}
@@ -701,3 +705,23 @@ func (g *Game) effectCardsSeeCounterGone(id CardID, kind CounterType, phasedOut 
 // writes on the effect card ("NoteCounters<Kind>"), lowercased like every
 // runtime SVar key.
 const notedCountersPrefix = "notecounters"
+
+// holdEffectExiles holds, until the returned release runs, the exile
+// ExileOnMoved$ Stack makes of an effect whose remembered spell is entering
+// the battlefield: Java's exile is a trigger that runs once the move is done
+// (EffectEffect.java:244, addExileOnMovedTrigger), so the effect's own "enters
+// with" replacement (Boreal Outrider's counter, ReplacementResult$ Updated,
+// applied after the move here, enterBattlefieldReplacements) still applies.
+func (g *Game) holdEffectExiles() (release func()) {
+	outer := g.heldEffectExiles
+	var held []CardID
+	g.heldEffectExiles = &held
+	return func() {
+		g.heldEffectExiles = outer
+		for _, id := range held {
+			if g.Card(id).Zone == Command {
+				g.exileEffect(id)
+			}
+		}
+	}
+}

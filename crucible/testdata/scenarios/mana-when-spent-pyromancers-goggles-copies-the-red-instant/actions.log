@@ -1,0 +1,11 @@
+# TriggersWhenSpent$ (AbilityManaPart.java:333-339): Pyromancer's Goggles' {R}
+# carries its trigger; spent on a red instant it registers a this-turn delayed
+# SpellCast trigger for that spell, which copies it. The copy keeps its target
+# (confirmeffect false), so ai takes 6.
+startturn human
+advance 3
+queue targets ai
+queue confirmeffect false
+queue action human manaability 1 0
+queue action human cast 2
+passpriority

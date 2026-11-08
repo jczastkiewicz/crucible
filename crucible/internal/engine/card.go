@@ -164,6 +164,9 @@ type Card struct {
 	// over getCastSA), kept while it is on the stack or the battlefield, 0
 	// for a card cast without an X or never cast; Move clears it with kicker.
 	castX int
+	// castSnowColors is the colors of the snow mana spent casting it
+	// (SnowSpentForCardsColor$), kept and cleared with castX.
+	castSnowColors mana.Colors
 	// sneaked is getCastSA().isSneak(): the card was cast for its Sneak cost
 	// (sneak.go), read as Card.sneaked while it is on the stack or the
 	// battlefield. sneakDefender is what the returned attacker was attacking,

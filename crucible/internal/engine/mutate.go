@@ -127,9 +127,11 @@ func (g *Game) castMutate(pid PlayerID, card CardID, c *Card, controller PlayerC
 	cast := Ability{API: APIPermanentCreature, Source: card, Controller: pid, Target: target, spell: true, mutate: true}
 	x.setOn(&cast)
 	g.Card(card).castX = x.value
+	g.Card(card).castSnowColors = x.snowColors
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
+	g.registerSpentTriggers(card, x.whenSpent)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{CardEntity(target)}
 	matches := g.checkBecomesTargetTriggers(tgts, &cast)

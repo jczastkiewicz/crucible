@@ -45,6 +45,10 @@ type delayedTrigger struct {
 	// trigger (DelayedTriggerEffect.java:49, setSpawningAbility), which
 	// Defined$ Spawner> reads in the fired Execute$ (AbilityUtils.java:4024-4031).
 	Spawner triggeredObjects
+	// SpentFor is the spell a TriggersWhenSpent$ trigger was registered for
+	// (its remembered spell, TriggerSpellAbilityCastOrCopy.java:221-225): it
+	// fires for that spell only. Zero for any other trigger.
+	SpentFor StackItemID
 }
 
 func (d *delayedTrigger) active() bool { return !d.AtCleanup && d.ForPlayer == NoPlayer }
@@ -228,6 +232,9 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 
 // delayedSpellCastSatisfied is the SpellCast performTest for one delayed trigger.
 func (g *Game) delayedSpellCastSatisfied(d delayedTrigger, c *Card, activator PlayerID, spellID StackItemID) bool {
+	if d.SpentFor != 0 && d.SpentFor != spellID {
+		return false
+	}
 	t := d.Trigger
 	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), d.Controller, d.Host) {
 		return false
@@ -569,4 +576,30 @@ func (g *Game) delayedEnteredSatisfied(d delayedTrigger, entered CardID) bool {
 func (d delayedTrigger) spawner() *triggeredObjects {
 	s := d.Spawner
 	return &s
+}
+
+// registerSpentTriggers is SpellAbility.applyPayingManaEffects for the spell
+// card was just cast as: each spent unit's TriggersWhenSpent$ trigger becomes
+// a this-turn delayed trigger remembering that spell
+// (AbilityManaPart.java:333-339), registered before the SpellCast triggers are
+// collected (MagicStack.java:385-392), so the spell it paid for can fire it.
+func (g *Game) registerSpentTriggers(card CardID, spent []*spentTrigger) {
+	if len(spent) == 0 {
+		return
+	}
+	if spellID, ok := g.spellItemOf(card); ok {
+		g.registerSpentTriggersFor(spellID, spent)
+	}
+}
+
+// registerSpentTriggersFor registers spent's triggers for the spell or
+// ability on the stack as item id (an activated ability's mana,
+// MagicStack.java:385, Sunken Palace's "spell or ability").
+func (g *Game) registerSpentTriggersFor(id StackItemID, spent []*spentTrigger) {
+	for _, w := range spent {
+		g.delayed = append(g.delayed, delayedTrigger{
+			Trigger: w.line, Host: w.host, Controller: w.controller, Amounts: w.amounts,
+			ThisTurn: true, SpentFor: id,
+		})
+	}
 }

@@ -430,6 +430,9 @@ type Game struct {
 	// delayed is every registered delayed trigger (delayedtrigger.go), in
 	// registration order.
 	delayed []delayedTrigger
+	// heldEffectExiles, while a resolving spell enters (holdEffectExiles),
+	// collects the effects ExileOnMoved$ Stack would exile on that move.
+	heldEffectExiles *[]CardID
 	// scheduled is every engine action waiting on a phase boundary
 	// (scheduledaction.go, ADR-0030) -- ControlPlayer's grants and
 	// revokes -- in scheduling order.
@@ -1209,7 +1212,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		}
 	}
 	if (from == Stack && kind != Battlefield) || (from == Battlefield && kind != Battlefield) {
-		c.kicker, c.castX, c.castOpt = 0, 0, castOptional{}
+		c.kicker, c.castX, c.castOpt, c.castSnowColors = 0, 0, castOptional{}, 0
 		c.sneaked, c.sneakDefender = false, NoEntity
 	}
 	if from == Stack && kind != Battlefield {

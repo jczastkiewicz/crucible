@@ -6,6 +6,8 @@ package engine
 import (
 	"slices"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -39,6 +41,9 @@ type Pool struct {
 	// Game.Clone copies it, and Empty drops it rather than truncating, so a
 	// value copy (DrainMana's drained pool) never sees a later write.
 	units []poolUnit
+	// stampWhenSpent marks the units added while a TriggersWhenSpent$ mana
+	// ability resolves (ActivateManaAbility), nil otherwise.
+	stampWhenSpent *spentTrigger
 }
 
 // manaSource is the card a unit of mana came from and that card's
@@ -61,6 +66,20 @@ type poolUnit struct {
 	// combat marks mana from a CombatMana$ ability: it survives every phase
 	// end but COMBAT_END (ManaPool.clearPool, ManaPool.java:151-158).
 	combat bool
+	// whenSpent is the trigger the producing ability's TriggersWhenSpent$
+	// registers when this unit is spent (Mana.triggersWhenSpent), nil for
+	// none.
+	whenSpent *spentTrigger
+}
+
+// spentTrigger is one TriggersWhenSpent$ trigger a mana ability gives the
+// mana it makes: the compiled delayed trigger line, its host and the player
+// who activated the ability (AbilityManaPart.addTriggersWhenSpent).
+type spentTrigger struct {
+	line       *compile.Ability
+	host       CardID
+	controller PlayerID
+	amounts    map[string]expr.Amount
 }
 
 // Pool buckets, the index order of counters and SnowBreakdown.
@@ -78,6 +97,9 @@ func (p *Pool) counters() [12]*int {
 // colorBucket is the plain bucket of one color. color must be exactly one of
 // the five; anything else is an engine invariant breach (GO-7), reported by
 // ok false for the caller to panic on with its own name.
+// bucketColors is colorBucket's inverse for the five colored buckets.
+var bucketColors = [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green}
+
 func colorBucket(color mana.Colors) (int, bool) {
 	switch color {
 	case mana.White:
@@ -105,7 +127,7 @@ func (p *Pool) addRestrictedUnits(b, n int, src manaSource, restrict string) {
 	}
 	*p.counters()[b] += n
 	for range n {
-		p.units = append(p.units, poolUnit{bucket: uint8(b), src: src, restrict: restrict})
+		p.units = append(p.units, poolUnit{bucket: uint8(b), src: src, restrict: restrict, whenSpent: p.stampWhenSpent})
 	}
 }
 

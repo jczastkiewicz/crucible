@@ -52,6 +52,12 @@ type xAnnounced struct {
 	// colorless is the colorless mana ({C}) the payment spent, kept apart
 	// from paid so a color count never sees it (Count$Adamant.Colorless).
 	colorless int
+	// whenSpent is each spent unit's TriggersWhenSpent$ trigger, in pool
+	// order (SpellAbility.applyPayingManaEffects).
+	whenSpent []*spentTrigger
+	// snowColors is the colors of the snow units spent
+	// (TriggerSpellAbilityCastOrCopy.java:205-219).
+	snowColors mana.Colors
 	// snow is how many of the units spent were snow mana: mana a snow
 	// permanent produced (Pool's snow buckets, CR 106.3a), what
 	// Count$CastTotalManaSpent Snow reads off a cast (the cast's paying mana
@@ -237,6 +243,14 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 	}
 	for _, u := range spent {
 		x.sources = append(x.sources, u.src)
+		if u.whenSpent != nil {
+			x.whenSpent = append(x.whenSpent, u.whenSpent)
+		}
+		// A snow unit's color (Mana.isSnow, Mana.getColor): what
+		// SnowSpentForCardsColor$ compares with the spell's colors.
+		if u.bucket >= bucketSnow && u.bucket-bucketSnow < bucketColorless {
+			x.snowColors |= bucketColors[u.bucket-bucketSnow]
+		}
 	}
 	// Which bucket paid a plain pip or a generic unit is payWithSnow's own
 	// order (plain before snow), so this is the snow mana that order spent.

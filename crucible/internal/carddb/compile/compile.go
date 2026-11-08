@@ -909,6 +909,14 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 			ability.Subs = append(ability.Subs, sub)
 			continue
 		}
+		if strings.EqualFold(p.Key, "TriggersWhenSpent") && ability.Name == "Mana" {
+			sub, err := c.spentTrigger(p.Key, p.Value)
+			if err != nil {
+				return nil, err
+			}
+			ability.Subs = append(ability.Subs, sub)
+			continue
+		}
 		names, ok := c.references(ability, p)
 		if !ok {
 			continue
@@ -1068,6 +1076,30 @@ func (c *faceCompiler) extraTurnTrigger(a *Ability, key, name string) (SubRef, e
 	c.open[name] = true
 	defer delete(c.open, name)
 	ability, err := c.line("DB$ DelayedTrigger | "+body+" | Execute$ "+execute, SubAbility)
+	if err != nil {
+		return SubRef{}, fmt.Errorf("in %q: %w", name, err)
+	}
+	ability.SVar = name
+	return SubRef{Key: key, SVar: name, Ability: ability}, nil
+}
+
+// spentTrigger compiles the SVar a Mana ability's `TriggersWhenSpent$` names:
+// a trigger line AbilityManaPart.addTriggersWhenSpent parses and registers as
+// a this-turn delayed trigger each time a unit of that mana is spent
+// (AbilityManaPart.java:333-339). It is compiled as that `DB$ DelayedTrigger`
+// line with `ThisTurn$ True`, so the engine registers it like any delayed
+// trigger and never reads script text (PORT-2).
+func (c *faceCompiler) spentTrigger(key, name string) (SubRef, error) {
+	if c.open[name] {
+		return SubRef{}, &cycleError{key: key, name: name}
+	}
+	body, ok := c.face.SVars.Get(name)
+	if !ok {
+		return SubRef{}, fmt.Errorf("%w: %s names %q", ErrMissingSVar, key, name)
+	}
+	c.open[name] = true
+	defer delete(c.open, name)
+	ability, err := c.line("DB$ DelayedTrigger | "+body+" | ThisTurn$ True", SubAbility)
 	if err != nil {
 		return SubRef{}, fmt.Errorf("in %q: %w", name, err)
 	}

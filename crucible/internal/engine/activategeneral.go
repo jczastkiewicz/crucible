@@ -164,6 +164,7 @@ func (g *Game) payActivatedUnlessCost(controller PlayerController, a *Ability, p
 		if !paid {
 			return false
 		}
+		a.paid.whenSpent = append(a.paid.whenSpent, x.whenSpent...)
 		if x.announced {
 			// An X announced before the cost was read (announceTriggeredX)
 			// is already on a; a mana X announced here records it.

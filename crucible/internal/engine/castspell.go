@@ -829,9 +829,11 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	x.setOn(&cast)
 	cast.controlledBy = opts.control
 	g.Card(card).castX = x.value
+	g.Card(card).castSnowColors = x.snowColors
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
+	g.registerSpentTriggers(card, x.whenSpent)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	return true
 }
@@ -1122,9 +1124,11 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	x.setOn(&cast)
 	cast.controlledBy = opts.control
 	g.Card(card).castX = x.value
+	g.Card(card).castSnowColors = x.snowColors
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
+	g.registerSpentTriggers(card, x.whenSpent)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{CardEntity(target)}
 	matches := g.checkBecomesTargetTriggers(tgts, &cast)
@@ -1191,9 +1195,11 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 	x.setOn(&cast)
 	cast.controlledBy = opts.control
 	g.Card(card).castX = x.value
+	g.Card(card).castSnowColors = x.snowColors
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
+	g.registerSpentTriggers(card, x.whenSpent)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{target}
 	matches := g.checkBecomesTargetTriggers(tgts, &cast)
@@ -1309,9 +1315,11 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	a.controlledBy = opts.control
 	g.putSpellOnStack(card, pid)
 	g.Card(card).castX = x.value
+	g.Card(card).castSnowColors = x.snowColors
 	g.PushAbility(a)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
+	g.registerSpentTriggers(card, x.whenSpent)
 	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := allTargetsOf(a)
 	matches := g.checkBecomesTargetTriggers(tgts, &a)
@@ -1507,9 +1515,11 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		// moves, so it enters tapped.
 		g.Card(a.Source).Tapped = true
 	}
+	release := g.holdEffectExiles()
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Card(a.Source).enterTransformed()
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
+	release()
 	if sneak {
 		g.sneakJoinsCombat(a.Source)
 	}
@@ -1561,6 +1571,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	if g.entryReplaced(controller, a.Source, origin, a.Controller) {
 		return nil
 	}
+	release := g.holdEffectExiles()
 	g.Move(a.Source, Battlefield, a.Controller)
 	if a.Target == NoCard {
 		// castPlayerAura: the Aura enchants the player it targeted.
@@ -1571,6 +1582,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		g.attachTo(controller, a.Source, a.Target)
 	}
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
+	release()
 	g.checkETBTriggers(controller, a.Source, origin)
 	g.checkChangesZoneAllTriggers(controller, []CardID{a.Source}, origin, Battlefield)
 	return nil

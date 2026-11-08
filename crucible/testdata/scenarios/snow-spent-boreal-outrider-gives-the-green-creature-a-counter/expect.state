@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Boreal Outrider|Id:1;Snow-Covered Forest|Id:2|Tapped;Forest|Id:3|Tapped;Grizzly Bears|Id:4|SummonSick|Counters:P1P1=1
+ailife=20

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Pyromancer's Goggles|Id:1|Tapped
+humangraveyard=Lightning Bolt|Id:2
+ailife=14

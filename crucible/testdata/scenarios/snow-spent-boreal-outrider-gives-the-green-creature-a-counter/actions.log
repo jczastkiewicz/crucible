@@ -1,0 +1,12 @@
+# SnowSpentForCardsColor$ (TriggerSpellAbilityCastOrCopy.java:205-219): green
+# snow mana from Snow-Covered Forest pays for the green Grizzly Bears, so
+# Boreal Outrider's trigger makes an effect whose replacement has the Bears
+# enter with a +1/+1 counter. The effect's ExileOnMoved$ Stack exile waits for
+# that replacement (EffectEffect.java:244).
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 4
+resolvestack

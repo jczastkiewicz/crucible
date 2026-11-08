@@ -488,6 +488,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	x.setOn(&activated)
 	activated.paid.recorded = true
 	activated.paid.mana, activated.paid.manaRecorded = x.sources, true
+	activated.paid.whenSpent = x.whenSpent
 	activated.paid.colors = x.paid
 	activated.paid.colorless = x.colorless
 	if shape.Tap {
@@ -810,6 +811,9 @@ func (g *Game) finishActivation(controller PlayerController, pid PlayerID, card 
 		return true
 	}
 	g.pushTriggeredAbilities(controller, []Ability{*activated})
+	if n := len(g.stack); n > 0 && g.stack[n-1].Source == activated.Source {
+		g.registerSpentTriggersFor(g.stack[n-1].ID, activated.paid.whenSpent)
+	}
 	// One batch, as unfreezeStack runs every waiting trigger at once: the
 	// costs' triggers in firing order, then AbilityCast, then Cycled
 	// (MagicStack.java:354-365).

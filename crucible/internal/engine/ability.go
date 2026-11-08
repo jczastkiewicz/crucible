@@ -863,6 +863,9 @@ type controlRef struct {
 
 type paidLists struct {
 	sacrificed, exiled, discarded []CardID
+	// whenSpent is the spent mana's TriggersWhenSpent$ triggers, registered
+	// once the ability is on the stack (registerSpentTriggers).
+	whenSpent []*spentTrigger
 	// sacrificedMoved is Defined$ SacrificedCards: the cards the cost really
 	// sacrificed (CostPartWithList.cardList), not the picks (Sacrificed).
 	sacrificedMoved []CardID

@@ -199,7 +199,7 @@ var (
 		"RemoveSuperTypes", "RemoveLandTypes", "RemoveCreatureTypes", "RemoveArtifactTypes",
 		"RemoveEnchantmentTypes",
 	}
-	keywordLayerKeys = []string{"AddKeyword", "RemoveKeyword", "CantHaveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities", "AddTrigger", "AddAbility", "AddStaticAbility", "AddReplacementEffect", "GainsStickerAbilitiesOf", "GainsStickerAbilitiesOfDefined", "GainsAbilitiesOf", "GainsAbilitiesOfDefined"}
+	keywordLayerKeys = []string{"AddKeyword", "RemoveKeyword", "CantHaveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities", "AddTrigger", "AddAbility", "AddStaticAbility", "AddReplacementEffect", "GainsStickerAbilitiesOf", "GainsStickerAbilitiesOfDefined", "GainsAbilitiesOf", "GainsAbilitiesOfDefined", "GainsTriggerAbsOf"}
 	controlLayerKeys = []string{"GainControl"}
 )
 

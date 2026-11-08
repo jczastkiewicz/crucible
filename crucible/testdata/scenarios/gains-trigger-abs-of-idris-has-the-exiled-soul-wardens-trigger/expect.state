@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=21
+humanbattlefield=Idris, Soul of the TARDIS|Id:1|Counters:TIME=2;Forest|Tapped;Forest|Tapped;Grizzly Bears|SummonSick
+humanexile=Soul Warden|Id:5|ExiledWith:1
+ailife=20

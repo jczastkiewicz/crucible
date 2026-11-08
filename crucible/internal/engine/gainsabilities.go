@@ -24,36 +24,15 @@ import (
 // then not applied rather than applied wrongly).
 func (g *Game) gainedAbilityGrants(host *Card, s *compile.Ability) (out []traitGrant, ok bool) {
 	var sources []CardID
-	if defined, has := s.Param("GainsAbilitiesOfDefined"); has {
-		cards, err := definedCards(host, defined, abilityRefs{})
-		if err != nil {
-			return nil, false
-		}
-		sources = cards
-	} else if spec, has := s.Param("GainsAbilitiesOf"); has {
-		zones := []ZoneType{Battlefield}
-		if raw, has := s.Param("GainsAbilitiesOfZones"); has {
-			zones = nil
-			for _, name := range strings.Split(raw, ",") {
-				z, known := ZoneByName(strings.TrimSpace(name))
-				if !known {
-					return nil, false
-				}
-				zones = append(zones, z)
-			}
-		}
-		parsed := valid.Parse(spec)
-		for _, z := range zones {
-			for _, pid := range g.Players() {
-				for _, id := range g.Zone(z, pid).Cards() {
-					if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
-						sources = append(sources, id)
-					}
-				}
-			}
-		}
+	if _, has := s.Param("GainsAbilitiesOfDefined"); has {
+		sources, ok = g.cardsGainedFrom(host, s, "GainsAbilitiesOfDefined")
+	} else if _, has := s.Param("GainsAbilitiesOf"); has {
+		sources, ok = g.cardsGainedFrom(host, s, "GainsAbilitiesOf")
 	} else {
 		return nil, true
+	}
+	if !ok {
+		return nil, false
 	}
 	if _, has := s.Param("GainsAbilitiesLimitPerTurn"); has {
 		return nil, false
@@ -85,6 +64,66 @@ func (g *Game) gainedAbilityGrants(host *Card, s *compile.Ability) (out []traitG
 		if len(kept) > 0 {
 			out = append(out, traitGrant{abilities: kept, amounts: face.Amounts})
 		}
+	}
+	return out, true
+}
+
+// cardsGainedFrom is StaticAbilityContinuous.cardsGainedFrom
+// (StaticAbilityContinuous.java:1027-1044): a *Defined param names cards
+// through Defined$, any other is a valid string matched in
+// GainsAbilitiesOfZones$ (default the battlefield). false is a spec or zone
+// this port cannot resolve.
+func (g *Game) cardsGainedFrom(host *Card, s *compile.Ability, param string) ([]CardID, bool) {
+	raw, _ := s.Param(param)
+	if strings.Contains(param, "Defined") {
+		cards, err := definedCards(host, raw, abilityRefs{})
+		return cards, err == nil
+	}
+	zones := []ZoneType{Battlefield}
+	if list, has := s.Param("GainsAbilitiesOfZones"); has {
+		zones = nil
+		for _, name := range strings.Split(list, ",") {
+			z, known := ZoneByName(strings.TrimSpace(name))
+			if !known {
+				return nil, false
+			}
+			zones = append(zones, z)
+		}
+	}
+	parsed := valid.Parse(raw)
+	var sources []CardID
+	for _, z := range zones {
+		for _, pid := range g.Players() {
+			for _, id := range g.Zone(z, pid).Cards() {
+				if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+					sources = append(sources, id)
+				}
+			}
+		}
+	}
+	return sources, true
+}
+
+// gainedTriggerGrants is GainsTriggerAbsOf$ (StaticAbilityContinuous.java:
+// 867-878): every trigger of each source card, as Koh, the Face Stealer and
+// Idris, Soul of the TARDIS gain those of the card they exiled, each read
+// against its own card's SVars. Java filters them by nothing.
+func (g *Game) gainedTriggerGrants(host *Card, s *compile.Ability) ([]traitGrant, bool) {
+	if _, has := s.Param("GainsTriggerAbsOf"); !has {
+		return nil, true
+	}
+	sources, ok := g.cardsGainedFrom(host, s, "GainsTriggerAbsOf")
+	if !ok {
+		return nil, false
+	}
+	var out []traitGrant
+	for _, id := range sources {
+		src := g.Card(id)
+		if src.Def == nil || len(src.Def.Faces[0].Triggers) == 0 {
+			continue
+		}
+		face := src.Def.Faces[0]
+		out = append(out, traitGrant{triggers: face.Triggers, amounts: face.Amounts})
 	}
 	return out, true
 }

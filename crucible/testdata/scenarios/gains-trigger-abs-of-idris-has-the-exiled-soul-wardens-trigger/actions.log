@@ -1,0 +1,15 @@
+# GainsTriggerAbsOf$ Card.ExiledWithSource (StaticAbilityContinuous.java:
+# 867-878): Idris, Soul of the TARDIS has every trigger of the card it
+# exiled, here Soul Warden's "whenever another creature enters, you gain 1
+# life", so casting Grizzly Bears gains the human 1.
+startturn human
+# Vanishing's upkeep trigger takes a time counter first.
+advance
+resolvestack
+advance 2
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 4
+resolvestack
+resolvestack

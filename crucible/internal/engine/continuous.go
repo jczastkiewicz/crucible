@@ -1685,6 +1685,12 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 		return nil
 	}
 	stickerGrants = append(stickerGrants, abilityGrants...)
+	// GainsTriggerAbsOf$: the source cards' triggers (StaticAbilityContinuous.java:867-878).
+	triggerGrants, ok := g.gainedTriggerGrants(host, s)
+	if !ok {
+		return nil
+	}
+	stickerGrants = append(stickerGrants, triggerGrants...)
 	for i := range stickerGrants {
 		stickerGrants[i].grantor = s
 	}

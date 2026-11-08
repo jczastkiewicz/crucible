@@ -1950,13 +1950,17 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 					if !isChangesZoneAllTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "ValidCause", "NoResolvingCheck", "InvertValidCause", "Count", "FirstTime") {
+					if hasAnyParam(t, "ValidCause", "InvertValidCause") {
 						continue
 					}
 					if !hasZoneOrAny(t, "Destination", destination) || !hasZoneOrAny(t, "Origin", origin) {
 						continue
 					}
-					matching := g.triggerDisabledAll(h, t, changesZoneAllMatchingCards(g, t, cards, h.Controller(), host), origin, destination)
+					kept := changesZoneAllMatchingCards(g, t, cards, h.Controller(), host)
+					if _, first := t.Param("FirstTime"); first && g.enteredEarlierThisTurn(t, destination, kept, h.Controller(), host) {
+						continue
+					}
+					matching := g.triggerDisabledAll(h, t, kept, origin, destination)
 					if len(matching) == 0 {
 						continue
 					}
@@ -2683,7 +2687,14 @@ func hasZone(t *compile.Ability, key, zone string) bool {
 // getParam(key).equals("Any")) -- match unconditionally; otherwise zone's own
 // name must appear in the param's comma-separated zone list (hasZone,
 // above).
+//
+// ExcludedOrigins$/ExcludedDestinations$ then reject a zone they list
+// (TriggerChangesZone.java:95-108): The Lost and the Damned's "enters from
+// anywhere other than a hand", Kardum's cleanup on any non-graveyard exit.
 func hasZoneOrAny(t *compile.Ability, key string, zone ZoneType) bool {
+	if hasZone(t, "Excluded"+key+"s", zone.String()) {
+		return false
+	}
 	v, ok := t.Param(key)
 	if !ok || v == "Any" {
 		return true
@@ -2702,14 +2713,12 @@ func hasZoneOrAny(t *compile.Ability, key string, zone ZoneType) bool {
 // anywhere a trigger could read); CheckOnTriggeredCard$ (6 -- a second
 // AbilityUtils.calculateAmount comparison against the moved card itself,
 // needing a reference vocabulary this predicate does not have);
-// ExcludedOrigins$/ExcludedDestinations$ (2, 1 -- 0 real lines combine one
-// with an Origin$/Destination$ this predicate already resolves, so skipping
-// the line outright costs nothing today). Fizzle$ is only on the Haunt
+// ExcludedOrigins$/ExcludedDestinations$ are hasZoneOrAny's. Fizzle$ is only on the Haunt
 // keyword's synthesized stack-to-graveyard line, which
 // checkSpellToGraveyardTriggers (haunteffect.go) reads instead.
 var changesZoneUnresolvedParams = [...]string{
 	"ValidCause", "NotThisAbility", "ConditionYouCastThisTurn",
-	"CheckOnTriggeredCard", "ExcludedOrigins", "ExcludedDestinations", "Fizzle",
+	"CheckOnTriggeredCard", "Fizzle",
 }
 
 func changesZoneResolvable(t *compile.Ability) bool {

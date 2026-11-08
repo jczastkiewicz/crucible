@@ -1,0 +1,6 @@
+# ExcludedOrigins$ Hand (TriggerChangesZone.java:95-101): a land played
+# from the hand does not trigger The Lost and the Damned.
+startturn human
+advance 3
+queue action human playland 5
+passpriority

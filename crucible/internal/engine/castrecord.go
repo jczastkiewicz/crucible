@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -472,4 +473,24 @@ func (g *Game) castSinceYourLastTurnCount(controller PlayerID, source CardID, sp
 		}
 	}
 	return n, true
+}
+
+// enteredEarlierThisTurn is TriggerChangesZoneAll's FirstTime$ test
+// (TriggerChangesZoneAll.java:33-40, CardUtil.getThisTurnEntered): some card
+// matching t's ValidCards$ entered to this turn outside batch, the cards of
+// the move being checked. Crawling Sensation's "for the first time each
+// turn" holds only when nothing else matching went there earlier.
+func (g *Game) enteredEarlierThisTurn(t *compile.Ability, to ZoneType, batch []CardID, controller PlayerID, source CardID) bool {
+	spec, _ := t.Param("ValidCards")
+	parsed := valid.Parse(spec)
+	for i := range g.enteredThisTurn {
+		e := &g.enteredThisTurn[i]
+		if e.to != to || slices.Contains(batch, e.card.ID) {
+			continue
+		}
+		if spec == "" || Matches(g, &e.card, parsed, controller, source) {
+			return true
+		}
+	}
+	return false
 }

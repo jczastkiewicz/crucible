@@ -1,0 +1,21 @@
+# Crawling Sensation's ChangesZoneAll trigger reads FirstTime$ True
+# (TriggerChangesZoneAll.java:33-40): it fires only when no land card
+# entered a graveyard this turn outside the current batch. The first
+# Thought Scour mills two Forests (an Insect); the second mills two more,
+# but the earlier Forests are already in the graveyard this turn, so no
+# second Insect.
+# The upkeep "you may mill two" is declined.
+queue confirmeffect false
+startturn human
+advance 3
+tapformana human 2 U
+queue targets human
+queue cardorder 10,11
+castspell human 4
+resolvestack
+resolvestack
+tapformana human 3 U
+queue targets human
+queue cardorder 13,14
+castspell human 5
+resolvestack

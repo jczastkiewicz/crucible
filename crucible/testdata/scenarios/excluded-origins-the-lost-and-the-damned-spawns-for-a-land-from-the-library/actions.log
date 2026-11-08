@@ -1,0 +1,12 @@
+# The Lost and the Damned's ChangesZone trigger reads ExcludedOrigins$ Hand
+# (TriggerChangesZone.java:95-101): a land entering from the library under
+# Rampant Growth is not from a hand, so the trigger makes a 3/3 Spawn.
+startturn human
+advance 3
+tapformana human 1 G
+tapformana human 2 G
+queue paygeneric G
+queue cardchoice 6
+castspell human 5
+resolvestack
+resolvestack

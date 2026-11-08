@@ -1,7 +1,8 @@
 # M5 Rules Coverage
 
-- **Status:** Active. [Backlog](#backlog) empty: every step, layer and SBA row is `covered` or `n/a`; the trigger-mode
-  fixtures of open plan R17 remain before P4's qualitative half is declared
+- **Status:** Active. [Backlog](#backlog) empty: every step, layer and SBA row is `covered` or `n/a`; every corpus
+  trigger mode has a fixture or a named Go test ([Trigger modes without a fixture](#trigger-modes-without-a-fixture)) but
+  NewGame, which is not ported
 - **Applies to:** P4 exit gate, qualitative half — "every step transition, every layer, every SBA"
   ([open plan, Exit gates](../00-master-implementation-plan-open.md#exit-gates))
 
@@ -180,6 +181,28 @@ priority round per step grant. Rows about per-step priority cite the driver.
 | 514.1 — Cleanup: active player discards to hand size                                       | `PhaseHandler.java:370-397`                         | `turn.go:484-491`                                      | `cleanup-discards-to-hand-size`, `TestCleanupDiscardOnlyAppliesToTheActivePlayer`                                                                              | `covered` |
 | 514.2 — Cleanup: damage removed, "until end of turn" effects end                           | `PhaseHandler.java:399-408`                         | `turn.go:493-523`                                      | `cleanup-resets-lands-played-for-next-turn`, `TestCleanupClearsDamageForEveryPlayer`, `TestCloneUntilEndOfTurnEndsAtCleanup`                                   | `covered` |
 | 514.3/514.3a — no priority unless SBA or trigger, then another cleanup step                | `PhaseHandler.java:421-428`, `:446-450`, `:507-509` | `turn.go:272`, `:279`, `action.go:123`, `driver.go:32` | `TestStepRepeatsCleanupWhenItGrantsPriority`, `TestStepRepeatsCleanupWhenAStateBasedActionIsPerformed`, `TestStepEndsCleanupWithoutPriorityWhenNothingHappens` | `covered` |
+
+---
+
+## Trigger modes without a fixture
+
+`crucible/scripts/trigger-mode-coverage.sh -missing` lists the corpus trigger modes no scenario loads a card for. Each is
+a Go module test instead, because the fixture format cannot seat what it needs. Reason: open plan R17 asks for a fixture
+or a named Go test per mode.
+
+| Mode | Why no fixture | Go test (`crucible/internal/engine/`) |
+| --- | --- | --- |
+| ChaosEnsues | No planar-deck key; a plane is a Command-zone host | `planar_chaos_test.go` TestChaosEnsuesFiresTheActivePlanesChaosAbility, `planar_die_test.go` TestRollingChaosEnsuesForTheRoller |
+| PlanarDice | Needs the planar die and a plane host | `planar_die_test.go` TestRollingABlankFiresOnlyBlankAndAnyFaceLines, TestPlanarDiceValidPlayerIsTheRoller |
+| PlaneswalkedTo, PlaneswalkedFrom | No planar-deck key | `planechase_test.go` TestPlaneswalkAwayFiresFromBeforeLeavingAndToAfterArriving, TestPlaneswalkedFromWithoutValidCardFiresOncePerPlayer |
+| SetInMotion | No scheme-deck key | `archenemy_test.go` TestSetInMotionMovesTopSchemeAndFiresItsOwnTrigger |
+| Abandoned | The abandoned scheme goes to the scheme deck, which no key can assert | `abandoneffect_test.go` TestAbandonEffectFiresWatchingAbandonedTrigger |
+| Devoured | Its one corpus card is Kresh's Vanguard avatar | `devour_test.go` TestDevouredTriggerReadsTheFood |
+| StickerPlaced | No key seats a sticker sheet (sheets come from a deck's Stickers section in `sim`, ADR-0044) | `stickers_test.go` TestStickerPlacedTriggerFiltersByKind |
+| CrankContraption | No key seats a contraption deck, sprocket or crank counter | `effectsbatchd_test.go` TestAdvanceCrankEffectAdvancesCounterAndCranksChosenContraption |
+| ClaimPrize | A visit is a die roll on the game's stream, and Pick-a-Beeble's lights are on its variants only | `effectsbatchd_test.go` TestClaimThePrizeEffectFiresOwnClaimPrizeTrigger |
+| BecomesTargetOnce, FacesDilemma, RolledDieOnce | Loaded by the Chira, All In fixture without being exercised there | `playereventtriggers_test.go` TestBecomesTargetOnceFiresForAnOpponentsSpell, `spellcostshapes_test.go` TestModalChoiceFiresFacesDilemma, `rolldicetrigger_test.go` TestRolledDieTriggersFireAfterARoll |
+| NewGame | Not ported: Go never fires it (`driver.go`, `restartgameeffect.go`); five corpus lines: four Vanguard avatars and Worldknit | none |
 
 ---
 

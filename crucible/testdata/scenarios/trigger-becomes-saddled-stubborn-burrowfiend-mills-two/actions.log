@@ -1,0 +1,11 @@
+# Mode$ BecomesSaddled (AlterAttributeEffect.java:113, becomescrewed.go):
+# saddling Stubborn Burrowfiend by tapping Grizzly Bears (power 2) for the
+# first time this turn fires FirstTimeSaddled$: mill two cards.
+startturn human
+advance 3
+queue cardchoice 2
+queue cardorder 3,4
+queue action human activate 1 0
+passpriority
+resolvestack
+resolvestack

@@ -1,0 +1,15 @@
+# Mode$ BecomesPlotted (Card.java:6770, triggerpack.go): plotting Longhorn
+# Sharpshooter for {3}{R} exiles it plotted and fires its "when this
+# becomes plotted": 2 damage to the opponent.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue targets ai
+plot human 1
+resolvestack

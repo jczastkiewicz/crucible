@@ -1,0 +1,12 @@
+# Mode$ FullyUnlock (Card.java:8187, room.go): Marina Vendrell unlocks
+# Bottomless Pool's other door, fully unlocking the Room, so Balemurk
+# Leech's Eerie trigger makes the opponent lose 1 life (the door's own
+# trigger returns Grizzly Bears, as in room-lock-or-unlock-fires-that-doors-trigger).
+startturn human
+advance 3
+queue targets 2
+queue action human activate 1 0
+queue roomdoor LeftSplit
+queue targets 3
+passpriority
+resolvestack

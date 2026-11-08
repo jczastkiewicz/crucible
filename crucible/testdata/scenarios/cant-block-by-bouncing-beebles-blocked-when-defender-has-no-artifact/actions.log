@@ -1,0 +1,15 @@
+# Bouncing Beebles' Mode$ CantBlockBy carries IsPresent$ Artifact.DefenderCtrl:
+# StaticAbilityCantAttackBlock.cantBlockBy runs checkConditions first
+# (StaticAbilityCantAttackBlock.java:216), so with no artifact on the
+# defending side the static is off and Grizzly Bears blocks. Both 2/2s die.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

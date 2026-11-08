@@ -214,7 +214,7 @@ func (g *Game) canAttackAtAll(id CardID) bool {
 func (g *Game) chooseExerters(controller PlayerController, attackers []CardID) []CardID {
 	var eligible []CardID
 	for _, id := range attackers {
-		if _, ok := optionalAttackCostExert(g.Card(id)); ok {
+		if _, ok := optionalAttackCostExert(g, g.Card(id)); ok {
 			eligible = append(eligible, id)
 		}
 	}
@@ -245,14 +245,17 @@ func (g *Game) exertAttacker(controller PlayerController, id CardID) {
 // Exert<1/CARDNAME|NICKNAME> (cost.ActivationShape's own SelfExert,
 // activateability.go's identical reuse for the unrelated activated-ability
 // shape) -- every one of the corpus's 28 real OptionalAttackCost lines,
-// this port's only supported OptionalAttackCost cost shape.
-func optionalAttackCostExert(c *Card) (*compile.Ability, bool) {
+// this port's only supported OptionalAttackCost cost shape. The line's
+// conditions are checkConditions' (StaticAbility.java:317, staticConditionsMet):
+// Combat Celebrant's IsPresent$ Creature.Self+notExertedThisTurn offers the
+// exert once a turn.
+func optionalAttackCostExert(g *Game, c *Card) (*compile.Ability, bool) {
 	if c.Def == nil {
 		return nil, false
 	}
 	for _, face := range c.liveTraitFaces() {
 		for _, s := range face.Statics {
-			if !strings.EqualFold(s.Name, "OptionalAttackCost") {
+			if !strings.EqualFold(s.Name, "OptionalAttackCost") || !g.staticConditionsMet(c, s) {
 				continue
 			}
 			costText, ok := s.Param("Cost")
@@ -279,7 +282,7 @@ func optionalAttackCostExert(c *Card) (*compile.Ability, bool) {
 // APNAP-consistent push, even though a lone exerting player has no APNAP
 // order to disagree with.
 func (g *Game) resolveOptionalAttackCostPayoff(controller PlayerController, id CardID) {
-	s, ok := optionalAttackCostExert(g.Card(id))
+	s, ok := optionalAttackCostExert(g, g.Card(id))
 	if !ok {
 		return
 	}

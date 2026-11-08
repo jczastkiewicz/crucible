@@ -105,7 +105,9 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 			}
 			for _, face := range h.liveTraitFaces() {
 				for _, s := range face.Statics {
-					if !strings.EqualFold(s.Name, "CantBlockBy") {
+					// StaticAbilityCantAttackBlock.java:216: checkConditions
+					// first (Bouncing Beebles' IsPresent$, the CheckSVar$ lines).
+					if !strings.EqualFold(s.Name, "CantBlockBy") || !g.staticConditionsMet(h, s) {
 						continue
 					}
 					// An absent ValidAttacker$ matches every attacker

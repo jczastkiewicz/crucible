@@ -1,0 +1,13 @@
+# The same CantBlockBy with its IsPresent$ Artifact.DefenderCtrl met: the
+# defending player controls Ornithopter, so no block is legal (a block
+# queued as 2=1 would be refused) and the Beebles deal 2.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

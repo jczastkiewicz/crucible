@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Kyren Legate|Id:1
+humanbattlefield=Forest|Id:2;Shivan Oasis|Id:3
+aibattlefield=Plains|Id:4

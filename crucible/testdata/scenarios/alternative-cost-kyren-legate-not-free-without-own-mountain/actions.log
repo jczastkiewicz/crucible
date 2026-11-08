@@ -1,0 +1,14 @@
+# Kyren Legate's AlternativeCost needs both halves of its CheckSVar$ chain
+# (StaticAbility.java:462-512): the opponent controls a Plains (X) but the
+# human controls no Mountain (Y), so the free cast is not offered and no
+# cast-option choice is asked (an unanswered one would stop the run). The
+# Legate is cast for {1}{R} from Shivan Oasis and a Forest.
+startturn human
+advance 3
+queue manacolor R
+queue action human manaability 3 0
+passpriority
+tapformana human 2 G
+queue paygeneric G
+castspell human 1
+resolvestack

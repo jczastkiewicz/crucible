@@ -898,14 +898,11 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // Replaced/"no damage at all" outcome only once the reduction reaches zero
 // or below.
 //
-// Only the first matching line applies: CR 616's own general "more than one
-// replacement effect could apply, the affected player chooses" ordering
-// procedure is not built (the "Not ported yet" table's own row already
-// names this gap), so two independent damage-reducing permanents on one
-// battlefield would only see the first found reduce the hit, not both
-// compounding the way a real game lets the player choose to stack. Not
-// observable against a corpus with no two such permanents combined on one
-// battlefield today.
+// Several lines run through runReplacements (replacementchoice.go), CR
+// 616.1: each applied line is excluded, the rest re-collected against the
+// new amount, the affected player choosing when several apply. Prevention
+// shields (applyPreventShields) and Prevent$ True lines run before that
+// loop rather than inside it, a quirks.md row.
 //
 // A `DB$ ReplaceDamage` ReplaceWith$ prevents its Amount$ through
 // replaceDamageEffect (replaceeffect.go): a plain integer, a Number$ SVar (a

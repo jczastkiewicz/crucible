@@ -1087,13 +1087,8 @@ func validCardsCountMatches(g *Game, host *Card, cards []CardID, spec, amount st
 // (matchesPlayerSpec's own doc comment). damageDoneMatches (below) is
 // everything the two calls share -- one walk over the battlefield,
 // ValidSource, and CombatDamage$ -- everything but that one different check.
-//
-// isCombat is always true at both real call sites (dealPermanentDamage/
-// dealPlayerDamage, combatdamage.go): nothing outside combat deals damage
-// in this port yet (game-state.md's "Not ported yet"), so a
-// CombatDamage$ False line (a rare "whenever ~ deals noncombat damage"
-// shape) never fires and a CombatDamage$ True line or one carrying neither
-// always passes that part of the check.
+// isCombat comes from the damage site: combat damage passes true, a damage
+// effect, Fight or an unless-cost's damage false.
 func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source, target CardID, amount int, isCombat bool) {
 	var matches []Ability
 	toughness, hasToughness := g.Card(target).Toughness()

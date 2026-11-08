@@ -12,13 +12,8 @@
 // destruction unless NoRegen$ is set -- a regeneration shield or a
 // permanent's own always-on "if this would be destroyed, regenerate it"
 // replacement (ApiType.Regeneration), the two Destroy-type replacements
-// this port models, both gated by Mode$ CantRegenerate first.
-// TriggerType.Destroyed -- a rare corpus trigger mode ("whenever a permanent
-// is destroyed," distinct from Mode$ Dies, which checkDiesTriggers already
-// fires below for every real battlefield departure regardless of cause) this
-// port's own trigger table has no entry for yet, the identical "an unbuilt
-// Mode$ simply never fires" reasoning every other still-missing mode already
-// has (game-state.md's own "Not ported yet").
+// this port models, both gated by Mode$ CantRegenerate first. Mode$
+// Destroyed triggers fire from triggerpack.go.
 
 package engine
 

@@ -209,3 +209,62 @@ func checkSVarMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 	}
 	return compareOp(left, compare[:2], right)
 }
+
+// layerSVarChecks are StaticAbility.checkConditions' four CheckSVar blocks,
+// in the order Java evaluates them.
+var layerSVarChecks = [...][2]string{
+	{"CheckSVar", "SVarCompare"},
+	{"CheckSecondSVar", "SecondSVarCompare"},
+	{"CheckThirdSVar", "ThirdSVarCompare"},
+	{"CheckFourthSVar", "FourthSVarCompare"},
+}
+
+// staticCheckSVars is StaticAbility.checkConditions' CheckSVar$ chain
+// (StaticAbility.java:462-512), as layerCheckSVars reads it for Continuous
+// lines: every pair present up to the first absent key must compare true,
+// so a CheckSecondSVar$ is the second half of an AND (the Legate cycle's
+// "an opponent controls a Plains and you control a Mountain"). An operand
+// resolveNamedAmount cannot compute is a pending error and the line does
+// not hold (GO-7), as checkSVarMatches reports one.
+func staticCheckSVars(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) bool {
+	for _, keys := range layerSVarChecks {
+		check, ok := s.Param(keys[0])
+		if !ok {
+			return true
+		}
+		left, ok := resolveNamedAmount(g, amounts, host, check)
+		if !ok {
+			g.recordPendingError(fmt.Errorf("engine: %s$ %q is not resolvable", keys[0], check))
+			return false
+		}
+		compare, ok := s.Param(keys[1])
+		if !ok {
+			compare = "GE1"
+		}
+		if len(compare) < 3 {
+			g.recordPendingError(fmt.Errorf("engine: %s$ %q is not a comparison", keys[1], compare))
+			return false
+		}
+		right, ok := resolveNamedAmount(g, amounts, host, compare[2:])
+		if !ok {
+			g.recordPendingError(fmt.Errorf("engine: %s$ %q is not resolvable", keys[1], compare))
+			return false
+		}
+		if !compareOp(left, compare[:2], right) {
+			return false
+		}
+	}
+	return true
+}
+
+// topCardOfLibraryIsMet is checkConditions' TopCardOfLibraryIs$ block
+// (StaticAbility.java:417-425): the top card of the host controller's
+// library matches the comma list; an empty library fails it.
+func topCardOfLibraryIsMet(g *Game, host *Card, s *compile.Ability) bool {
+	spec, ok := s.Param("TopCardOfLibraryIs")
+	if !ok {
+		return true
+	}
+	lib := g.Zone(Library, host.Controller()).Cards()
+	return len(lib) > 0 && Matches(g, g.Card(lib[0]), valid.Parse(spec), host.Controller(), host.ID)
+}

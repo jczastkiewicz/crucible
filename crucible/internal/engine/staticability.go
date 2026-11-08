@@ -548,13 +548,10 @@ func cantAttachStatic(g *Game, attachment *Card, host CardID) bool {
 // You; bare `K:Hexproof` (80 of 110 real lines) then refuses
 // unconditionally, a qualified `Hexproof from <type>`
 // (hexproofValidSource) matches source the same way ValidSource$ does for
-// Protection. "Hexproof from triggered/activated abilities" (2 real
-// lines) is not resolved -- hexproofValidSource's own `ok=false` for
-// `Triggered`/`Activated` (Java's ValidSA$, not ValidSource$; Matches only
-// ever takes a *Card) -- so it never refuses here (GO-7): a
-// Counterspell-shaped ChangeTargets or the initial cast of an instant
-// naming one of these two cards as ValidTgts$ incorrectly lets the target
-// through; logged in game-state.md's Not ported yet.
+// Protection. "Hexproof from triggered/activated abilities" (Volatile
+// Stormdrake) is Java's synthesized ValidSA$ (CardFactoryUtil.java:3921-3931):
+// hexproofValidSA reads it and saKindMatches tests the asking ability's
+// kind (targetAsk.kind), an activated mana ability counting as Activated.
 //
 // A Player target is playerCantBeTargetedBy's own job (below) -- Player has
 // no `protectionEach`/battlefield zone, so the two do not share a body, only
@@ -840,16 +837,10 @@ func controllerControlsType(g *Game, pid PlayerID, typeSpec string, host *Card) 
 // apply") matches every card, exactly Java's own
 // `stAb.matchesValidParam("ValidCard", card)` contract for an absent param.
 //
-// Not ported: a line carrying IsPresent$/PresentCompare$ (2 of the 11 --
-// "if you control exactly two permanents named X") -- StaticAbility.java's
-// own checkConditions evaluates those generically for every static-ability
-// mode, a mechanism this port has not built for any mode yet (the removed port log's
-// "Not ported yet"). Skipped rather than guessed at: an ability this port
-// cannot evaluate the condition for is treated as not currently active, the
-// same safe default an unresolvable Toughness leaves a creature alive under
-// (destroyLethalToughness's own doc comment, action.go) -- wrong only in the
-// rare case the condition holds, never in the far more common case it does
-// not.
+// Each line's conditions are StaticAbility.checkConditions
+// (StaticAbilityIgnoreLegendRule.java:13, staticConditionsMet): Brothers
+// Yamazaki and Syr Joshua and Syr Saxon hold only while IsPresent$ counts
+// exactly two of them.
 func ignoreLegendRule(g *Game, id CardID) bool {
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
@@ -862,7 +853,7 @@ func ignoreLegendRule(g *Game, id CardID) bool {
 					if !strings.EqualFold(s.Name, "IgnoreLegendRule") {
 						continue
 					}
-					if _, ok := s.Param("IsPresent"); ok {
+					if !g.staticConditionsMet(h, s) {
 						continue
 					}
 					validCard, ok := s.Param("ValidCard")
@@ -1356,12 +1347,12 @@ func (g *Game) cantDrawAmount(pid PlayerID, n int) bool {
 // unresolvedStaticConditions are the generic condition params
 // StaticAbility.checkConditions and CardTraitBase.meetsCommonRequirements read
 // that this port does not evaluate for a static of any mode: a line carrying
-// one is not applied (GO-7). IsPresent$, IsPresent2$ and CheckSVar$ are
-// evaluated by staticConditionsMet through the trigger side's own
-// isPresentMatches/checkSVarMatches.
+// one is not applied (GO-7). IsPresent$ and IsPresent2$ are evaluated by
+// staticConditionsMet through the trigger side's own isPresentMatches, the
+// CheckSVar$ chain by staticCheckSVars and TopCardOfLibraryIs$ by
+// topCardOfLibraryIsMet. No corpus static writes any key left here.
 var unresolvedStaticConditions = [...]string{
-	"CheckSecondSVar", "LifeTotal", "CheckDefinedPlayer",
-	"TopCardOfLibraryIs", "Metalcraft", "Delirium", "Threshold", "Hellbent", "Bloodthirst", "FatefulHour",
+	"LifeTotal", "CheckDefinedPlayer", "Metalcraft", "Delirium", "Threshold", "Hellbent", "Bloodthirst", "FatefulHour",
 	"Monarch", "Revolt", "Blessing", "EnduringStory", "DayTime", "Adamant",
 }
 
@@ -1390,7 +1381,7 @@ func (g *Game) staticOtherConditionsMet(host *Card, s *compile.Ability) bool {
 	amounts := host.abilityAmounts(s)
 	if !isPresentMatches(g, host, amounts, s, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "PresentPlayer") ||
 		!isPresentMatches(g, host, amounts, s, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2", "PresentPlayer2") ||
-		!checkSVarMatches(g, host, amounts, s, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
+		!staticCheckSVars(g, host, amounts, s) || !topCardOfLibraryIsMet(g, host, s) {
 		return false
 	}
 	if phases, ok := s.Param("Phases"); ok {

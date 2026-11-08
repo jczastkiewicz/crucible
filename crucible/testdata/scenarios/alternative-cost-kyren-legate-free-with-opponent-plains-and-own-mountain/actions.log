@@ -1,0 +1,10 @@
+# Kyren Legate's Mode$ AlternativeCost static carries CheckSVar$ X (an
+# opponent controls a Plains) and CheckSecondSVar$ Y (you control a
+# Mountain): StaticAbility.checkConditions ANDs the chain
+# (StaticAbility.java:462-512), so with both true option 1 casts it for
+# Cost$ 0 and the untapped Mountain stays untapped.
+startturn human
+advance 3
+queue option 1
+castspell human 1
+resolvestack

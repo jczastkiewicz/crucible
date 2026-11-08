@@ -66,11 +66,8 @@ func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *
 	if v, ok := s.Param("ClassLevel"); ok && !classLevelStaticMet(host, v) {
 		return false
 	}
-	if spec, ok := s.Param("TopCardOfLibraryIs"); ok {
-		lib := g.Zone(Library, host.Controller()).Cards()
-		if len(lib) == 0 || !Matches(g, g.Card(lib[0]), valid.Parse(spec), host.Controller(), host.ID) {
-			return false
-		}
+	if !topCardOfLibraryIsMet(g, host, s) {
+		return false
 	}
 	if !isPresentMatches(g, host, amounts, s, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "PresentPlayer") {
 		return false
@@ -197,15 +194,6 @@ func staticFunctionsOffBattlefield(host *Card, s *compile.Ability) bool {
 		return true
 	}
 	return layerHostZoneActive(host, s)
-}
-
-// layerSVarChecks are StaticAbility.checkConditions' four CheckSVar blocks,
-// in the order Java evaluates them.
-var layerSVarChecks = [...][2]string{
-	{"CheckSVar", "SVarCompare"},
-	{"CheckSecondSVar", "SecondSVarCompare"},
-	{"CheckThirdSVar", "ThirdSVarCompare"},
-	{"CheckFourthSVar", "FourthSVarCompare"},
 }
 
 // layerCheckSVars is checkConditions' CheckSVar$ chain: each value compared

@@ -1,0 +1,6 @@
+# Three Brothers Yamazaki: IsPresent$ counts three, PresentCompare$ EQ2
+# fails, so the IgnoreLegendRule static is off and the legend rule
+# (CR 704.5j) keeps one.
+queue legendarykeep 1
+queue cardorder 2,3
+startturn human

@@ -1,0 +1,5 @@
+# Brothers Yamazaki's Mode$ IgnoreLegendRule static holds while IsPresent$
+# counts exactly two permanents named Brothers Yamazaki (PresentCompare$
+# EQ2, StaticAbility.checkConditions via StaticAbilityIgnoreLegendRule.java:13):
+# the legend rule (CR 704.5j) checked at the untap step keeps both.
+startturn human

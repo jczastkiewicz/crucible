@@ -101,8 +101,6 @@ func (g *Game) discardReplaced(controller PlayerController, id CardID, cause dis
 	// A graveyard replacement that would also apply (Rest in Peace) is one more
 	// candidate of the same CR 616.1 choice (ReplacementHandler.java:256-279):
 	// the discarding player picks, and whichever replaces first ends the walk.
-	// A probe: an Optional$ line is not asked here (nil controller).
-	_, grave := g.movedGraveyardDestination(nil, id)
 	from := c.Zone
 	return g.runReplacements(controller, c.Controller(), func() []replacementCandidate {
 		cands := make([]replacementCandidate, 0, len(lines))
@@ -127,15 +125,11 @@ func (g *Game) discardReplaced(controller PlayerController, id CardID, cause dis
 				return replacementReplaced
 			}})
 		}
-		if grave != nil && grave.rule != nil {
-			cands = append(cands, replacementCandidate{host: grave.host, rule: grave.rule, apply: func() replacementResult {
-				if dest, _ := g.moveToGraveyard(controller, id); dest == Graveyard {
-					return replacementNotReplaced
-				}
-				return replacementReplaced
-			}})
-		}
-		return cands
+		// Each applies its own redirect: a move through moveToGraveyard would
+		// look for replacements again with this one already applying.
+		return append(cands, g.movedCandidates(id, Graveyard, func(z ZoneType, p *movedPost) {
+			g.moveRedirected(controller, id, z, p)
+		})...)
 	}) == replacementReplaced
 }
 

@@ -254,6 +254,12 @@ func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType
 		return g.Card(id).Zone, NoCard
 	}
 	dest, post := g.movedGraveyardDestination(controller, id)
+	return dest, g.moveRedirected(controller, id, dest, post)
+}
+
+// moveRedirected moves id to dest, the zone a Moved replacement (post, nil
+// for none) sent it to, and runs that replacement's post-move work.
+func (g *Game) moveRedirected(controller PlayerController, id CardID, dest ZoneType, post *movedPost) CardID {
 	owner := g.Card(id).Owner
 	var melded CardID
 	if dest == Library && (post == nil || post.libPos == 0) {
@@ -262,7 +268,7 @@ func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType
 		melded = g.Move(id, dest, owner)
 	}
 	g.finishMoved(controller, id, owner, post, melded)
-	return dest, melded
+	return melded
 }
 
 // finishMoved is what a Moved replacement's ReplaceWith$ adds once the card
@@ -356,14 +362,28 @@ func (g *Game) movedGraveyardDestination(controller PlayerController, id CardID)
 // movedDestination is movedGraveyardDestination for a card about to go to
 // dest: a line names its Destination$ (or, with an Origin$ and no Destination$,
 // every destination -- "if it would leave the battlefield") less its
-// ExcludeDestination$ zones (the LeaveBattlefield$ effect's own, Exile). An
-// Optional$ line (the Commander Effect's, ADR-0053) applies only when its
-// OptionalDecider$ confirms through controller; with a nil controller it does
-// not apply. Its override may send the card to the Command zone.
+// ExcludeDestination$ zones (the LeaveBattlefield$ effect's own, Exile). The
+// lines that apply run through runReplacements (CR 616.1,
+// ReplacementHandler.run): the lowest Layer$ first, the moving card's
+// controller choosing among several in it; the first that applies replaces
+// the move. An Optional$ line (the Commander Effect's, ADR-0053) applies only
+// when its decider confirms through controller; with a nil controller it
+// does not apply. Its override may send the card to the Command zone.
 func (g *Game) movedDestination(controller PlayerController, id CardID, dest ZoneType) (ZoneType, *movedPost) {
 	c := g.Card(id)
 	result := dest
 	var post *movedPost
+	g.runReplacements(controller, c.Controller(), func() []replacementCandidate {
+		return g.movedCandidates(id, dest, func(z ZoneType, p *movedPost) { result, post = z, p })
+	})
+	return result, post
+}
+
+// movedCandidates lists the Moved lines that could replace id's move to dest,
+// each applying by handing its destination and post-move work to set.
+func (g *Game) movedCandidates(id CardID, dest ZoneType, set func(ZoneType, *movedPost)) []replacementCandidate {
+	c := g.Card(id)
+	var out []replacementCandidate
 	g.eachReplacement("Moved", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		_, hasDest := r.Param("Destination")
 		_, hasOrigin := r.Param("Origin")
@@ -414,9 +434,6 @@ func (g *Game) movedDestination(controller PlayerController, id CardID, dest Zon
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Destination$ %q not resolvable yet", h.Def.Name, to))
 			return false
 		}
-		if !g.confirmOptionalReplacement(controller, h.Controller(), replacementCandidate{host: h, rule: r}) {
-			return false
-		}
 		p := &movedPost{host: h, amounts: amounts, rule: r}
 		if pos, ok := sub.Param("LibraryPosition"); ok {
 			n, err := strconv.Atoi(pos)
@@ -451,10 +468,13 @@ func (g *Game) movedDestination(controller PlayerController, id CardID, dest Zon
 				p.chain = s.Ability
 			}
 		}
-		result, post = z, p
-		return true
+		out = append(out, replacementCandidate{host: h, rule: r, layer: replacementLayerOf(r), apply: func() replacementResult {
+			set(z, p)
+			return replacementReplaced
+		}})
+		return false
 	})
-	return result, post
+	return out
 }
 
 // onlyKeys reports whether every param of a is one of keys (folded).

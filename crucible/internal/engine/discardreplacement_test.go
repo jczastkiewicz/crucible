@@ -217,3 +217,37 @@ func TestPlayCostPastManaIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// CR 616.1 for a move to the graveyard (ReplacementHandler.run): Rest in
+// Peace and a line returning the card to its owner's hand both apply to the
+// dying Bears; its controller chooses which, and the chosen one replaces the
+// move.
+func TestTwoGraveyardReplacementsAreOneChoiceForTheDyingCardsController(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		pick int
+		want engine.ZoneType
+	}{
+		{"rest in peace", 0, engine.Exile},
+		{"return to hand", 1, engine.Hand},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.NewCard(corpusCard(t, "Rest in Peace"), p, engine.Battlefield)
+			g.NewCard(scriptDef(t, "Test Recall Field", "Enchantment",
+				"R:Event$ Moved | ActiveZones$ Battlefield | Destination$ Graveyard | ValidCard$ Creature | ReplaceWith$ DBHand | Description$ Return it to its owner's hand instead.",
+				"SVar:DBHand:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Hand | Defined$ ReplacedCard"), p, engine.Battlefield)
+			bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+			c := engine.NewScriptedController()
+			c.QueueReplacementEffect(tc.pick)
+			if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(bears)}, "DB$ Destroy | Defined$ Targeted"); err != nil {
+				t.Fatal(err)
+			}
+			if got := g.Card(bears).Zone; got != tc.want {
+				t.Errorf("Grizzly Bears is in %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

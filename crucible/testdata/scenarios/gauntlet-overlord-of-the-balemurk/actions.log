@@ -1,0 +1,14 @@
+# R20c gauntlet probe (Overlord of the Balemurk): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+queue option 1
+queue cardorder 80,81,82,83
+queue confirmeffect true
+queue cardchoice 71
+tapformana human 100 B
+tapformana human 101 B
+castspell human 1
+resolvestack
+resolvestack

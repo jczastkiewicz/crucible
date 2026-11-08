@@ -669,6 +669,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.castFor("Dash")
 	case name == "blitzed":
 		return c.castFor("Blitz")
+	case name == "impended":
+		// CardProperty.java:1785: its cast was for its impending cost.
+		return c.castFor("Impending")
 	case name == "prowled", name == "spectacle", name == "webSlinged":
 		// CardProperty.java:1786-1801, :1818-1821: the card's cast was for
 		// its Prowl, Spectacle or Web-slinging cost. Java reads webSlinged

@@ -122,7 +122,7 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	if o, ok := prototypeOption(c); ok {
 		out = append(out, o)
 	}
-	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow", "Web-slinging"} {
+	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow", "Web-slinging", "Impending"} {
 		if name == "Bestow" && !c.Type().Has(cardtype.Creature) {
 			continue
 		}
@@ -155,6 +155,11 @@ func (g *Game) keywordCastOption(pid PlayerID, c *Card, name string) (castOption
 		if name == "Bestow" {
 			// Bestow's second field is its AILogic$ (CardFactoryUtil.java:2661).
 			details, _, _ = strings.Cut(details, ":")
+		}
+		if name == "Impending" {
+			// Impending:<N>:<cost>: the cost is the second field
+			// (CardFactoryUtil.java:3085-3105, copyWithDefinedCost).
+			_, details, _ = strings.Cut(details, ":")
 		}
 		if details == "" || strings.Contains(details, ":") {
 			return castOption{}, false

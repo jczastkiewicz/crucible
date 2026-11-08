@@ -282,6 +282,26 @@ func Expand(k Keyword) (Expansion, bool) {
 			Replacements: []string{line},
 			SVars:        []SVarDef{{"KWEtbCounter" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + args[0] + " | ETB$ True | CounterNum$ " + args[1]}},
 		}, true
+	case "Impending":
+		// Impending:<N>:<cost> (CardFactoryUtil.java:1329-1337, :2317-2323,
+		// :3937-3939): a permanent cast for its impending cost (the cast is
+		// the engine's, altkeywords.go) enters with N time counters, is not a
+		// creature while it has one, and loses one at its controller's end
+		// step.
+		args := k.Args()
+		if len(args) < 2 || args[0] == "" || args[1] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self+impended | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWImpendingCounters" + Slot},
+			Statics:      []string{"Mode$ Continuous | Affected$ Card.Self+impended+counters_GE1_TIME | RemoveType$ Creature | Secondary$ True"},
+			Triggers: []string{"Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+impended+counters_GE1_TIME" +
+				" | Execute$ KWImpendingRemove" + Slot + " | Secondary$ True"},
+			SVars: []SVarDef{
+				{"KWImpendingCounters" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ TIME | ETB$ True | CounterNum$ " + args[0]},
+				{"KWImpendingRemove" + Slot, "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"},
+			},
+		}, true
 	case "Daybound", "Nightbound":
 		// CardFactoryUtil.java:879-895 and :1522-1533: two state triggers. With
 		// neither day nor night, a daybound permanent makes it day (a

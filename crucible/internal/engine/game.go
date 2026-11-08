@@ -1247,7 +1247,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 			c.entryExiledWith = leftExiledWith
 		}
 	}
-	if from == Stack && kind == Battlefield {
+	// A spell's costs are paid before its card moves to the stack here
+	// (CR 601.2a has it the other way round): what a cost exiled with it
+	// (Delve's cards, CostAdjustment.java:268-273) is marked with the card
+	// in its old zone, and follows it onto the stack as onto the battlefield.
+	if kind == Stack || from == Stack && kind == Battlefield {
 		g.relinkExiledWith(id, leftStamp, c.zoneStamp)
 	}
 

@@ -1,0 +1,21 @@
+# Mode$ ManaAdded (AbilityManaPart.java:209, triggerhooks.go): with white
+# chosen, a land tapped for white mana makes Caged Sun's static trigger add
+# one more white mana, so the seventh Plains leaves W W in the pool.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+tapformana human 4 W
+tapformana human 5 W
+tapformana human 6 W
+tapformana human 7 W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+queue colorchoice W
+castspell human 1
+resolvestack
+tapformana human 8 W

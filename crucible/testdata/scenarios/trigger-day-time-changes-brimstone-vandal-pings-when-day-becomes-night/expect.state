@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Plains
+humanbattlefield=Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Brimstone Vandal|SummonSick
+humangraveyard=Into the Night
+ailife=19

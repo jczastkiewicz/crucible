@@ -1,0 +1,10 @@
+# Mode$ Enlisted (CostEnlist.java:89, triggerhooks.go): Guardian of New
+# Benalia attacks and enlists Grizzly Bears (tapped, its power added), which
+# fires "whenever this creature enlists a creature": scry 2, both kept on top.
+startturn human
+advance 5
+queue attackers 1
+queue cardchoice 2
+declareattackers
+queue scry 3,4
+resolvestack

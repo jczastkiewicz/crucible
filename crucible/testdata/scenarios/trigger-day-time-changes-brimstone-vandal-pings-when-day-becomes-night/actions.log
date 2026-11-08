@@ -1,0 +1,24 @@
+# Mode$ DayTimeChanges (Game.java:1537, daytimeeffect.go): Brimstone Vandal
+# entering makes it day, a change from neither that fires nothing
+# (Game.java:1423-1433); Into the Night then turns day to night, so the
+# Vandal deals 1 damage to the opponent. The empty-handed discard of any
+# number is none, and the human draws one.
+startturn human
+advance 3
+tapformana human 4 R
+tapformana human 5 R
+tapformana human 6 R
+queue paygeneric R
+queue paygeneric R
+castspell human 1
+resolvestack
+tapformana human 7 R
+tapformana human 8 R
+tapformana human 9 R
+tapformana human 10 R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+castspell human 2
+resolvestack
+resolvestack

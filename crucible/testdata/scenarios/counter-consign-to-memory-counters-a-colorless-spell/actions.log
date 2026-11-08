@@ -1,0 +1,13 @@
+# Consign to Memory (the one Modern gauntlet card card-smoke cannot judge on
+# its fixed board): TargetType$ Spell.Colorless,Triggered lets it counter a
+# colorless spell (CounterEffect, TargetRestrictions). The human casts
+# Ornithopter, the AI counters it without replicating.
+startturn human
+advance 3
+castspell human 1
+tapformana ai 30 U
+# Replicate asks how many times; none.
+queue numberchoice 0
+queue targets 1
+castspell ai 32
+resolvestack

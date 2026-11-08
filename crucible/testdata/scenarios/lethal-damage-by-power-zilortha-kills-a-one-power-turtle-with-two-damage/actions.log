@@ -1,0 +1,16 @@
+# Zilortha's LethalDamageByPower$ (StaticAbilityContinuous.java:927-929,
+# Card.getLethal): lethal damage to creatures its controller controls is
+# their power. Horned Turtle (1/4) attacks, Grizzly Bears blocks and deals
+# 2, at least the Turtle's power of 1, so CR 704.5g destroys it; the Bears
+# take 1 and live.
+startturn human
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks 3=2
+declareblockers
+advance
+advance
+combatdamage
+advance

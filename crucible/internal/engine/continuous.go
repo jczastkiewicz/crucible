@@ -974,6 +974,9 @@ func applyContinuousRules(g *Game) {
 	clearHiddenKeywords(g)
 	pumpHiddenKeywords(g)
 	pumpCanBlock(g)
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].lethalByPower = false
+	}
 	g.mayPlay = nil
 	for _, ls := range continuousStaticsAllZones(g) {
 		if !g.staticLive(g.Card(ls.host), ls.s) {
@@ -984,6 +987,7 @@ func applyContinuousRules(g *Game) {
 		grantIgnoreEffect(g, h, ls.amounts, ls.s)
 		applyOneContinuousHiddenKeyword(g, h, ls.s)
 		applyOneContinuousCanBlock(g, h, ls.amounts, ls.s)
+		applyOneContinuousLethalByPower(g, h, ls.amounts, ls.s)
 		applyOneContinuousMayPlay(g, h, ls.amounts, ls.s, ls.index)
 	}
 }
@@ -1036,6 +1040,25 @@ func applyOneContinuousCanBlock(g *Game, host *Card, amounts map[string]expr.Amo
 		c := g.Card(id)
 		c.canBlockAny = c.canBlockAny || blockAny
 		c.canBlockMore += more
+	}
+}
+
+// applyOneContinuousLethalByPower is Layer 8's LethalDamageByPower$
+// (StaticAbilityContinuous.java:927-929): the cards a Mode$ Continuous line
+// affects take lethal damage by power (Card.Lethal).
+func applyOneContinuousLethalByPower(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") || !hasParamOn(s, "LethalDamageByPower") {
+		return
+	}
+	if !layerStaticApplies(g, host, amounts, s) {
+		return
+	}
+	affected, ok := g.staticAffected(host, s)
+	if !ok {
+		return
+	}
+	for _, id := range affected {
+		g.Card(id).lethalByPower = true
 	}
 }
 

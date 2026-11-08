@@ -318,7 +318,7 @@ func lethalDamage(target *Card, deathtouch bool) (int, bool) {
 	if deathtouch {
 		return 1, true
 	}
-	t, ok := target.Toughness()
+	t, ok := target.Lethal()
 	if !ok {
 		return 0, false
 	}

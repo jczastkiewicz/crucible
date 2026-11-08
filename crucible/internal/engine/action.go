@@ -550,7 +550,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 				dead = append(dead, id)
 				continue
 			}
-			if t, ok := c.Toughness(); ok && c.Damage.Marked > 0 && c.Damage.Marked >= t {
+			if t, ok := c.Lethal(); ok && c.Damage.Marked > 0 && c.Damage.Marked >= t {
 				dead = append(dead, id)
 			}
 		}

@@ -32,7 +32,7 @@ func excessDamageValue(c *Card, deathtouch bool) int {
 	t := c.Type()
 	if t.Has(cardtype.Creature) {
 		lethal := 0
-		if tough, ok := c.Toughness(); ok {
+		if tough, ok := c.Lethal(); ok {
 			lethal = tough - c.Damage.Marked
 		}
 		if deathtouch && lethal > 0 {

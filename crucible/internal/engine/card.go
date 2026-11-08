@@ -282,6 +282,10 @@ type Card struct {
 	// CanBlockAny$/CanBlockAmount$ statics (applyContinuousCanBlock).
 	canBlockAny  bool
 	canBlockMore int
+	// lethalByPower is Card.lethalDmgByPower (Card.java:6140-6146): a Mode$
+	// Continuous LethalDamageByPower$ line (Zilortha) affects the card, so
+	// lethal damage is judged against its power. Rebuilt every rules pass.
+	lethalByPower bool
 	// isBoon is Card.isBoon: a Boon$ effect card, which leaves the Command zone
 	// after its triggers have fired; boons holds the BoonAmount$ ones.
 	isBoon bool
@@ -1344,6 +1348,17 @@ func (c *Card) setTextChange(t textChange) {
 	t.base = c.text.base
 	c.text = t
 	c.Def = t.def
+}
+
+// Lethal is Card.getLethal (Card.java:6140-6146): the power while a
+// LethalDamageByPower$ static affects the card, else the toughness. CR
+// 704.5g, trample's lethal assignment and excess damage read it; CR
+// 704.5f's zero toughness stays on Toughness.
+func (c *Card) Lethal() (int, bool) {
+	if c.lethalByPower {
+		return c.Power()
+	}
+	return c.Toughness()
 }
 
 // Power and Toughness are the card's current power and toughness: Layer 0

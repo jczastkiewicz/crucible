@@ -10,6 +10,7 @@
 package engine
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -100,7 +101,7 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 			continue
 		}
 		if validPlayer, ok := d.Trigger.Param("ValidPlayer"); ok {
-			matched, recognized := matchesPlayerSpec(g, g.activePlayer, d.Controller, d.Host, validPlayer)
+			matched, recognized := d.validPlayerMatches(g, g.activePlayer, validPlayer)
 			if !recognized || !matched {
 				kept = append(kept, d)
 				continue
@@ -602,4 +603,15 @@ func (g *Game) registerSpentTriggersFor(id StackItemID, spent []*spentTrigger) {
 			ThisTurn: true, SpentFor: id,
 		})
 	}
+}
+
+// validPlayerMatches is a delayed Phase trigger's ValidPlayer$: matchesPlayerSpec,
+// except Player.IsTriggerRemembered, which reads the players the trigger itself
+// remembered (PlayerProperty.java:231-244, getTriggerRemembered): Phytotitan's
+// owner, Plague Reaver's targeted opponent.
+func (d *delayedTrigger) validPlayerMatches(g *Game, candidate PlayerID, spec string) (matched, ok bool) {
+	if spec == "Player.IsTriggerRemembered" {
+		return slices.Contains(d.Remembered, PlayerEntity(candidate)), true
+	}
+	return matchesPlayerSpec(g, candidate, d.Controller, d.Host, spec)
 }

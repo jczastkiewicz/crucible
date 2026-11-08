@@ -1,0 +1,12 @@
+# Phytotitan's dies trigger registers a delayed Phase trigger with
+# ValidPlayer$ Player.IsTriggerRemembered, remembering the card's owner
+# (PlayerProperty.java:231-244): at the AI's next upkeep it returns tapped.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 3
+castspell human 1
+resolvestack
+resolvestack
+advance 11
+resolvestack

@@ -1,0 +1,9 @@
+turn=2
+activeplayer=ai
+activephase=Upkeep
+humanlife=20
+humanbattlefield=Mountain|Tapped
+humangraveyard=Lightning Bolt
+ailife=20
+aibattlefield=Phytotitan|Tapped|SummonSick
+ailibrary=Island

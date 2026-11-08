@@ -914,6 +914,15 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueuePayHybridPhyrexian(color)
 
+	case "cardontop":
+		// WillPutCardOnTop: keep the revealed card on top of the library
+		// (true) or put it on the bottom (false), as a clash asks
+		// (ClashEffect.java:57-60).
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue cardontop %q: %w", value, err)
+		}
+		c.QueueCardOnTop(v)
 	case "confirmeffect":
 		// An effect's generic yes/no prompt (ConfirmEffect): Play's
 		// single-option "cast it?", CopySpellAbility's Optional$ and

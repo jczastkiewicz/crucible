@@ -1,0 +1,13 @@
+# Mode$ Clashed (ClashEffect.java:57-60, triggerhooks.go): Marvo attacks and
+# clashes with the AI; Hill Giant (mana value 4) beats Island (0), both
+# kept on top, so Marvo's "whenever you win a clash" draws Hill Giant and
+# offers a free cast, declined.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+queue cardontop true
+queue cardontop true
+queue confirmeffect false
+resolvestack
+resolvestack

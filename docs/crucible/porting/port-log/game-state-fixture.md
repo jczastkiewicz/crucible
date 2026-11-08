@@ -203,6 +203,7 @@ queue paycolorlesshybrid <bool>       ScriptedController.QueuePayColorlessHybrid
 queue payphyrexian <bool>             ScriptedController.QueuePayPhyrexian: true pays the color, false pays 2 life
 queue coincall <heads|tails>          ScriptedController.QueueCoinCall, the flipping player's call
 queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
+queue cardontop <bool>                ScriptedController.QueueCardOnTop, a revealed card kept on top (true) or put on the bottom (false): a clash (WillPutCardOnTop)
 queue confirmeffect <bool>            ScriptedController.QueueConfirmEffect, an effect's yes/no prompt (Play's single option, CopySpellAbility's Optional$/MayChooseTarget$)
 queue optionaltrigger <bool>          ScriptedController.QueueConfirmOptionalTrigger, an OptionalDecider$ trigger's "you may" (Swarm Intelligence's copy trigger)
 ```

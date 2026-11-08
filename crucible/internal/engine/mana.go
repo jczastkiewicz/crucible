@@ -399,7 +399,10 @@ func (p *Pool) payUsable(cost mana.Cost, snow []mana.Shard, snowAny bool, usable
 	for _, first := range [...]bool{true, false} {
 		for _, u := range p.units {
 			if (u.restrict != "") == first && (usable == nil || usable(u)) {
-				view.addRestrictedUnits(int(u.bucket), 1, u.src, u.restrict)
+				// The unit whole, so the removal below finds it again
+				// (its combat and whenSpent marks included).
+				*view.counters()[u.bucket]++
+				view.units = append(view.units, u)
 			}
 		}
 	}

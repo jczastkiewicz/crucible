@@ -1,0 +1,16 @@
+# TriggersWhenSpent$ on a Mode$ SpellAbilityCast trigger: Sunken Palace's
+# second mana ability ({1}{U}, {T}, exile seven graveyard cards) makes {U}
+# whose trigger copies the spell or ability it pays for
+# (AbilityManaPart.java:333-339, MagicStack.java:385). Spent on Ancestral
+# Recall, the copy keeps its target (confirmeffect false): human draws six.
+startturn human
+advance 3
+queue paygeneric U
+queue cardchoice 10,11,12,13,14,15,16
+queue targets human
+queue confirmeffect false
+queue action human tapformana 2 U
+queue action human tapformana 3 U
+queue action human manaability 1 1
+queue action human cast 4
+passpriority

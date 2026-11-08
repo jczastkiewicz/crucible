@@ -1,0 +1,9 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Sunken Palace|Id:1|Tapped;Island|Id:2|Tapped;Island|Id:3|Tapped
+humanhand=Island|Id:12;Island|Id:13;Island|Id:14;Island|Id:15;Island|Id:16;Island|Id:17
+humangraveyard=Ancestral Recall|Id:4
+humanexile=Mountain|Id:5|ExiledWith:1;Mountain|Id:6|ExiledWith:1;Mountain|Id:7|ExiledWith:1;Mountain|Id:8|ExiledWith:1;Mountain|Id:9|ExiledWith:1;Mountain|Id:10|ExiledWith:1;Mountain|Id:11|ExiledWith:1
+ailife=20

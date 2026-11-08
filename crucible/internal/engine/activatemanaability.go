@@ -265,6 +265,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if !found {
 		return false
 	}
+	if ability.Record == compile.Activated && !isRootManaAbility(ability) && isManaAbility(ability) {
+		// A chained mana ability (CR 605.1a: Nykthos's ChooseColor before its
+		// Mana) is activated like any other ability and resolves at once.
+		return g.ActivateAbility(pid, card, index, controller)
+	}
 	if ability.Record != compile.Activated || ability.Name != "Mana" || !isManaAbility(ability) {
 		return false
 	}

@@ -12,15 +12,19 @@ import (
 )
 
 // isManaAbility is SpellAbility.isManaAbility (SpellAbility.java:394-440) for
-// an ability line: an activated Mana or ManaReflected line that has no target,
-// is no loyalty ability, and neither pays a cost nor resolves a sub-ability
-// that moves a card to or from a library (CR 605.1a). Chromatic Sphere's draw
+// an ability line: an activated line whose SubAbility$ chain reaches a Mana
+// or ManaReflected part (the root itself, or a later link: Nykthos's
+// ChooseColor, Jack-in-the-Mox's RollDice with its zero-mana Add0; a part
+// only a ResultSubAbilities$ or WinSubAbility$ branch reaches does not count,
+// as Java walks SubAbility alone), that has no target, is no loyalty ability
+// (both read off the root only), and neither pays a cost nor resolves a
+// sub-ability that moves a card to or from a library (CR 605.1a). Chromatic Sphere's draw
 // and Charmed Pendant's mill make theirs ordinary activated abilities, which
 // use the stack and cannot be activated while a cost is being paid. The test
 // reads the script, not the board, as Java's does (CR 605.1a disregards
 // replacement effects).
 func isManaAbility(ab *compile.Ability) bool {
-	if ab == nil || ab.Record != compile.Activated || (ab.Name != "Mana" && ab.Name != "ManaReflected") {
+	if ab == nil || ab.Record != compile.Activated || !manaChainAddsMana(ab) {
 		return false
 	}
 	// usesTargeting and isPwAbility read the root only (SpellAbility.java:
@@ -90,6 +94,25 @@ func paramNamesLibrary(a *compile.Ability, key string) bool {
 }
 
 // manaChainNext is a's SubAbility$ link, nil for none.
+// manaChainAddsMana reports whether a's SubAbility$ chain, a included, has a
+// Mana or ManaReflected link (SpellAbility.java:427-438's addsMana).
+func manaChainAddsMana(a *compile.Ability) bool {
+	for tail := a; tail != nil; tail = manaChainNext(tail) {
+		if tail.Name == "Mana" || tail.Name == "ManaReflected" {
+			return true
+		}
+	}
+	return false
+}
+
+// isRootManaAbility is isManaAbility for a line whose root is the mana part:
+// the shape ActivateManaAbility activates. A chained one (a ChooseColor
+// before its Mana) is activated like any other ability and resolves at once
+// (finishActivation).
+func isRootManaAbility(a *compile.Ability) bool {
+	return a != nil && (a.Name == "Mana" || a.Name == "ManaReflected") && isManaAbility(a)
+}
+
 func manaChainNext(a *compile.Ability) *compile.Ability {
 	for _, s := range a.Subs {
 		if strings.EqualFold(s.Key, "SubAbility") {

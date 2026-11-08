@@ -1,0 +1,13 @@
+# CR 605.1a: Nykthos's second ability ({2}, {T}: choose a color, then add
+# mana equal to your devotion to it) is a mana ability, its Mana part a
+# sub-ability (SpellAbility.java:394-439). It resolves at once, never on the
+# stack (MagicStack.java:239-270): four green mana float (Elves G, Baloth GGG).
+startturn human
+advance 3
+queue paygeneric U
+queue paygeneric U
+queue colorchoice G
+queue action human tapformana 4 U
+queue action human tapformana 5 U
+queue action human manaability 1 1
+passpriority

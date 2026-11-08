@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanmanapool=G G G G
+humanbattlefield=Nykthos, Shrine to Nyx|Id:1|Tapped;Llanowar Elves|Id:2;Leatherback Baloth|Id:3;Island|Id:4|Tapped;Island|Id:5|Tapped
+ailife=20

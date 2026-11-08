@@ -227,13 +227,13 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// An ST$ line (compile.Static in a card's abilities, StaticAbilityApiBased)
 	// is a spell ability its controller activates like an AB$ one, from the
 	// zone it names (Discord's DiscordCast, Command).
-	if (ability.Record != compile.Activated && ability.Record != compile.Static) || isManaAbility(ability) {
+	if (ability.Record != compile.Activated && ability.Record != compile.Static) || isRootManaAbility(ability) {
 		return false
 	}
 	// Split second (AbilityActivated.java:85): no activated ability but a
 	// mana ability while such a spell is on the stack. An ST$ line is an
 	// AbilityStatic, whose canPlay does not ask.
-	if ability.Record == compile.Activated && g.splitSecondOnStack() {
+	if ability.Record == compile.Activated && g.splitSecondOnStack() && !isManaAbility(ability) {
 		return false
 	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")
@@ -800,6 +800,21 @@ func (g *Game) finishActivation(controller PlayerController, pid PlayerID, card 
 		// at once by AbilityUtils.resolve, never put on the stack and
 		// without the AbilityCast and cost triggers below (Dakkon's
 		// PlayLandVariant, the planar die's special action, ADR-0056).
+		a := *activated
+		a.stackRoot = true
+		root := a
+		a.rootAbility = &root
+		if err := g.registry.Resolve(g, &a, controller); err != nil {
+			g.recordPendingError(err)
+		}
+		g.pushTriggeredAbilities(controller, held)
+		return true
+	}
+	if isManaAbility(ability) {
+		// A mana ability whose mana part is a later link (CR 605.1a: Nykthos's
+		// ChooseColor, Victory Chimes' ChoosePlayer) resolves at once, its
+		// whole chain in order, never on the stack (MagicStack.java:239-270,
+		// AbilityUtils.resolve).
 		a := *activated
 		a.stackRoot = true
 		root := a

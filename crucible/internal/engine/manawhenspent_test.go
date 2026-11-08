@@ -186,3 +186,35 @@ func TestWhenSpentManaCopiesTheAbilityItPaysFor(t *testing.T) {
 		t.Errorf("life %d, want 22 (the ability and its copy)", got)
 	}
 }
+
+// CR 605.1a: an activated ability whose SubAbility$ chain reaches a mana part
+// is a mana ability even when its root is not Mana (SpellAbility.java:
+// 394-439). Nykthos's second ability chooses a color, then adds mana equal to
+// that devotion: it resolves at once, never using the stack
+// (MagicStack.java:239-270).
+func TestNykthosChooseColorManaAbilityResolvesWithoutTheStack(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	nykthos := g.NewCard(corpusCard(t, "Nykthos, Shrine to Nyx"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Llanowar Elves"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Leatherback Baloth"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Blue, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardU)
+	c.QueuePayGeneric(mana.ShardU)
+	c.QueueColorChoice(mana.Green)
+	if !g.ActivateAbility(p, nykthos, 1, c) {
+		t.Fatalf("Nykthos's ability not activated: %v", g.TakePendingError())
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if got := g.StackLen(); got != 0 {
+		t.Errorf("stack has %d items, want none: a mana ability does not use it", got)
+	}
+	if got := g.Player(p).ManaPool.Breakdown(); got[4] != 4 {
+		t.Errorf("pool %v, want four green (devotion: Elves G, Baloth GGG)", got)
+	}
+}

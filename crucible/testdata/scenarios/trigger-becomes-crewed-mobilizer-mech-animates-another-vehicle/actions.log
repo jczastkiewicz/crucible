@@ -1,0 +1,14 @@
+# Mode$ BecomesCrewed (Card.java:6826, becomescrewed.go): Hill Giant crews
+# Mobilizer Mech, whose "whenever this becomes crewed" makes Renegade
+# Freighter an artifact creature this turn, so the Freighter can attack.
+startturn human
+advance 3
+queue cardchoice 3
+queue targets 2
+queue action human activate 1 0
+passpriority
+resolvestack
+resolvestack
+advance 2
+queue attackers 2
+declareattackers

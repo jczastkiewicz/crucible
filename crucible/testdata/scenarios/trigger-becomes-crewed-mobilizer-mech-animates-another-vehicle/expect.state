@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Declare Attackers
+humanlife=20
+humanbattlefield=Mobilizer Mech;Renegade Freighter|Tapped|Attacking;Hill Giant|Tapped
+ailife=20

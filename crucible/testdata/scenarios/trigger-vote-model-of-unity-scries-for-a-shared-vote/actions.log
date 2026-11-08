@@ -1,0 +1,17 @@
+# Mode$ Vote (VoteEffect.java:128, triggerhooks.go): both players vote
+# torture on Tyrant's Choice, so the AI loses 4 life; when voting ends,
+# Model of Unity's trigger lets the human (and the AI, who voted the same)
+# scry 2. The human keeps both on top.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+queue paygeneric B
+queue abilitychoice 1
+queue abilitychoice 1
+queue confirmeffect true
+queue confirmeffect true
+queue scry 5,6
+castspell human 1
+resolvestack
+resolvestack

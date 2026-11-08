@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Model of Unity;Swamp|Tapped;Swamp|Tapped
+humanlibrary=Mountain;Plains
+humangraveyard=Tyrant's Choice
+ailife=16

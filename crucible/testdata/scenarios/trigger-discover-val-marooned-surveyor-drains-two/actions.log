@@ -1,0 +1,17 @@
+# Mode$ Discover (DiscoverEffect.java:152, discovereffect.go): Geological
+# Appraiser, cast, discovers 3 and finds Grizzly Bears, put into the hand
+# rather than cast; Val, Marooned Surveyor's "whenever you discover" deals 2
+# to the opponent and gains the human 2 life.
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+tapformana human 6 R
+queue paygeneric R
+queue paygeneric R
+queue confirmeffect false
+castspell human 1
+resolvestack
+resolvestack
+resolvestack

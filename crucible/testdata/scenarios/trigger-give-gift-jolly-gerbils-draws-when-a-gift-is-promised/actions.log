@@ -1,0 +1,13 @@
+# Mode$ GiveGift (AbilityUtils.java:1389, triggerhooks.go): Into the Flood
+# Maw is cast with its gift promised to the AI, which gets a tapped Fish;
+# Jolly Gerbils' "whenever you give a gift" draws a card, and the promised
+# mode bounces the AI's Grizzly Bears.
+startturn human
+advance 3
+tapformana human 3 U
+queue confirmpaycost true
+queue playerchoice ai
+queue targets 5
+castspell human 1
+resolvestack
+resolvestack

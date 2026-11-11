@@ -36,6 +36,24 @@ func (g *Game) currentMoveCause() *Ability {
 	return g.resolving
 }
 
+// lifeLostCauseMet is TriggerLifeLost's ValidCause$ (TriggerLifeLost.java:
+// 64): the spell or ability that made the player lose life
+// (AbilityKey.SpellAbility, Player.java:550), the cause in context as for a
+// zone move: Sahir, Visitor in Darkness' SpellAbility.YouCtrl. Combat damage
+// and state-based actions have none and match nothing.
+func (g *Game) lifeLostCauseMet(host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
+	spec, ok := t.Param("ValidCause")
+	if !ok {
+		return true
+	}
+	cause := g.currentMoveCause()
+	if cause == nil || cause.Source == NoCard {
+		return false
+	}
+	m, known := g.spellAbilityMatches(cause, spec, host, host.Controller(), amounts)
+	return known && m
+}
+
 // zoneCauseMet is TriggerChangesZone's ValidCause$/InvertValidCause$
 // (:147, CardTraitBase.matchesValidParam's Invert, CardTraitBase.java:
 // 260-266) and NotThisAbility$ (:161-168) against the move happening now.

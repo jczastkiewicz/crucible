@@ -527,7 +527,11 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	g.noteDamagedThisGame(source, PlayerEntity(target), isCombat)
 	if !infect && lost > 0 {
 		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-lost), Flags: flags})
+		// Damage loses life with no cause (Player.java:813 passes null), so a
+		// LifeLost ValidCause$ never reads the damaging ability.
+		restore := g.withMoveCause(nil)
 		g.noteLifeLost(controller, target, lost)
+		restore()
 	}
 	if poison > 0 {
 		g.putPlayerCounters(controller, g.Card(source).Controller(), source, target, Poison, poison)

@@ -1,0 +1,13 @@
+# Sahir's LifeLost line reads ValidCause$ SpellAbility.YouCtrl
+# (TriggerLifeLost.java:64; the cause is the ability, Player.java:550):
+# Phyrexian Arena's upkeep loss of 1 adds a counter. Sahir's
+# Eminence deals it 1 damage, which its DamageDone line answers; the life
+# that damage costs has no cause (Player.java:813), so the LifeLost line
+# does not answer it too. Two counters, life 18.
+queue triggerorder 0,1
+startturn human
+advance
+resolvestack
+resolvestack
+resolvestack
+resolvestack

@@ -818,10 +818,13 @@ type castHeld struct {
 // discardToGraveyard in replacementdiscard.go): whether an effect (not a cost
 // or the cleanup step) made it, and that effect's controller. known is false
 // where the site does not say, and a line that needs it is then refused
-// rather than guessed (GO-7).
+// rather than guessed (GO-7). bySA says a spell or ability (an effect or a
+// cost) made it, Player.discard's AbilityKey.Cause; the cleanup step's
+// discard has none.
 type discardCause struct {
 	known      bool
 	effect     bool
+	bySA       bool
 	controller PlayerID
 }
 

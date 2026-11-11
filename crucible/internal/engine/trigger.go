@@ -1651,13 +1651,13 @@ func isDamageAllTrigger(t *compile.Ability) bool {
 // checkDiesTriggers' own precedent for reading a card no longer on the
 // battlefield), on top of checkOtherDiscardedTriggers' battlefield walk for
 // a watcher.
-func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, player PlayerID) {
+func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, player PlayerID, cause discardCause) {
 	var matches []Ability
 	c := g.Card(card)
 	if c.Def != nil {
 		for face := range c.triggerFaces {
 			for _, t := range face.Triggers {
-				if !discardedTriggerMatches(g, t, c, c.Controller(), card, player) {
+				if !discardedTriggerMatches(g, t, c, c.Controller(), card, player, cause) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -1667,7 +1667,7 @@ func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, 
 			}
 		}
 	}
-	matches = append(matches, g.otherDiscardedTriggerMatches(card, player)...)
+	matches = append(matches, g.otherDiscardedTriggerMatches(card, player, cause)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -1677,7 +1677,7 @@ func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, 
 // card, ..."), otherETBTriggerMatches'/otherDiesTriggerMatches' own shape,
 // including the "return matches, don't push them" contract
 // (otherETBTriggerMatches' own doc comment has the reason).
-func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Ability {
+func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID, cause discardCause) []Ability {
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
@@ -1688,7 +1688,7 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 			}
 			for face := range h.triggerFaces {
 				for _, t := range face.Triggers {
-					if !discardedTriggerMatches(g, t, c, h.Controller(), host, player) {
+					if !discardedTriggerMatches(g, t, c, h.Controller(), host, player, cause) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
@@ -1710,15 +1710,13 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 // (valid.go). ValidPlayer -- a Player, not a Card, matchesPlayerBase's own
 // job -- matches player, who discarded it.
 //
-// Not resolved: ValidCause$ (11 of 105 real lines) -- a SpellAbility, not a
-// Card, Matches cannot evaluate one. A trigger carrying it is skipped
-// entirely, not fired unconditionally (GO-7). 94 of 105 real lines carry
-// none of it.
-func discardedTriggerMatches(g *Game, t *compile.Ability, discarded *Card, sourceController PlayerID, source CardID, player PlayerID) bool {
+// ValidCause$ (TriggerDiscarded.java:63-65) is the spell or ability that
+// made the discard (AbilityKey.Cause, Player.java:1468): discardTriggerCauseMatches.
+func discardedTriggerMatches(g *Game, t *compile.Ability, discarded *Card, sourceController PlayerID, source CardID, player PlayerID, cause discardCause) bool {
 	if !isDiscardedTrigger(t) {
 		return false
 	}
-	if hasAnyParam(t, "ValidCause") {
+	if spec, ok := t.Param("ValidCause"); ok && !discardTriggerCauseMatches(spec, cause, sourceController) {
 		return false
 	}
 	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, discarded, valid.Parse(validCard), sourceController, source) {
@@ -4440,4 +4438,36 @@ func (g *Game) conditionYouCastThisTurnMet(host *Card, t *compile.Ability) bool 
 		}
 	}
 	return compareOp(position, compare[:2], right)
+}
+
+// discardTriggerCauseMatches is a Discarded trigger's ValidCause$ against the
+// discard's cause, the spell or ability that made it. Every corpus line
+// writes SpellAbility.OppCtrl (Sand Golem, Quagnoth, Metrognome: "a spell or
+// ability an opponent controls causes you to discard"); SpellAbility with
+// YouCtrl or no property is read the same way. The cleanup step's discard has
+// no cause and matches nothing, as Java's null does. An unknown cause or any
+// other spec does not match (GO-7).
+func discardTriggerCauseMatches(spec string, cause discardCause, sourceController PlayerID) bool {
+	if !cause.known || !cause.bySA {
+		return false
+	}
+	for _, alt := range strings.Split(spec, ",") {
+		base, prop, _ := strings.Cut(strings.TrimSpace(alt), ".")
+		if base != "SpellAbility" {
+			continue
+		}
+		switch prop {
+		case "":
+			return true
+		case "OppCtrl":
+			if cause.controller != sourceController {
+				return true
+			}
+		case "YouCtrl":
+			if cause.controller == sourceController {
+				return true
+			}
+		}
+	}
+	return false
 }

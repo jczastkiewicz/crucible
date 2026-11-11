@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Metrognome|Id:1;Plains|Id:2
+aibattlefield=Swamp|Id:10;Swamp|Id:11;Swamp|Id:13
+aihand=Mind Rot|Id:12

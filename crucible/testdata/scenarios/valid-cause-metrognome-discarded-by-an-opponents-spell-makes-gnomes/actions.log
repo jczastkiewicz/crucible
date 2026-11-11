@@ -1,0 +1,18 @@
+# Mode$ Discarded with ValidCause$ SpellAbility.OppCtrl (TriggerDiscarded.java:
+# 63-65; the cause is the discarding spell, Player.java:1468): the AI's Mind
+# Rot makes the human discard Metrognome and a Plains, so Metrognome's "when
+# a spell or ability an opponent controls causes you to discard this" makes
+# four Gnomes.
+startturn ai
+advance 3
+tapformana ai 10 B
+tapformana ai 11 B
+tapformana ai 13 B
+queue paygeneric B
+queue paygeneric B
+queue targets human
+queue discardchoice 1,2
+queue cardorder 1,2
+castspell ai 12
+resolvestack
+resolvestack

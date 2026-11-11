@@ -520,7 +520,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.DiscardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, shape.DiscardN)
 		activated.paid.discarded = append(activated.paid.discarded, chosen...)
-		discardCards(g, controller, chosen, pid, discardCause{known: true, controller: pid})
+		discardCards(g, controller, chosen, pid, discardCause{known: true, bySA: true, controller: pid})
 	}
 	// Player.payLife (Player.java:578-591): Event$ PayLife (Ashiok) may
 	// replace the payment, and then no life is lost and no PayLife trigger runs.
@@ -563,7 +563,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.SelfDiscard {
 		activated.paid.discarded = append(activated.paid.discarded, card)
-		discardCards(g, controller, []CardID{card}, pid, discardCause{known: true, controller: pid})
+		discardCards(g, controller, []CardID{card}, pid, discardCause{known: true, bySA: true, controller: pid})
 	}
 	if shape.SelfExileFromHand {
 		activated.paid.exiled = append(activated.paid.exiled, card)

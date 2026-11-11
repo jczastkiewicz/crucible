@@ -786,7 +786,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 			// CR 514.1's discard is no effect's (Player.discard with effect
 			// false): a discard replacement's EffectOnly$ does not apply.
 			g.discardToGraveyard(controller, id, discardCause{known: true})
-			g.checkDiscardedTriggers(controller, id, g.activePlayer)
+			g.checkDiscardedTriggers(controller, id, g.activePlayer, discardCause{known: true})
 		}
 	}
 

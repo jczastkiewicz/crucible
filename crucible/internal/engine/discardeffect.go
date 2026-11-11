@@ -160,8 +160,9 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			if g.Card(id).Zone != Hand {
 				continue
 			}
-			g.discardToGraveyard(controller, id, discardCause{known: true, effect: true, controller: a.Controller})
-			g.checkDiscardedTriggers(controller, id, pick.player)
+			cause := effectDiscardCause(a)
+			g.discardToGraveyard(controller, id, cause)
+			g.checkDiscardedTriggers(controller, id, pick.player, cause)
 			g.checkLeftZoneTriggers(controller, []CardID{id}, Hand)
 			if remember {
 				source.Memory.Remember(CardEntity(id))
@@ -364,7 +365,7 @@ func discardValidResolvable(g *Game, spec string, controller PlayerID, source Ca
 func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID, cause discardCause) {
 	for _, id := range ids {
 		g.discardToGraveyard(controller, id, cause)
-		g.checkDiscardedTriggers(controller, id, pid)
+		g.checkDiscardedTriggers(controller, id, pid, cause)
 		g.checkLeftZoneTriggers(controller, []CardID{id}, Hand)
 	}
 	g.checkDiscardedAllTriggers(controller, pid, ids)
@@ -379,10 +380,10 @@ func costDiscardCause(a *Ability) discardCause {
 	if a == nil {
 		return discardCause{}
 	}
-	return discardCause{known: true, effect: a.isTrigger, controller: a.Controller}
+	return discardCause{known: true, effect: a.isTrigger, bySA: true, controller: a.Controller}
 }
 
 // effectDiscardCause is the cause of a discard an effect of a makes.
 func effectDiscardCause(a *Ability) discardCause {
-	return discardCause{known: true, effect: true, controller: a.Controller}
+	return discardCause{known: true, effect: true, bySA: true, controller: a.Controller}
 }

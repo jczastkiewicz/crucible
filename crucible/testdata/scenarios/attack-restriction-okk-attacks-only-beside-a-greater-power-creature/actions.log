@@ -1,0 +1,10 @@
+# Okk's "can't attack unless a creature with greater power also attacks"
+# (AttackRestriction.java:86-88, AttackRestrictionType.java:20-21): alone
+# the declaration is illegal (CR 508.1c); beside Craw Wurm (6 > 4) it is
+# legal.
+startturn human
+advance 5
+queue attackers 1
+expecterror 508.1c declareattackers
+queue attackers 1,2
+declareattackers

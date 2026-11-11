@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -150,12 +151,15 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	return attackers, nil
 }
 
-// attackAloneViolation is AttackRestriction.getViolation's two alone checks
-// (AttackRestriction.java:46-70, set by :82-96): a creature with "CARDNAME can
-// only attack alone." makes a declaration of more than one attacker illegal,
-// and one with "CARDNAME can't attack alone." (or "can't attack or block
-// alone.") makes a declaration of one attacker illegal. Both count the whole
-// declared attack, whoever else attacks.
+// attackAloneViolation is AttackRestriction.getViolation (AttackRestriction.java:
+// 46-70, set by :82-100): a creature with "CARDNAME can only attack alone."
+// makes a declaration of more than one attacker illegal, and one with
+// "CARDNAME can't attack alone." (or "can't attack or block alone.") a
+// declaration of one. The three "can't attack unless" sentences need another
+// attacker with greater power (Okk), another black or green attacker (Scarred
+// Puma) or at least three attackers counting itself (Orcish Conscripts);
+// AttackRestrictionType.getPredicate (AttackRestrictionType.java:18-31). Each
+// counts the whole declared attack, whoever else attacks.
 func (g *Game) attackAloneViolation(attackers []CardID) error {
 	for _, id := range attackers {
 		c := g.Card(id)
@@ -166,8 +170,33 @@ func (g *Game) attackAloneViolation(attackers []CardID) error {
 			c.hasKeywordText("CARDNAME can't attack or block alone.")) {
 			return illegal("CR 508.1c", "can't attack alone", id)
 		}
+		if len(attackers) <= 2 && c.hasKeywordText("CARDNAME can't attack unless at least two other creatures attack.") {
+			return illegal("CR 508.1c", "can't attack unless two others attack", id)
+		}
+		if c.hasKeywordText("CARDNAME can't attack unless a creature with greater power also attacks.") &&
+			!g.anotherAttacker(attackers, id, func(o *Card) bool {
+				mine, ok := c.Power()
+				theirs, ok2 := o.Power()
+				return ok && ok2 && theirs > mine
+			}) {
+			return illegal("CR 508.1c", "can't attack unless a creature with greater power attacks", id)
+		}
+		if c.hasKeywordText("CARDNAME can't attack unless a black or green creature also attacks.") &&
+			!g.anotherAttacker(attackers, id, func(o *Card) bool { return o.Colors()&(mana.Black|mana.Green) != 0 }) {
+			return illegal("CR 508.1c", "can't attack unless a black or green creature attacks", id)
+		}
 	}
 	return nil
+}
+
+// anotherAttacker reports whether an attacker other than self passes match.
+func (g *Game) anotherAttacker(attackers []CardID, self CardID, match func(*Card) bool) bool {
+	for _, id := range attackers {
+		if id != self && match(g.Card(id)) {
+			return true
+		}
+	}
+	return false
 }
 
 // eligibleAttackers is every creature the active player controls that CR

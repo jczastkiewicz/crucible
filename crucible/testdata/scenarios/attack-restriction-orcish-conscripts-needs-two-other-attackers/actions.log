@@ -1,0 +1,9 @@
+# Orcish Conscripts' "can't attack unless at least two other creatures
+# attack" (AttackRestriction.java:98-100, :63): with one Grizzly Bears the
+# declaration is illegal; with both it is legal.
+startturn human
+advance 5
+queue attackers 1,2
+expecterror 508.1c declareattackers
+queue attackers 1,2,3
+declareattackers

@@ -223,6 +223,20 @@ func TestDeckFromListRepeatsEachCopy(t *testing.T) {
 	}
 }
 
+// A deck line's pinned edition rides with each copy (ADR-0061); a deck that
+// pins none carries no prints.
+func TestDeckFromListKeepsPinnedEditions(t *testing.T) {
+	t.Parallel()
+	d := deck.Parse("t.dck", []byte("[Main]\n2 Island|UNH\n1 Mountain\n"))
+	if got, want := sim.DeckFromList("T", d).Prints, []string{"UNH", "UNH", ""}; !slices.Equal(got, want) {
+		t.Errorf("prints %v, want %v", got, want)
+	}
+	plain := deck.Parse("t.dck", []byte("[Main]\n2 Island\n"))
+	if got := sim.DeckFromList("T", plain).Prints; got != nil {
+		t.Errorf("prints %v, want none", got)
+	}
+}
+
 // The Stickers section becomes the deck's sheets (CR 123.2a); a batch checks
 // their names against the database like the main deck's, and seats them.
 func TestDeckStickerSheetsAreReadCheckedAndSeated(t *testing.T) {

@@ -1,6 +1,6 @@
 # ADR-0061 — A Card Carries Its Print, Pinned by the Deck or Chosen by Latest Art
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-08
 - **Deciders:** Crucible session (R19b), owner
 

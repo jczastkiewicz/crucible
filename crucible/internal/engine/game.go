@@ -2207,3 +2207,7 @@ func (c *Card) newObjectFlags(to ZoneType) {
 	c.crewedBy = nil
 	c.dealtDamage, c.combatDamagedPlayers = 0, nil
 }
+
+// SetPrintEdition records the edition code of id's print, which the seating
+// chose (ADR-0061): BorderColor* reads that edition's border.
+func (g *Game) SetPrintEdition(id CardID, code string) { g.Card(id).printEdition = code }

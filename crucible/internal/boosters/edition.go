@@ -99,6 +99,9 @@ type Edition struct {
 	Alias             string
 	Date              time.Time
 	Covers            int
+	// Border is the edition file's border key, "Black" when absent
+	// (CardEdition.java:889); Card.borderColor reads it (ADR-0061).
+	Border string
 	// Templates by type ("Draft", "Collector", "Set").
 	templates   map[string][]slotSpec
 	slotted     bool
@@ -253,6 +256,7 @@ func parseEdition(text string) (*Edition, error) {
 	}
 	e.Code2 = meta.get("code2", e.Code)
 	e.Alias = meta.get("alias", "")
+	e.Border = meta.get("border", "Black")
 	if n, err := strconv.Atoi(meta.get("BoosterCovers", "1")); err == nil {
 		e.Covers = n
 	} else {

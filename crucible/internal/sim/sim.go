@@ -61,8 +61,12 @@ func (o Outcome) String() string { return outcomeNames[o] }
 // deck and reads each section only for its variant (Match.java:344,
 // RegisteredPlayer.java:135-181, ADR-0055, ADR-0056).
 type Deck struct {
-	Name       string
-	Cards      []string
+	Name  string
+	Cards []string
+	// Prints is the edition each of Cards pins, "" where its line pins none
+	// (deck.Entry.Edition); nil when no card pins one. Seating plays the
+	// latest-art print for "" (ADR-0061).
+	Prints     []string
 	Stickers   []string
 	Commanders []string
 	Avatars    []string
@@ -90,10 +94,16 @@ func DeckFromList(name string, d *deck.Deck) Deck {
 			}
 		}
 	}
+	pinned := false
 	for _, e := range d.Cards(deck.Main) {
 		for i := 0; i < e.Count; i++ {
 			out.Cards = append(out.Cards, e.Name)
+			out.Prints = append(out.Prints, e.Edition)
+			pinned = pinned || e.Edition != ""
 		}
+	}
+	if !pinned {
+		out.Prints = nil
 	}
 	for _, e := range d.Cards(deck.Stickers) {
 		for i := 0; i < e.Count; i++ {
@@ -448,9 +458,10 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 	g.SetBoosters(plan.Boosters)
 	for seat, d := range job.Decks {
 		pid := g.Players()[seat]
-		for _, name := range d.Cards {
+		for i, name := range d.Cards {
 			def, _ := plan.DB.Card(name)
-			g.NewCard(def, pid, engine.Library)
+			id := g.NewCard(def, pid, engine.Library)
+			seatPrint(g, plan.Boosters, id, name, d.Prints, i)
 		}
 		// Player.initVariantsZones, in its order: the Vanguard avatars
 		// (Player.java:2978-2985), the planar deck (:3006-3012, shuffled by
@@ -524,4 +535,21 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 		return nil, nil
 	}
 	return rec.Finish(res.Turns), rec.ManaRows()
+}
+
+// seatPrint records the print of a seated main-deck card (ADR-0061): the
+// edition its deck line pins, else the latest-art print Java's default
+// preference picks (CardDb.java:1004-1024). Without edition data the card has
+// no print.
+func seatPrint(g *engine.Game, table *boosters.Table, id engine.CardID, name string, prints []string, i int) {
+	if i < len(prints) && prints[i] != "" {
+		g.SetPrintEdition(id, prints[i])
+		return
+	}
+	if table == nil {
+		return
+	}
+	if code, ok := table.LatestEdition(name); ok {
+		g.SetPrintEdition(id, code)
+	}
 }

@@ -1208,11 +1208,15 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:1986-1996: the source controller noted this card
 		// under that key.
 		return g.Player(sourceController).notedCard(strings.TrimPrefix(name, "NotedFor"), c)
-	case name == "NotedColor", name == "BorderColorSilver":
+	case name == "NotedColor":
 		// CardProperty.java:1998-2007 reads the controller's draft notes, which
-		// a game here never has: no card carries the noted color. A card's border
-		// color is not in the database: none is silver-bordered.
+		// a game here never has: no card carries the noted color.
 		return false
+	case strings.HasPrefix(name, "BorderColor"):
+		// CardProperty.java:87-89: the property names the card's border color,
+		// Card.borderColor (Card.java:6415-6421) its print's edition border, Black
+		// for a basic land or a card with no known edition (ADR-0061).
+		return strings.Contains(strings.ToUpper(name), strings.ToUpper(g.borderColor(c)))
 	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned) for the
 	// Beam me up spell source (Scotty).
 	case name == "canBeBeamedUp":
@@ -3650,4 +3654,17 @@ func doesShareNameWith(g *Game, c *Card, name string, sourceController PlayerID,
 // types.
 func sameCoreTypes(a, b *Card) bool {
 	return slices.Equal(a.Type().CoreTypes(), b.Type().CoreTypes())
+}
+
+// borderColor is Card.borderColor (Card.java:6415-6421): the border of the
+// edition the card was printed in, Black for a basic land, a card without a
+// print and a game seated without edition data.
+func (g *Game) borderColor(c *Card) string {
+	if c.printEdition == "" || g.boosters == nil || c.Type().HasSupertype(cardtype.Basic) && c.Type().Has(cardtype.Land) {
+		return "Black"
+	}
+	if border, ok := g.boosters.EditionBorder(c.printEdition); ok && border != "" {
+		return border
+	}
+	return "Black"
 }

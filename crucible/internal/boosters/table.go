@@ -218,6 +218,28 @@ func (t *Table) byCode(code string) (*Edition, bool) {
 	return e, ok
 }
 
+// LatestEdition is the edition code of the print a deck line that pins none
+// plays (CardDb.java:1021-1024 with ForgePreferences' default
+// LATEST_ART_ALL_EDITIONS, ADR-0061). ok is false when no edition prints the
+// name.
+func (t *Table) LatestEdition(name string) (code string, ok bool) {
+	pr := t.Pool.fromEditions(name, 1, true)
+	if pr == nil {
+		return "", false
+	}
+	return pr.Edition, true
+}
+
+// EditionBorder is the border color of the edition with code, "Black" when
+// its file names none; ok is false for an unknown code (CardEdition.java:889).
+func (t *Table) EditionBorder(code string) (border string, ok bool) {
+	e, ok := t.byCode(code)
+	if !ok {
+		return "", false
+	}
+	return e.Border, true
+}
+
 // OriginalEdition is the edition code of
 // CardDb.getCardFromEditions(name, ORIGINAL_ART_ALL_EDITIONS): the card's
 // print from its oldest edition (CardProperty.java:1960-1969 reads it for

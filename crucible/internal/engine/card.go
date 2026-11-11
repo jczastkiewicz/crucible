@@ -100,7 +100,12 @@ type Card struct {
 	// prevention and replacement (CardDamageHistory.getDamageDoneThisTurn, read
 	// by Count$TotalDamageDoneByThisTurn); cleared with every card's turn counters.
 	damageDealtThisTurn int
-	castManaSpent       int
+	// printEdition is the edition code of the card's print (Card.getSetCode,
+	// copied from the PaperCard at CardFactory.java:178): the deck line's pin or
+	// the latest-art print the seat chose (ADR-0061). "" for a token, a card
+	// made in play, or a game seated without edition data.
+	printEdition  string
+	castManaSpent int
 	// castPaid is the colored mana that cast spent, white to green
 	// (SpellAbility.getPayingMana by color), read by Count$Converge and
 	// Count$Adamant; meaningful while wasCast holds. castSnow is how much of

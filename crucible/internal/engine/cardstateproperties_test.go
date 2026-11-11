@@ -337,6 +337,44 @@ func TestSetPropertyReadsTheOldestPrint(t *testing.T) {
 	}
 }
 
+// BorderColor<Color> (CardProperty.java:87-89, Card.borderColor) reads the
+// border of the card's print edition (ADR-0061): Black without a print or
+// edition data and for a basic land, else the edition file's Border= key.
+func TestBorderColorReadsThePrintsEdition(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	white := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	silver := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	forest := g.NewCard(corpusCard(t, "Forest"), p, engine.Battlefield)
+	g.SetPrintEdition(white, "4ED")
+	g.SetPrintEdition(silver, "UNH")
+	g.SetPrintEdition(forest, "4ED")
+	if !engine.Matches(g, g.Card(white), valid.Parse("Card.BorderColorBlack"), p, engine.NoCard) {
+		t.Error("a 4ED print without edition data: not black")
+	}
+
+	g.SetBoosters(boosterTable(t))
+	for _, tc := range []struct {
+		card  engine.CardID
+		color string
+		want  bool
+	}{
+		{bears, "Black", true}, {bears, "White", false},
+		{white, "White", true}, {white, "Black", false},
+		{silver, "Silver", true}, {silver, "White", false},
+		{forest, "Black", true}, {forest, "White", false},
+	} {
+		if got := engine.Matches(g, g.Card(tc.card), valid.Parse("Card.BorderColor"+tc.color), p, engine.NoCard); got != tc.want {
+			t.Errorf("BorderColor%s on card %d = %v, want %v", tc.color, tc.card, got, tc.want)
+		}
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Error(err)
+	}
+}
+
 // ExiledWithSourceLKI (CardProperty.java:374-397) reads the record of the
 // card entering its zone this turn: the object that left, so a card that
 // left the source's exile for the graveyard is, and one still in that

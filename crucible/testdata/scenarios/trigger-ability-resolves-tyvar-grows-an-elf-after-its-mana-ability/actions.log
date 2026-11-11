@@ -1,0 +1,10 @@
+# Tyvar the Bellicose grants "whenever a mana ability of this creature
+# resolves, put a +1/+1 counter on it for each mana it produced"
+# (Mode$ AbilityResolves after a mana ability, MagicStack.java:256-260;
+# TriggeredSpellAbility$AmountManaProduced, AbilityUtils.java:1770-1778).
+# Llanowar Elves taps for {G}: one counter. Its AILogic$ is an AI hint.
+startturn human
+advance 3
+queue action human manaability 2 0
+passpriority
+resolvestack

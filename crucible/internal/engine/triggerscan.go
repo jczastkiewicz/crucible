@@ -14,10 +14,10 @@ import (
 
 // scanTriggers walks every trigger of the given modes on every card in a zone
 // that can hold one (phaseTriggerZones), in seat then zone order, calling test
-// on each whose TriggerZones$ admits the host's zone and that names no
-// ActivationLimit$/ResolvedLimit$ (no per-trigger counter enforces them,
-// checkPlayerActionTriggers' reasoning). test returns the triggering objects
-// and whether the trigger fires.
+// on each whose TriggerZones$ admits the host's zone. ActivationLimit$ and
+// ResolvedLimit$ are enforced per host by triggerEffectAPI
+// (triggerActivationLimitMet). test returns the triggering objects and
+// whether the trigger fires.
 func (g *Game) scanTriggers(modes []string, test func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool)) []Ability {
 	var matches []Ability
 	for _, pid := range g.Players() {

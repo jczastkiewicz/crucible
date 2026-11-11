@@ -92,6 +92,7 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors, cont
 	g.checkTapAllTriggers(controller, []CardID{land})
 	g.noteTapsForMana(land, pid)
 	g.checkTapsForManaTriggers(controller, land, pid, produced)
+	g.checkManaAbilityResolvesTriggers(controller, &Ability{API: APIMana, Source: land, Controller: pid, activated: true}, produced.amount)
 	return true
 }
 

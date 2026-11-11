@@ -24,6 +24,8 @@ var effectEventTriggerParams = map[string]bool{
 	"secondary": true, "activationlimit": true, "resolvedlimit": true, "gameactivationlimit": true,
 	"ispresent": true, "presentdefined": true, "presentcompare": true, "presentzone": true, "presentplayer": true,
 	"playerturn": true,
+	// AILogic$ steers Forge's AI only (forge-ai); no rules code reads it.
+	"ailogic": true,
 }
 
 func effectEventParams(own ...string) map[string]bool {

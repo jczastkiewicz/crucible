@@ -353,6 +353,18 @@ func (g *Game) abilityTriggeredCauses(pushed Ability, mode string) []CardID {
 // 712-713). ValidSpellAbility$ against it, ValidSource$ against its host,
 // which is TriggeredSource; the ability is TriggeredSpellAbility.
 func (g *Game) checkAbilityResolvesTriggers(controller PlayerController, a *Ability) {
+	g.checkAbilityResolvesTriggersMade(controller, a, 0)
+}
+
+// checkManaAbilityResolvesTriggers is the same trigger after a mana ability
+// resolved without the stack (MagicStack.java:256-260): Tyvar the
+// Bellicose's granted "whenever a mana ability of this creature resolves"
+// counts the made units (AmountManaProduced).
+func (g *Game) checkManaAbilityResolvesTriggers(controller PlayerController, a *Ability, made int) {
+	g.checkAbilityResolvesTriggersMade(controller, a, made)
+}
+
+func (g *Game) checkAbilityResolvesTriggersMade(controller PlayerController, a *Ability, made int) {
 	if a.Source == NoCard || int(a.Source) >= len(g.cards) || g.over {
 		return
 	}
@@ -369,7 +381,7 @@ func (g *Game) checkAbilityResolvesTriggers(controller PlayerController, a *Abil
 		if !g.triggerCardMatches(h, t, "ValidSource", src) {
 			return triggeredObjects{}, false
 		}
-		return triggeredObjects{saHost: a.Source, source: CardEntity(a.Source), sourceController: src.Controller()}, true
+		return triggeredObjects{saHost: a.Source, source: CardEntity(a.Source), sourceController: src.Controller(), manaProduced: made}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }

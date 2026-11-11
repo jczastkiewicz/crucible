@@ -50,6 +50,11 @@ func opAwareValue(g *Game, amounts map[string]expr.Amount, sourceController Play
 		if !ok {
 			return 0, false, true
 		}
+		if amt.Body == "AmountManaProduced" {
+			// AbilityUtils.java:1770-1778: the units the triggering mana
+			// ability made (Tyvar the Bellicose).
+			return g.resolving.triggered.manaProduced, true, true
+		}
 		n, ok := handlePaid(g, amounts, sourceController, source, []*Card{g.Card(host)}, amt.Body, amt.Op, depth)
 		return n, ok, true
 	case strings.HasPrefix(head, "TargetedObjects"):

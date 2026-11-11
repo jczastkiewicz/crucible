@@ -527,6 +527,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		defer func() { pool.stampWhenSpent = nil }()
 	}
 	var made producedMana
+	total := 0
 	if produced == "Special LastNotedType" {
 		restrict, _ := ability.Param("RestrictValid")
 		for i, tok := range noted {
@@ -536,6 +537,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			})
 			unit.restrict = restrict
 			g.addProducedMana(pid, unit, src)
+			total += max(unit.amount, 0)
 			if i == 0 {
 				made = unit
 			}
@@ -546,6 +548,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		})
 		made.restrict, _ = ability.Param("RestrictValid")
 		g.addProducedMana(pid, made, src)
+		total = max(made.amount, 0)
 	}
 	g.checkManaAddedTriggers(controller, card, pid, made, &Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true})
 
@@ -556,6 +559,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if hasSub {
 		g.resolveManaSubAbility(controller, &sub)
 	}
+	g.checkManaAbilityResolvesTriggers(controller, &Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true}, total)
 	return true
 }
 

@@ -1799,11 +1799,9 @@ func (g *Game) checkSacrificedTriggers(controller PlayerController, card CardID,
 //
 // Not resolved: ValidCause$ (0 real lines) -- a SpellAbility, not a Card,
 // Matches cannot evaluate one; WhileKeyword$ (1, Foul Emissary's
-// Spell.withEmerge) -- whileKeywordMatches reads only Ability.<keyword>; ActivationLimit$ (7) and
-// ResolvedLimit$ (1) -- the identical per-turn-cap gap LifeGained's own
-// ActivationLimit$ already documents, this port tracking no such counter. A
-// trigger carrying any of these four is skipped entirely, not fired
-// unconditionally (GO-7). 106 of 115 real lines carry none of them.
+// Spell.withEmerge) -- whileKeywordMatches reads only Ability.<keyword>. A
+// trigger carrying either is skipped entirely, not fired unconditionally
+// (GO-7). ActivationLimit$ and ResolvedLimit$ are triggerEffectAPI's.
 func sacrificedTriggerMatches(g *Game, t *compile.Ability, sacrificed *Card, sourceController PlayerID, source CardID, player PlayerID) bool {
 	if !isSacrificedTrigger(t) {
 		return false

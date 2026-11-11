@@ -422,7 +422,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 				c.Damage.Deathtouch = true
 			}
 		} else {
-			c.Damage.Mark(amount, deathtouch)
+			c.Damage.MarkFrom(source, amount, deathtouch)
 		}
 	}
 	// CardDamageTable.java:141, set before this exchange's DamageDone check

@@ -549,6 +549,14 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 			if !c.Type().Has(cardtype.Creature) || c.HasKeyword("Indestructible") {
 				continue
 			}
+			if c.hasKeywordText("CARDNAME can't be destroyed by lethal damage unless lethal damage dealt by a single source is marked on it.") {
+				// GameAction.java:1487-1496 (Ogre Enforcer): destroyed only by
+				// lethal damage from one source, or deathtouch damage.
+				if t, ok := c.Lethal(); c.Damage.Deathtouch || ok && t <= c.Damage.MaxFromSource() {
+					dead = append(dead, id)
+				}
+				continue
+			}
 			if c.Damage.Deathtouch {
 				dead = append(dead, id)
 				continue

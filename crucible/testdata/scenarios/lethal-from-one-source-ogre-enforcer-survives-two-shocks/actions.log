@@ -1,0 +1,14 @@
+# Ogre Enforcer "can't be destroyed by lethal damage unless lethal damage
+# dealt by a single source is marked on it" (GameAction.java:1487-1496,
+# Card.getMaxDamageFromSource): two Shocks mark 4 on the 4/4, but no one
+# source dealt more than 2, so CR 704.5g's check leaves it alive.
+startturn human
+advance 3
+tapformana ai 10 R
+queue targets 1
+castspell ai 12
+resolvestack
+tapformana ai 11 R
+queue targets 1
+castspell ai 13
+resolvestack

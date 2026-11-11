@@ -27,15 +27,50 @@ type Damage struct {
 	// order (Card.getDamageReceivedThisTurn's source half): the "DamagedBy"
 	// valid property reads them.
 	Sources []CardID
+	// bySource is the marked damage per source (Card.damage, merged per
+	// source): getMaxDamageFromSource (Card.java:6201-6203) reads its largest,
+	// for Ogre Enforcer. A heal or the cleanup step clears it with Marked.
+	bySource []sourceDamage
 }
 
-// Mark adds damage. A deathtouch source sets the flag for the rest of the
-// turn, so a later non-deathtouch point cannot clear it.
-func (d *Damage) Mark(amount int, deathtouch bool) {
+// sourceDamage is one source's share of the marked damage.
+type sourceDamage struct {
+	source CardID
+	amount int
+}
+
+// MaxFromSource is Card.getMaxDamageFromSource: the most marked damage any
+// one source dealt; 0 for none.
+func (d *Damage) MaxFromSource() int {
+	best := 0
+	for _, s := range d.bySource {
+		best = max(best, s.amount)
+	}
+	return best
+}
+
+// Mark adds damage from no known source (a fixture's Damage:N). A deathtouch
+// source sets the flag for the rest of the turn, so a later non-deathtouch
+// point cannot clear it.
+func (d *Damage) Mark(amount int, deathtouch bool) { d.MarkFrom(NoCard, amount, deathtouch) }
+
+// MarkFrom is Mark for damage source dealt, kept per source as well.
+func (d *Damage) MarkFrom(source CardID, amount int, deathtouch bool) {
 	if amount <= 0 {
 		return
 	}
 	d.Marked += amount
+	merged := false
+	for i := range d.bySource {
+		if d.bySource[i].source == source {
+			d.bySource[i].amount += amount
+			merged = true
+			break
+		}
+	}
+	if !merged {
+		d.bySource = append(d.bySource, sourceDamage{source: source, amount: amount})
+	}
 	if deathtouch {
 		d.Deathtouch = true
 	}

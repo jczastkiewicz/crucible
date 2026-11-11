@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Ogre Enforcer|Id:1
+aibattlefield=Mountain|Id:10;Mountain|Id:11
+aihand=Shock|Id:12;Shock|Id:13

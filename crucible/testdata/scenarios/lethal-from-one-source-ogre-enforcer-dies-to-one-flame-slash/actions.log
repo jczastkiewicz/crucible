@@ -1,0 +1,8 @@
+# The same Ogre Enforcer dealt 4 by one source, Flame Slash: lethal damage
+# from a single source is marked, so CR 704.5g destroys it.
+startturn human
+advance 3
+tapformana human 3 R
+queue targets 1
+castspell human 2
+resolvestack

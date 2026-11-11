@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The P4 trigger-mode measure (open plan R17): every corpus `T:Mode$` value,
+# The P4 trigger-mode measure (m5-rules-coverage.md): every corpus `T:Mode$` value,
 # and whether a card with that mode is in some scenario's setup.state. Only a
 # card the fixture loads counts; a Mode$ line quoted in a comment does not.
 # Usage: trigger-mode-coverage.sh [-missing]

@@ -121,7 +121,7 @@ M8 started: `internal/{sim,store,telemetry}` and `crucible run|report` play stor
 
 Everything left, easiest first: `docs/crucible/00-master-implementation-plan-open.md`. Full per-gap list:
 `docs/crucible/porting/port-log/game-state.md`, "Not ported yet". **M5 exit gate:** test-port matrix green (met). **P4
-exit gate:** fixture-count half met (≥300 scenarios), qualitative half not.
+exit gate:** met, both halves (`m5-rules-coverage.md`).
 
 Keep this section short — it loads every session. Every primitive, corpus count, design decision and Java citation goes
 in `docs/crucible/porting/port-log/game-state.md`, `quirks.md` and Go comments, never here.

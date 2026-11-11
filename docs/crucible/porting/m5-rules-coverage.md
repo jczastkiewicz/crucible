@@ -1,8 +1,8 @@
 # M5 Rules Coverage
 
-- **Status:** Active. [Backlog](#backlog) empty: every step, layer and SBA row is `covered` or `n/a`; every corpus
-  trigger mode has a fixture or a named Go test ([Trigger modes without a fixture](#trigger-modes-without-a-fixture)) but
-  NewGame, which is not ported
+- **Status:** Active. P4's qualitative half is met: [Backlog](#backlog) empty, every step, layer and SBA row is `covered`
+  or `n/a`, and every corpus trigger mode has a fixture or a named Go test
+  ([Trigger modes without a fixture](#trigger-modes-without-a-fixture)) but NewGame, which is not ported
 - **Applies to:** P4 exit gate, qualitative half — "every step transition, every layer, every SBA"
   ([open plan, Exit gates](../00-master-implementation-plan-open.md#exit-gates))
 
@@ -187,7 +187,7 @@ priority round per step grant. Rows about per-step priority cite the driver.
 ## Trigger modes without a fixture
 
 `crucible/scripts/trigger-mode-coverage.sh -missing` lists the corpus trigger modes no scenario loads a card for. Each is
-a Go module test instead, because the fixture format cannot seat what it needs. Reason: open plan R17 asks for a fixture
+a Go module test instead, because the fixture format cannot seat what it needs. Reason: the P4 gate asks for a fixture
 or a named Go test per mode.
 
 | Mode | Why no fixture | Go test (`crucible/internal/engine/`) |

@@ -29,7 +29,7 @@ import (
 // `Affected$ Card.Self` never reaches its effect, forge-java-defects.md); the
 // line is evaluated as Java does, without it.
 var costModParams = map[string]bool{
-	"mode": true, "validcard": true, "activator": true, "type": true, "affectedzone": true,
+	"mode": true, "validcard": true, "activator": true, "onlyfirstspell": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
 	"validspell": true, "raiseto": true, "foreachshard": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
@@ -318,6 +318,14 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	}
 	if t, ok := s.Param("Type"); ok && t != wantType {
 		return costModSkips
+	}
+	if _, first := s.Param("OnlyFirstSpell"); first && act == nil {
+		switch g.firstSpellThisTurn(pid, host, s) {
+		case costModSkips:
+			return costModSkips
+		case costModUnresolvable:
+			return costModUnresolvable
+		}
 	}
 	if v, ok := s.Param("ValidSpell"); ok {
 		switch {
@@ -813,4 +821,31 @@ func (g *Game) announceSVarsFor(pid PlayerID, c *Card, controller PlayerControll
 		c.svars[key] = n
 	}
 	return true
+}
+
+// firstSpellThisTurn is CostAdjustment's OnlyFirstSpell$ (CostAdjustment.java:
+// 541-555): the line holds only while pid has cast no spell this turn that
+// ValidCard$ matches (CardUtil.getThisTurnCast; any spell without it), so
+// Melek's or Hamza's reduction is the turn's first such spell's alone.
+// ValidSpell$ filters the casts by their spell abilities, which the turn's
+// cast records do not keep: such a line is unresolvable (GO-7).
+func (g *Game) firstSpellThisTurn(pid PlayerID, host *Card, s *compile.Ability) costModResult {
+	if _, ok := s.Param("ValidSpell"); ok {
+		return costModUnresolvable
+	}
+	if spec, ok := s.Param("ValidCard"); ok {
+		cast, _ := g.thisTurnCastCards(host.ID, spec)
+		for _, c := range cast {
+			if c.controller == pid {
+				return costModSkips
+			}
+		}
+		return costModApplies
+	}
+	for _, rec := range g.castThisTurn {
+		if rec.controller == pid {
+			return costModSkips
+		}
+	}
+	return costModApplies
 }

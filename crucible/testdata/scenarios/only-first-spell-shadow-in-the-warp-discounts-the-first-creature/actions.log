@@ -1,0 +1,21 @@
+# Shadow in the Warp's ReduceCost carries OnlyFirstSpell$ with ValidCard$
+# Card.Creature (CostAdjustment.java:541-555): Craw Wurm, the human's first
+# creature spell this turn, costs {2}{G}{G}; Grizzly Bears, the second, is
+# refused with one Forest and cast for its full {1}{G} with two.
+startturn human
+advance 3
+tapformana human 10 G
+tapformana human 11 G
+tapformana human 12 G
+tapformana human 13 G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack
+tapformana human 14 G
+queue paygeneric G
+expecterror refused castspell human 2
+tapformana human 15 G
+queue paygeneric G
+castspell human 2
+resolvestack

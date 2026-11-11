@@ -29,7 +29,9 @@ type kickerOption struct {
 
 // kickerCosts is the plain mana costs of c's Kicker keyword: "Kicker:<cost>"
 // is one, "Kicker:<cost>:<cost>" two. A Kicker with a non-mana cost (Sac<..>)
-// is not offered, never half-paid (GO-7).
+// is not offered, never half-paid (GO-7). An X in it (Kicker:X, Verdeloth,
+// Thieving Skydiver) joins the spell's cost and is announced with it
+// (payManaCostX, CR 601.2b).
 func kickerCosts(c *Card) []kickerOption {
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
@@ -42,7 +44,7 @@ func kickerCosts(c *Card) []kickerOption {
 				return nil
 			}
 			mc, err := mana.Parse(text)
-			if err != nil || mc.CountX() > 0 {
+			if err != nil {
 				return nil
 			}
 			out = append(out, kickerOption{text: text, mana: mc})

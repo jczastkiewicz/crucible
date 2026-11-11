@@ -1003,6 +1003,12 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	if sp := firstSpellAbility(c); sp != nil {
 		g.xColor = xColorMask(sp)
 	}
+	if c.hasKeywordText("Spend only colored mana on X. No more than one mana of each color may be spent this way.") {
+		// PlaySpellAbility.java:459-461: Emblazoned Golem's X takes colored mana
+		// only. The "no more than one of each color" clause has no Java reader
+		// and is not enforced here either (quirks.md).
+		g.xColor = mana.White | mana.Blue | mana.Black | mana.Red | mana.Green
+	}
 	x, paid := g.payManaCostX(pid, total, controller)
 	g.xColor = 0
 	restore()

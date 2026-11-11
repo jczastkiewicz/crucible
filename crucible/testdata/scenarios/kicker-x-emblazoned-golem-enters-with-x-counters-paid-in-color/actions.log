@@ -1,0 +1,18 @@
+# Kicker:X (GameActionUtil's optional cost, the X announced with it, CR
+# 601.2b) on Emblazoned Golem: kicked for X = 2, paid {W}{U} for the X (its
+# colored-only sentence) and two colorless for {2}; it enters with two
+# +1/+1 counters (K:etbCounter ... CheckSVar$ WasKicked).
+startturn human
+advance 3
+tapformana human 2 C
+tapformana human 3 C
+tapformana human 4 W
+tapformana human 5 U
+queue confirmpaycost true
+queue payx 2
+queue hybridmanacolor W
+queue hybridmanacolor U
+queue paygeneric C
+queue paygeneric C
+castspell human 1
+resolvestack

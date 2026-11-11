@@ -1,0 +1,22 @@
+# Emblazoned Golem's "Spend only colored mana on X" (PlaySpellAbility.java:
+# 459-461): kicked for X = 2 with four colorless mana, its {2} can be paid
+# but the X units, each a colored shard, cannot, so the cast is refused;
+# unkicked it is cast for {2}.
+startturn human
+advance 3
+tapformana human 2 C
+tapformana human 3 C
+tapformana human 4 C
+tapformana human 5 C
+queue confirmpaycost true
+queue payx 2
+queue hybridmanacolor W
+queue hybridmanacolor U
+queue paygeneric C
+queue paygeneric C
+expecterror refused castspell human 1
+queue confirmpaycost false
+queue paygeneric C
+queue paygeneric C
+castspell human 1
+resolvestack

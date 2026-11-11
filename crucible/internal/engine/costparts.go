@@ -378,6 +378,7 @@ func (g *Game) exileEitherPicks(controller PlayerController, pid PlayerID, sourc
 // CostForage.java:52), and recorded as the cost's "Exiled" paid list in rec
 // when there is one.
 func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost, rec *paidLists) {
+	defer g.withMoveCause(a)()
 	if uc.subCounterN > 0 {
 		from := a.Source
 		if uc.subCounterSpec != "" {

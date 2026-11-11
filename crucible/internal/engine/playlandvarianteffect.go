@@ -90,7 +90,7 @@ func (playLandVariantEffect) Resolve(g *Game, a *Ability, c PlayerController) er
 	origin := g.Card(source).Zone
 	g.playLandNow(c, activator, source)
 	if g.Card(source).Zone == Battlefield {
-		g.checkChangesZoneAllTriggers(c, []CardID{source}, origin, Battlefield)
+		g.landPlayZoneAll(c, activator, source, origin)
 	}
 	return nil
 }

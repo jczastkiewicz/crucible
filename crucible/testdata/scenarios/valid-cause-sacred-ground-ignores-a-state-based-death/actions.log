@@ -1,0 +1,9 @@
+# Dryad Arbor, a land, dies to the AI's Shock through the state-based
+# action (CR 704.5g), which has no cause (GameState.java:1213 passes null),
+# not through the Shock: Sacred Ground does not return it.
+startturn ai
+advance 3
+tapformana ai 10 R
+queue targets 2
+castspell ai 13
+resolvestack

@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+humanbattlefield=Deep Gnome Terramancer|Id:1
+humanlibrary=Plains|Id:2
+aibattlefield=Forest|Id:10;Forest|Id:11
+aihand=Forest|Id:12;Rampant Growth|Id:13
+ailibrary=Forest|Id:14

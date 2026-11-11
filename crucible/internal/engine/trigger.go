@@ -84,7 +84,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) || !g.checkOnTriggeredCardMet(c, face.Amounts, t, entered) || !g.conditionYouCastThisTurnMet(c, t) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) || !g.checkOnTriggeredCardMet(c, face.Amounts, t, entered) || !g.conditionYouCastThisTurnMet(c, t) || !g.zoneCauseMet(c, face.Amounts, t) {
 					continue
 				}
 				evolve, ok := evolveCheck(g, c, t, entered)
@@ -150,7 +150,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) || !g.checkOnTriggeredCardMet(w, face.Amounts, t, entered) || !g.conditionYouCastThisTurnMet(w, t) {
+					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) || !g.checkOnTriggeredCardMet(w, face.Amounts, t, entered) || !g.conditionYouCastThisTurnMet(w, t) || !g.zoneCauseMet(w, face.Amounts, t) {
 						continue
 					}
 					evolve, ok := evolveCheck(g, w, t, entered)
@@ -242,7 +242,7 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 					continue
 				}
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, Graveyard) ||
-					!g.checkOnTriggeredCardMet(c, face.Amounts, t, left) || !g.conditionYouCastThisTurnMet(c, t) {
+					!g.checkOnTriggeredCardMet(c, face.Amounts, t, left) || !g.conditionYouCastThisTurnMet(c, t) || !g.zoneCauseMet(c, face.Amounts, t) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -322,7 +322,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 						continue
 					}
 					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, dying, Battlefield, Graveyard) ||
-						!g.checkOnTriggeredCardMet(w, face.Amounts, t, left) || !g.conditionYouCastThisTurnMet(w, t) {
+						!g.checkOnTriggeredCardMet(w, face.Amounts, t, left) || !g.conditionYouCastThisTurnMet(w, t) || !g.zoneCauseMet(w, face.Amounts, t) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
@@ -1948,7 +1948,7 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 					if !isChangesZoneAllTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "ValidCause", "InvertValidCause") {
+					if !g.zoneCauseMet(h, face.Amounts, t) {
 						continue
 					}
 					if !hasZoneOrAny(t, "Destination", destination) || !hasZoneOrAny(t, "Origin", origin) {
@@ -2705,19 +2705,14 @@ func hasZoneOrAny(t *compile.Ability, key string, zone ZoneType) bool {
 // Each is vanishingly rare in the real corpus (12 of 7,609 real
 // T:Mode$ ChangesZone lines combined) but a line naming one skips rather
 // than firing unconditionally and guessing wrong (PORT-8/GO-7):
-// ValidCause$/NotThisAbility$ (1 each -- AbilityKey.Cause tracking and a "did
-// I cause my own trigger" self-reference, which this port does not track
-// anywhere a trigger could read). CheckOnTriggeredCard$ is
-// checkOnTriggeredCardMet's and ConditionYouCastThisTurn$
-// conditionYouCastThisTurnMet's, read where the moved card is known (the
+// ValidCause$ and NotThisAbility$ are zoneCauseMet's (zonecause.go),
+// CheckOnTriggeredCard$ checkOnTriggeredCardMet's and
+// ConditionYouCastThisTurn$ conditionYouCastThisTurnMet's, read where the moved card is known (the
 // enters and dies paths, the only zones its corpus lines name);
 // ExcludedOrigins$/ExcludedDestinations$ are hasZoneOrAny's. Fizzle$ is only on the Haunt
 // keyword's synthesized stack-to-graveyard line, which
 // checkSpellToGraveyardTriggers (haunteffect.go) reads instead.
-var changesZoneUnresolvedParams = [...]string{
-	"ValidCause", "NotThisAbility",
-	"Fizzle",
-}
+var changesZoneUnresolvedParams = [...]string{"Fizzle"}
 
 func changesZoneResolvable(t *compile.Ability) bool {
 	for _, key := range changesZoneUnresolvedParams {

@@ -65,9 +65,16 @@ func (g *Game) PlayLand(pid PlayerID, card CardID, controller PlayerController) 
 	// A land play is a batch of one for Mode$ ChangesZoneAll; Play
 	// (playeffect.go) fires its own.
 	if c.Zone == Battlefield {
-		g.checkChangesZoneAllTriggers(controller, []CardID{card}, origin, Battlefield)
+		g.landPlayZoneAll(controller, pid, card, origin)
 	}
 	return true
+}
+
+// landPlayZoneAll fires Mode$ ChangesZoneAll for a played land, a batch of
+// one, with the land play as its cause (LandAbility, Deep Gnome Terramancer).
+func (g *Game) landPlayZoneAll(controller PlayerController, pid PlayerID, card CardID, origin ZoneType) {
+	defer g.landPlayCause(card, pid)()
+	g.checkChangesZoneAllTriggers(controller, []CardID{card}, origin, Battlefield)
 }
 
 // hasLandDrop reports whether pid has a land play left this turn
@@ -85,6 +92,7 @@ func (g *Game) hasLandDrop(pid PlayerID) bool {
 // PlayLand calls it once its own timing and hand gates pass; Play
 // (playeffect.go) calls it for a land from any zone.
 func (g *Game) playLandNow(controller PlayerController, pid PlayerID, card CardID) {
+	defer g.landPlayCause(card, pid)()
 	c := g.Card(card)
 	origin := c.Zone
 	played := sacrificeRecord{player: pid, card: *c}

@@ -97,6 +97,7 @@ func (g *Game) chooseCostCards(controller PlayerController, pid PlayerID, source
 // payCostCards commits the picks and records them on a, the ability they paid
 // for.
 func (g *Game) payCostCards(controller PlayerController, pid PlayerID, chosen chosenCosts, a *Ability) {
+	defer g.withMoveCause(a)()
 	// A pick that left its zone since it was made (an earlier part of the same
 	// cost moved it) is skipped by the move and so is not paid, nor recorded.
 	in := func(zone ZoneType, ids []CardID) []CardID {

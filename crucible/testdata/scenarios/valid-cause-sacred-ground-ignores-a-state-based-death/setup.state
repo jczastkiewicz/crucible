@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Sacred Ground|Id:1;Dryad Arbor|Id:2
+aibattlefield=Mountain|Id:10
+aihand=Shock|Id:13

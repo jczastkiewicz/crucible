@@ -1,0 +1,18 @@
+# Deep Gnome Terramancer's ChangesZoneAll trigger reads ValidCause$
+# LandAbility with InvertValidCause$ True (CardTraitBase.java:260-266): a land
+# an opponent plays (a land play is the cause) does not fire it; the Forest
+# the AI's Rampant Growth puts onto the battlefield does, so the human
+# searches for a Plains and puts it onto the battlefield tapped.
+startturn ai
+advance 3
+queue action ai playland 12
+passpriority
+tapformana ai 10 G
+tapformana ai 11 G
+queue paygeneric G
+queue cardchoice 14
+queue optionaltrigger true
+queue cardchoice 2
+castspell ai 13
+resolvestack
+resolvestack

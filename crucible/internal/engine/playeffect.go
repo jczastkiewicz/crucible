@@ -292,7 +292,7 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		if opt.land {
 			g.playLandNow(controller, caster, pick)
 			playRecord(g, a, pick, chosenCard)
-			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Battlefield)
+			g.landPlayZoneAll(controller, caster, pick, origin)
 			amount--
 			continue
 		}

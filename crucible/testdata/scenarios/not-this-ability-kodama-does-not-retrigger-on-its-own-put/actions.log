@@ -1,0 +1,14 @@
+# Kodama of the East Tree's ChangesZone trigger carries NotThisAbility$ True
+# (TriggerChangesZone.java:161-168): Grizzly Bears entering lets it put
+# Ornithopter (mana value 0, at most 2) from the hand onto the battlefield;
+# Ornithopter's entry is caused by that same trigger, so it does not fire
+# again: the second Ornithopter stays in the hand, no second choice asked.
+startturn human
+advance 3
+tapformana human 4 G
+tapformana human 5 G
+queue paygeneric G
+queue cardchoice 3
+castspell human 2
+resolvestack
+resolvestack

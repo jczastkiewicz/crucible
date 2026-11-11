@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Sacred Ground|Id:1;Plains|Id:2
+aibattlefield=Mountain|Id:10;Mountain|Id:11;Mountain|Id:12
+aihand=Stone Rain|Id:13

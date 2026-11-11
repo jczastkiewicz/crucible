@@ -373,7 +373,7 @@
       "subability",
       "manaabilityrule"
     ],
-    "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
+    "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control", "zonecause"],
     "castspell": [
       "altadditionalcost",
       "triggerhooks",

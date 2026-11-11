@@ -86,7 +86,9 @@ func (g *Game) spellAbilityMatchesOne(a *Ability, source *Card, alt string, host
 	case "Activated":
 		headOK = kind == causeActivated
 	case "SpellAbility":
-		headOK = true
+		headOK = !a.landAbility
+	case "LandAbility":
+		headOK = a.landAbility
 	default:
 		// Static and LandAbility heads are not stack objects here.
 		return false, head == "Static" || head == "LandAbility"

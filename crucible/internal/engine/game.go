@@ -104,6 +104,11 @@ type Game struct {
 	// that name its targets, triggering objects and paid cards read it
 	// (amountcontext.go, valid.go); nil outside both.
 	resolving *Ability
+	// moveCause overrides resolving as the cause of a zone move while
+	// moveCauseSet holds (withMoveCause, zonecause.go): the ability whose cost
+	// moves a card, a land play, or none for a state-based action.
+	moveCause    *Ability
+	moveCauseSet bool
 	// triggerEvent is the event a trigger's conditions are being read
 	// against (withTriggerEvent, triggerevent.go); nil outside that check.
 	triggerEvent *triggerEventCheck

@@ -1,0 +1,12 @@
+# The same trigger when the human's own Stone Rain destroys the Plains: the
+# cause is not an opponent's, so the land stays in the graveyard.
+startturn human
+advance 3
+tapformana human 10 R
+tapformana human 11 R
+tapformana human 12 R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+castspell human 13
+resolvestack

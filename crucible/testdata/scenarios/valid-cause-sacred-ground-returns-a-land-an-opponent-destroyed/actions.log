@@ -1,0 +1,15 @@
+# Sacred Ground's ChangesZone trigger reads ValidCause$ SpellAbility.OppCtrl
+# (TriggerChangesZone.java:147; the cause is the effect's SpellAbility,
+# GameAction.java:605): the AI's Stone Rain destroys the human's Plains, so
+# it returns to the battlefield.
+startturn ai
+advance 3
+tapformana ai 10 R
+tapformana ai 11 R
+tapformana ai 12 R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+castspell ai 13
+resolvestack
+resolvestack

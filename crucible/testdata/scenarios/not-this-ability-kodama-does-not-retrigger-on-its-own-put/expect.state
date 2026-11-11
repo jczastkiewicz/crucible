@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Ornithopter
+humanbattlefield=Kodama of the East Tree;Forest|Tapped;Forest|Tapped;Grizzly Bears|SummonSick;Ornithopter|SummonSick
+ailife=20

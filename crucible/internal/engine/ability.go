@@ -351,6 +351,9 @@ type Ability struct {
 	// pushes through pushTriggeredAbilities for its targets: it is not a
 	// trigger (isTrigger stays false).
 	activated bool
+	// landAbility marks the stand-in cause of a land play (SpellAbility's
+	// LandAbility, read by a ValidCause$ LandAbility, zonecause.go).
+	landAbility bool
 	// crew marks the activation of a Crew keyword ability (SpellAbility.isCrew),
 	// whose resolution fires BecomesCrewed.
 	crew bool

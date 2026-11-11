@@ -1,0 +1,9 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Deep Gnome Terramancer;Plains|Tapped
+ailife=20
+ailandsplayed=1
+aibattlefield=Forest|Tapped;Forest|Tapped;Forest;Forest|Tapped
+aigraveyard=Rampant Growth

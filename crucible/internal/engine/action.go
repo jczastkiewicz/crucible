@@ -120,6 +120,9 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 // GameAction.java:1437-1438). The turn driver's CR 514.3a cleanup repeat
 // reads performed (beginStep, turn.go).
 func checkStateBasedActions(g *Game, controller PlayerController) (over, performed bool) {
+	// A state-based action has no cause (GameState.java:1213 passes null),
+	// even when it runs inside an effect's resolution (EndTurn, EndCombat).
+	defer g.withMoveCause(nil)()
 	g.syncRadiationEffects()
 	g.flushCounterRemoved(controller)
 	g.flushUnattached(controller)

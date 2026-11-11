@@ -1,0 +1,8 @@
+# The same dies trigger after Lightning Bolt: the Zubera received 3, under
+# the GE4 of its CheckOnTriggeredCard$, so the trigger does not fire.
+startturn human
+advance 3
+tapformana human 3 R
+queue targets 2
+castspell human 1
+resolvestack

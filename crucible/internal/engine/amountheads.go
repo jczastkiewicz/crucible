@@ -549,6 +549,21 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		return g.Card(source).damageDealtThisTurn, true
+	case "TotalDamageReceivedThisTurn":
+		// AbilityUtils.java:2386-2388, Card.getAssignedDamage: every damage
+		// the host was dealt this turn, from any source (GameEntity.java:
+		// 380-392). The turn's damage log is keyed by CardID, so a card that
+		// died still counts what it took (the Zubera's dies trigger).
+		if source == NoCard {
+			return 0, false
+		}
+		total := 0
+		for _, rec := range g.cardDamageThisTurn {
+			if rec.target.ID == source {
+				total += rec.amount
+			}
+		}
+		return total, true
 	case "ExcessDamageReceivedThisTurn":
 		// AbilityUtils.java:2406-2408: Card.getExcessDamageThisTurn, the
 		// excess the host was dealt this turn (Damage.ExcessReceived).

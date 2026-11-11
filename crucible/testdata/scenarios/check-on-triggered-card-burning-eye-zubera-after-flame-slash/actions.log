@@ -1,0 +1,12 @@
+# Burning-Eye Zubera's dies trigger reads CheckOnTriggeredCard$ X GE4, X =
+# Count$TotalDamageReceivedThisTurn on the dead card (AbilityUtils.java:
+# 2386-2388): Flame Slash's 4 damage kills it with 4 received, so it deals 3
+# to the AI.
+startturn human
+advance 3
+tapformana human 3 R
+queue targets 2
+queue targets ai
+castspell human 1
+resolvestack
+resolvestack

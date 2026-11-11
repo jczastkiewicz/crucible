@@ -4375,9 +4375,8 @@ func (g *Game) triggerPushOrder(controller PlayerController, pid PlayerID, match
 // is calculateAmount on the moved card, its SVar looked up on the trigger
 // first and the moved card second (AbilityUtils.java:398-410), and evaluated
 // with the moved card as source (Tunnel Ignus counts the lands that land's
-// controller had enter this turn). An amount this port cannot compute fails
-// the line (GO-7): Burning-Eye and Rushing-Tide Zubera's
-// Count$TotalDamageReceivedThisTurn has no Go head, so they do not fire.
+// controller had enter this turn, a Zubera the damage it took). An amount
+// this port cannot compute fails the line (GO-7).
 func (g *Game) checkOnTriggeredCardMet(host *Card, amounts map[string]expr.Amount, t *compile.Ability, moved CardID) bool {
 	raw, ok := t.Param("CheckOnTriggeredCard")
 	if !ok {

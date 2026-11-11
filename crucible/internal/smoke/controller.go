@@ -115,8 +115,15 @@ func (*Controller) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, dups
 // attack over it is illegal, so a probe that sent everyone would be refused
 // for the card's own restriction) or an eligible creature "can only attack
 // alone" (Master of Cruelties; AttackRestriction.java:49-50 counts the whole
-// declared attack).
+// declared attack). A creature with a "CARDNAME can't attack unless ..."
+// sentence (Okk, Scarred Puma, Orcish Conscripts; AttackRestriction.java:
+// 86-100) stays home: whether it may attack depends on the rest of the attack.
 func (*Controller) DeclareCombatAttackers(g *engine.Game, _ engine.PlayerID, eligible []engine.CardID) []engine.CardID {
+	eligible = slices.DeleteFunc(slices.Clone(eligible), func(id engine.CardID) bool {
+		return slices.ContainsFunc(g.Card(id).KeywordLines(), func(l string) bool {
+			return strings.HasPrefix(l, "CARDNAME can't attack unless ")
+		})
+	})
 	if len(eligible) > 1 {
 		for _, id := range eligible {
 			if slices.Contains(g.Card(id).KeywordLines(), "CARDNAME can only attack alone.") {

@@ -84,7 +84,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) || !g.checkOnTriggeredCardMet(c, face.Amounts, t, entered) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) || !g.checkOnTriggeredCardMet(c, face.Amounts, t, entered) || !g.conditionYouCastThisTurnMet(c, t) {
 					continue
 				}
 				evolve, ok := evolveCheck(g, c, t, entered)
@@ -150,7 +150,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) || !g.checkOnTriggeredCardMet(w, face.Amounts, t, entered) {
+					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) || !g.checkOnTriggeredCardMet(w, face.Amounts, t, entered) || !g.conditionYouCastThisTurnMet(w, t) {
 						continue
 					}
 					evolve, ok := evolveCheck(g, w, t, entered)
@@ -242,7 +242,7 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 					continue
 				}
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, Graveyard) ||
-					!g.checkOnTriggeredCardMet(c, face.Amounts, t, left) {
+					!g.checkOnTriggeredCardMet(c, face.Amounts, t, left) || !g.conditionYouCastThisTurnMet(c, t) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -322,7 +322,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 						continue
 					}
 					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, dying, Battlefield, Graveyard) ||
-						!g.checkOnTriggeredCardMet(w, face.Amounts, t, left) {
+						!g.checkOnTriggeredCardMet(w, face.Amounts, t, left) || !g.conditionYouCastThisTurnMet(w, t) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
@@ -2709,17 +2709,17 @@ func hasZoneOrAny(t *compile.Ability, key string, zone ZoneType) bool {
 // Each is vanishingly rare in the real corpus (12 of 7,609 real
 // T:Mode$ ChangesZone lines combined) but a line naming one skips rather
 // than firing unconditionally and guessing wrong (PORT-8/GO-7):
-// ValidCause$/NotThisAbility$/ConditionYouCastThisTurn$ (1 each --
-// AbilityKey.Cause tracking, a "did I cause my own trigger" self-reference,
-// and a per-turn cast-count condition, none of which this port tracks
+// ValidCause$/NotThisAbility$ (1 each -- AbilityKey.Cause tracking and a "did
+// I cause my own trigger" self-reference, which this port does not track
 // anywhere a trigger could read). CheckOnTriggeredCard$ is
-// checkOnTriggeredCardMet's, read where the moved card is known (the
+// checkOnTriggeredCardMet's and ConditionYouCastThisTurn$
+// conditionYouCastThisTurnMet's, read where the moved card is known (the
 // enters and dies paths, the only zones its corpus lines name);
 // ExcludedOrigins$/ExcludedDestinations$ are hasZoneOrAny's. Fizzle$ is only on the Haunt
 // keyword's synthesized stack-to-graveyard line, which
 // checkSpellToGraveyardTriggers (haunteffect.go) reads instead.
 var changesZoneUnresolvedParams = [...]string{
-	"ValidCause", "NotThisAbility", "ConditionYouCastThisTurn",
+	"ValidCause", "NotThisAbility",
 	"Fizzle",
 }
 
@@ -4412,4 +4412,35 @@ func (g *Game) checkOnTriggeredCardMet(host *Card, amounts map[string]expr.Amoun
 		}
 	}
 	return compareOp(actual, comparator[:2], reference)
+}
+
+// conditionYouCastThisTurnMet is TriggerChangesZone's ConditionYouCastThisTurn$
+// (TriggerChangesZone.java:170-183): the host's own cast is the nth spell its
+// controller cast this turn, n compared with the value ("EQ2", Codespell
+// Cleric's "if it was the second spell you cast this turn"). A host not cast
+// is at position 0, so it fails any EQn with n of 1 or more, as Java's -1+1.
+func (g *Game) conditionYouCastThisTurnMet(host *Card, t *compile.Ability) bool {
+	compare, ok := t.Param("ConditionYouCastThisTurn")
+	if !ok {
+		return true
+	}
+	if len(compare) < 3 {
+		return false
+	}
+	right, err := strconv.Atoi(compare[2:])
+	if err != nil {
+		return false
+	}
+	position, n := 0, 0
+	for _, rec := range g.castThisTurn {
+		if rec.controller != host.Controller() {
+			continue
+		}
+		n++
+		if host.castSeq != 0 && rec.card == host.ID && rec.seq == host.castSeq {
+			position = n
+			break
+		}
+	}
+	return compareOp(position, compare[:2], right)
 }

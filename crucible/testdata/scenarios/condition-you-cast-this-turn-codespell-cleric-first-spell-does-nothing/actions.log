@@ -1,0 +1,8 @@
+# The same ETB with Codespell Cleric as the first spell of the turn: the
+# EQ2 condition fails, so the trigger never goes on the stack and asks for
+# no target.
+startturn human
+advance 3
+tapformana human 3 W
+castspell human 2
+resolvestack

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Ornithopter|SummonSick|Counters:P1P1=1;Codespell Cleric|SummonSick
+ailife=20

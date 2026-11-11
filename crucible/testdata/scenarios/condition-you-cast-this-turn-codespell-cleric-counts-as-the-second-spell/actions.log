@@ -1,0 +1,12 @@
+# ConditionYouCastThisTurn$ EQ2 (TriggerChangesZone.java:170-183): Codespell
+# Cleric cast after Ornithopter is its controller's second spell this turn,
+# so its ETB puts a +1/+1 counter on target creature (Ornithopter).
+startturn human
+advance 3
+castspell human 1
+resolvestack
+tapformana human 3 W
+queue targets 1
+castspell human 2
+resolvestack
+resolvestack

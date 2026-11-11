@@ -1609,8 +1609,8 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	if !ok {
 		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q not resolvable yet", text)
 	}
-	if uc.flipN > 0 && flipCoinModInPlay(g) {
-		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q: a FlipCoinMod static is in play, not resolvable yet", text)
+	if uc.flipN > 0 && (g.flipCoinFixedResult(a.Controller) != nil || flipCoinDoublerInPlay(g)) {
+		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q: a FlipCoinMod or FlipCoinDoubler static applies, not resolvable yet", text)
 	}
 	g.unlessPaidMana = ""
 	paid := (uc.mandatory || controller.ConfirmPayCost(g, a.Controller, uc.parsed, a.Source)) &&

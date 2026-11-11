@@ -883,6 +883,7 @@ func (g *Game) endCleanup() {
 		p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, p.LifeLostThisTurn
 		p.scryThisTurn = 0
 		p.RollsThisTurn = 0
+		p.flipsThisTurn = 0
 		p.librarySearched = 0
 		p.CardsDrawnThisTurn = 0
 		p.extraDrawnThisTurn = 0

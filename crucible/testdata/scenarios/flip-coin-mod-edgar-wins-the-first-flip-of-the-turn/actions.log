@@ -1,0 +1,9 @@
+# Edgar, King of Figaro's FlipCoinMod (StaticAbilityFlipCoinMod.java:14-19)
+# fixes the result while Count$YouFlipThisTurn is 0: Winter Sky's flip, the
+# human's first this turn, asks no call and is won (FlipCoinEffect.java:
+# 203-221), so it deals 1 damage to each creature and each player.
+startturn human
+advance 3
+tapformana human 3 R
+castspell human 1
+resolvestack

@@ -1,10 +1,12 @@
 package engine
 
-//enginelint:allow ability additional card condition control defined effecthelpers game id parts zone
+//enginelint:allow ability additional card condition control defined effecthelpers game id parts zone valid
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // flipCoinEffect is FlipCoinEffect.java (CR 705): each Flipper$ player
@@ -23,18 +25,17 @@ import (
 // ForEachPlayer$ (without NoCall$) makes each flipper flip once per player
 // it names, Amount$ unread, and resolves WinSubAbility$/LoseSubAbility$ once
 // with Remembered set to the players won or lost for (SVar Wins/Losses the
-// counts). A flip
-// fails closed while while a FlipCoinMod/FlipCoinDoubler static (Krark's Thumb, a
-// fixed result) is in play: this port evaluates neither static's
-// conditions nor the chooseFlipResult decision a doubled flip needs.
+// counts). A FlipCoinMod static fixes every flip of a round
+// (flipCoinFixedResult); a flip fails closed while a FlipCoinDoubler (Krark's
+// Thumb) is in play, whose chooseFlipResult decision is not ported.
 type flipCoinEffect struct{}
 
 func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if flipCoinModInPlay(g) {
-		return fmt.Errorf("engine: FlipCoin: a FlipCoinMod static is in play, not resolvable yet")
+	if flipCoinDoublerInPlay(g) {
+		return fmt.Errorf("engine: FlipCoin: a FlipCoinDoubler static is in play, not resolvable yet")
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -70,17 +71,13 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		wins := 0
 		for {
 			won := false
+			// FlipCoinEffect.java:177-179: the fixed result is read once per
+			// round of flips, so a Two-Headed Coin's "first time" covers them all.
+			fixed := g.flipCoinFixedResult(flipper)
 			for i := 0; i < amount; i++ {
-				call := true
-				if !noCall {
-					call = controller.CallCoinFlip(g, flipper, a.Source)
-				}
-				won = g.rand.Bool() == call
+				won = g.flipOneCoin(controller, a, flipper, noCall, fixed)
 				if won {
 					wins++
-				}
-				if !noCall {
-					g.checkFlippedCoinTriggers(controller, flipper, won)
 				}
 			}
 			if !untilLose || !won {
@@ -151,9 +148,7 @@ func (g *Game) flipForEachPlayer(a *Ability, controller PlayerController, flippe
 	}
 	var wonFor, lostFor []PlayerID
 	for _, p := range players {
-		call := controller.CallCoinFlip(g, flipper, a.Source)
-		won := g.rand.Bool() == call
-		g.checkFlippedCoinTriggers(controller, flipper, won)
+		won := g.flipOneCoin(controller, a, flipper, false, g.flipCoinFixedResult(flipper))
 		g.checkFlippedCoinOnceTriggers(controller, flipper)
 		if won {
 			wonFor = append(wonFor, p)
@@ -202,12 +197,35 @@ func (g *Game) resolveFlipSub(parent *Ability, controller PlayerController, key,
 	return g.resolveAdditional(&p, controller, subs[0])
 }
 
-// flipCoinModInPlay reports whether any card in a static-ability zone
-// carries a Mode$ FlipCoinMod (fixed result) or FlipCoinDoubler static
-// (StaticAbilityFlipCoinMod's scan).
-func flipCoinModInPlay(g *Game) bool {
+// flipOneCoin is FlipCoinEffect.flipCoin (FlipCoinEffect.java:203-241): a
+// fixed result (FlipCoinMod) asks no call and draws nothing from the RNG;
+// otherwise the flipper calls unless NoCall$ and the coin is the RNG's.
+// Every flip counts toward flipsThisTurn; FlippedCoin fires for a called or a
+// fixed flip.
+func (g *Game) flipOneCoin(controller PlayerController, a *Ability, flipper PlayerID, noCall bool, fixed *bool) bool {
+	call, result := true, false
+	if fixed != nil {
+		result = *fixed
+	} else {
+		if !noCall {
+			call = controller.CallCoinFlip(g, flipper, a.Source)
+		}
+		result = g.rand.Bool()
+	}
+	won := result == call
+	g.Player(flipper).flipsThisTurn++
+	if !noCall || fixed != nil {
+		g.checkFlippedCoinTriggers(controller, flipper, won)
+	}
+	return won
+}
+
+// flipCoinStatics calls each live static of mode on a card in a
+// static-ability source zone (ZoneType.STATIC_ABILITIES_SOURCE_ZONES:
+// battlefield, graveyard, exile, Command, stack) until each returns false.
+func (g *Game) flipCoinStatics(mode string, each func(h *Card, s *compile.Ability) bool) {
 	for _, p := range g.Players() {
-		for _, z := range []ZoneType{Battlefield, Command, Graveyard, Exile, Hand} {
+		for _, z := range []ZoneType{Battlefield, Graveyard, Exile, Command, Stack} {
 			for _, id := range g.Zone(z, p).Cards() {
 				c := g.Card(id)
 				if c.Def == nil {
@@ -215,13 +233,47 @@ func flipCoinModInPlay(g *Game) bool {
 				}
 				for _, face := range c.liveTraitFaces() {
 					for _, s := range face.Statics {
-						if strings.EqualFold(s.Name, "FlipCoinMod") || strings.EqualFold(s.Name, "FlipCoinDoubler") {
-							return true
+						if strings.EqualFold(s.Name, mode) && !each(c, s) {
+							return
 						}
 					}
 				}
 			}
 		}
 	}
-	return false
+}
+
+// flipCoinFixedResult is StaticAbilityFlipCoinMod.fixedResult
+// (StaticAbilityFlipCoinMod.java:14-19): the Result$ of the first FlipCoinMod
+// whose conditions hold (Edgar, King of Figaro's CheckSVar$ YouFlipThisTurn
+// EQ0) and whose ValidPlayer$ admits flipper; nil for none.
+func (g *Game) flipCoinFixedResult(flipper PlayerID) *bool {
+	var out *bool
+	g.flipCoinStatics("FlipCoinMod", func(h *Card, s *compile.Ability) bool {
+		if !g.staticOtherConditionsMet(h, s) {
+			return true
+		}
+		if spec, ok := s.Param("ValidPlayer"); ok {
+			if m, known := matchesPlayerSpec(g, flipper, h.Controller(), h.ID, spec); !known || !m {
+				return true
+			}
+		}
+		raw, _ := s.Param("Result")
+		v := strings.EqualFold(raw, "true")
+		out = &v
+		return false
+	})
+	return out
+}
+
+// flipCoinDoublerInPlay reports whether a FlipCoinDoubler static (Krark's
+// Thumb) is in play: its chooseFlipResult decision is not ported, so a flip
+// then fails closed.
+func flipCoinDoublerInPlay(g *Game) bool {
+	found := false
+	g.flipCoinStatics("FlipCoinDoubler", func(*Card, *compile.Ability) bool {
+		found = true
+		return false
+	})
+	return found
 }

@@ -658,6 +658,9 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	case "YouFaceDilemmaThisTurn":
 		// AbilityUtils.java:2309: the modal choices the controller made this turn.
 		return g.Player(sourceController).dilemmasFacedThisTurn, true
+	case "YouFlipThisTurn":
+		// AbilityUtils.java:2295-2296, Player.getNumFlipsThisTurn.
+		return g.Player(sourceController).flipsThisTurn, true
 	case "YouDrewThisTurn":
 		return g.Player(sourceController).CardsDrawnThisTurn, true
 	case "NumInAllHands":

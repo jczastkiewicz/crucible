@@ -138,6 +138,9 @@ type Player struct {
 	// the identical per-turn-counter shape LandsPlayed already has, reset for
 	// every player at cleanup (endCleanup, turn.go) the same way.
 	CardsDrawnThisTurn int
+	// flipsThisTurn is Player.numFlipsThisTurn (Player.java:1432-1440): coins
+	// flipped this turn, Count$YouFlipThisTurn; reset at cleanup.
+	flipsThisTurn int
 	// DescendedThisTurn is CR's own "descend" tracker (Java's own
 	// Player.descended, Player.java) -- whether a permanent card has been put
 	// into this player's graveyard from anywhere this turn, read by

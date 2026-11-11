@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Cunning Giant|Tapped|Attacking
+ailife=20
+aigraveyard=Grizzly Bears

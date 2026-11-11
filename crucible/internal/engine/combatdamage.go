@@ -114,7 +114,10 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			g.noteFirstStrikeDealer(atkID, firstStrike)
 			g.maskTurnUp(controller, atkID) // Combat.java:778, Event$ AssignDealDamage
 			if power, ok := netCombatDamage(g, atk); ok && power > 0 {
-				if g.assignsToDefender(controller, atk) {
+				unblocked := len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID)
+				if target, ok := g.unblockedDamageToCreature(controller, atk, unblocked); ok {
+					g.dealPermanentDamage(controller, atkID, target, power, atk.HasKeyword("Deathtouch"), true, &table)
+				} else if g.assignsToDefender(controller, atk) {
 					g.dealAttackTargetDamage(controller, atkID, power, atk.HasKeyword("Deathtouch"), &table)
 				} else {
 					g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
@@ -614,4 +617,34 @@ func (g *Game) assignsToDefender(controller PlayerController, atk *Card) bool {
 	}
 	return g.combat.isBlocked(atk.ID) && assignsAsUnblocked(g, atk, true) &&
 		controller.ConfirmEffect(g, atk.Controller(), atk.ID)
+}
+
+// unblockedDamageToCreature is Combat.java:868-871 and :901-905: an unblocked
+// attacker with "If CARDNAME is unblocked, you may have it assign its combat
+// damage to a creature defending player controls." (Cunning Giant) asks its
+// controller (confirmStaticApplication; ConfirmEffect stands for it) and then
+// which of the defending player's creatures takes all of it. false when the
+// sentence, the attack or the answer does not apply.
+func (g *Game) unblockedDamageToCreature(controller PlayerController, atk *Card, unblocked bool) (CardID, bool) {
+	if !unblocked || !atk.hasKeywordText("If CARDNAME is unblocked, you may have it assign its combat damage to a creature defending player controls.") {
+		return NoCard, false
+	}
+	defender, ok := g.defenderPlayerByAttacker(atk.ID)
+	if !ok {
+		return NoCard, false
+	}
+	var creatures []CardID
+	for _, id := range g.Zone(Battlefield, defender).Cards() {
+		if c := g.Card(id); c.Type().Has(cardtype.Creature) && !c.IsPhasedOut() {
+			creatures = append(creatures, id)
+		}
+	}
+	if len(creatures) == 0 || !controller.ConfirmEffect(g, atk.Controller(), atk.ID) {
+		return NoCard, false
+	}
+	chosen := controller.ChooseCardsForEffect(g, atk.Controller(), atk.ID, creatures, 1, 1)
+	if len(chosen) != 1 || !containsCard(creatures, chosen[0]) {
+		return NoCard, false
+	}
+	return chosen[0], true
 }

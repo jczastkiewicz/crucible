@@ -1,0 +1,17 @@
+# Cunning Giant: "If CARDNAME is unblocked, you may have it assign its
+# combat damage to a creature defending player controls." (Combat.java:
+# 868-871, 901-905). Unblocked, its controller accepts and picks Grizzly
+# Bears: all 4 damage goes to the Bears, none to the AI.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+queue confirmeffect true
+queue cardchoice 2
+combatdamage
+advance

@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Opt|Id:1;Demilich|Id:2
+humanbattlefield=Island|Id:10;Island|Id:11;Island|Id:12;Island|Id:13
+humanlibrary=Plains|Id:20;Plains|Id:21

@@ -1,0 +1,14 @@
+# Demilich's ReduceCost carries Color$ U with Amount$ X, the instants and
+# sorceries cast this turn (CostAdjustment.java:486-499): after Opt it costs
+# {U}{U}{U}, paid with the three Islands left.
+startturn human
+advance 3
+tapformana human 10 U
+queue scry 20
+castspell human 1
+resolvestack
+tapformana human 11 U
+tapformana human 12 U
+tapformana human 13 U
+castspell human 2
+resolvestack

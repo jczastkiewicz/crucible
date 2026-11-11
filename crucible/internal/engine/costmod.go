@@ -9,6 +9,7 @@ package engine
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -29,7 +30,7 @@ import (
 // `Affected$ Card.Self` never reaches its effect, forge-java-defects.md); the
 // line is evaluated as Java does, without it.
 var costModParams = map[string]bool{
-	"mode": true, "validcard": true, "activator": true, "onlyfirstspell": true, "type": true, "affectedzone": true,
+	"mode": true, "validcard": true, "activator": true, "onlyfirstspell": true, "color": true, "ignoregeneric": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
 	"validspell": true, "raiseto": true, "foreachshard": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
@@ -181,6 +182,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		}
 		reduced = max(n, 0)
 	}
+	var colorSub, colorOnly []mana.Shard
 	for _, r := range reduces {
 		raw, ok := r.s.Param("Amount")
 		if !ok {
@@ -196,6 +198,31 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 			// the cast is refused, and why is kept (GO-7).
 			g.recordPendingError(fmt.Errorf("engine: ReduceCost: Amount$ %q is not resolvable", raw))
 			return base, false
+		}
+		if colors, ok := r.s.Param("Color"); ok {
+			// CostAdjustment.java:486-499: Color$ names what comes off, value
+			// times: a number is generic mana, a color symbol that shard
+			// (subtractManaCost, generic when the cost has no such shard) or,
+			// with IgnoreGeneric$, only that shard (decreaseShard).
+			_, ignoreGeneric := r.s.Param("IgnoreGeneric")
+			for _, tok := range strings.Fields(colors) {
+				if n, err := strconv.Atoi(tok); err == nil {
+					reduced += n * max(value, 0)
+					continue
+				}
+				sh, err := mana.Parse(tok)
+				if err != nil || len(sh.Shards()) != 1 {
+					continue
+				}
+				for range max(value, 0) {
+					if ignoreGeneric {
+						colorOnly = append(colorOnly, sh.Shards()[0])
+					} else {
+						colorSub = append(colorSub, sh.Shards()[0])
+					}
+				}
+			}
+			continue
 		}
 		minMana := 0
 		if raw, ok := r.s.Param("MinMana"); ok {
@@ -214,6 +241,15 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 	out := mana.FromShards(shards, max(generic-reduced, 0))
 	for range repeats {
 		out = subtractManaCost(out, repeated)
+	}
+	if len(colorSub) > 0 {
+		out = subtractManaCost(out, mana.FromShards(colorSub, 0))
+	}
+	for _, sh := range colorOnly {
+		rest := slices.Clone(out.Shards())
+		if i := slices.Index(rest, sh); i >= 0 {
+			out = mana.FromShards(slices.Delete(rest, i, i+1), out.Generic())
+		}
 	}
 	if paying && act == nil {
 		g.xSetTo = 0

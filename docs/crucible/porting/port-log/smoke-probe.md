@@ -58,8 +58,8 @@ Measured on the full corpus (34,466 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,923 |
-| refused      |      2 |
+| plays        | 33,925 |
+| refused      |      0 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -69,15 +69,7 @@ Measured on the full corpus (34,466 cards):
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
-Largest refusal causes over the full corpus (cards blocked):
-
-| Cards | Refusal |
-| ---: | --- |
-| 1 | `"_": as-it-enters replacement ReplaceWith$ RepeatEach not resolvable` |
-| 1 | `ConditionSVarCompare$ is not resolvable` |
-
-The two refusals are cards the 2026-11-12 upstream sync added: Banescale Serpent (an as-enters `RepeatEach` chain) and
-Nylea's Oracle (`StartingLibrarySize`), both rows in `game-state.md` "Not ported yet". A valid-string property no case of
+No card is refused. A valid-string property no case of
 `valid.go` ports still errors (`checkTypeWord`, open plan R19b) instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.

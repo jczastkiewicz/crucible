@@ -54,18 +54,18 @@ Pain's Reward, Dance with Calamity) answered yes forever loops by the controller
 
 ## Results
 
-Measured on the full corpus (34,134 cards):
+Measured on the full corpus (34,466 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,594 |
-| refused      |      0 |
+| plays        | 33,923 |
+| refused      |      2 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
-| inconclusive |     86 |
+| inconclusive |     87 |
 
-100.0% of the 33,594 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
+100.0% of the 33,925 judged cards play. On the 8,697 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
@@ -73,9 +73,12 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
+| 1 | `"_": as-it-enters replacement ReplaceWith$ RepeatEach not resolvable` |
+| 1 | `ConditionSVarCompare$ is not resolvable` |
 
-No card is refused. A valid-string property no case of `valid.go` ports still errors (`checkTypeWord`, open plan R19b)
-instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
+The two refusals are cards the 2026-11-12 upstream sync added: Banescale Serpent (an as-enters `RepeatEach` chain) and
+Nylea's Oracle (`StartingLibrarySize`), both rows in `game-state.md` "Not ported yet". A valid-string property no case of
+`valid.go` ports still errors (`checkTypeWord`, open plan R19b) instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

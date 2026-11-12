@@ -124,6 +124,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		// abilities, so a Role dumped that way could not be loaded back as one.
 		b.WriteString("T:")
 		b.WriteString(c.PrintedDef().Filename)
+	} else if parts := c.MergedComponents(); len(parts) > 0 {
+		// A mutated permanent is written by its top component's name
+		// (GameState.java:418-426 lists the others as MergedCards:).
+		b.WriteString(paperName(g.Card(parts[0]).PrintedDef()))
 	} else {
 		b.WriteString(paperName(c.PrintedDef()))
 	}
@@ -165,8 +169,14 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString(strconv.Itoa(seatIndex(g, c.PhasedOutFor())))
 		}
 		if c.IsFaceDown() {
-			// GameState.java:342-343.
+			// GameState.java:339-346.
 			b.WriteString("|FaceDown")
+			if c.Manifested {
+				b.WriteString(":Manifested")
+			}
+			if c.Cloaked {
+				b.WriteString(":Cloaked")
+			}
 		}
 		switch {
 		case c.InFlippedState():
@@ -221,6 +231,16 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if imp := c.Memory.Imprinted(); len(imp) > 0 {
 			b.WriteString("|Imprinting:")
 			b.WriteString(joinCardIDs(imp))
+		}
+		if parts := c.MergedComponents(); len(parts) > 0 {
+			// GameState.java:418-426: every component but the top, by paper
+			// name, a comma in a name written "^".
+			var names []string
+			for _, part := range parts[1:] {
+				names = append(names, strings.ReplaceAll(paperName(g.Card(part).PrintedDef()), ",", "^"))
+			}
+			b.WriteString("|MergedCards:")
+			b.WriteString(strings.Join(names, ","))
 		}
 		if g.RingBearer(c.Controller()) == id {
 			b.WriteString("|IsRingBearer")

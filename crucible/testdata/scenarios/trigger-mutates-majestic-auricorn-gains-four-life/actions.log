@@ -1,7 +1,8 @@
 # Mode$ Mutates (MutateEffect.java:100, mutate.go): Majestic Auricorn cast
 # for its mutate cost onto Grizzly Bears, merged on top, fires its "whenever
 # this creature mutates": the human gains 4 life. The permanent keeps the
-# target's id and the dump names it by that card (the format has no merge).
+# target's id; the dump names it by its top card and lists the card under it
+# (MergedCards:, GameState.java:418-426).
 startturn human
 advance 3
 tapformana human 3 W

@@ -386,7 +386,7 @@ func TestAmountUnresolvableShapesStaySkipped(t *testing.T) {
 		// none is defined (Java prints to stderr and reads 0).
 		{name: "operand naming no SVar", body: "Number$7/Plus.1.2"},
 		{name: "context prefix", body: "CastSA>Count$YourLifeTotal"},
-		{name: "player property with no state", body: "PlayerCountPlayers$StartingLibrarySize"},
+		{name: "player property with no state", body: "PlayerCountPlayers$LifeGainedByTeamThisTurn"},
 		{name: "Greatest CardPower", body: "Count$Valid Creature$GreatestCardPower"},
 		{name: "colorless devotion", body: "Count$Devotion.Colorless"},
 		{

@@ -458,6 +458,8 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 	g.SetBoosters(plan.Boosters)
 	for seat, d := range job.Decks {
 		pid := g.Players()[seat]
+		// RegisteredPlayer's deck: StartingLibrarySize counts its main part.
+		g.Player(pid).StartingLibrarySize = len(d.Cards)
 		for i, name := range d.Cards {
 			def, _ := plan.DB.Card(name)
 			id := g.NewCard(def, pid, engine.Library)

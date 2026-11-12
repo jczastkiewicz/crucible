@@ -471,7 +471,7 @@ func TestPlayerCountRefusesWhatItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	for _, x := range []string{
-		"PlayerCountPlayers$StartingLibrarySize",
+		"PlayerCountPlayers$LifeGainedByTeamThisTurn",
 		"PlayerCountPlayers$Bogus",
 		"PlayerCountPlayers$HighestCardsInHand/Twice",
 		"PlayerCountPlayers$Counters",

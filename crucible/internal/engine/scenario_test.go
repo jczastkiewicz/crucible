@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -294,8 +295,9 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 
 		// GameState text names a card by its own paper card, never by what a
 		// copy effect or a Room's doors currently make it (GameState.java
-		// writes getPaperCard().getName()).
-		if gname, wname := gcard.PrintedDef().Name, wcard.PrintedDef().Name; gname != wname {
+		// writes getPaperCard().getName()); a mutated permanent by its top
+		// component, the others listed as MergedCards:.
+		if gname, wname := mergedPaperNames(got, gc[i]), mergedPaperNames(want, wc[i]); gname != wname {
 			t.Errorf("%s name = %q, want %q", label, gname, wname)
 			continue
 		}
@@ -429,4 +431,18 @@ func crucibleModuleRoot(t *testing.T) string {
 	}
 	// crucible/internal/engine/<file> -> crucible/.
 	return filepath.Join(filepath.Dir(file), "..", "..")
+}
+
+// mergedPaperNames is a card's paper name, or a mutated permanent's
+// components' names top first, joined by "+".
+func mergedPaperNames(g *engine.Game, id engine.CardID) string {
+	parts := g.Card(id).MergedComponents()
+	if len(parts) == 0 {
+		return g.Card(id).PrintedDef().Name
+	}
+	names := make([]string, len(parts))
+	for i, part := range parts {
+		names[i] = g.Card(part).PrintedDef().Name
+	}
+	return strings.Join(names, "+")
 }

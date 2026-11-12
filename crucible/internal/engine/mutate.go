@@ -198,6 +198,17 @@ func (g *Game) mergeInto(spell, target CardID, onTop bool) {
 	t.timesMutated++
 }
 
+// MergedComponents are a mutated permanent's components, top first, the
+// permanent itself among them (Card.getMergedCards); nil for a card nothing
+// merged into. GameState writes them as MergedCards: (GameState.java:418-426).
+func (c *Card) MergedComponents() []CardID { return slices.Clone(c.merged) }
+
+// MergeForSetup is GameState.emulateMergeViaMutate (GameState.java:1124-1151)
+// for a fixture's MergedCards: bottom joins top's components under the
+// others, top takes the merged characteristics, and bottom goes to its
+// owner's Merged zone.
+func (g *Game) MergeForSetup(top, bottom CardID) { g.mergeInto(bottom, top, false) }
+
 // mergedComponentDef is the definition component id brings to the merge: its
 // own printed one, and for the permanent the one under the merged copy effect.
 func (g *Game) mergedComponentDef(id, target CardID) *compile.Card {

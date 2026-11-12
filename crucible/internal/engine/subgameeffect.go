@@ -236,6 +236,7 @@ func buildSubgame(g *Game, seats []PlayerID, life int) (*Game, []sideboardCard, 
 		sub.Player(sp).Life, sub.Player(sp).StartingLife = seatLife, seatLife
 		// The seat's RegisteredPlayer starting hand (Game.java:379-380).
 		sub.Player(sp).StartingHandSize = g.Player(pid).StartingHandSize
+		sub.Player(sp).StartingLibrarySize = g.Player(pid).StartingLibrarySize
 		copyCardsInto(g, sub, g.Zone(Library, pid).CardsIncludingPhasedOut(), sp, Library)
 
 		// CR 720.4: getCardsInOwnedBy(outsideZones, p) (Game.java:645-651),

@@ -3,6 +3,6 @@ activeplayer=human
 activephase=Main1
 humanlife=20
 humanhand=Mountain
-humanbattlefield=Paranormal Analyst;Island|Tapped;Island|Tapped;Island|Tapped;Grizzly Bears|FaceDown|SummonSick
+humanbattlefield=Paranormal Analyst;Island|Tapped;Island|Tapped;Island|Tapped;Grizzly Bears|FaceDown:Manifested|SummonSick
 humangraveyard=Unnerving Grasp
 ailife=20

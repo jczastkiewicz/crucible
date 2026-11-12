@@ -137,6 +137,9 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		g.SetRingTemptedYou(pid, ps.NumRingTemptedYou)
 	}
 
+	if err := ld.applyMerges(); err != nil {
+		return nil, err
+	}
 	if err := ld.resolveRefs(); err != nil {
 		return nil, err
 	}
@@ -196,6 +199,14 @@ func slotName(slot int) string {
 // loader carries the state that spans every zone and every player while
 // Load builds the game: the fixture's declared card IDs, and the
 // cross-references that can only resolve once every card exists.
+// mergeRef is one card's MergedCards: list: the paper names of the
+// components under it, a comma in a name written "^".
+type mergeRef struct {
+	top   engine.CardID
+	owner engine.PlayerID
+	names []string
+}
+
 type loader struct {
 	game     *engine.Game
 	slotToID [MaxPlayers]engine.PlayerID
@@ -206,6 +217,9 @@ type loader struct {
 	// attach in that order, because it is what breaks a tie between their
 	// continuous effects when both share a timestamp (GO-12).
 	attaches []attachRef
+	// merges are the MergedCards: lists, merged under their card once every
+	// card exists (GameState.handleMergedCards, GameState.java:648).
+	merges []mergeRef
 	// enchantsPlayer pairs a card with the seat it enchants
 	// (EnchantingPlayer:), resolved with the rest.
 	enchantsPlayer []playerAttachRef
@@ -347,12 +361,18 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			if !ld.game.SetModalBackFace(id) {
 				return fmt.Errorf("%s: Modal: not a Modal card on the battlefield", name)
 			}
-		case info == "FaceDown":
-			// GameState.java:1338-1339; the :Manifested and :Cloaked
-			// suffixes stay unapplied.
+		case info == "FaceDown", strings.HasPrefix(info, "FaceDown:"):
+			// GameState.java:1339-1346: face down, then manifested or cloaked
+			// when the suffix says so.
 			if (kind != engine.Battlefield && kind != engine.Exile) || !ld.game.TurnFaceDown(id) {
 				return fmt.Errorf("%s: FaceDown: cannot turn face down here", name)
 			}
+			c.Manifested = strings.HasSuffix(info, "Manifested")
+			c.Cloaked = strings.HasSuffix(info, "Cloaked")
+		case strings.HasPrefix(info, "MergedCards:"):
+			// GameState.java:1416-1418.
+			ld.merges = append(ld.merges, mergeRef{top: id, owner: owner,
+				names: strings.Split(strings.TrimPrefix(info, "MergedCards:"), ",")})
 		case strings.HasPrefix(info, "PhasedOut"):
 			if err := ld.phasedOut(id, kind, info); err != nil {
 				return fmt.Errorf("%s: %w", name, err)
@@ -534,6 +554,23 @@ func seatOf(value string) (seat int, ok bool) {
 // resolveRefs applies every cross-reference collected while cards were being
 // created. It runs once every card in the fixture exists, because a card can
 // reference one declared later in the file.
+// applyMerges is GameState.handleMergedCards (GameState.java:1108-1122): each
+// MergedCards: name becomes a new card of its owner, merged under the card
+// that lists it (Game.MergeForSetup).
+func (ld *loader) applyMerges() error {
+	for _, m := range ld.merges {
+		for _, raw := range m.names {
+			name := strings.ReplaceAll(raw, "^", ",")
+			def, ok := ld.game.DB().Card(name)
+			if !ok {
+				return fmt.Errorf("MergedCards: card %q: not in the database", name)
+			}
+			ld.game.MergeForSetup(m.top, ld.game.NewCard(def, m.owner, engine.Merged))
+		}
+	}
+	return nil
+}
+
 func (ld *loader) resolveRefs() error {
 	for _, a := range ld.attaches {
 		host, ok := ld.idToCard[a.hostID]

@@ -504,6 +504,9 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		return g.Player(sourceController).LifeLostThisTurn, true
 	case "YourStartingLife":
 		return g.Player(sourceController).StartingLife, true
+	case "YourStartingLibrarySize":
+		// AbilityUtils.java:2281-2282 (Whtz, the Bibliophile).
+		return g.Player(sourceController).StartingLibrarySize, true
 	case "YourSpeed":
 		return g.Player(sourceController).Speed, true
 	case "TotalCommanderCastFromCommandZone":

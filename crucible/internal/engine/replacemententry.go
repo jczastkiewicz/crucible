@@ -401,7 +401,9 @@ func entryUpdatedShape(sub *compile.Ability) bool {
 // through the Registry on the entering card (runReplacementChain), so a choice
 // is on the card's Memory (which Game.Move keeps) before its statics, ETB
 // triggers and SBAs look: Cavern of Souls' ChooseType, Iona's ChooseColor,
-// Pithing Needle's NameCard, Rick's GenericChoice of StoreSVars. The others
+// Pithing Needle's NameCard, Rick's GenericChoice of StoreSVars, Banescale
+// Serpent's RepeatEach over its opponents (its RepeatSubAbility$ is walked
+// like any sub, a ChooseType that notes a type). The others
 // act on other objects or on the entry's own counter table (PutCounter ETB$,
 // putEnterCounters): B.O.B.'s tokens, Urborg Lhurgoyf's mill, Wood
 // Elemental's sacrifice, Dungeon Master's die. An ability that would change
@@ -415,7 +417,7 @@ var entryChainAPIs = [...]string{
 	"ChooseColor", "ChooseType", "ChoosePlayer", "ChooseNumber", "ChooseCard",
 	"ChooseEvenOdd", "ChooseDirection", "NameCard", "GenericChoice", "StoreSVar", "Cleanup",
 	"Mill", "Discard", "Draw", "Token", "Reveal", "RevealHand", "Sacrifice", "SacrificeAll",
-	"RollDice", "ChangeZoneAll", "RemoveCounter",
+	"RollDice", "ChangeZoneAll", "RemoveCounter", "RepeatEach",
 }
 
 // entersTransformed reports a SetState that turns the entering card over

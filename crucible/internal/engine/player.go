@@ -33,6 +33,13 @@ type Player struct {
 	// and the hand size cleanup discards to before Layer 8's effects
 	// (HandSizeLimit). Seven, unless a Vanguard avatar changes it.
 	StartingHandSize int
+	// StartingLibrarySize is Player.getStartingLibrarySize (Player.java:
+	// 447-449): the card count of the registered deck's main part, read at
+	// call time, so cards conjured or tucked during the game leave it alone.
+	// Whoever seats a deck sets it (sim.runOne); a Subgame keeps the main
+	// game's (SubgameEffect.java:38 reuses the RegisteredPlayer). Zero for a
+	// game seated without a deck, as Java reads an empty deck.
+	StartingLibrarySize int
 	// avatars is RegisteredPlayer.vanguardAvatars: the avatars SeatAvatar
 	// seated, which a Subgame copies into its own Command zone.
 	avatars []*compile.Card

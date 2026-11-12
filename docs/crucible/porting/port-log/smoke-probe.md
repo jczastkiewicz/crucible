@@ -69,8 +69,8 @@ Measured on the full corpus (34,466 cards):
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,695 judged.
 
-No card is refused. A valid-string property no case of
-`valid.go` ports still errors (`checkTypeWord`, open plan R19b) instead of matching nothing; the probe reaches none. `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
+No card is refused. A valid-string property no case of `valid.go` reads errors (`checkTypeWord`) instead of matching
+nothing; no corpus card property reaches it (`TestEveryCorpusCardPropertyResolves`). `set<CODE>` reads the edition data `card-smoke` loads (`-editions`).
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

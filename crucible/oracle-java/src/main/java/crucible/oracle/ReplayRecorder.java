@@ -103,11 +103,12 @@ final class ReplayRecorder {
     }
 
     /** ADR-0062: the choices the AI made for one play, read from the played ability. */
-    void play(Player decider, SpellAbility sa) {
+    void play(Player decider, SpellAbility sa, int call) {
         if (sa == null) {
             return;
         }
         JsonObject r = record("play");
+        r.addProperty("call", call);
         r.add("decider", ids.player(decider));
         r.add("ability", ids.ability(sa));
         JsonArray chain = new JsonArray();
@@ -144,6 +145,28 @@ final class ReplayRecorder {
             paying.add(o);
         }
         r.add("payingMana", paying);
+    }
+
+    /**
+     * ADR-0062: what one pay call paid with, read from the paying ability --
+     * the mana abilities it added from mark on, and the cards each cost part
+     * paid with.
+     */
+    void payment(Player payer, SpellAbility sa, int mark, int call) {
+        JsonObject r = record("payment");
+        r.addProperty("call", call);
+        r.add("payer", ids.player(payer));
+        if (sa == null) {
+            return;
+        }
+        r.add("ability", ids.ability(sa));
+        JsonArray mana = new JsonArray();
+        List<SpellAbility> used = sa.getPayingManaAbilities();
+        for (int i = Math.min(mark, used.size()); i < used.size(); i++) {
+            mana.add(ids.ability(used.get(i)));
+        }
+        r.add("manaAbilities", mana);
+        r.add("paid", paid(sa.getPaidHash()));
     }
 
     private JsonObject part(SpellAbility s) {

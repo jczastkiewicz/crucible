@@ -74,6 +74,30 @@ final class ReplayIds {
         if (o instanceof Combat c) {
             return combat(c);
         }
+        if (o instanceof forge.game.card.CardView cv) {
+            JsonObject t = new JsonObject();
+            t.addProperty("card", cv.getId());
+            t.addProperty("name", cv.getName());
+            return t;
+        }
+        if (o instanceof forge.game.player.PlayerView pv) {
+            for (Player p : game.getRegisteredPlayers()) {
+                if (p.getView() == pv) {
+                    return player(p);
+                }
+            }
+        }
+        if (o instanceof forge.card.mana.ManaCost mc) {
+            // Iterable over its colored shards only; the text keeps the generic.
+            JsonObject t = new JsonObject();
+            t.addProperty("manaCost", mc.getShortString());
+            return t;
+        }
+        if (o instanceof forge.game.player.DelayedReveal d) {
+            JsonObject t = new JsonObject();
+            t.add("reveal", encode(d.getCards()));
+            return t;
+        }
         if (o instanceof Map<?, ?> m) {
             JsonArray a = new JsonArray();
             for (Map.Entry<?, ?> e : m.entrySet()) {
@@ -107,7 +131,11 @@ final class ReplayIds {
         // Costs, mana costs, views and the like: their text, which R21c
         // compares as a string. Not an identity, but not unresolved either.
         JsonObject t = new JsonObject();
-        t.addProperty("text", o.toString());
+        String text = o.toString();
+        // Object's own toString is an address, which differs per run.
+        if (!text.equals(o.getClass().getName() + "@" + Integer.toHexString(o.hashCode()))) {
+            t.addProperty("text", text);
+        }
         t.addProperty("class", o.getClass().getSimpleName());
         return t;
     }

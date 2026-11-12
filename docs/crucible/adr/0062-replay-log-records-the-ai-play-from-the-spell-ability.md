@@ -50,6 +50,16 @@ sub-ability and logs, by ADR-0059 identity:
 - the cards each cost part paid with, per cost part, from `getPaidHash`;
 - the mana abilities that paid, in order, each with its source card and the mana it produced.
 
+A payment made while an ability resolves (a mana cost an effect asks for, an "unless" cost) belongs to no play. After
+`payManaCost`, `payCostToPreventEffect`, `payCombatCost` and `payCostDuringRoll` the recorder writes a **payment
+record**: the mana abilities the call added to the paying ability, and that ability's paid cards. Each play and payment
+record carries the sequence number of the call it follows, because the AI's nested calls come between them.
+
+`chooseSpellAbilityToPlay` takes no argument, so its offered set is what the seat can play at that priority:
+`getAllPossibleAbilities(player, true)` over `ComputerUtilAbility.getAvailableCards`, mana abilities included, since the
+AI does answer one at priority. This is the AI's own enumeration, and it sets the same activating player the AI sets
+next. A recording with the enumeration has the same answers as one without it.
+
 In replay, `TakeAction` reads the play record, and Go's follow-up questions for the same play (`ChooseTargets`,
 `ChoosePayX`, `ChooseModesForAbility`, the cost-part choices, `PayManaCost`) read the matching field of the same record.
 They are matched by question kind and sub-ability, not by the order of the calls. A question with no matching field, or

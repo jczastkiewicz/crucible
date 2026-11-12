@@ -39,6 +39,20 @@ public final class GameRecorder {
             System.err.println("usage: GameRecorder <deck A> <deck B> <seed> <forge commit> <out .jsonl>");
             System.exit(2);
         }
+        // RecordingControllerBase must override every abstract
+        // PlayerController method: PlayerControllerAi answers a method added
+        // upstream, so it would compile and go unrecorded.
+        java.util.Set<String> want = new java.util.TreeSet<>();
+        RecorderGen.abstractMethods().forEach(m -> want.add(RecorderGen.key(m)));
+        java.util.Set<String> have = new java.util.TreeSet<>();
+        for (java.lang.reflect.Method m : RecordingControllerBase.class.getDeclaredMethods()) {
+            have.add(RecorderGen.key(m));
+        }
+        if (!have.containsAll(want)) {
+            want.removeAll(have);
+            System.err.println("RecordingControllerBase is stale, regenerate it (REGEN=1): missing " + want);
+            System.exit(4);
+        }
         GuiBase.setInterface(new GuiDesktop());
         FModel.initialize(null, preferences -> {
             preferences.setPref(FPref.LOAD_CARD_SCRIPTS_LAZILY, false);

@@ -35,22 +35,59 @@ final class RecordingPlayerController extends RecordingControllerBase {
         this.recorder = recorder;
     }
 
+    // The calls that pay a cost, and which argument is the paying ability:
+    // payments made while an ability resolves ("unless" costs, a mana cost an
+    // effect asks for) are not the played ability's.
+    private static final java.util.Map<String, Integer> PAYS = java.util.Map.of("payManaCost", 2,
+            "payCostToPreventEffect", 1, "payCombatCost", 2, "payCostDuringRoll", 1);
+
+    // The paying ability's mana-ability count at each open pay call.
+    private final java.util.ArrayDeque<Integer> payMark = new java.util.ArrayDeque<>();
+
     @Override
     void before(String method, Object[] args) {
-        JsonObject r = recorder.get().call(getPlayer(), method, args);
+        Object[] offered = args;
+        if (method.equals("chooseSpellAbilityToPlay")) {
+            // The call takes no arguments: the options are what the seat can
+            // play now, as the AI's own enumeration finds them.
+            offered = new Object[] {playable()};
+        }
+        JsonObject r = recorder.get().call(getPlayer(), method, offered);
         open.push(r == null ? new JsonObject() : r);
+        if (PAYS.containsKey(method)) {
+            SpellAbility sa = (SpellAbility) args[PAYS.get(method)];
+            payMark.push(sa == null ? 0 : sa.getPayingManaAbilities().size());
+        }
     }
 
     @Override
     <R> R after(String method, Object[] args, R answer) {
         JsonObject r = open.pop();
-        recorder.get().answer(r.has("seq") ? r : null, answer, args);
+        JsonObject rec = r.has("seq") ? r : null;
+        recorder.get().answer(rec, answer, args);
+        int seq = rec == null ? -1 : rec.get("seq").getAsInt();
         if (PLAYS.contains(method)) {
             for (SpellAbility sa : played(method, args)) {
-                recorder.get().play(getPlayer(), sa);
+                recorder.get().play(getPlayer(), sa, seq);
             }
         }
+        if (PAYS.containsKey(method)) {
+            int mark = payMark.pop();
+            recorder.get().payment(getPlayer(), (SpellAbility) args[PAYS.get(method)], mark, seq);
+        }
         return answer;
+    }
+
+    // ComputerUtilAbility.getSpellAbilities' cards and abilities, mana
+    // abilities included: the AI does answer one at priority (Urza's Saga's
+    // granted {T}: Add {C}). getAllPossibleAbilities sets each ability's
+    // activating player to this seat, as the AI's own enumeration does next.
+    private List<SpellAbility> playable() {
+        List<SpellAbility> out = new java.util.ArrayList<>();
+        for (forge.game.card.Card c : forge.ai.ComputerUtilAbility.getAvailableCards(getGame(), getPlayer())) {
+            out.addAll(c.getAllPossibleAbilities(getPlayer(), true));
+        }
+        return out;
     }
 
     private static List<SpellAbility> played(String method, Object[] args) {

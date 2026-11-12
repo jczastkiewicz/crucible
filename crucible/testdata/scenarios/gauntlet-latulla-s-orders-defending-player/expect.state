@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Grizzly Bears|Id:1|Tapped|Attacking;Latulla's Orders|Id:2|AttachedTo:1
+humanhand=Latulla's Orders|Id:3
+humangraveyard=Lightning Bolt|Id:4;Grizzly Bears|Id:5
+humanlibrary=Island|Id:6;Island|Id:7;Island|Id:8;Island|Id:9;Island|Id:10;Island|Id:11
+ailife=18
+aihand=Island|Id:13;Lightning Bolt|Id:14;Grizzly Bears|Id:15
+aigraveyard=Shock|Id:16;Hill Giant|Id:17;Ornithopter|Id:12
+ailibrary=Island|Id:18;Island|Id:19;Island|Id:20;Island|Id:21;Island|Id:22;Island|Id:23

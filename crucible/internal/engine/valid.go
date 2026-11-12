@@ -1157,7 +1157,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "HasCounters":
 		return c.Counters.Any()
 	case strings.HasPrefix(name, "counters_"):
-		return countersMatches(c, name)
+		return countersMatches(c.Counters, name)
 	case strings.HasPrefix(name, "countersReceivedThisTurn_"):
 		return g.countersReceivedMatches(c, name, sourceController)
 	case name == "enchanted":
@@ -1942,6 +1942,41 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 		}
 		return true, true
 	}
+	// PlayerProperty.java:431-434: a "Triggered..." property or
+	// OriginalHostRemembered holds for the players that Defined$ names, read
+	// with the trait in context (Electryte's and Latulla's Orders'
+	// TriggeredDefendingPlayer, Hellish Rebuke's caster). Outside a trait, or a
+	// Defined the trigger did not record, it is unrecognized (GO-7).
+	if strings.HasPrefix(property, "Triggered") || property == "OriginalHostRemembered" {
+		refs, _, inContext := g.triggerRefs(source)
+		if !inContext {
+			return false, false
+		}
+		named, err := definedPlayers(g, host, source, property, refs)
+		if err != nil {
+			return false, false
+		}
+		return slices.Contains(named, candidate), true
+	}
+	// PlayerProperty.java:443-450: wasAttackedThisTurnBy <valid> holds when
+	// one of the creatures host attacked candidate with this turn, as it was
+	// declared, matches valid (Ramses, Assassin Lord's "attacked this turn by
+	// an Assassin you controlled").
+	if rest, ok := strings.CutPrefix(property, "wasAttackedThisTurnBy "); ok {
+		parsed := valid.Parse(rest)
+		for _, r := range g.attacksThisTurn {
+			if r.attacking == host && r.defender == candidate && Matches(g, r.attacker, parsed, host, source) {
+				return true, true
+			}
+		}
+		return false, true
+	}
+	// PlayerProperty.java:494-502: counters_<op><n>_<type> compares the
+	// player's counters of that type, none counting as 0 (Miss Highwater's
+	// "a player who doesn't have a contract counter").
+	if strings.HasPrefix(property, "counters_") {
+		return countersMatches(g.Player(candidate).Counters, property), true
+	}
 	if rest, ok := strings.CutPrefix(property, "PlayerUID_"); ok {
 		n, err := strconv.Atoi(rest)
 		return err == nil && candidate == PlayerID(n), err == nil
@@ -2461,7 +2496,7 @@ func castSaManaSpent(spec string, spent int) bool {
 // so it does not match the caller's `counters_` prefix -- the three-part
 // check below is defensive, not what does the excluding. CounterType is an open string (counters.go's own
 // doc comment), so the type name needs no lookup, only a cast.
-func countersMatches(c *Card, name string) bool {
+func countersMatches(counters Counters, name string) bool {
 	parts := strings.Split(name, "_")
 	if len(parts) != 3 {
 		return false
@@ -2474,7 +2509,7 @@ func countersMatches(c *Card, name string) bool {
 	if err != nil {
 		return false
 	}
-	return compareOp(c.Counters.Count(CounterType(parts[2])), operator, operand)
+	return compareOp(counters.Count(CounterType(parts[2])), operator, operand)
 }
 
 // countersReceivedMatches is the countersReceivedThisTurn_<op><n>_<type>_<players>
@@ -2850,7 +2885,10 @@ func extremeStatMatches(g *Game, c *Card, name string, sourceController PlayerID
 		owners, limited = players, true
 	}
 	mine, _ := stat(c)
-	inScope := !limited
+	// An LKI copy (c is not the live card) is in scope wherever it left from
+	// (CardProperty.java:1217, `!card.isLKI() && !cards.contains(card)`):
+	// Kraven the Hunter compares the creature that just died.
+	inScope := !limited || g.Card(c.ID) != c
 	for _, pid := range g.Players() {
 		if limited && !slices.Contains(owners, pid) {
 			continue

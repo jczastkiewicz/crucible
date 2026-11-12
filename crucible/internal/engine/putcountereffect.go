@@ -460,24 +460,31 @@ func putCounterType(a *compile.Ability) (CounterType, error) {
 }
 
 // definedCounterTargets resolves Defined$ to what receives the counters --
-// a player (You/Opponent/Player.Opponent, definedPlayers) or a card
-// (everything else, definedCards) -- CountersPutEffect.resolvePerType's own
+// the players and the cards it names (definedEntities) --
+// CountersPutEffect.resolvePerType's own
 // dispatch is on the resolved GameEntity's own runtime type
 // (`obj instanceof Player`/`obj instanceof Card`), not on CounterType$
 // itself: a player-only counter kind (energy, poison, ...) is only ever
 // reached because Defined$ itself names a player, the identical shape this
 // dispatch reproduces.
 func definedCounterTargets(g *Game, controller PlayerID, host *Card, defined string, refs abilityRefs) ([]CardID, []PlayerID, error) {
-	switch defined {
-	case "You", "Opponent", "Player.Opponent":
-		players, err := definedPlayers(g, controller, host.ID, defined, refs)
-		return nil, players, err
-	default:
-		// "Valid <spec>" and "Valid<Zone> <spec>" scan the game
-		// (definedCardsInGame); every other form is definedCards'.
-		cards, err := definedCardsInGame(g, controller, host, defined, refs)
-		return cards, nil, err
+	// getDefinedEntitiesOrTargeted (CountersPutEffect.java:279): the players
+	// the spelling names and the cards, a player's Defined$ TriggeredTarget
+	// (Miss Highwater's contract counter) as much as You or a card.
+	entities, err := definedEntities(g, controller, host, defined, refs)
+	if err != nil {
+		return nil, nil, err
 	}
+	var cards []CardID
+	var players []PlayerID
+	for _, e := range entities {
+		if id, ok := e.AsCard(); ok {
+			cards = append(cards, id)
+		} else if pid, ok := e.AsPlayer(); ok {
+			players = append(players, pid)
+		}
+	}
+	return cards, players, nil
 }
 
 // putCounterChoice is the Choices$ branch of CountersPutEffect.resolvePerType

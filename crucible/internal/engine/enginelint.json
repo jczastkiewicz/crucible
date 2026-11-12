@@ -191,6 +191,7 @@
       "untilcommand"
     ],
     "turn": [
+      "removecountereffect",
       "id",
       "zone",
       "parts",

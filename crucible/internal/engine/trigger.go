@@ -1109,6 +1109,9 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 						!Matches(g, g.Card(target), valid.Parse(validTarget), h.Controller(), host) {
 						continue
 					}
+					if !g.damageRelativeMatches(t, h, damageCause(g, isCombat), source, CardEntity(target)) {
+						continue
+					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source, CardEntity(target), amount)), staticTrigger: isStaticTrigger(t)})
 					}
@@ -1133,14 +1136,23 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 					if !damageDoneMatches(g, t, source, h, host, isCombat, amount, 0, false) {
 						continue
 					}
+					if !g.damageRelativeMatches(t, h, damageCause(g, isCombat), source, PlayerEntity(target)) {
+						continue
+					}
+					objs := face.objects(damageSourceObjects(g, source, PlayerEntity(target), amount))
 					if validTarget, ok := t.Param("ValidTarget"); ok {
-						matched, recognized := matchesPlayerSpec(g, target, h.Controller(), host, validTarget)
-						if !recognized || !matched {
+						// Read against this event's triggering objects
+						// (Trigger.checkWith, TriggerHandler.java:426):
+						// Player.TriggeredDefendingPlayer.
+						if !g.withTriggerEvent(host, h.Controller(), objs, func() bool {
+							matched, recognized := matchesPlayerSpec(g, target, h.Controller(), host, validTarget)
+							return recognized && matched
+						}) {
 							continue
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source, PlayerEntity(target), amount)), staticTrigger: isStaticTrigger(t)})
+						matches = append(matches, Ability{API: api, trigger: t, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: objs, staticTrigger: isStaticTrigger(t)})
 					}
 				}
 			}
@@ -1164,17 +1176,11 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 // AbilityUtils.calculateAmount -- every real line is a plain integer or the
 // literal "TargetToughness", never an SVar reference).
 //
-// Not resolved, skipped via hasAnyParam: ValidCause$ (1) -- a SpellAbility,
-// not a Card, Matches cannot evaluate one; TargetRelativeToCause$/
-// TargetRelativeToSource$ (0 real lines alongside the shapes above) -- a
-// GameEntity-vs-GameEntity relative match this port has no evaluator for. A
-// trigger carrying either is skipped entirely, not fired unconditionally
-// (GO-7). 1,079 of 1,080 real lines carry neither.
+// ValidCause$, TargetRelativeToCause$ and TargetRelativeToSource$ read the
+// damaged object against the cause or the source: damageRelativeMatches,
+// which each caller runs beside ValidTarget.
 func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host CardID, isCombat bool, amount, toughness int, hasToughness bool) bool {
 	if !isDamageDoneTrigger(t) {
-		return false
-	}
-	if hasAnyParam(t, "ValidCause", "TargetRelativeToCause", "TargetRelativeToSource") {
 		return false
 	}
 	if validSource, ok := t.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), h.Controller(), host) {
@@ -1187,6 +1193,51 @@ func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host
 	}
 	if da, ok := t.Param("DamageAmount"); ok && !damageAmountMatches(da, amount, toughness, hasToughness) {
 		return false
+	}
+	return true
+}
+
+// damageCause is AbilityKey.Cause of a damage event: the spell or ability
+// whose effect is dealing it, none for combat damage.
+func damageCause(g *Game, isCombat bool) *Ability {
+	if isCombat {
+		return nil
+	}
+	return g.resolving
+}
+
+// damageRelativeMatches is TriggerDamageDone.performTest's ValidCause$,
+// TargetRelativeToCause$ and TargetRelativeToSource$ (TriggerDamageDone.java:
+// 65-90). The ability dealing the damage matches ValidCause; the damaged
+// object matches the TargetRelativeToCause spec read as that ability
+// (Imodane, the Pyrohammer's "Creature.targetedBy": the spell targets the
+// creature it damaged); and it matches the TargetRelativeToSource spec read
+// from the damage source (The Beast, Deathless Prince's "Player.CardOwner":
+// a creature damaging its owner). With no cause (combat damage) the cause
+// params fail, as Java's null Cause does. A damaged player is never read
+// against TargetRelativeToCause: no corpus line names one.
+func (g *Game) damageRelativeMatches(t *compile.Ability, h *Card, cause *Ability, source CardID, target EntityID) bool {
+	if spec, ok := t.Param("TargetRelativeToSource"); ok && !g.entityMatches(target, spec, valid.Parse(spec), g.Card(source).Controller(), source) {
+		return false
+	}
+	validCause, hasValid := t.Param("ValidCause")
+	relative, hasRelative := t.Param("TargetRelativeToCause")
+	if !hasValid && !hasRelative {
+		return true
+	}
+	if cause == nil {
+		return false
+	}
+	if hasValid {
+		if matched, recognized := g.spellAbilityMatches(cause, validCause, h, h.Controller(), nil); !recognized || !matched {
+			return false
+		}
+	}
+	if hasRelative {
+		id, isCard := target.AsCard()
+		if !isCard || !Matches(g, g.Card(id), valid.Parse(relative), cause.Controller, cause.Source) {
+			return false
+		}
 	}
 	return true
 }
@@ -4397,7 +4448,15 @@ func (g *Game) checkOnTriggeredCardMet(host *Card, amounts map[string]expr.Amoun
 		if !named {
 			return false
 		}
-		if actual, ok = resolveAmount(g, pool, m.Controller(), moved, amt); !ok {
+		controller := m.Controller()
+		if snap := g.LKI(moved); snap != nil && m.Zone != Battlefield {
+			// A card that left the battlefield is tested as its LKI copy
+			// (TriggerChangesZone.java:119-127, runParams CardLKI).
+			controller = snap.Controller()
+			g.triggeredLKI = moved
+			defer func() { g.triggeredLKI = NoCard }()
+		}
+		if actual, ok = resolveAmount(g, pool, controller, moved, amt); !ok {
 			return false
 		}
 	}

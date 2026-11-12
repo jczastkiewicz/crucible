@@ -1,0 +1,12 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Swamp|Id:1|Tapped;Mountain|Id:2|Tapped;Swamp|Id:3|Tapped;Swamp|Id:4|Tapped;Grizzly Bears|Id:14|Owner:ai|Tapped|Attacking;The Beast, Deathless Prince|Id:5|Tapped|SummonSick|Counters:STUN=5
+humanhand=Island|Id:8
+humangraveyard=Lightning Bolt|Id:6;Grizzly Bears|Id:7
+humanlibrary=Island|Id:9;Island|Id:10;Island|Id:11;Island|Id:12;Island|Id:13
+ailife=18
+aihand=Island|Id:15;Lightning Bolt|Id:16;Grizzly Bears|Id:17
+aigraveyard=Shock|Id:18;Hill Giant|Id:19
+ailibrary=Island|Id:20;Island|Id:21;Island|Id:22;Island|Id:23;Island|Id:24;Island|Id:25

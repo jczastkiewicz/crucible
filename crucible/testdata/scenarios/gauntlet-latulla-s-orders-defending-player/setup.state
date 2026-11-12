@@ -1,0 +1,10 @@
+humanlife=20
+ailife=20
+humanlibrary=Island|Id:80;Island|Id:81;Island|Id:82;Island|Id:83;Island|Id:84;Island|Id:85
+ailibrary=Island|Id:90;Island|Id:91;Island|Id:92;Island|Id:93;Island|Id:94;Island|Id:95
+humangraveyard=Lightning Bolt|Id:70;Grizzly Bears|Id:71
+aigraveyard=Shock|Id:72;Hill Giant|Id:73
+aihand=Island|Id:60;Lightning Bolt|Id:61;Grizzly Bears|Id:62
+aibattlefield=Ornithopter|Id:51
+humanhand=Latulla's Orders|Id:1
+humanbattlefield=Grizzly Bears|Id:2;Latulla's Orders|Id:3|Attaching:2

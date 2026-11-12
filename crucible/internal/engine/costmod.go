@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
@@ -531,6 +532,24 @@ func raiseScaledByShards(c *Card, s *compile.Ability, text string) string {
 // Henzie). Any other property on Spell (Flashback, ...) or other base is not
 // evaluated here: recognized is false and the line stays unresolvable.
 func validSpellForSpell(spec string, c *Card) (matched, recognized bool) {
+	return validSpellFacts(spec, spellFacts{card: c, kicked: c.kickerMagnitude() > 0, altKeyword: c.castOpt.altKeyword,
+		cast: c.wasCast, faceDown: c.IsFaceDown()})
+}
+
+// spellFacts is what ValidSpell$'s Spell alternatives read of a spell: the
+// card (its type, SpellAbility.isValid's Instant and Sorcery, through the
+// host card's own property, SpellAbilityProperty.java:330), whether it was
+// kicked (SpellAbilityProperty.java:83-84), the keyword cost it was cast for
+// and whether it is face down.
+type spellFacts struct {
+	card       *Card
+	kicked     bool
+	altKeyword string
+	cast       bool
+	faceDown   bool
+}
+
+func validSpellFacts(spec string, f spellFacts) (matched, recognized bool) {
 	for _, alt := range strings.Split(spec, ",") {
 		base, props, _ := strings.Cut(alt, ".")
 		switch base {
@@ -539,11 +558,17 @@ func validSpellForSpell(spec string, c *Card) (matched, recognized bool) {
 			case "":
 				matched = true
 			case "Dash", "Blitz":
-				matched = matched || c.castFor(props)
+				matched = matched || f.cast && f.altKeyword == props
 			case "isCastFaceDown":
 				// The spell is face down from before its cost is worked out
 				// (ADR-0048): Dream Chisel's reduction.
-				matched = matched || c.IsFaceDown()
+				matched = matched || f.faceDown
+			case "Instant":
+				matched = matched || f.card.Type().Has(cardtype.Instant)
+			case "Sorcery":
+				matched = matched || f.card.Type().Has(cardtype.Sorcery)
+			case "Kicked":
+				matched = matched || f.kicked
 			default:
 				return false, false
 			}
@@ -860,28 +885,37 @@ func (g *Game) announceSVarsFor(pid PlayerID, c *Card, controller PlayerControll
 }
 
 // firstSpellThisTurn is CostAdjustment's OnlyFirstSpell$ (CostAdjustment.java:
-// 541-555): the line holds only while pid has cast no spell this turn that
-// ValidCard$ matches (CardUtil.getThisTurnCast; any spell without it), so
-// Melek's or Hamza's reduction is the turn's first such spell's alone.
-// ValidSpell$ filters the casts by their spell abilities, which the turn's
-// cast records do not keep: such a line is unresolvable (GO-7).
+// 541-557): the line holds only while pid has cast no spell this turn that
+// ValidCard$ matches (CardUtil.getThisTurnCast; any spell without it) and,
+// with ValidSpell$, whose cast ValidSpell$ matches (CardPredicates.castSA):
+// Melek's reduction is the turn's first instant or sorcery's alone, Vine
+// Gecko's the first kicked spell's. Each cast is read as it was cast, its
+// caster and kicker from the turn's record.
 func (g *Game) firstSpellThisTurn(pid PlayerID, host *Card, s *compile.Ability) costModResult {
-	if _, ok := s.Param("ValidSpell"); ok {
-		return costModUnresolvable
-	}
-	if spec, ok := s.Param("ValidCard"); ok {
-		cast, _ := g.thisTurnCastCards(host.ID, spec)
-		for _, c := range cast {
-			if c.controller == pid {
-				return costModSkips
+	validSpell, hasValidSpell := s.Param("ValidSpell")
+	cardSpec, hasValidCard := s.Param("ValidCard")
+	parsed := valid.Parse(strings.TrimSpace(cardSpec))
+	for _, rec := range g.castThisTurn {
+		if rec.controller != pid {
+			continue
+		}
+		view := *g.Card(rec.card)
+		view.controller = rec.controller
+		view.castSeq = rec.seq
+		if hasValidCard && !Matches(g, &view, parsed, host.Controller(), host.ID) {
+			continue
+		}
+		if hasValidSpell {
+			matched, recognized := validSpellFacts(validSpell, spellFacts{card: &view, kicked: rec.kicked,
+				altKeyword: rec.altKeyword, cast: true, faceDown: rec.faceDown})
+			if !recognized {
+				return costModUnresolvable
+			}
+			if !matched {
+				continue
 			}
 		}
-		return costModApplies
-	}
-	for _, rec := range g.castThisTurn {
-		if rec.controller == pid {
-			return costModSkips
-		}
+		return costModSkips
 	}
 	return costModApplies
 }

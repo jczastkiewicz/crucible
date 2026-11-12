@@ -1,0 +1,25 @@
+# R20c gauntlet probe (The Beast, Deathless Prince #owner-damaged): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+queue paygeneric B
+queue targets 50
+queue attackers 50
+queue blocks none
+tapformana human 100 B
+tapformana human 101 R
+tapformana human 102 B
+tapformana human 103 B
+castspell human 1
+resolvestack
+resolvestack
+advance 2
+declareattackers
+advance
+declareblockers
+advance
+advance
+combatdamage
+resolvestack
+advance

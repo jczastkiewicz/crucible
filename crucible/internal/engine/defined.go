@@ -403,6 +403,19 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			break
 		}
 		candidates = rememberedPlayers(g, "Remembered"+strings.TrimPrefix(defined, "Imprinted"), imprinted, false, nil)
+	case "OriginalHostRemembered":
+		// AbilityUtils.java:1000-1004: the players the original host (the
+		// card whose static granted the trigger) remembers; a remembered card
+		// adds none (addPlayer's skipRemembered recursion). Hellish Rebuke's
+		// Effect remembers its caster.
+		origin := refs.triggered.originalHost
+		if origin == NoCard {
+			origin = host
+			if c := g.Card(host); c.IsEffect && c.effectOrigin != NoCard {
+				origin = c.effectOrigin
+			}
+		}
+		candidates = rememberedPlayers(g, "Remembered", g.Card(origin).Memory.Remembered(), false, nil)
 	case "DelayTriggerRemembered":
 		candidates = rememberedPlayers(g, "", refs.triggerRemembered, false, nil)
 	case "DelayTriggerRememberedController":
@@ -1071,6 +1084,17 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q outside a replacement of a card's entry", defined)
 		}
 		return []CardID{refs.replaced}, nil
+	case "ReplacedTarget":
+		// The "Replaced" branch over AbilityKey.Target: a DamageDone
+		// replacement's damaged card, none when a player was dealt the damage
+		// (Underdark Beholder's "remove that many eyestalk counters from it").
+		if refs.replacedTarget == NoEntity {
+			return nil, fmt.Errorf("engine: Defined$ %q outside a replacement that records it", defined)
+		}
+		if id, ok := refs.replacedTarget.AsCard(); ok {
+			return []CardID{id}, nil
+		}
+		return nil, nil
 	case "ReplacedCards":
 		// AbilityUtils.java's "Replaced" branch over AbilityKey.Cards: the cards
 		// a cascade moved (Averna, the Chaos Bloom's ReplacedCards.Land).

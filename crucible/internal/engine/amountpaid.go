@@ -55,8 +55,15 @@ func validFamilyValue(g *Game, sourceController PlayerID, source CardID, count e
 	}
 	var cards []*Card
 	for _, id := range pool {
-		if Matches(g, g.Card(id), count.Valid, sourceController, source) {
-			cards = append(cards, g.Card(id))
+		c := g.Card(id)
+		if id == g.triggeredLKI {
+			// The moved card of a CheckOnTriggeredCard$ test is its LKI copy
+			// (TriggerChangesZone.java:119-145, runParams CardLKI): Kraven the
+			// Hunter's ValidSelf reads the creature as it last was.
+			c = g.LKI(id)
+		}
+		if Matches(g, c, count.Valid, sourceController, source) {
+			cards = append(cards, c)
 		}
 	}
 	if count.DistinctProperty == "" {

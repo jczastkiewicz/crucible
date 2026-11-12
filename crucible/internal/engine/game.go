@@ -104,6 +104,18 @@ type Game struct {
 	// that name its targets, triggering objects and paid cards read it
 	// (amountcontext.go, valid.go); nil outside both.
 	resolving *Ability
+	// attacksThisTurn is every player's Player.attackedThisTurn, Player keys
+	// only: each creature a player attacked another player directly with
+	// this turn, as it was declared (an LKI copy, CombatUtil.java:384), once
+	// per declaration. Read by the wasAttackedThisTurnBy player property
+	// (PlayerProperty.java:443-450); a planeswalker or battle attacked is a
+	// Card key and is not kept. Cleared at each cleanup, as every player's
+	// own map is (Player.onCleanupPhase).
+	attacksThisTurn []attackRecord
+	// triggeredLKI is the moved card a CheckOnTriggeredCard$ amount is being
+	// read for, when that card left the battlefield: its ValidSelf count
+	// reads the LKI copy (checkOnTriggeredCardMet). NoCard otherwise.
+	triggeredLKI CardID
 	// moveCause overrides resolving as the cause of a zone move while
 	// moveCauseSet holds (withMoveCause, zonecause.go): the ability whose cost
 	// moves a card, a land play, or none for a state-based action.
@@ -517,6 +529,8 @@ type Game struct {
 	// first extra turn, is the player whose normal turn comes next, so
 	// normal turn order resumes once the stack drains.
 	extraTurns []extraTurn
+	// turnIsExtra is PhaseHandler.isExtraTurn for the turn in progress.
+	turnIsExtra bool
 	// combatDamagePrevented is Fog's "prevent all combat damage this turn",
 	// cleared at cleanup (damagePrevented/damagePreventedPlayer read it).
 	combatDamagePrevented bool
@@ -1863,6 +1877,7 @@ func (g *Game) Clone() *Game {
 		extraTurns:               append([]extraTurn(nil), g.extraTurns...),
 		maxDistinctSources:       g.maxDistinctSources,
 		noSchemesThisTurn:        g.noSchemesThisTurn,
+		turnIsExtra:              g.turnIsExtra,
 		combatDamagePrevented:    g.combatDamagePrevented,
 		combatsThisTurn:          g.combatsThisTurn,
 		mainsThisTurn:            g.mainsThisTurn,
@@ -1988,6 +2003,10 @@ func (g *Game) Clone() *Game {
 	for id, snap := range g.lki {
 		out.lki[id] = snap.frozenCopy()
 	}
+	out.attacksThisTurn = nil
+	for _, r := range g.attacksThisTurn {
+		out.attacksThisTurn = append(out.attacksThisTurn, attackRecord{attacking: r.attacking, defender: r.defender, attacker: r.attacker.frozenCopy()})
+	}
 	if g.boosters != nil {
 		out.gen = boosters.NewGenerator(g.boosters)
 	}
@@ -2018,6 +2037,11 @@ type castRecord struct {
 	warp bool
 	// seq is the card's castSeq for this cast.
 	seq uint64
+	// kicked, altKeyword and faceDown are the cast as ValidSpell$ reads it
+	// (OnlyFirstSpell$): kicked, the keyword cost it was cast for, face down.
+	kicked     bool
+	altKeyword string
+	faceDown   bool
 }
 
 // zoneEntry is one card's zone change this turn (Zone.cardsAddedThisTurn): the
@@ -2216,3 +2240,10 @@ func (c *Card) newObjectFlags(to ZoneType) {
 // SetPrintEdition records the edition code of id's print, which the seating
 // chose (ADR-0061): BorderColor* reads that edition's border.
 func (g *Game) SetPrintEdition(id CardID, code string) { g.Card(id).printEdition = code }
+
+// attackRecord is one entry of Game.attacksThisTurn: the attacking player,
+// the player attacked and the attacker as it was declared.
+type attackRecord struct {
+	attacking, defender PlayerID
+	attacker            *Card
+}

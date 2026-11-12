@@ -139,3 +139,32 @@ func TestChangeZoneTransformedEntersOnItsBackFace(t *testing.T) {
 		t.Errorf("card is %q in %v, want Persistent Nightmare on the battlefield", got.Def.Name, got.Zone)
 	}
 }
+
+// TestYourExtraTurnsCountsTheExtraTurnsBegun proves Count$YourExtraTurns
+// (H.M.S. Bounty's "haven't begun an extra turn this game"): the extra turn
+// counts as it begins, so the same AddTurn gated on EQ0 adds no second one.
+func TestYourExtraTurnsCountsTheExtraTurnsBegun(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	def := etbChainDef(t, "Test Bounty", "DB$ AddTurn | Defined$ You | NumTurns$ 1 | ConditionCheckSVar$ ExtraTurns | ConditionSVarCompare$ EQ0",
+		"ExtraTurns", "Count$YourExtraTurns")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	g.SetTurnState(1, p, engine.Cleanup)
+	g.AdvancePhase(c)
+	if got := g.ActivePlayer(); got != p {
+		t.Fatalf("turn 2 active = %v, want %v (extra turn)", got, p)
+	}
+	g.SetTurnState(2, p, engine.Main1)
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	g.SetTurnState(2, p, engine.Cleanup)
+	g.AdvancePhase(c)
+	if got := g.ActivePlayer(); got != other {
+		t.Errorf("turn 3 active = %v, want %v: one extra turn begun, the second AddTurn's condition fails", got, other)
+	}
+}

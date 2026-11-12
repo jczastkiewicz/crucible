@@ -1,0 +1,5 @@
+# R20c gauntlet probe (Sleep-Cursed Faerie #stun-untap-step): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+advance 24

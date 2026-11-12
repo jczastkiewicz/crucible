@@ -321,7 +321,10 @@ func (g *Game) saIsTargeting(a *Ability, prop string, host *Card, hostController
 	return false, true
 }
 
-// saTargetCount is numTargets <cmp><amount>: the distinct targets chosen.
+// saTargetCount is numTargets <cmp><amount>: the distinct objects targeted
+// across the chain (SpellAbilityProperty.java:232-240, getAllTargetChoices):
+// a's own targets, its nearest targeting ancestor's and every sub-ability
+// link's.
 func (g *Game) saTargetCount(a *Ability, prop string, host *Card, amounts map[string]expr.Amount) (matched, recognized bool) {
 	_, rest, ok := strings.Cut(prop, " ")
 	if !ok || len(rest) < 3 {
@@ -334,6 +337,14 @@ func (g *Game) saTargetCount(a *Ability, prop string, host *Card, amounts map[st
 	seen := map[EntityID]bool{}
 	for _, t := range a.Targets {
 		seen[t] = true
+	}
+	for _, t := range a.parentTargets {
+		seen[t] = true
+	}
+	for _, ct := range a.chainTargets {
+		for _, t := range ct.Targets {
+			seen[t] = true
+		}
 	}
 	return compareOp(len(seen), rest[:2], want), true
 }

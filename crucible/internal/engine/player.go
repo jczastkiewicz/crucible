@@ -46,6 +46,9 @@ type Player struct {
 	// Turn is how many turns this player has taken, which several card scripts
 	// count.
 	Turn int
+	// extraTurnsPlayed is how many of those turns were extra turns
+	// (Player.getExtraTurnsPlayed, Count$YourExtraTurns).
+	extraTurnsPlayed int
 	// Lost records that the player has left the game, and Won that they won
 	// it. Both can be false at once; both true is an engine invariant breach.
 	Lost bool

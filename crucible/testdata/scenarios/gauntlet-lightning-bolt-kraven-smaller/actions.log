@@ -1,0 +1,9 @@
+# R20c gauntlet probe (Lightning Bolt #kraven-smaller): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue targets 51
+tapformana human 3 R
+castspell human 1
+resolvestack
+resolvestack

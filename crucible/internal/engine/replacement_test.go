@@ -1549,12 +1549,11 @@ func TestDamageToCreatureReplacedByPutCounterOnEquipped(t *testing.T) {
 	}
 }
 
-// TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility proves a
-// chained SubAbility$ refuses outright (GO-7), underdark_beholder.txt's own
-// real "remove counters, then sacrifice if none left" shape: the full
-// damage applies rather than running the counter removal alone and silently
-// dropping the chained sacrifice.
-func TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility(t *testing.T) {
+// TestDamageToCreatureReplacedByRemoveCounterOnReplacedTarget is
+// underdark_beholder.txt's "instead remove that many eyestalk counters from
+// it" shape: Defined$ ReplacedTarget names the damaged card, so the 3 damage
+// becomes 3 counters removed and none is marked.
+func TestDamageToCreatureReplacedByRemoveCounterOnReplacedTarget(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -1569,9 +1568,11 @@ func TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility(t *testing.T) 
 	raw.Faces[0].Replacements = []string{
 		"Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Counters | Description$ Remove counters instead, then maybe sacrifice.",
 	}
-	raw.Faces[0].SVars.Set("Counters", "DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ EYESTALK | CounterNum$ X | SubAbility$ DBSac")
+	raw.Faces[0].SVars.Set("Counters", "DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ EYESTALK | CounterNum$ X | RememberRemoved$ True | SubAbility$ DBSac")
 	raw.Faces[0].SVars.Set("X", "ReplaceCount$DamageAmount")
-	raw.Faces[0].SVars.Set("DBSac", "DB$ Sacrifice | SacValid$ Self")
+	raw.Faces[0].SVars.Set("DBSac", "DB$ Sacrifice | SacValid$ Self | ConditionCheckSVar$ Y | ConditionSVarCompare$ LTX | SubAbility$ DBCleanup")
+	raw.Faces[0].SVars.Set("DBCleanup", "DB$ Cleanup | ClearRemembered$ True")
+	raw.Faces[0].SVars.Set("Y", "Count$RememberedSize")
 	def, err := compile.Compile(raw)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
@@ -1587,8 +1588,11 @@ func TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility(t *testing.T) 
 	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
-	if g.Card(blocker).Damage.Marked != 3 {
-		t.Errorf("blocker damage marked = %d, want 3 -- a chained SubAbility$ must not dispatch, so the full damage must apply", g.Card(blocker).Damage.Marked)
+	if g.Card(blocker).Damage.Marked != 0 {
+		t.Errorf("blocker damage marked = %d, want 0 -- the damage is replaced", g.Card(blocker).Damage.Marked)
+	}
+	if got := g.Card(blocker).Counters.Count(engine.CounterType("EYESTALK")); got != 2 {
+		t.Errorf("EYESTALK counters = %d, want 2", got)
 	}
 }
 

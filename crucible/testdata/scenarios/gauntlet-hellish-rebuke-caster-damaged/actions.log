@@ -1,0 +1,14 @@
+# R20c gauntlet probe (Hellish Rebuke #caster-damaged): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric B
+queue paygeneric B
+tapformana human 100 B
+tapformana human 101 B
+tapformana human 102 B
+castspell human 1
+resolvestack
+playland human 6
+resolvestack
+resolvestack

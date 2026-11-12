@@ -161,6 +161,10 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			// PhaseHandler.java:188: Player.incrementTurn, once the turn's active
 			// player is known (Count$YourTurns counts this turn from its start).
 			g.Player(g.activePlayer).Turn++
+			if g.turnIsExtra {
+				// PhaseHandler.java:217-218: Count$YourExtraTurns.
+				g.Player(g.activePlayer).extraTurnsPlayed++
+			}
 			g.notePowerSurgeLands(g.activePlayer)
 			g.endDetains(g.activePlayer)
 			g.endGoads(g.activePlayer)
@@ -271,6 +275,9 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 		// PhaseHandler.java:895-897: AddTurn's NoSchemes$ turn sets no scheme in
 		// motion until its cleanup (createCantSetSchemesInMotionEffect).
 		g.noSchemesThisTurn = noSchemes
+		// PhaseHandler.isExtraTurn: the stack is not empty after the pop,
+		// the bottom entry being the normal turn that resumes the order.
+		g.turnIsExtra = fromExtra && len(g.extraTurns) > 0
 		if skipUntap {
 			// PhaseHandler.java:892-893: SkipUntap$ becomes a one-shot skip of
 			// the new turn's untap step.
@@ -571,7 +578,16 @@ func (g *Game) untapStep(controller PlayerController) {
 // untapCard untaps a tapped permanent in Card.untap's order (Card.java:
 // 4839-4842): the Untaps triggers are checked while it is still tapped, then
 // its untap commands run, then the tapped flag clears.
+//
+// A stun counter replaces the untap (CR 122.1d): Card.java:7203-7211 gives a
+// card with one an Event$ Untap replacement of its own that removes a stun
+// counter instead, so the card stays tapped and no Untaps trigger fires. A
+// static that stops the removal leaves the untap replaced all the same.
 func (g *Game) untapCard(controller PlayerController, id CardID) {
+	if c := g.Card(id); c.Tapped && c.Zone == Battlefield && c.Counters.Count(Stun) > 0 {
+		removeCountersOfKind(g, id, CardEntity(id), &c.Counters, Stun, 1, false)
+		return
+	}
 	g.checkUntapsTriggers(controller, id)
 	g.runUntapCommands(controller, id)
 	g.Card(id).Tapped = false
@@ -903,6 +919,8 @@ func (g *Game) endCleanup() {
 		p.discardedThisTurn = nil
 		g.cleanupPlayerRecords(pid)
 	}
+	// Every player's attackedThisTurn map (Player.onCleanupPhase).
+	g.attacksThisTurn = nil
 	// Zone.resetCardsAddedThisTurn (Player.onCleanupPhase),
 	// Game.clearCountersThisTurn and Game.clearGlobalDamageHistory
 	// (Game.onCleanupPhase).

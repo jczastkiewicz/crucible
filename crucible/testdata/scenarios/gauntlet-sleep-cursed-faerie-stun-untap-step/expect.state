@@ -1,0 +1,13 @@
+turn=3
+activeplayer=human
+activephase=Upkeep
+humanlife=20
+humanbattlefield=Sleep-Cursed Faerie|Id:1|Tapped|Counters:STUN=1
+humanhand=Sleep-Cursed Faerie|Id:2
+humangraveyard=Lightning Bolt|Id:3;Grizzly Bears|Id:4
+humanlibrary=Island|Id:5;Island|Id:6;Island|Id:7;Island|Id:8;Island|Id:9;Island|Id:10
+ailife=20
+aibattlefield=Grizzly Bears|Id:11;Ornithopter|Id:12;Swamp|Id:13;Pacifism|Id:14|AttachedTo:11
+aihand=Island|Id:15;Lightning Bolt|Id:16;Grizzly Bears|Id:17;Island|Id:20
+aigraveyard=Shock|Id:18;Hill Giant|Id:19
+ailibrary=Island|Id:21;Island|Id:22;Island|Id:23;Island|Id:24;Island|Id:25

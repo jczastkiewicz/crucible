@@ -221,8 +221,35 @@ func tapShapeRecognized(a *compile.Ability) bool {
 	if !ok || (!strings.EqualFold(defined, "Self") && !strings.EqualFold(defined, "ReplacedCard")) {
 		return false
 	}
-	return onlyParamsOf(a, "db", "defined", "etb", "stackdescription", "unlesscost", "unlesspayer",
-		"conditionpresent", "conditioncompare", "conditionchecksvar", "conditionsvarcompare")
+	keys := []string{"db", "defined", "etb", "stackdescription", "unlesscost", "unlesspayer",
+		"conditionpresent", "conditioncompare", "conditionchecksvar", "conditionsvarcompare"}
+	if tapCounterTail(a) != nil {
+		// "Enters tapped with N counters" (Vivid Marsh, The Beast): the
+		// counters are the entry's, placed by applyEnterCounters.
+		keys = append(keys, "subability")
+	}
+	return onlyParamsOf(a, keys...)
+}
+
+// tapCounterTail is the PutCounter an "enters tapped with N counters" chain
+// ends in: a DB$ Tap whose one SubAbility$ is a PutCounter ETB$ of the
+// entering card itself and goes no further (Vivid Marsh's
+// "DB$ Tap | ETB$ True | SubAbility$ DBAddCounter"). nil for any other chain.
+func tapCounterTail(a *compile.Ability) *compile.Ability {
+	if !strings.EqualFold(a.Name, "Tap") || len(a.Subs) != 1 {
+		return nil
+	}
+	next := chainNext(a)
+	if next == nil || !strings.EqualFold(next.Name, "PutCounter") || len(next.Subs) != 0 {
+		return nil
+	}
+	if _, etb := next.Param("ETB"); !etb {
+		return nil
+	}
+	if d, ok := next.Param("Defined"); ok && !strings.EqualFold(d, "Self") {
+		return nil
+	}
+	return next
 }
 
 // onlyParamsOf reports whether every param of a is one of keys (folded).
@@ -1458,6 +1485,12 @@ func tapAbilityResolvesTap(g *Game, controller PlayerController, a *compile.Abil
 		switch strings.ToLower(p.Key) {
 		case "db", "defined", "etb", "stackdescription", "unlesscost", "unlesspayer",
 			"conditionpresent", "conditioncompare", "conditionchecksvar", "conditionsvarcompare":
+		case "subability":
+			// The counters of "enters tapped with N counters"
+			// (tapCounterTail) are applyEnterCounters'.
+			if tapCounterTail(a) == nil {
+				return false, false
+			}
 		default:
 			return false, false
 		}

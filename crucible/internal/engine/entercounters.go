@@ -85,6 +85,11 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 	var chains []chain
 	g.eachReplacement("Moved", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		sub := replaceWithSub(r)
+		if sub != nil && strings.EqualFold(sub.Name, "Tap") {
+			// "Enters tapped with N counters": the tap is
+			// checkMovedReplacement's, the counters are the entry's.
+			sub = tapCounterTail(sub)
+		}
 		if sub == nil || !strings.EqualFold(sub.Name, "PutCounter") {
 			return false
 		}

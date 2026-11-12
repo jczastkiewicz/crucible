@@ -68,7 +68,8 @@ func (g *Game) recordSpellCast(pid PlayerID, card CardID) {
 	c := g.Card(card)
 	g.castSeq++
 	c.castSeq = g.castSeq
-	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp, warp: c.castFor("Warp"), seq: c.castSeq})
+	g.castThisTurn = append(g.castThisTurn, castRecord{card: card, controller: pid, from: c.castFrom, stamp: c.zoneStamp, warp: c.castFor("Warp"), seq: c.castSeq,
+		kicked: c.kickerMagnitude() > 0, altKeyword: c.castOpt.altKeyword, faceDown: c.IsFaceDown()})
 	g.noteCommanderCast(pid, card)
 }
 
@@ -148,6 +149,7 @@ func (g *Game) recordAttacked(attacker CardID) {
 	if !ok {
 		return
 	}
+	g.attacksThisTurn = append(g.attacksThisTurn, attackRecord{attacking: c.Controller(), defender: pid, attacker: c.frozenCopy()})
 	if !slices.Contains(p.attackedPlayersThisTurn, pid) {
 		p.attackedPlayersThisTurn = append(p.attackedPlayersThisTurn, pid)
 	}

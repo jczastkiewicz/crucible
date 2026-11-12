@@ -1,0 +1,14 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Miss Highwater|Id:1|Tapped|Attacking
+humanhand=Miss Highwater|Id:2
+humangraveyard=Lightning Bolt|Id:3;Grizzly Bears|Id:4
+humanlibrary=Island|Id:5;Island|Id:6;Island|Id:7;Island|Id:8;Island|Id:9;Island|Id:10
+ailife=15
+aicounters=CONTRACT=1
+aibattlefield=Swamp|Id:11
+aihand=Island|Id:17;Island|Id:18;Island|Id:19;Island|Id:20;Island|Id:21;Island|Id:22;Island|Id:23
+aigraveyard=Shock|Id:15;Hill Giant|Id:16;Island|Id:12;Lightning Bolt|Id:13;Grizzly Bears|Id:14
+ailibrary=Island|Id:24;Island|Id:25;Island|Id:26;Island|Id:27;Island|Id:28

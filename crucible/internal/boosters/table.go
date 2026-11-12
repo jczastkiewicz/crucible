@@ -138,10 +138,14 @@ func (p *Pool) editionCard(en entry, e *Edition) (*Print, error) {
 
 var cardLine = regexp.MustCompile(`^(?:(\d+)\s+)?(.*?)$`)
 
-// cardPoolSheet is a PrintSheet over CardPool.fromCardList(lines): each line
-// "<n> <name>|<set>[|<art>]" adds the print it names n times.
+// cardPoolSheet is new PrintSheet(name, CardPool.fromCardList(lines)): each
+// line "<n> <name>|<set>[|<art>]" adds the print it names n times to the
+// CardPool, placeholders included, and the PrintSheet constructor then copies
+// the pool's entries, in the pool's iteration order, into a fresh map through
+// PrintSheet.add, which drops the placeholders (PrintSheet.java:41-49): the
+// second insertion order is the sheet's iteration order.
 func (t *Table) cardPoolSheet(name string, lines []string) (*Sheet, error) {
-	sh := newSheet(name)
+	pool := newSheet(name)
 	for _, line := range lines {
 		if strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
 			continue
@@ -182,7 +186,13 @@ func (t *Table) cardPoolSheet(name string, lines []string) (*Sheet, error) {
 		if foil {
 			pr = pr.Foiled()
 		}
-		if err := sh.add(pr, n); err != nil {
+		if err := pool.merge(pr, n); err != nil {
+			return nil, err
+		}
+	}
+	sh := newSheet(name)
+	for _, i := range pool.entries() {
+		if err := sh.add(pool.prints[i], pool.weights[i]); err != nil {
 			return nil, err
 		}
 	}

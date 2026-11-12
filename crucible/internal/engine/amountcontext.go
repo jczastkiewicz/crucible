@@ -30,7 +30,7 @@ import (
 var contextHeads = map[string]bool{
 	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredCardLKI": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
 	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "ExiledCards": true, "Discarded": true, "Tapped": true, "TappedCards": true,
-	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggerObjectsSources": true, "TriggeredExploited": true,
+	"Collected": true, "Revealed": true, "RevealedCards": true, "TriggerObjectsAttackers": true, "TriggerObjectsSources": true, "TriggeredExploited": true,
 	"TriggeredDevoured": true, "CardTriggeredTarget": true, "AllTargeted": true,
 }
 
@@ -137,11 +137,13 @@ func (g *Game) cardsOf(ids []CardID, lki bool) []*Card {
 func (g *Game) contextCards(source CardID, head string) ([]*Card, bool) {
 	var ids []CardID
 	switch head {
-	case "Collected", "Revealed":
+	case "Collected", "Revealed", "RevealedCards":
 		// The cast spell's paid lists (CostCollectEvidence, CostReveal), read
 		// while source is that spell (spellOptional). Revealed is Java's LKI
 		// list: each card as it was revealed or chosen (CostPartWithList.java:
-		// 136-138), so Dragon's Fire reads the Dragon's power as it was paid.
+		// 136-138); RevealedCards is the live card list (CostReveal.java:
+		// 175-177, getHashForCardList), which Dragon's Fire, Close Encounter
+		// and Monstrous Emergence read.
 		if source == NoCard {
 			return nil, false
 		}
@@ -534,7 +536,9 @@ func (g *Game) triggerCountMax(source CardID, key string) (int, bool) {
 	return refs.triggered.counts.countMax(key)
 }
 
-// optionalList is the paid list head names in rec: "Collected" or "Revealed".
+// optionalList is the paid list head names in rec: "Collected", or
+// "Revealed" and "RevealedCards" (one id list; Revealed's frozen copies are
+// revealedLKI).
 func optionalList(rec castOptional, head string) []CardID {
 	if head == "Collected" {
 		return rec.collected
@@ -571,7 +575,7 @@ func (g *Game) castSAValue(source CardID, amt expr.Amount) (n int, ok, cast bool
 	case amt.Count != nil && (amt.Count.Head == "OptionalGenericCostPaid" || amt.Count.Head == "Teamwork"):
 	case amt.Count != nil && strings.HasPrefix(amt.Count.Head, "Adamant"):
 	case amt.Count != nil && amt.Count.Head == "xPaid" && amt.Count.Argument == "":
-	case amt.Head == "Collected" || amt.Head == "Revealed":
+	case amt.Head == "Collected" || amt.Head == "Revealed" || amt.Head == "RevealedCards":
 	default:
 		return 0, false, false
 	}

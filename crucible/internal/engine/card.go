@@ -1739,7 +1739,8 @@ type castOptional struct {
 	revealed  []CardID
 	// revealedLKI is the "Revealed" list as Java keeps it: each revealed or
 	// chosen card frozen as it was paid (CostPartWithList.java:136-138,
-	// CostReveal's getHashForLKIList), what Revealed$CardPower reads. Parallel
+	// CostReveal's getHashForLKIList), what Revealed$CardPower reads
+	// (Titan's Presence, Charge of the Forever-Beast). Parallel
 	// to revealed.
 	revealedLKI []*Card
 	// exiled are the cards the optional costs exiled (CostExile's "Exiled"),

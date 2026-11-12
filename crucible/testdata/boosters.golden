@@ -1,7 +1,7 @@
 Language 'en-US' loaded successfully.
 (ThreadUtil first call): Running with priority 5
-Read cards: 34134 files in 3 ms (25 parts) using thread pool
-Read cards: 858 files in 0 ms (8 parts) using thread pool
+Read cards: 34466 files in 1 ms (25 parts) using thread pool
+Read cards: 864 files in 0 ms (8 parts) using thread pool
 T	10E
 T	2ED
 T	2X2
@@ -713,7 +713,7 @@ C	Starforged Sword|BLB|249|1|false
 C	Harnesser of Storms|BLB|137|1|false
 C	Harvestrite Host|BLB|15|1|false
 C	Osteomancer Adept|BLB|103|1|false
-C	Island|BLB|268|3|false
+C	Island|BLB|266|1|false
 C	Lightshell Duo|BLB|56|1|false
 C	Overprotect|BLB|185|1|true
 TPACK	28	BNG
@@ -922,7 +922,7 @@ C	Intangible Virtue|CMR|24|1|false
 C	Gilt-Leaf Winnower|CMR|130|1|false
 C	Court of Bounty|CMR|220|1|false
 C	Cage of Hands|CMR|14|1|true
-C	Tormod, the Desecrator|CMR|155|1|false
+C	Lathiel, the Bounteous Dawn|CMR|285|1|false
 C	Kediss, Emberclaw Familiar|CMR|188|1|false
 Parsing from main code: fromSheet("CN2 cards")
 Attempting to lookup: CN2 cards
@@ -3197,7 +3197,7 @@ C	Savannah Lions|SLZ|9|1|false
 C	Ornithopter|SLZ|109|1|false
 C	Sol Ring|SLZ|114|1|false
 C	Yargle, Glutton of Urborg|SLZ|53|1|false
-C	Merfolk of the Pearl Trident|SLZ|24|1|false
+C	Thought Vessel|SLZ|116|1|false
 C	Dueling Grounds|SLZ|89|1|false
 Parsing from main code: fromsheet("SNC cards")
 Attempting to lookup: SNC cards
@@ -3613,19 +3613,19 @@ Replaced a base slot! Land -> fromSheet("TRK holodeck basic")
 Parsing from main code: fromSheet("TRK holodeck basic")
 Attempting to lookup: TRK holodeck basic
 TPACK	165	TRK
-C	Cold-Blooded Crew|TRK|189|1|false
-C	Battle-Scarred Survivalist|TRK|95|1|false
-C	He's Dead, Jim|TRK|114|1|false
-C	Consider the Prime Directive|TRK|51|1|false
-C	Plasma Cascade|TRK|164|1|false
-C	Plasma Cascade|TRK|164|1|false
-C	Moopsy|TRK|207|1|false
-C	Gray and Adira, Forever Joined|TRK|238|1|false
-C	In the Pale Moonlight|TRK|117|1|false
-C	The Duras Sisters|TRK|235|1|false
-C	General Chang, Cold Warrior|TRK|109|1|false
+C	Horta|TRK|152|1|false
+C	Obsidian Order Operative|TRK|120|1|false
+C	Cha'DIch Investigator|TRK|97|1|false
+C	Unexplored Territory|TRK|303|1|false
+C	Dominion Supervisor|TRK|195|1|false
+C	Tea, Earl Grey, Hot|TRK|269|1|false
+C	A Good Day to Die|TRK|111|1|false
+C	Culber and Stamets, Star-Crossed|TRK|191|1|false
 C	Collective Drone|TRK|99|1|false
-C	Seven of Nine|TRK|252|1|true
+C	Brad Boimler, Eager Ensign|TRK|5|1|false
+C	Federation Outpost|TRK|282|1|false
+C	Mugato|TRK|208|1|false
+C	Tell Me What You See|TRK|132|1|true
 C	Forest|TRK|316|2|false
 TPACK	166	TSP
 C	Pit Keeper|TSP|123|1|false
@@ -4072,7 +4072,7 @@ Attempting to lookup: ECL cards
 Parsing from main code: fromSheet("ECL cards")
 Attempting to lookup: ECL cards
 TPACK	188	YECL
-C	Perennial Gravewarden|YECL|24|1|false
+C	Adherent's Heirloom|YECL|29|1|false
 C	Timid Shieldbearer|ECL|39|1|false
 C	Gangly Stompling|ECL|226|1|false
 C	Barbed Bloodletter|ECL|86|1|false
@@ -4142,7 +4142,7 @@ C	Dusk Rose Reliquary|LCI|10|1|false
 C	Digsite Conservator|LCI|252|1|false
 C	Tithing Blade|LCI|128|1|false
 C	Wail of the Forgotten|LCI|244|1|false
-C	Hidden Cataract|LCI|273|1|false
+C	Hidden Courtyard|LCI|274|1|false
 Parsing from main code: fromsheet("YMID cards")
 Attempting to lookup: YMID cards
 Parsing from main code: fromsheet("MID cards")
@@ -20023,8 +20023,8 @@ S	Unruly Mob|DBL|40|1|false	1
 S	Harvesttide Sentry|DBL|186|1|false	1
 S	Revenge of the Drowned|DBL|72|1|false	1
 S	Homestead Courage|DBL|24|1|false	1
-S	Return to Nature|DBL|195|1|false	1
 S	Ardent Elementalist|DBL|128|1|false	1
+S	Return to Nature|DBL|195|1|false	1
 S	Candlegrove Witch|DBL|8|1|false	1
 S	Duress|DBL|98|1|false	1
 S	Hobbling Zombie|DBL|106|1|false	1
@@ -20161,8 +20161,8 @@ S	Diregraf Scavenger|DBL|372|1|false	1
 S	Sigarda's Imprisonment|DBL|302|1|false	1
 S	Undying Malice|DBL|401|1|false	1
 S	Courier Bat|DBL|369|1|false	1
-S	Blood Servitor|DBL|519|1|false	1
 S	Ceremonial Knife|DBL|521|1|false	1
+S	Blood Servitor|DBL|519|1|false	1
 S	Nature's Embrace|DBL|478|1|false	1
 S	Vampire's Kiss|DBL|403|1|false	1
 S	Witch's Web|DBL|494|1|false	1
@@ -24329,8 +24329,8 @@ S	Invigorate|SLZ|79|1|false	1
 S	Llanowar Elves|SLZ|81|1|false	1
 S	Wild Nacatl|SLZ|87|1|false	1
 S	Nature's Claim|SLZ|82|1|false	1
-S	Merfolk of the Pearl Trident|SLZ|24|1|false	1
 S	Thought Vessel|SLZ|116|1|false	1
+S	Merfolk of the Pearl Trident|SLZ|24|1|false	1
 S	Command Tower|SLZ|118|1|false	1
 S	Soul-Guide Lantern|SLZ|115|1|false	1
 S	Arcane Signet|SLZ|94|1|false	1
@@ -25062,8 +25062,8 @@ S	Unending Whisper|TDM|62|1|false	1
 SHEET	Common:fromSheet("THB Commons") THB	101
 S	Pharika's Libation|THB|111|1|false	1
 S	Setessan Training|THB|201|1|false	1
-S	Omen of the Forge|THB|145|1|false	1
 S	Funeral Rites|THB|97|1|false	1
+S	Omen of the Forge|THB|145|1|false	1
 S	Leonin of the Lost Pride|THB|28|1|false	1
 S	Discordant Piper|THB|88|1|false	1
 S	Dreadful Apathy|THB|11|1|false	1
@@ -25071,8 +25071,8 @@ S	Rage-Scarred Berserker|THB|113|1|false	1
 S	Skophos Warleader|THB|154|1|false	1
 S	Nyxborn Courser|THB|29|1|false	1
 S	Glory Bearers|THB|17|1|false	1
-S	Gift of Strength|THB|171|1|false	1
 S	Revoke Existence|THB|34|1|false	1
+S	Gift of Strength|THB|171|1|false	1
 S	Infuriate|THB|141|1|false	1
 S	Stampede Rider|THB|155|1|false	1
 S	Nyxborn Seaguard|THB|57|1|false	1
@@ -25089,16 +25089,16 @@ S	Underworld Charger|THB|120|1|false	1
 S	Sunmane Pegasus|THB|38|1|false	1
 S	Triumphant Surge|THB|41|1|false	1
 S	Captivating Unicorn|THB|6|1|false	1
-S	Loathsome Chimera|THB|177|1|false	1
 S	Temple Thief|THB|116|1|false	1
+S	Loathsome Chimera|THB|177|1|false	1
 S	Thaumaturge's Familiar|THB|238|1|false	1
 S	Triton Waverider|THB|78|1|false	1
 S	Blight-Breath Catoblepas|THB|86|1|false	1
 S	Fruit of Tizerus|THB|96|1|false	1
 S	Starlit Mantle|THB|67|1|false	1
 S	Plummet|THB|194|1|false	1
-S	Thirst for Meaning|THB|74|1|false	1
 S	Hero of the Games|THB|137|1|false	1
+S	Thirst for Meaning|THB|74|1|false	1
 S	Hyrax Tower Scout|THB|173|1|false	1
 S	Voracious Typhon|THB|203|1|false	1
 S	Nexus Wardens|THB|184|1|false	1
@@ -25368,52 +25368,87 @@ S	Michelangelo, Game Master|TMT|118|1|false	1
 S	Donatello, Turtle Techie|TMT|37|1|false	1
 S	Leonardo, Big Brother|TMT|14|1|false	1
 S	Jennika, Bad Apple Big Sister|TMT|10|1|false	1
-SHEET	Common:fromSheet("TRK cards") TRK	46
+SHEET	Common:fromSheet("TRK cards") TRK	81
 S	Xindi Surveyors|TRK|225|1|false	1
 S	Shields Up!|TRK|35|1|false	1
 S	Command Decision|TRK|8|1|false	1
+S	Suus Mahna Practitioner|TRK|84|1|false	1
 S	Open Communications|TRK|76|1|false	1
+S	Melkotian Adjudicator|TRK|73|1|false	1
 S	Cha'DIch Investigator|TRK|97|1|false	1
-S	Silicate Surveyor|TRK|172|1|false	1
 S	Marooned|TRK|72|1|false	1
 S	Emergency Medical Hologram|TRK|15|1|false	1
-S	Relentless Drednok|TRK|124|1|false	1
-S	Xenobotanist|TRK|224|1|false	1
-S	Reckless Impulse|TRK|168|1|false	1
-S	Rogue Artificial Intelligence|TRK|126|1|false	1
+S	Tal Shiar Analyst|TRK|174|1|false	1
+S	Warp Core|TRK|274|1|false	1
+S	Cetacean Ops|TRK|48|1|false	1
+S	Genesis Effect|TRK|151|1|false	1
+S	Starfleet Spanner Jockey|TRK|81|1|false	1
 S	Saurian Explorer|TRK|213|1|false	1
-S	Horta|TRK|152|1|false	1
 S	First Contact|TRK|199|1|false	1
-S	Tactical Officer|TRK|38|1|false	1
-S	A Good Day to Die|TRK|111|1|false	1
-S	Federation Field Medic|TRK|17|1|false	1
+S	Savvy Profiteer|TRK|171|1|false	1
+S	Planetary Bombardment|TRK|162|1|false	1
 S	Cantankerous Captain|TRK|141|1|false	1
-S	Battle-Scarred Survivalist|TRK|95|1|false	1
+S	Pure Energy|TRK|31|1|false	1
 S	Consider the Prime Directive|TRK|51|1|false	1
 S	Plasma Cascade|TRK|164|1|false	1
 S	Dathon and Picard at El-Adrel|TRK|192|1|false	1
 S	Moopsy|TRK|207|1|false	1
+S	Unexplored Territory|TRK|303|1|false	1
 S	DOT-7 Repair Squad|TRK|12|1|false	1
-S	Cybernetic Specialist|TRK|262|1|false	1
+S	Stray from History|TRK|130|1|false	1
 S	Cloistered Telepath|TRK|50|1|false	1
-S	Guidance Failure|TRK|60|1|false	1
 S	Tricorder|TRK|270|1|false	1
+S	Photosynthetic Physician|TRK|210|1|false	1
+S	Dominion Assault Force|TRK|194|1|false	1
+S	Set Phasers to . . .|TRK|34|1|false	1
+S	Malfunctioning Holodeck|TRK|22|1|false	1
+S	He's Dead, Jim|TRK|114|1|false	1
+S	Perils of the Past|TRK|161|1|false	1
+S	Vexing Drone|TRK|45|1|false	1
+S	Tenacious Drone|TRK|133|1|false	1
+S	Tal Shiar Operative|TRK|131|1|false	1
+S	Common Goal|TRK|190|1|false	1
+S	Final Frontier|TRK|198|1|false	1
+S	Fugitive Listener|TRK|107|1|false	1
+S	Class-F Shuttlecraft|TRK|259|1|false	1
+S	Boarding Action|TRK|139|1|false	1
+S	Emergency Holographic Crew|TRK|55|1|false	1
+S	Silicate Surveyor|TRK|172|1|false	1
+S	Temporal Conqueror|TRK|219|1|false	1
+S	Oberth-Class Starship|TRK|26|1|false	1
+S	Relentless Drednok|TRK|124|1|false	1
+S	Xenobotanist|TRK|224|1|false	1
+S	Tea, Earl Grey, Hot|TRK|269|1|false	1
+S	Reckless Impulse|TRK|168|1|false	1
+S	Rogue Artificial Intelligence|TRK|126|1|false	1
+S	Starfleet Security|TRK|173|1|false	1
+S	Andromedan Automatons|TRK|2|1|false	1
+S	Horta|TRK|152|1|false	1
+S	Tactical Officer|TRK|38|1|false	1
+S	Pet Sehlat|TRK|28|1|false	1
+S	A Good Day to Die|TRK|111|1|false	1
+S	Federation Field Medic|TRK|17|1|false	1
+S	Battle-Scarred Survivalist|TRK|95|1|false	1
+S	Suurok-Class Science Vessel|TRK|83|1|false	1
+S	Dahar Master|TRK|146|1|false	1
+S	Interstellar Effigy|TRK|66|1|false	1
+S	Pattern Buffer Preservation|TRK|123|1|false	1
+S	Make It So|TRK|71|1|false	1
+S	Cybernetic Specialist|TRK|262|1|false	1
+S	Guidance Failure|TRK|60|1|false	1
 S	Shuttle Ace|TRK|36|1|false	1
 S	Dominion Supervisor|TRK|195|1|false	1
-S	Set Phasers to . . .|TRK|34|1|false	1
 S	Automated Warfare System|TRK|93|1|false	1
 S	Cold-Blooded Crew|TRK|189|1|false	1
-S	Malfunctioning Holodeck|TRK|22|1|false	1
 S	Free Borg Revolutionaries|TRK|19|1|false	1
 S	Humpback Whales|TRK|65|1|false	1
-S	He's Dead, Jim|TRK|114|1|false	1
 S	Eject the Warp Core|TRK|105|1|false	1
-S	Perils of the Past|TRK|161|1|false	1
 S	Assault Drone|TRK|92|1|false	1
 S	Federation Probe|TRK|59|1|false	1
-S	Common Goal|TRK|190|1|false	1
-S	Captain's Tutelage|TRK|144|1|false	1
+S	Astute Terraformer|TRK|184|1|false	1
 S	I'm a Doctor, Not a . . .|TRK|203|1|false	1
+S	Captain's Tutelage|TRK|144|1|false	1
+S	Obsidian Order Operative|TRK|120|1|false	1
 S	Planetary Patrol|TRK|163|1|false	1
 SHEET	Common:fromSheet("VOW cards") VOW	100
 S	Gluttonous Guest|VOW|114|1|false	1
@@ -26038,21 +26073,21 @@ S	Phyrexian Altar|2X2|311|1|true	2
 S	Experiment One|2X2|146|1|true	21
 S	Prophetic Bolt|2X2|265|1|true	7
 S	Settle Beyond Reality|2X2|30|1|true	21
-S	Jodah, Archmage Eternal|2X2|233|1|true	2
-S	Dromoka's Command|2X2|206|1|true	2
-S	Doran, the Siege Tower|2X2|201|1|true	2
 S	Elvish Rejuvenator|2X2|144|1|true	21
+S	Doran, the Siege Tower|2X2|201|1|true	2
+S	Dromoka's Command|2X2|206|1|true	2
+S	Jodah, Archmage Eternal|2X2|233|1|true	2
 S	Force of Negation|2X2|50|1|true	2
 S	Gods Willing|2X2|12|1|true	21
 S	Hyena Umbra|2X2|13|1|true	21
 S	Abbot of Keral Keep|2X2|100|1|true	2
 S	Hostage Taker|2X2|227|1|true	2
 S	Chronicler of Heroes|2X2|193|1|true	21
-S	Crucible of Worlds|2X2|303|1|true	1
 S	Bedlam Reveler|2X2|104|1|true	2
+S	Crucible of Worlds|2X2|303|1|true	1
 S	Skullbriar, the Walking Grave|2X2|277|1|true	2
-S	Rift Bolt|2X2|122|1|true	21
 S	Purphoros's Emissary|2X2|121|1|true	21
+S	Rift Bolt|2X2|122|1|true	21
 S	Aurelia, the Warleader|2X2|179|1|true	1
 S	Rishkar, Peema Renegade|2X2|157|1|true	2
 S	Severed Strands|2X2|88|1|true	21
@@ -26379,8 +26414,8 @@ S	Sanctum Spirit|2XM|30|1|true	21
 S	Thirst for Knowledge|2XM|71|1|true	7
 S	Apprentice Wizard|2XM|40|1|true	21
 S	Braids, Conjurer Adept|2XM|43|1|true	2
-S	Brudiclad, Telchor Engineer|2XM|193|1|true	2
 S	Brainstorm|2XM|44|1|true	21
+S	Brudiclad, Telchor Engineer|2XM|193|1|true	2
 S	Sphinx Summoner|2XM|220|1|true	7
 S	Grim Lavamancer|2XM|129|1|true	2
 S	Urza's Mine|2XM|329|1|true	21
@@ -27067,11 +27102,11 @@ S	Hardy Outlander|CLB|235|1|false	1
 S	Faceless One|CLB|1|1|false	1
 S	Agent of the Iron Throne|CLB|107|1|false	1
 S	Veteran Soldier|CLB|48|1|false	1
-S	Shameless Charlatan|CLB|96|1|false	1
 S	Flaming Fist|CLB|18|1|false	1
+S	Shameless Charlatan|CLB|96|1|false	1
 S	Raised by Giants|CLB|250|1|false	1
-S	Popular Entertainer|CLB|192|1|false	1
 S	Clan Crafter|CLB|614|1|false	1
+S	Popular Entertainer|CLB|192|1|false	1
 S	Folk Hero|CLB|608|1|false	1
 S	Feywild Visitor|CLB|70|1|false	1
 S	Guild Artisan|CLB|179|1|false	1
@@ -27100,8 +27135,8 @@ S	Nine-Fingers Keene|CLB|289|1|true	1
 S	Lae'zel, Vlaakith's Champion|CLB|29|1|true	1
 S	Jaheira, Friend of the Forest|CLB|237|1|true	1
 S	Raised by Giants|CLB|250|1|true	1
-S	Astarion, the Decadent|CLB|265|1|true	1
 S	Flaming Fist|CLB|18|1|true	1
+S	Astarion, the Decadent|CLB|265|1|true	1
 S	Hardy Outlander|CLB|235|1|true	1
 S	Thrakkus the Butcher|CLB|295|1|true	1
 S	Vhal, Candlekeep Researcher|CLB|102|1|true	1
@@ -27244,9 +27279,9 @@ S	Firkraag, Cunning Instigator|CLB|642|1|false	1
 S	Lae'zel, Vlaakith's Champion|CLB|29|1|false	1
 SHEET	fromSheet("CMR Foils") CMR	361
 S	Sengir, the Dark Baron|CMR|149|1|true	1
-S	Mask of Memory|CMR|324|1|true	1
-S	Court of Bounty|CMR|220|1|true	1
 S	Opposition Agent|CMR|141|1|true	1
+S	Court of Bounty|CMR|220|1|true	1
+S	Mask of Memory|CMR|324|1|true	1
 S	Palace Sentinels|CMR|36|1|true	1
 S	Prosperous Pirates|CMR|85|1|true	1
 S	Corpse Churn|CMR|113|1|true	1
@@ -27259,16 +27294,16 @@ S	Akroma's Will|CMR|3|1|true	1
 S	Aqueous Form|CMR|56|1|true	1
 S	War Room|CMR|361|1|true	1
 S	Ingenuity Engine|CMR|317|1|true	1
-S	Ghen, Arcanum Weaver|CMR|275|1|true	1
-S	Stingerfling Spider|CMR|258|1|true	1
 S	Immaculate Magistrate|CMR|234|1|true	1
+S	Stingerfling Spider|CMR|258|1|true	1
+S	Ghen, Arcanum Weaver|CMR|275|1|true	1
 S	Magus of the Order|CMR|242|1|true	1
 S	Hamza, Guardian of Arashin|CMR|278|1|true	1
 S	Cuombajj Witches|CMR|116|1|true	1
 S	Maalfeld Twins|CMR|132|1|true	1
-S	Sisay's Ring|CMR|340|1|true	1
-S	Arcane Signet|CMR|297|1|true	1
 S	Molder Beast|CMR|243|1|true	1
+S	Arcane Signet|CMR|297|1|true	1
+S	Sisay's Ring|CMR|340|1|true	1
 S	Sakashima of a Thousand Faces|CMR|89|1|true	1
 S	Command Beacon|CMR|349|1|true	1
 S	Supernatural Stamina|CMR|151|1|true	1
@@ -27611,9 +27646,9 @@ S	Tevesh Szat, Doom of Fools|CMR|153|1|false	1
 S	Halana, Kessig Ranger|CMR|231|1|false	6
 S	Malcolm, Keen-Eyed Navigator|CMR|79|1|false	6
 S	Numa, Joraga Chieftain|CMR|246|1|false	6
-S	Tormod, the Desecrator|CMR|155|1|false	6
-S	Lathiel, the Bounteous Dawn|CMR|285|1|false	2
 S	Archelos, Lagoon Mystic|CMR|268|1|false	2
+S	Lathiel, the Bounteous Dawn|CMR|285|1|false	2
+S	Tormod, the Desecrator|CMR|155|1|false	6
 S	Kangee, Sky Warden|CMR|283|1|false	6
 S	Siani, Eye of the Storm|CMR|95|1|false	6
 S	Nymris, Oona's Trickster|CMR|288|1|false	2
@@ -27686,9 +27721,9 @@ S	Staff of Domination|CMR|343|1|false	2
 S	Undergrowth Stadium|CMR|359|1|false	2
 S	Coercive Recruiter|CMR|169|1|false	2
 S	Dawnglade Regent|CMR|222|1|false	2
-S	Wheel of Misfortune|CMR|211|1|false	2
-S	Court of Cunning|CMR|63|1|false	2
 S	Austere Command|CMR|12|1|false	2
+S	Court of Cunning|CMR|63|1|false	2
+S	Wheel of Misfortune|CMR|211|1|false	2
 S	Soul of Eternity|CMR|50|1|false	2
 S	Mnemonic Deluge|CMR|82|1|false	1
 S	Jeweled Lotus|CMR|319|1|false	1
@@ -27748,14 +27783,14 @@ S	Promise of Tomorrow|CMR|39|1|false	2
 SHEET	fromSheet("CMR Non-Legendary Uncommons") CMR	80
 S	Hero's Blade|CMR|314|1|false	1
 S	Vow of Duty|CMR|54|1|false	1
-S	Vow of Lightning|CMR|209|1|false	1
 S	Volcanic Torrent|CMR|208|1|false	1
+S	Vow of Lightning|CMR|209|1|false	1
 S	Imperious Perfect|CMR|235|1|false	1
 S	Sunset Pyramid|CMR|345|1|false	1
 S	Vow of Flight|CMR|105|1|false	1
 S	Burnished Hart|CMR|302|1|false	1
-S	Interpret the Signs|CMR|75|1|false	1
 S	Nadier's Nightblade|CMR|136|1|false	1
+S	Interpret the Signs|CMR|75|1|false	1
 S	Noxious Dragon|CMR|139|1|false	1
 S	Strength of the Pack|CMR|259|1|false	1
 S	Open the Armory|CMR|34|1|false	1
@@ -27830,8 +27865,8 @@ SHEET	fromSheet("CN2 Draft Matters") CN2	24
 S	Paliano Vanguard|CN2|20|1|false	1
 S	Natural Unity|CN2|9|1|false	1
 S	Weight Advantage|CN2|12|1|false	1
-S	Spire Phantasm|CN2|37|1|false	1
 S	Assemble the Rank and Vile|CN2|2|1|false	1
+S	Spire Phantasm|CN2|37|1|false	1
 S	Incendiary Dissent|CN2|8|1|false	1
 S	Archdemon of Paliano|CN2|39|1|false	1
 S	Emissary's Ploy|CN2|4|1|false	1
@@ -27859,8 +27894,8 @@ S	Lurking Automaton|CNS|63|1|false	1
 S	Secrets of Paradise|CNS|10|1|false	1
 S	Brago's Favor|CNS|3|1|false	1
 S	Immediate Action|CNS|5|1|false	1
-S	Worldknit|CNS|13|1|false	1
 S	Lore Seeker|CNS|62|1|false	1
+S	Worldknit|CNS|13|1|false	1
 S	Secret Summoning|CNS|9|1|false	1
 S	Double Stroke|CNS|4|1|false	1
 S	Power Play|CNS|8|1|false	1
@@ -28065,8 +28100,8 @@ S	Swamp|IKO|268|3|false	7
 S	Swamp|IKO|266|1|false	7
 S	Forest|IKO|273|2|false	7
 S	Tranquil Cove|IKO|257|1|false	10
-S	Island|IKO|263|1|false	7
 S	Plains|IKO|260|1|false	7
+S	Island|IKO|263|1|false	7
 S	Island|IKO|265|3|false	7
 S	Mountain|IKO|270|2|false	7
 S	Jungle Hollow|IKO|249|1|false	10
@@ -28177,8 +28212,8 @@ S	Twists and Turns|LCI|217|1|false	3
 SHEET	fromSheet("LCI lands") LCI	12
 S	Promising Vein|LCI|279|1|false	5
 S	Hidden Nursery|LCI|276|1|false	5
-S	Hidden Courtyard|LCI|274|1|false	5
 S	Hidden Cataract|LCI|273|1|false	5
+S	Hidden Courtyard|LCI|274|1|false	5
 S	Swamp|LCI|289|1|false	3
 S	Hidden Volcano|LCI|277|1|false	5
 S	Hidden Necropolis|LCI|275|1|false	5
@@ -28190,8 +28225,8 @@ S	Mountain|LCI|290|1|false	3
 SHEET	fromSheet("LCI lands") YLCI	12
 S	Promising Vein|LCI|279|1|false	5
 S	Hidden Nursery|LCI|276|1|false	5
-S	Hidden Courtyard|LCI|274|1|false	5
 S	Hidden Cataract|LCI|273|1|false	5
+S	Hidden Courtyard|LCI|274|1|false	5
 S	Swamp|LCI|289|1|false	3
 S	Hidden Volcano|LCI|277|1|false	5
 S	Hidden Necropolis|LCI|275|1|false	5
@@ -28206,8 +28241,8 @@ S	Cinder Barrens|M19|248|1|false	6
 S	Forest|M19|277|1|false	3
 S	Swamp|M19|270|2|false	3
 S	Forest|M19|279|3|false	3
-S	Mountain|M19|276|4|false	3
 S	Mountain|M19|274|2|false	3
+S	Mountain|M19|276|4|false	3
 S	Island|M19|266|2|false	3
 S	Island|M19|268|4|false	3
 S	Plains|M19|261|1|false	3
@@ -28264,14 +28299,14 @@ S	Plains|M20|262|2|false	3
 S	Forest|M20|278|2|false	3
 SHEET	fromSheet("M21 Lands") M21	30
 S	Mountain|M21|269|1|false	3
-S	Blossoming Sands|M21|244|1|false	6
 S	Thornwood Falls|M21|257|1|false	6
+S	Blossoming Sands|M21|244|1|false	6
 S	Forest|M21|274|3|false	3
 S	Island|M21|265|3|false	3
-S	Forest|M21|272|1|false	3
-S	Mountain|M21|271|3|false	3
-S	Plains|M21|261|2|false	3
 S	Island|M21|263|1|false	3
+S	Plains|M21|261|2|false	3
+S	Mountain|M21|271|3|false	3
+S	Forest|M21|272|1|false	3
 S	Swiftwater Cliffs|M21|251|1|false	6
 S	Plains|M21|309|4|false	3
 S	Scoured Barrens|M21|250|1|false	6
@@ -28316,8 +28351,8 @@ S	Great Furnace|PLST|C18-250|1|false	1
 S	Myr Sire|PLST|CM2-204|1|false	1
 S	Juggernaut|PLST|BBD-238|1|false	1
 S	Dreadship Reef|PLST|CM2-247|1|false	1
-S	Whispersilk Cloak|PLST|DST-160|1|false	1
 S	Alloy Myr|PLST|MM2-201|1|false	1
+S	Whispersilk Cloak|PLST|DST-160|1|false	1
 S	Gateway Plaza|PLST|GRN-247|1|false	1
 S	Renegade Map|PLST|AER-173|1|false	1
 S	Crumbling Necropolis|PLST|C17-244|1|false	1
@@ -28438,11 +28473,11 @@ S	Wight of Precinct Six|PLST|C16-118|1|false	1
 S	Dark Ritual|PLST|A25-82|1|false	1
 S	Alesha's Vanguard|PLST|FRF-60|1|false	1
 S	Cabal Therapy|PLST|EMA-83|1|false	1
-S	Reassembling Skeleton|PLST|M19-116|1|false	1
 S	Never Happened|PLST|GRN-80|1|false	1
+S	Reassembling Skeleton|PLST|M19-116|1|false	1
 S	Returned Centaur|PLST|ORI-116|1|false	1
-S	Tar Snare|PLST|OGW-90|1|false	1
 S	Coat with Venom|PLST|DTK-91|1|false	1
+S	Tar Snare|PLST|OGW-90|1|false	1
 S	Caustic Tar|PLST|A25-81|1|false	1
 S	Scarab Feast|PLST|AKH-106|1|false	1
 S	Scuttling Death|PLST|MM2-94|1|false	1
@@ -28455,10 +28490,10 @@ S	Epicure of Blood|PLST|M19-95|1|false	1
 S	The Eldest Reborn|PLST|DOM-90|1|false	1
 S	Miasmic Mummy|PLST|AKH-100|1|false	1
 S	Vampire Champion|PLST|RIX-198|1|false	1
-S	Nameless Inversion|PLST|MM2-87|1|false	1
 S	Marauding Boneslasher|PLST|HOU-70|1|false	1
-S	Catacomb Slug|PLST|ORI-86|1|false	1
+S	Nameless Inversion|PLST|MM2-87|1|false	1
 S	Prowling Pangolin|PLST|EMA-104|1|false	1
+S	Catacomb Slug|PLST|ORI-86|1|false	1
 S	Induce Despair|PLST|DDP-53|1|false	1
 S	Diabolic Edict|PLST|A25-85|1|false	1
 S	Blood Artist|PLST|C17-99|1|false	1
@@ -28468,19 +28503,19 @@ S	Fatal Push|PLST|AER-57|1|false	1
 S	Dreadbringer Lampads|PLST|C15-122|1|false	1
 S	Cower in Fear|PLST|MM3-62|1|false	1
 S	Grim Affliction|PLST|MM2-84|1|false	1
-S	Vampire Lacerator|PLST|A25-114|1|false	1
 S	Unyielding Krumar|PLST|KTK-94|1|false	1
-S	Trial of Ambition|PLST|AKH-113|1|false	1
+S	Vampire Lacerator|PLST|A25-114|1|false	1
 S	Demonic Tutor|PLST|DDC-49|1|false	1
+S	Trial of Ambition|PLST|AKH-113|1|false	1
 S	Spreading Rot|PLST|XLN-125|1|false	1
 S	Dusk Legion Zealot|PLST|RIX-70|1|false	1
 S	Silumgar Butcher|PLST|DTK-122|1|false	1
 S	Feral Abomination|PLST|DOM-92|1|false	1
-S	Skeleton Archer|PLST|M19-118|1|false	1
 S	Deadeye Tormentor|PLST|XLN-98|1|false	1
-S	Weirded Vampire|PLST|EMN-113|1|false	1
-S	Hired Blade|PLST|M19-100|1|false	1
+S	Skeleton Archer|PLST|M19-118|1|false	1
 S	Eternal Thirst|PLST|IMA-89|1|false	1
+S	Hired Blade|PLST|M19-100|1|false	1
+S	Weirded Vampire|PLST|EMN-113|1|false	1
 S	Renegade Demon|PLST|DDR-59|1|false	1
 S	Subtle Strike|PLST|KLD-100|1|false	1
 S	Unburden|PLST|AKH-114|1|false	1
@@ -28662,11 +28697,11 @@ SHEET	fromSheet("MB1 Blue CommonUncommon") MB1	242
 S	Exclude|PLST|MH1-48|1|false	1
 S	Refocus|PLST|FRF-47|1|false	1
 S	Memory Lapse|PLST|EMA-60|1|false	1
-S	Eel Umbra|PLST|C18-89|1|false	1
 S	Calculated Dismissal|PLST|ORI-48|1|false	1
+S	Eel Umbra|PLST|C18-89|1|false	1
 S	Monastery Loremaster|PLST|DTK-63|1|false	1
-S	Riverwheel Aerialists|PLST|IMA-71|1|false	1
 S	Laboratory Maniac|PLST|INR-71|1|false	1
+S	Riverwheel Aerialists|PLST|IMA-71|1|false	1
 S	Wind Drake|PLST|KLD-70|1|false	1
 S	Jeskai Sage|PLST|FRF-38|1|false	1
 S	Everdream|PLST|MH1-47|1|false	1
@@ -28674,8 +28709,8 @@ S	River Darter|PLST|RIX-47|1|false	1
 S	Benthic Giant|PLST|BBD-113|1|false	1
 S	Claustrophobia|PLST|DDT-3|1|false	1
 S	Whiplash Trap|PLST|DDN-70|1|false	1
-S	Glint|PLST|DTK-55|1|false	1
 S	Fascination|PLST|FRF-34|1|false	1
+S	Glint|PLST|DTK-55|1|false	1
 S	Treasure Hunt|PLST|C18-109|1|false	1
 S	Silent Observer|PLST|SOI-86|1|false	1
 S	Decision Paralysis|PLST|AKH-50|1|false	1
@@ -28724,8 +28759,8 @@ S	Circular Logic|PLST|UMA-47|1|false	1
 S	Foil|PLST|UMA-55|1|false	1
 S	Embodiment of Spring|PLST|KTK-39|1|false	1
 S	Catalog|PLST|SOI-51|1|false	1
-S	Bastion Inventor|PLST|AER-30|1|false	1
 S	Brine Elemental|PLST|A25-47|1|false	1
+S	Bastion Inventor|PLST|AER-30|1|false	1
 S	Jwar Isle Avenger|PLST|OGW-58|1|false	1
 S	Purple-Crystal Crab|PLST|GS1-3|1|false	1
 S	Opportunity|PLST|C17-89|1|false	1
@@ -28911,13 +28946,13 @@ S	Aurelia's Fury|PLST|GTC-144|1|true	1
 S	Amulet of Vigor|PLST|WWK-121|1|true	1
 S	Glittering Wish|PLST|FUT-156|1|true	1
 S	Fungusaur|PLST|8ED-250|1|true	1
-S	Marrow-Gnawer|PLST|CHK-124|1|true	1
 S	Pyretic Ritual|PLST|M11-153|1|true	1
+S	Marrow-Gnawer|PLST|CHK-124|1|true	1
 S	Springjack Shepherd|PLST|EVE-15|1|true	1
 S	One with Nothing|PLST|SOK-84|1|true	1
 S	Pili-Pala|PLST|SHM-258|1|true	1
-S	Balefire Liege|PLST|EVE-132|1|true	1
 S	Herald of Leshrac|PLST|CSP-62|1|true	1
+S	Balefire Liege|PLST|EVE-132|1|true	1
 S	Nezumi Shortfang|PLST|CHK-131|1|true	1
 S	Not of This World|PLST|ROE-8|1|true	1
 S	Iron Myr|PLST|SOM-168|1|true	1
@@ -28926,9 +28961,9 @@ S	Sinew Sliver|PLST|PLC-30|1|true	1
 S	Balduvian Rage|PLST|CSP-76|1|true	1
 S	Hornet Sting|PLST|M11-181|1|true	1
 S	Bramblewood Paragon|PLST|MOR-115|1|true	1
-S	Allosaurus Rider|PLST|CSP-101|1|true	1
-S	Spelltithe Enforcer|PLST|GPT-18|1|true	1
 S	Frozen Aether|PLST|PLC-54|1|true	1
+S	Spelltithe Enforcer|PLST|GPT-18|1|true	1
+S	Allosaurus Rider|PLST|CSP-101|1|true	1
 S	Delay|PLST|FUT-35|1|true	1
 S	Paradox Haze|PLST|TSP-71|1|true	1
 S	Undead Warchief|PLST|TSB-52|1|true	1
@@ -29024,11 +29059,11 @@ S	Knowledge Pool|PLST|MBS-111|1|true	1
 S	Shizo, Death's Storehouse|PLST|CHK-283|1|true	1
 S	Noggle Bandit|PLST|EVE-106|1|true	1
 SHEET	fromSheet("MB1 Green CommonUncommon") MB1	241
-S	Elvish Warrior|PLST|DD1-5|1|false	1
 S	Feral Prowler|PLST|HOU-115|1|false	1
+S	Elvish Warrior|PLST|DD1-5|1|false	1
 S	Avacyn's Pilgrim|PLST|MIC-132|1|false	1
-S	Silkweaver Elite|PLST|AER-125|1|false	1
 S	Scatter the Seeds|PLST|GK1-106|1|false	1
+S	Silkweaver Elite|PLST|AER-125|1|false	1
 S	Glade Watcher|PLST|DTK-188|1|false	1
 S	Pinion Feast|PLST|DTK-195|1|false	1
 S	Ranger's Guile|PLST|M15-193|1|false	1
@@ -29411,23 +29446,23 @@ S	Rune-Scarred Demon|PLST|IMA-106|1|false	1
 S	Release the Gremlins|PLST|AER-96|1|false	1
 S	Phyrexian Plaguelord|PLST|CMA-61|1|false	1
 S	Mystic Confluence|PLST|BBD-122|1|false	1
-S	Trading Post|PLST|CM2-225|1|false	1
 S	Taurean Mauler|PLST|CM2-122|1|false	1
+S	Trading Post|PLST|CM2-225|1|false	1
 S	Eldrazi Monument|PLST|CMA-216|1|false	1
-S	Star of Extinction|PLST|XLN-161|1|false	1
 S	Precursor Golem|PLST|MM2-225|1|false	1
+S	Star of Extinction|PLST|XLN-161|1|false	1
 S	Eldritch Evolution|PLST|EMN-155|1|false	1
 S	Animar, Soul of Elements|PLST|A25-196|1|false	1
 S	Champion of the Parish|PLST|DDQ-4|1|false	1
 S	Grave Titan|PLST|C14-145|1|false	1
 S	Temporal Mastery|PLST|MM3-54|1|false	1
-S	Cauldron of Souls|PLST|CM2-180|1|false	1
 S	Deepglow Skate|PLST|CM2-39|1|false	1
+S	Cauldron of Souls|PLST|CM2-180|1|false	1
 S	Chaos Warp|PLST|C17-131|1|false	1
 S	Felidar Sovereign|PLST|BFZ-26|1|false	1
-S	Solemn Simulacrum|PLST|DDU-62|1|false	1
-S	Serendib Efreet|PLST|EMA-70|1|false	1
 S	Kolaghan's Command|PLST|DTK-224|1|false	1
+S	Serendib Efreet|PLST|EMA-70|1|false	1
+S	Solemn Simulacrum|PLST|DDU-62|1|false	1
 S	Savage Knuckleblade|PLST|KTK-197|1|false	1
 S	Mirror Entity|PLST|CMA-16|1|false	1
 S	Spawning Grounds|PLST|C18-163|1|false	1
@@ -29527,9 +29562,9 @@ S	Defense of the Heart|PLST|ULG-100|1|false	1
 S	Sorin Markov|PLST|M12-109|1|false	1
 S	Goblin Game|PLST|PLS-61|1|false	1
 S	Oracle of Nectars|PLST|SHM-233|1|false	1
-S	Ancient Den|PLST|MRD-278|1|false	1
-S	Centaur Glade|PLST|ONS-251|1|false	1
 S	Guided Passage|PLST|APC-105|1|false	1
+S	Centaur Glade|PLST|ONS-251|1|false	1
+S	Ancient Den|PLST|MRD-278|1|false	1
 S	Meddling Mage|PLST|ARB-8|1|false	1
 S	Ancient Ziggurat|PLST|CON-141|1|false	1
 S	Martyr's Cause|PLST|ULG-13|1|false	1
@@ -29543,8 +29578,8 @@ S	Maelstrom Archangel|PLST|CON-115|1|false	1
 S	Phyrexian Metamorph|PLST|NPH-42|1|false	1
 S	Rith, the Awakener|PLST|DDE-48|1|false	1
 S	Hypnotic Specter|PLST|M10-100|1|false	1
-S	Enchanted Evening|PLST|SHM-140|1|false	1
 S	Flameshot|PLST|PCY-90|1|false	1
+S	Enchanted Evening|PLST|SHM-140|1|false	1
 S	Corrupted Conscience|PLST|MBS-22|1|false	1
 S	Manamorphose|PLST|SHM-211|1|false	1
 S	Kruphix, God of Horizons|PLST|JOU-152|1|false	1
@@ -29644,9 +29679,9 @@ S	Valley Dasher|PLST|KTK-125|1|false	1
 S	Tectonic Rift|PLST|M19-162|1|false	1
 S	Ondu Champion|PLST|BFZ-149|1|false	1
 S	Firebrand Archer|PLST|HOU-92|1|false	1
-S	Spikeshot Goblin|PLST|A25-152|1|false	1
-S	Keldon Overseer|PLST|DOM-134|1|false	1
 S	Balduvian Horde|PLST|A25-120|1|false	1
+S	Keldon Overseer|PLST|DOM-134|1|false	1
+S	Spikeshot Goblin|PLST|A25-152|1|false	1
 S	Burst Lightning|PLST|MM2-109|1|false	1
 S	Vent Sentinel|PLST|IMA-153|1|false	1
 S	Arc Trail|PLST|PCA-39|1|false	1
@@ -29656,8 +29691,8 @@ S	Valakut Invoker|PLST|BFZ-159|1|false	1
 S	Goblin Bombardment|PLST|DDN-24|1|false	1
 S	Fiery Temper|PLST|SOI-156|1|false	1
 S	Molten Rain|PLST|MM3-103|1|false	1
-S	Miner's Bane|PLST|M15-157|1|false	1
 S	Flametongue Kavu|PLST|E01-48|1|false	1
+S	Miner's Bane|PLST|M15-157|1|false	1
 S	Shenanigans|PLST|MH1-146|1|false	1
 S	Atarka Efreet|PLST|DTK-128|1|false	1
 S	Brazen Buccaneers|PLST|XLN-134|1|false	1
@@ -29668,8 +29703,8 @@ S	Torch Courier|PLST|GRN-119|1|false	1
 S	Tarfire|PLST|DDT-55|1|false	1
 S	Swift Kick|PLST|KTK-122|1|false	1
 S	Goblin Balloon Brigade|PLST|CN2-159|1|false	1
-S	Swashbuckling|PLST|XLN-167|1|false	1
 S	Prophetic Ravings|PLST|EMN-139|1|false	1
+S	Swashbuckling|PLST|XLN-167|1|false	1
 S	Rush of Adrenaline|PLST|SOI-177|1|false	1
 S	Fury Charm|PLST|IMA-130|1|false	1
 S	Rubblebelt Maaka|PLST|MM3-109|1|false	1
@@ -29689,14 +29724,14 @@ S	Rolling Thunder|PLST|BFZ-154|1|false	1
 S	Zealot of the God-Pharaoh|PLST|HOU-207|1|false	1
 S	Brazen Wolves|PLST|EMN-122|1|false	1
 S	Beetleback Chief|PLST|PCA-40|1|false	1
-S	Desperate Ravings|PLST|C15-149|1|false	1
 S	Built to Smash|PLST|KLD-108|1|false	1
+S	Desperate Ravings|PLST|C15-149|1|false	1
 S	Ancient Grudge|PLST|MM3-88|1|false	1
 S	Fall of the Hammer|PLST|CM2-97|1|false	1
 S	Ruinous Gremlin|PLST|KLD-128|1|false	1
 S	Dragon Whelp|PLST|CMA-81|1|false	1
-S	Goblin War Paint|PLST|BFZ-146|1|false	1
 S	Nimble-Blade Khenra|PLST|AKH-145|1|false	1
+S	Goblin War Paint|PLST|BFZ-146|1|false	1
 S	Sparkmage Apprentice|PLST|DDN-48|1|false	1
 S	Seismic Stomp|PLST|EMA-146|1|false	1
 S	Distemper of the Blood|PLST|EMN-126|1|false	1
@@ -29888,11 +29923,11 @@ S	Tandem Tactics|PLST|BBD-112|1|false	1
 S	Adanto Vanguard|PLST|XLN-1|1|false	1
 S	Aven Battle Priest|PLST|ORI-6|1|false	1
 S	Meditation Puzzle|PLST|M15-19|1|false	1
-S	Inquisitor's Ox|PLST|SOI-24|1|false	1
-S	Encampment Keeper|PLST|XLN-11|1|false	1
 S	Center Soul|PLST|DTK-8|1|false	1
-S	Spectral Gateguards|PLST|DDQ-19|1|false	1
+S	Encampment Keeper|PLST|XLN-11|1|false	1
+S	Inquisitor's Ox|PLST|SOI-24|1|false	1
 S	Firehoof Cavalry|PLST|KTK-11|1|false	1
+S	Spectral Gateguards|PLST|DDQ-19|1|false	1
 S	Ondu War Cleric|PLST|OGW-31|1|false	1
 S	Fiend Hunter|PLST|CMA-10|1|false	1
 S	Ondu Greathorn|PLST|BFZ-40|1|false	1
@@ -29904,14 +29939,14 @@ S	Slash of Talons|PLST|XLN-38|1|false	1
 S	Ninth Bridge Patrol|PLST|KLD-22|1|false	1
 S	Grasp of the Hieromancer|PLST|E01-13|1|false	1
 S	Healing Hands|PLST|ORI-17|1|false	1
-S	Feat of Resistance|PLST|KTK-10|1|false	1
 S	Eyes in the Skies|PLST|MM3-5|1|false	1
+S	Feat of Resistance|PLST|KTK-10|1|false	1
 S	Sunlance|PLST|MM2-34|1|false	1
 S	Dauntless Cathar|PLST|SOI-11|1|false	1
 S	Excoriate|PLST|E01-5|1|false	1
 S	Knight of Sorrows|PLST|RNA-14|1|false	1
-S	Path to Exile|PLST|BLC-147|1|false	1
 S	Dragon Bell Monk|PLST|IMA-17|1|false	1
+S	Path to Exile|PLST|BLC-147|1|false	1
 S	Searing Light|PLST|OGW-33|1|false	1
 S	Gideon's Lawkeeper|PLST|MM3-7|1|false	1
 S	Exultant Skymarcher|PLST|RIX-7|1|false	1
@@ -29925,15 +29960,15 @@ S	Promise of Bunrei|PLST|A25-30|1|false	1
 S	Righteous Cause|PLST|CMA-21|1|false	1
 S	Ainok Bond-Kin|PLST|KTK-3|1|false	1
 S	Djeru's Resolve|PLST|AKH-11|1|false	1
-S	Voice of the Provinces|PLST|DDQ-23|1|false	1
 S	Shining Armor|PLST|ELD-29|1|false	1
+S	Voice of the Provinces|PLST|DDQ-23|1|false	1
 S	Pentarch Ward|PLST|IMA-27|1|false	1
 S	Jubilant Mascot|PLST|BBD-28|1|false	1
-S	Conviction|PLST|AER-12|1|false	1
 S	Ephemerate|PLST|MH1-7|1|false	1
+S	Conviction|PLST|AER-12|1|false	1
 S	Abzan Runemark|PLST|FRF-3|1|false	1
-S	Wall of One Thousand Cuts|PLST|MH1-36|1|false	1
 S	Looming Altisaur|PLST|XLN-23|1|false	1
+S	Wall of One Thousand Cuts|PLST|MH1-36|1|false	1
 S	Enlightened Ascetic|PLST|ORI-12|1|false	1
 S	Decommission|PLST|AER-16|1|false	1
 S	Seeker of the Way|PLST|KTK-22|1|false	1
@@ -29945,8 +29980,8 @@ S	Mother of Runes|PLST|DDO-20|1|false	1
 S	Soul Parry|PLST|DDO-24|1|false	1
 S	Celestial Flare|PLST|ORI-8|1|false	1
 S	Soul-Strike Technique|PLST|MH1-30|1|false	1
-S	Swords to Plowshares|PLST|C16-78|1|false	1
 S	Kor Sky Climber|PLST|OGW-24|1|false	1
+S	Swords to Plowshares|PLST|C16-78|1|false	1
 S	Cast Out|PLST|AKH-8|1|false	1
 S	Skyhunter Skirmisher|PLST|MM2-32|1|false	1
 S	Inspired Charge|PLST|M19-15|1|false	1
@@ -30123,8 +30158,8 @@ S	Goldmire Bridge|MH2|247|1|false	100
 S	Riptide Laboratory|MH2|303|1|false	20
 S	Marsh Flats|MH2|248|1|false	19
 S	Verdant Catacombs|MH2|440|2|false	1
-S	Slagwoods Bridge|MH2|256|1|false	100
 S	Marsh Flats|MH2|437|2|false	1
+S	Slagwoods Bridge|MH2|256|1|false	100
 S	Urza's Saga|MH2|259|1|false	20
 S	Mishra's Factory|MH2|302|1|false	60
 S	Rustvale Bridge|MH2|253|1|false	100
@@ -30145,8 +30180,8 @@ S	Arid Mesa|MH2|436|2|false	1
 S	Cabal Coffers|MH2|301|1|false	10
 S	Drossforge Bridge|MH2|246|1|false	100
 SHEET	fromSheet("MKM karlov surprise") MKM	50
-S	Combine Chrysalis|PLST|MH2-191|1|false	1
 S	Baleful Mastery|PLST|STX-64|1|false	1
+S	Combine Chrysalis|PLST|MH2-191|1|false	1
 S	Syr Konrad, the Grim|PLST|ELD-107|1|false	1
 S	Maverick Thopterist|PLST|C18-185|1|false	1
 S	Goblin Warchief|PLST|DOM-130|1|false	1
@@ -30293,8 +30328,8 @@ S	Teysa Karlov|MUL|61|1|false	2
 S	Yargle, Glutton of Urborg|MUL|19|1|false	7
 S	Daxos, Blessed by the Sun|MUL|2|1|false	7
 S	Juri, Master of the Revue|MUL|46|1|false	7
-S	Raff, Weatherlight Stalwart|MUL|56|1|false	7
 S	Seizan, Perverter of Truth|MUL|15|1|false	2
+S	Raff, Weatherlight Stalwart|MUL|56|1|false	7
 S	Sram, Senior Edificer|MUL|6|1|false	2
 S	Jegantha, the Wellspring|MUL|44|1|false	2
 S	Baral, Chief of Compliance|MUL|8|1|false	2
@@ -30356,8 +30391,8 @@ S	Island|NEO|286|2|false	1
 S	Tranquil Cove|NEO|280|1|false	1
 S	Mountain|NEO|290|2|false	1
 S	Plains|NEO|284|2|false	1
-S	Mountain|NEO|299|3|false	1
 S	Plains|NEO|294|4|false	1
+S	Mountain|NEO|299|3|false	1
 S	Island|NEO|295|3|false	1
 S	Forest|NEO|292|2|false	1
 S	Dismal Backwater|NEO|267|1|false	1
@@ -30387,8 +30422,8 @@ S	Island|NEO|286|2|false	1
 S	Tranquil Cove|NEO|280|1|false	1
 S	Mountain|NEO|290|2|false	1
 S	Plains|NEO|284|2|false	1
-S	Mountain|NEO|299|3|false	1
 S	Plains|NEO|294|4|false	1
+S	Mountain|NEO|299|3|false	1
 S	Island|NEO|295|3|false	1
 S	Forest|NEO|292|2|false	1
 S	Dismal Backwater|NEO|267|1|false	1
@@ -30436,8 +30471,8 @@ S	Gruul Guildgate|RNA|249|1|false	1
 S	Orzhov Guildgate|RNA|252|1|false	1
 S	Simic Guildgate|RNA|257|1|false	1
 SHEET	fromSheet("RVR Mana Fixing") RVR	31
-S	Temple Garden|RVR|290|1|false	1
 S	Azorius Guildgate|RVR|272|1|false	7
+S	Temple Garden|RVR|290|1|false	1
 S	Rakdos Guildgate|RVR|284|1|false	7
 S	Orzhov Guildgate|RVR|282|1|false	7
 S	Gruul Guildgate|RVR|279|1|false	7
@@ -30577,9 +30612,9 @@ S	Plains|TRK|312|2|false	1
 S	Island|TRK|313|2|false	1
 S	Forest|TRK|316|2|false	1
 SHEET	Land:fromSheet("BLB fullart") BLB	20
-S	Island|BLB|268|3|false	2
-S	Island|BLB|267|2|false	3
 S	Island|BLB|266|1|false	4
+S	Island|BLB|267|2|false	3
+S	Island|BLB|268|3|false	2
 S	Island|BLB|269|4|false	1
 S	Swamp|BLB|270|1|false	4
 S	Swamp|BLB|271|2|false	3
@@ -35858,9 +35893,9 @@ S	The Vision|MSH|379|2|false	1
 S	The Unbeatable Squirrel Girl|MSH|371|2|false	1
 S	Ironheart, Clever Champion|MSH|360|2|false	1
 S	Hawkeye, Master Marksman|MSH|367|2|false	1
-S	Nick Fury, Agent of S.H.I.E.L.D.|MSH|357|3|false	1
-S	Elektra, Daughter of the Hand|MSH|366|3|false	1
 S	The Kingpin of Crime|MSH|374|3|false	1
+S	Elektra, Daughter of the Hand|MSH|366|3|false	1
+S	Nick Fury, Agent of S.H.I.E.L.D.|MSH|357|3|false	1
 S	The Sentry, Golden Guardian|MSH|358|2|false	1
 S	Ms. Marvel, Kamala Khan|MSH|361|2|false	1
 S	The Scarlet Witch|MSH|368|2|false	1
@@ -36115,33 +36150,87 @@ S	Prehistoric Pet|TMT|22|1|false	1
 S	Turncoat Kunoichi|TMT|26|1|false	1
 S	Don & Raph, Hard Science|TMT|144|1|false	1
 S	Raphael's Technique|TMT|105|1|false	1
-SHEET	Rare:fromSheet("TRK cards") TRK	26
-S	Troubling Tribbles|TRK|41|1|false	1
+SHEET	Rare:fromSheet("TRK cards") TRK	80
+S	Overflow Submatrix|TRK|122|1|false	1
+S	Brazen Bluff|TRK|140|1|false	1
 S	Quark's Bar|TRK|292|1|false	1
-S	Sacred Foundry|TRK|295|1|false	1
+S	Primary Unimatrix Adjunct|TRK|30|1|false	1
+S	H.M.S. Bounty, Unlikely Timeship|TRK|63|1|false	1
 S	Peace in Our Time|TRK|27|1|false	1
-S	The Caretaker|TRK|47|1|false	1
-S	The Wrath of Khan|TRK|181|1|false	1
-S	Breeding Pool|TRK|279|1|false	1
+S	U.S.S. Reliant, From Hell's Heart|TRK|135|1|false	1
+S	Kai Winn, Faithless Leader|TRK|118|1|false	1
+S	The Destruction of Praxis|TRK|103|1|false	1
+S	Grand Nagus Zek|TRK|112|1|false	1
+S	Sarek, Federation Ambassador|TRK|251|1|false	1
+S	The Holodeck|TRK|265|1|false	1
+S	Captain Jonathan Archer|TRK|186|1|false	1
 S	All Good Things . . .|TRK|226|1|false	1
 S	Engineered Explosives|TRK|264|1|false	1
-S	Steam Vents|TRK|298|1|false	1
-S	Captain Benjamin Sisko|TRK|6|1|false	1
 S	Blood Crypt|TRK|278|1|false	1
-S	Romulan Bird-of-Prey|TRK|77|1|false	1
-S	Overgrown Tomb|TRK|289|1|false	1
-S	The City on the Edge of Forever|TRK|228|1|false	1
-S	General Chang, Cold Warrior|TRK|109|1|false	1
-S	Temple Garden|TRK|301|1|false	1
-S	Captain Pike, Fullness of Time|TRK|188|1|false	1
+S	Ni'Var Science Academy|TRK|287|1|false	1
+S	Live Long and Prosper|TRK|244|1|false	1
+S	Branching Timeline|TRK|185|1|false	1
+S	Q Continuum|TRK|290|1|false	1
+S	Sela, Tal Shiar Paradox|TRK|128|1|false	1
+S	Collation Trimatrix|TRK|98|1|false	1
+S	Sulu, Space Swashbuckler|TRK|37|1|false	1
+S	The Inner Light|TRK|241|1|false	1
+S	Dominion Infiltration|TRK|147|1|false	1
 S	Watery Grave|TRK|306|1|false	1
+S	The Needs of the Many|TRK|25|1|false	1
+S	The Unicomplex|TRK|304|1|false	1
 S	Stomping Ground|TRK|299|1|false	1
-S	Federation Outpost|TRK|282|1|false	1
+S	Hit It!|TRK|240|1|false	1
+S	Antagonist Incorporator|TRK|3|1|false	1
 S	Salt Vampire|TRK|127|1|false	1
+S	Dathon, His Heart Open|TRK|233|1|false	1
+S	Genesis Device|TRK|200|1|false	1
+S	Deep Space Scan|TRK|53|1|false	1
 S	Godless Shrine|TRK|285|1|false	1
 S	Lt. Cmdr. Geordi La Forge|TRK|70|1|false	1
+S	Year of Hell|TRK|257|1|false	1
+S	Kira Nerys, Firebrand|TRK|242|1|false	1
+S	Dr. Leonard "Bones" McCoy|TRK|197|1|false	1
+S	Tasha Yar, Out of Time|TRK|176|1|false	1
 S	U.S.S. Enterprise-D, Galaxy-Class|TRK|273|1|false	1
 S	Hallowed Fountain|TRK|286|1|false	1
+S	Troubling Tribbles|TRK|41|1|false	1
+S	Holo-Engineer|TRK|201|1|false	1
+S	Stable Wormhole|TRK|215|1|false	1
+S	Will Riker, First in the Field|TRK|179|1|false	1
+S	Sacred Foundry|TRK|295|1|false	1
+S	Replicator|TRK|267|1|false	1
+S	Mirror Universe Intrusion|TRK|248|1|false	1
+S	MACO Strike Team|TRK|206|1|false	1
+S	The Caretaker|TRK|47|1|false	1
+S	Worf, Intelligence Contractor|TRK|180|1|false	1
+S	Lwaxana Troi, Charming Guest|TRK|157|1|false	1
+S	The Wrath of Khan|TRK|181|1|false	1
+S	Breeding Pool|TRK|279|1|false	1
+S	Steam Vents|TRK|298|1|false	1
+S	Captain Benjamin Sisko|TRK|6|1|false	1
+S	Federation Resupply|TRK|18|1|false	1
+S	Romulan Bird-of-Prey|TRK|77|1|false	1
+S	Elim Garak, Simple Tailor|TRK|106|1|false	1
+S	D-7 Battle Cruiser|TRK|145|1|false	1
+S	Overgrown Tomb|TRK|289|1|false	1
+S	Encounter the Unknown|TRK|148|1|false	1
+S	Wesley Crusher, Starfleet Cadet|TRK|89|1|false	1
+S	The City on the Edge of Forever|TRK|228|1|false	1
+S	Nyota Uhura, Communications|TRK|75|1|false	1
+S	Deanna Troi, Psychic Counsel|TRK|11|1|false	1
+S	Miles O'Brien, Transporter Ops|TRK|24|1|false	1
+S	General Chang, Cold Warrior|TRK|109|1|false	1
+S	Pah-Wraith|TRK|160|1|false	1
+S	Temple Garden|TRK|301|1|false	1
+S	Captain Pike, Fullness of Time|TRK|188|1|false	1
+S	Federation Outpost|TRK|282|1|false	1
+S	Subcommander T'Pol|TRK|82|1|false	1
+S	U.S.S. Discovery, at Black Alert|TRK|221|1|false	1
+S	Nog, Ambitious Cadet|TRK|249|1|false	1
+S	Armus, Skin of Evil|TRK|91|1|false	1
+S	Gwyndala, the Progeny|TRK|61|1|false	1
+S	Gowron, Eager for Battle|TRK|237|1|false	1
 SHEET	RareMythic A25	68
 S	Fortune Thief|A25|130|1|false	2
 S	Hell's Caretaker|A25|92|1|false	2
@@ -45243,12 +45332,12 @@ S	Erebos, Bleak-Hearted|THB|93|1|false	2
 S	Nyx Lotus|THB|235|1|false	12
 S	Calix, Destiny's Hand|THB|257|2|false	1
 S	Thryx, the Sudden Storm|THB|76|1|false	12
-S	Tymaret Calls the Dead|THB|118|1|false	12
 S	Taranika, Akroan Veteran|THB|39|1|false	12
+S	Tymaret Calls the Dead|THB|118|1|false	12
 S	Ashiok, Nightmare Muse|THB|256|2|false	1
 S	Heliod, Sun-Crowned|THB|259|2|false	1
-S	Purphoros's Intervention|THB|151|1|false	12
 S	Enigmatic Incarnation|THB|215|1|false	12
+S	Purphoros's Intervention|THB|151|1|false	12
 S	Klothys, God of Destiny|THB|220|1|false	2
 S	The Akroan War|THB|124|1|false	12
 S	Klothys, God of Destiny|THB|268|2|false	1
@@ -55265,8 +55354,8 @@ S	Brinelin, the Moon Kraken|CMM|78|1|false	1
 S	Rishkar, Peema Renegade|CMM|317|1|false	1
 S	Isareth the Awakener|CMM|168|1|false	1
 S	Akiri, Fearless Voyager|CMM|335|1|false	1
-S	Mowu, Loyal Companion|CMM|306|1|false	1
 S	Cabal Patriarch|CMM|140|1|false	1
+S	Mowu, Loyal Companion|CMM|306|1|false	1
 S	Zada, Hedron Grinder|CMM|268|1|false	1
 S	Molimo, Maro-Sorcerer|CMM|305|1|false	1
 S	Melek, Izzet Paragon|CMM|345|1|false	1
@@ -55274,8 +55363,8 @@ S	Danitha Capashen, Paragon|CMM|20|1|false	1
 S	Whisper, Blood Liturgist|CMM|198|1|false	1
 S	Raff Capashen, Ship's Mage|CMM|351|1|false	1
 S	Oviya Pashiri, Sage Lifecrafter|CMM|311|1|false	1
-S	Nemata, Grove Guardian|CMM|307|1|false	1
 S	Keleth, Sunmane Familiar|CMM|33|1|false	1
+S	Nemata, Grove Guardian|CMM|307|1|false	1
 S	Aryel, Knight of Windgrace|CMM|336|1|false	1
 S	Anax, Hardened in the Forge|CMM|204|1|false	1
 S	Yedora, Grave Gardener|CMM|333|1|false	1
@@ -55424,8 +55513,8 @@ S	Hungry for More|DBL|228|1|false	1
 S	Sunrise Cavalier|DBL|244|1|false	1
 S	Ghoulish Procession|DBL|102|1|false	1
 S	Purifying Dragon|DBL|155|1|false	1
-S	Ominous Roost|DBL|65|1|false	1
 S	Fading Hope|DBL|51|1|false	1
+S	Ominous Roost|DBL|65|1|false	1
 S	Cathar's Call|DBL|11|1|false	1
 S	Contortionist Troupe|DBL|178|1|false	1
 S	Dissipate|DBL|49|1|false	1
@@ -55464,8 +55553,8 @@ S	Wedding Security|DBL|405|1|false	1
 S	Skull Skaab|DBL|515|1|false	1
 S	Markov Purifier|DBL|508|1|false	1
 S	Resistance Squad|DBL|299|1|false	1
-S	Sawblade Slinger|DBL|484|1|false	1
 S	Gryffwing Cavalry|DBL|283|1|false	1
+S	Sawblade Slinger|DBL|484|1|false	1
 S	Witness the Future|DBL|357|1|false	1
 S	Geistlight Snare|DBL|327|1|false	1
 S	Groom's Finery|DBL|384|1|false	1
@@ -60692,8 +60781,8 @@ SHEET	Uncommon:fromSheet("THB Uncommons") THB	85
 S	Anax, Hardened in the Forge|THB|125|1|false	2
 S	Entrancing Lyre|THB|233|1|false	3
 S	Field of Ruin|THB|242|1|false	3
-S	Thundering Chariot|THB|239|1|false	3
 S	Underworld Fires|THB|162|1|false	3
+S	Thundering Chariot|THB|239|1|false	3
 S	Mystic Repeal|THB|180|1|false	3
 S	Eutropia the Twice-Favored|THB|216|1|false	3
 S	Shimmerwing Chimera|THB|64|1|false	3
@@ -60941,41 +61030,117 @@ SHEET	Uncommon:fromSheet("TMT scene cards"):!fromSheet("TMT legendary scene turt
 S	Shredder, Unrelenting|TMT|210|2|false	1
 S	April, Reporter of the Weird|TMT|206|2|false	1
 S	Casey Jones, Jury-Rig Justiciar|TMT|207|2|false	1
-SHEET	Uncommon:fromSheet("TRK cards") TRK	34
-S	In the Pale Moonlight|TRK|117|1|false	1
-S	Lore, Positronic Provocateur|TRK|246|1|false	1
-S	V'Ger, the Intruder|TRK|87|1|false	1
-S	Constable Odo|TRK|230|1|false	1
+SHEET	Uncommon:fromSheet("TRK cards") TRK	110
 S	Dominion Saboteur|TRK|54|1|false	1
-S	Kirk, Commanding Officer|TRK|243|1|false	1
-S	The Duras Sisters|TRK|235|1|false	1
+S	Constable Odo|TRK|230|1|false	1
+S	Ghost of Illyria|TRK|20|1|false	1
+S	L'Rell, Fierce Visionary|TRK|247|1|false	1
 S	Seven of Nine|TRK|252|1|false	1
+S	The Doctor, EMH|TRK|234|1|false	1
 S	Collective Drone|TRK|99|1|false	1
-S	Khaaaaaaaaaaaannn!|TRK|154|1|false	1
 S	Captain Michael Burnham|TRK|143|1|false	1
+S	Species 8472|TRK|214|1|false	1
+S	Saru, Unthreatened|TRK|212|1|false	1
+S	Artificial Anomaly|TRK|276|1|false	1
+S	U.S.S. Excelsior, Cutting Edge|TRK|44|1|false	1
+S	Neelix, Moral Support|TRK|209|1|false	1
+S	Vulcan Mind-Meld|TRK|88|1|false	1
+S	Blastoneuron|TRK|96|1|false	1
+S	Storied Veteran|TRK|129|1|false	1
+S	Type-2 Phaser|TRK|271|1|false	1
+S	Commander Raffi Musiker|TRK|100|1|false	1
+S	Worf, Honor-Bound Warrior|TRK|256|1|false	1
+S	Spock, Always Your Friend|TRK|253|1|false	1
+S	De-evolve|TRK|104|1|false	1
+S	Sickbay|TRK|268|1|false	1
+S	La'An Noonien-Singh, Security|TRK|156|1|false	1
+S	Munitions Enthusiast|TRK|158|1|false	1
+S	Subspace Anomaly|TRK|300|1|false	1
+S	Test of Conviction|TRK|39|1|false	1
+S	Zefram Cochrane, Warp Pioneer|TRK|90|1|false	1
+S	D'Ghor Bloodletter|TRK|101|1|false	1
+S	The Measure of a Man|TRK|23|1|false	1
+S	In the Pale Moonlight|TRK|117|1|false	1
+S	Jett Reno, Problem Solver|TRK|67|1|false	1
+S	Energize|TRK|56|1|false	1
+S	Zero, Incorporeal Sensate|TRK|258|1|false	1
+S	V'Ger, the Intruder|TRK|87|1|false	1
+S	Test of Identity|TRK|177|1|false	1
+S	Hologram Stalker|TRK|202|1|false	1
+S	Daniels, Temporal Agent|TRK|232|1|false	1
+S	U.S.S. Voyager, Lone Wanderer|TRK|222|1|false	1
+S	Khan, Despot by Design|TRK|155|1|false	1
+S	Culber and Stamets, Star-Crossed|TRK|191|1|false	1
+S	Those Old Scientists|TRK|86|1|false	1
+S	Temporal Anomaly|TRK|302|1|false	1
 S	Highly Illogical|TRK|62|1|false	1
-S	Support Mission|TRK|216|1|false	1
+S	Gabriel Lorca, Mirror Menace|TRK|108|1|false	1
+S	Command Subadjunct|TRK|9|1|false	1
 S	Beckett Mariner, Impetuous Ensign|TRK|138|1|false	1
+S	Adversary by Algorithm|TRK|182|1|false	1
+S	Tell Me What You See|TRK|132|1|false	1
 S	Locutus, the One Who Speaks|TRK|245|1|false	1
-S	D'Vana Tendi, Optimistic Ensign|TRK|236|1|false	1
+S	Assembly Specialist|TRK|4|1|false	1
 S	Amok Time|TRK|183|1|false	1
-S	Organic Avulsion Unit|TRK|121|1|false	1
-S	Hive Mind Coprocessor|TRK|115|1|false	1
-S	Saavik, Stoic Student|TRK|33|1|false	1
 S	70,000 Light-Years from Home|TRK|1|1|false	1
+S	Exploratory Mission|TRK|150|1|false	1
 S	Gray and Adira, Forever Joined|TRK|238|1|false	1
+S	Transporter Malfunction|TRK|178|1|false	1
+S	Combadge|TRK|260|1|false	1
+S	Una Chin-Riley, Number One|TRK|42|1|false	1
+S	Gaseous Anomaly|TRK|284|1|false	1
+S	Bat'leth|TRK|94|1|false	1
+S	Rutherford, Upgraded Ensign|TRK|32|1|false	1
+S	Enterprise NX-01|TRK|58|1|false	1
+S	Vengeance Mission|TRK|136|1|false	1
+S	Spatial Anomaly|TRK|296|1|false	1
+S	Sarcophagus, Ship of the Dead|TRK|170|1|false	1
+S	Mugato|TRK|208|1|false	1
+S	Data, New Life|TRK|52|1|false	1
+S	Lore, Positronic Provocateur|TRK|246|1|false	1
+S	U.S.S. Cerritos, Following Up|TRK|272|1|false	1
+S	Targ Wrangler|TRK|175|1|false	1
+S	The Duras Sisters|TRK|235|1|false	1
+S	Dr. McCoy, Surly Surgeon|TRK|14|1|false	1
+S	Jake Sisko, War Correspondent|TRK|205|1|false	1
+S	Red Alert!|TRK|169|1|false	1
+S	Impossible Choice|TRK|116|1|false	1
+S	D'Vana Tendi, Optimistic Ensign|TRK|236|1|false	1
+S	Saavik, Stoic Student|TRK|33|1|false	1
+S	Sylvia Tilly, Joy of Discovery|TRK|217|1|false	1
+S	Anthropological Mission|TRK|46|1|false	1
+S	Test of Priorities|TRK|85|1|false	1
+S	Ravenous Cosmozoan|TRK|167|1|false	1
+S	Warp Speed|TRK|223|1|false	1
+S	There's Coffee in that Nebula|TRK|40|1|false	1
+S	Phlox, Unorthodox Doctor|TRK|250|1|false	1
+S	Picard, Leading by Example|TRK|29|1|false	1
+S	Isolinear Processor|TRK|266|1|false	1
+S	Kirk, Commanding Officer|TRK|243|1|false	1
+S	Cloak and Phaser|TRK|49|1|false	1
+S	Khaaaaaaaaaaaannn!|TRK|154|1|false	1
+S	Erica Ortegas, Plucky Pilot|TRK|149|1|false	1
+S	Hologram Janeway|TRK|21|1|false	1
+S	David and Carol Marcus, Creators|TRK|193|1|false	1
+S	Academy Instructor|TRK|137|1|false	1
+S	Support Mission|TRK|216|1|false	1
+S	The Naked Time|TRK|159|1|false	1
+S	Hive Mind Coprocessor|TRK|115|1|false	1
+S	Organic Avulsion Unit|TRK|121|1|false	1
+S	Test of Courage|TRK|220|1|false	1
+S	Cleveland Booker, Empath|TRK|229|1|false	1
 S	Hoshi Sato, Exolinguist|TRK|64|1|false	1
 S	Hemmer, Fixing What Is Broken|TRK|239|1|false	1
-S	Bat'leth|TRK|94|1|false	1
 S	Syndicate Liquidators|TRK|218|1|false	1
 S	Resistance Is Futile|TRK|125|1|false	1
 S	Brad Boimler, Eager Ensign|TRK|5|1|false	1
+S	Rules of Acquisition|TRK|78|1|false	1
 S	Dal R'El, Augment Orphan|TRK|231|1|false	1
-S	La'An Noonien-Singh, Security|TRK|156|1|false	1
-S	Munitions Enthusiast|TRK|158|1|false	1
+S	Conquest Mission|TRK|10|1|false	1
 S	Vash, Freelance Archaeologist|TRK|255|1|false	1
-S	Mugato|TRK|208|1|false	1
-S	Picard, Leading by Example|TRK|29|1|false	1
+S	Ensign Pavel Chekov|TRK|57|1|false	1
+S	Test of Loyalty|TRK|134|1|false	1
+S	The Traveler|TRK|254|1|false	1
 SHEET	Uncommon:fromSheet("VOW cards") VOW	83
 S	Ballista Watcher|VOW|143|1|false	1
 S	Angelic Quartermaster|VOW|2|1|false	1
@@ -63923,7 +64088,7 @@ S	Harrowing Swarm|YDSK|16|1|false	4
 S	Mangled Soulrager|YDSK|24|1|false	1
 S	Anguished Recollection|YDSK|12|1|false	4
 S	Lurker in the Deep|YDSK|6|1|false	1
-SHEET	UncommonRareMythic:fromsheet("YECL cards") YECL	27
+SHEET	UncommonRareMythic:fromsheet("YECL cards") YECL	28
 S	Salacinder and Soot, Rascals|YECL|26|1|false	1
 S	Wildgrove Summoner|YECL|17|1|false	2
 S	Reflective Rimekin|YECL|6|1|false	4
@@ -63940,6 +64105,7 @@ S	Thoughtsteal Sprites|YECL|7|1|false	2
 S	Circadian Struggle|YECL|18|1|false	2
 S	Preponderant Pearl|YECL|5|1|false	4
 S	Putrid Hexhag|YECL|10|1|false	4
+S	Opulent Clomper|YECL|15|1|false	4
 S	Adaptive Armorer|YECL|1|1|false	2
 S	Perennial Gravewarden|YECL|24|1|false	2
 S	Kithkin Brinefarer|YECL|21|1|false	2

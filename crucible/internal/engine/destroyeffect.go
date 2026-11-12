@@ -83,20 +83,13 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 	_, noRegen := a.Params.Param("NoRegen")
 	_, rememberLKI := a.Params.Param("RememberLKI")
-	_, alwaysRemember := a.Params.Param("AlwaysRemember")
 	var destroyed []CardID
 	for _, id := range cards {
 		c := g.Card(id)
 		if c.Zone != Battlefield || !canBeDestroyed(c) {
-			if rememberLKI && alwaysRemember && c.Zone == Battlefield {
-				g.Card(a.Source).Memory.RememberLKI(id)
-			}
 			continue
 		}
 		if g.destroyInstead(controller, id) || (!noRegen && g.regenerate(controller, id)) {
-			if rememberLKI && alwaysRemember {
-				g.Card(a.Source).Memory.RememberLKI(id)
-			}
 			continue
 		}
 		if remember {

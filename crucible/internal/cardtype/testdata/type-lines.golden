@@ -10,6 +10,7 @@ Artifact Communicator Equipment	Artifact - Communicator Equipment
 Artifact Contraption	Artifact - Contraption
 Artifact Creature Alien Angel	Artifact Creature - Alien Angel
 Artifact Creature Alien Soldier	Artifact Creature - Alien Soldier
+Artifact Creature Android	Artifact Creature - Android
 Artifact Creature Angel	Artifact Creature - Angel
 Artifact Creature Angel Warrior	Artifact Creature - Angel Warrior
 Artifact Creature Ape	Artifact Creature - Ape
@@ -136,6 +137,7 @@ Artifact Creature Hydra	Artifact Creature - Hydra
 Artifact Creature Illusion	Artifact Creature - Illusion
 Artifact Creature Illusion Advisor	Artifact Creature - Illusion Advisor
 Artifact Creature Illusion Doctor	Artifact Creature - Illusion Doctor
+Artifact Creature Illusion Officer	Artifact Creature - Illusion Officer
 Artifact Creature Insect	Artifact Creature - Insect
 Artifact Creature Insect Thopter	Artifact Creature - Insect Thopter
 Artifact Creature Jellyfish	Artifact Creature - Jellyfish
@@ -460,6 +462,7 @@ Creature Boar Monger	Creature - Boar Monger
 Creature Boar Monkey	Creature - Boar Monkey
 Creature Boar Porcupine	Creature - Boar Porcupine
 Creature Boar Rhino	Creature - Boar Rhino
+Creature Bolian Officer	Creature - Bolian Officer
 Creature Brainiac	Creature - Brainiac
 Creature Bringer	Creature - Bringer
 Creature Brushwagg	Creature - Brushwagg
@@ -469,6 +472,7 @@ Creature Caitian Doctor	Creature - Caitian Doctor
 Creature Camel	Creature - Camel
 Creature Camel Beast	Creature - Camel Beast
 Creature Capybara	Creature - Capybara
+Creature Cardassian Officer Spy	Creature - Cardassian Officer Spy
 Creature Cat	Creature - Cat
 Creature Cat Advisor	Creature - Cat Advisor
 Creature Cat Angel	Creature - Cat Angel
@@ -694,6 +698,7 @@ Creature Efreet	Creature - Efreet
 Creature Efreet Monk	Creature - Efreet Monk
 Creature Efreet Shaman	Creature - Efreet Shaman
 Creature Egg	Creature - Egg
+Creature El-Aurian Scout	Creature - El-Aurian Scout
 Creature Elder Dragon	Creature - Elder Dragon
 Creature Eldrazi	Creature - Eldrazi
 Creature Eldrazi Angel	Creature - Eldrazi Angel
@@ -879,6 +884,7 @@ Creature Elk Mount	Creature - Elk Mount
 Creature Elk Mutant	Creature - Elk Mutant
 Creature Elk Spirit	Creature - Elk Spirit
 Creature Elk Unicorn	Creature - Elk Unicorn
+Creature Excalbian	Creature - Excalbian
 Creature Eye	Creature - Eye
 Creature Eye Bat	Creature - Eye Bat
 Creature Eye Horror	Creature - Eye Horror
@@ -901,6 +907,7 @@ Creature Faerie Soldier	Creature - Faerie Soldier
 Creature Faerie Spellshaper	Creature - Faerie Spellshaper
 Creature Faerie Warlock	Creature - Faerie Warlock
 Creature Faerie Wizard	Creature - Faerie Wizard
+Creature Ferengi Rogue	Creature - Ferengi Rogue
 Creature Ferret	Creature - Ferret
 Creature Fish	Creature - Fish
 Creature Fish Beast	Creature - Fish Beast
@@ -966,6 +973,7 @@ Creature Fungus Zombie	Creature - Fungus Zombie
 Creature Gamma Horror Villain	Creature - Gamma Horror Villain
 Creature Gargoyle	Creature - Gargoyle
 Creature Gargoyle Illusion	Creature - Gargoyle Illusion
+Creature Germ	Creature - Germ
 Creature Giant	Creature - Giant
 Creature Giant Archer	Creature - Giant Archer
 Creature Giant Bard	Creature - Giant Bard
@@ -1073,6 +1081,7 @@ Creature Hippo Ox	Creature - Hippo Ox
 Creature Hippogriff	Creature - Hippogriff
 Creature Hippogriff Mount	Creature - Hippogriff Mount
 Creature Hippogriff Spirit	Creature - Hippogriff Spirit
+Creature Hirogen Warrior	Creature - Hirogen Warrior
 Creature Homarid	Creature - Homarid
 Creature Homarid Drone	Creature - Homarid Drone
 Creature Homarid Mercenary	Creature - Homarid Mercenary
@@ -1346,10 +1355,12 @@ Creature Jellyfish	Creature - Jellyfish
 Creature Jellyfish Artificer	Creature - Jellyfish Artificer
 Creature Jellyfish Beast	Creature - Jellyfish Beast
 Creature Jellyfish Hydra Beast	Creature - Jellyfish Hydra Beast
+Creature Jellyfish Leech	Creature - Jellyfish Leech
 Creature Jellyfish Rogue	Creature - Jellyfish Rogue
 Creature Jellyfish Scientist	Creature - Jellyfish Scientist
 Creature Jellyfish Warrior	Creature - Jellyfish Warrior
 Creature Jellyfish Wizard	Creature - Jellyfish Wizard
+Creature Jem'Hadar Warrior	Creature - Jem'Hadar Warrior
 Creature Kavu	Creature - Kavu
 Creature Kavu Artificer	Creature - Kavu Artificer
 Creature Kavu Scout	Creature - Kavu Scout
@@ -1372,10 +1383,15 @@ Creature Kithkin Soldier Wizard	Creature - Kithkin Soldier Wizard
 Creature Kithkin Spellshaper	Creature - Kithkin Spellshaper
 Creature Kithkin Warrior Bard	Creature - Kithkin Warrior Bard
 Creature Kithkin Wizard	Creature - Kithkin Wizard
+Creature Klingon Advisor	Creature - Klingon Advisor
+Creature Klingon Assassin	Creature - Klingon Assassin
 Creature Klingon Berserker	Creature - Klingon Berserker
+Creature Klingon Citizen	Creature - Klingon Citizen
+Creature Klingon Performer	Creature - Klingon Performer
 Creature Klingon Pilot	Creature - Klingon Pilot
 Creature Klingon Scout	Creature - Klingon Scout
 Creature Klingon Warrior	Creature - Klingon Warrior
+Creature Klingon Warrior Doctor	Creature - Klingon Warrior Doctor
 Creature Knight	Creature - Knight
 Creature Kobold	Creature - Kobold
 Creature Kobold Soldier	Creature - Kobold Soldier
@@ -1450,6 +1466,7 @@ Creature Lizard Warlock	Creature - Lizard Warlock
 Creature Lizard Warrior	Creature - Lizard Warrior
 Creature Lizard Wizard	Creature - Lizard Wizard
 Creature Manticore	Creature - Manticore
+Creature Melkotian Advisor	Creature - Melkotian Advisor
 Creature Merfolk	Creature - Merfolk
 Creature Merfolk Advisor	Creature - Merfolk Advisor
 Creature Merfolk Archer	Creature - Merfolk Archer
@@ -1546,6 +1563,7 @@ Creature Mutant Scout	Creature - Mutant Scout
 Creature Mutant Shaman	Creature - Mutant Shaman
 Creature Mutant Warrior	Creature - Mutant Warrior
 Creature Mutant Wizard	Creature - Mutant Wizard
+Creature Na'kuhl Warrior	Creature - Na'kuhl Warrior
 Creature Nautilus Beast	Creature - Nautilus Beast
 Creature Nephilim	Creature - Nephilim
 Creature Nightmare	Creature - Nightmare
@@ -1621,6 +1639,7 @@ Creature Orc	Creature - Orc
 Creature Orc Archer	Creature - Orc Archer
 Creature Orc Artificer	Creature - Orc Artificer
 Creature Orc Assassin	Creature - Orc Assassin
+Creature Orc Bard	Creature - Orc Bard
 Creature Orc Berserker	Creature - Orc Berserker
 Creature Orc Cleric	Creature - Orc Cleric
 Creature Orc Knight	Creature - Orc Knight
@@ -1766,6 +1785,7 @@ Creature Plant Beast	Creature - Plant Beast
 Creature Plant Cat	Creature - Plant Cat
 Creature Plant Centaur	Creature - Plant Centaur
 Creature Plant Dinosaur	Creature - Plant Dinosaur
+Creature Plant Doctor	Creature - Plant Doctor
 Creature Plant Dog	Creature - Plant Dog
 Creature Plant Druid	Creature - Plant Druid
 Creature Plant Elemental	Creature - Plant Elemental
@@ -1840,6 +1860,8 @@ Creature Rhino Monk Soldier	Creature - Rhino Monk Soldier
 Creature Rhino Performer	Creature - Rhino Performer
 Creature Rhino Soldier	Creature - Rhino Soldier
 Creature Rhino Warrior	Creature - Rhino Warrior
+Creature Romulan Officer Spy	Creature - Romulan Officer Spy
+Creature Romulan Scientist	Creature - Romulan Scientist
 Creature Salamander	Creature - Salamander
 Creature Salamander Drake	Creature - Salamander Drake
 Creature Salamander Horror	Creature - Salamander Horror
@@ -2161,6 +2183,7 @@ Creature Vedalken Zombie	Creature - Vedalken Zombie
 Creature Volver	Creature - Volver
 Creature Vorta Doctor	Creature - Vorta Doctor
 Creature Vulcan Monk	Creature - Vulcan Monk
+Creature Vulcan Officer	Creature - Vulcan Officer
 Creature Vulcan Scientist	Creature - Vulcan Scientist
 Creature Wall	Creature - Wall
 Creature Weasel Soldier	Creature - Weasel Soldier
@@ -2172,6 +2195,7 @@ Creature Werewolf Horror	Creature - Werewolf Horror
 Creature Werewolf Minion	Creature - Werewolf Minion
 Creature Whale	Creature - Whale
 Creature Whale Fish	Creature - Whale Fish
+Creature Whale Officer	Creature - Whale Officer
 Creature Wizard Avatar	Creature - Wizard Avatar
 Creature Wizard Illusion	Creature - Wizard Illusion
 Creature Wolf	Creature - Wolf
@@ -2422,6 +2446,7 @@ Enchantment Creature Unicorn	Enchantment Creature - Unicorn
 Enchantment Creature Wolf	Enchantment Creature - Wolf
 Enchantment Creature Zombie	Enchantment Creature - Zombie
 Enchantment Land	Enchantment Land
+Enchantment Land Saga	Enchantment Land - Saga
 Enchantment Land Urza's Saga	Enchantment Land - Urza's Saga
 Enchantment Plan	Enchantment - Plan
 Enchantment Room	Enchantment - Room
@@ -2549,10 +2574,13 @@ Legendary Artifact Book Clue	Legendary Artifact - Book Clue
 Legendary Artifact Clue	Legendary Artifact - Clue
 Legendary Artifact Creature Alien Scientist	Legendary Artifact Creature - Alien Scientist
 Legendary Artifact Creature Android Rogue	Legendary Artifact Creature - Android Rogue
+Legendary Artifact Creature Android Scientist	Legendary Artifact Creature - Android Scientist
 Legendary Artifact Creature Artificer	Legendary Artifact Creature - Artificer
 Legendary Artifact Creature Book Construct	Legendary Artifact Creature - Book Construct
 Legendary Artifact Creature Borg	Legendary Artifact Creature - Borg
+Legendary Artifact Creature Borg Artificer	Legendary Artifact Creature - Borg Artificer
 Legendary Artifact Creature Borg Noble	Legendary Artifact Creature - Borg Noble
+Legendary Artifact Creature Borg Scientist	Legendary Artifact Creature - Borg Scientist
 Legendary Artifact Creature Cat Moogle	Legendary Artifact Creature - Cat Moogle
 Legendary Artifact Creature Construct	Legendary Artifact Creature - Construct
 Legendary Artifact Creature Cyberman	Legendary Artifact Creature - Cyberman
@@ -2577,9 +2605,14 @@ Legendary Artifact Creature Human Scientist	Legendary Artifact Creature - Human 
 Legendary Artifact Creature Human Villain	Legendary Artifact Creature - Human Villain
 Legendary Artifact Creature Human Wizard	Legendary Artifact Creature - Human Wizard
 Legendary Artifact Creature Illusion Advisor	Legendary Artifact Creature - Illusion Advisor
+Legendary Artifact Creature Illusion Doctor	Legendary Artifact Creature - Illusion Doctor
 Legendary Artifact Creature Illusion Horror	Legendary Artifact Creature - Illusion Horror
+Legendary Artifact Creature Illusion Officer	Legendary Artifact Creature - Illusion Officer
+Legendary Artifact Creature Illusion Performer	Legendary Artifact Creature - Illusion Performer
 Legendary Artifact Creature Insect	Legendary Artifact Creature - Insect
 Legendary Artifact Creature Juggernaut	Legendary Artifact Creature - Juggernaut
+Legendary Artifact Creature Klingon Borg	Legendary Artifact Creature - Klingon Borg
+Legendary Artifact Creature Medusan Scientist	Legendary Artifact Creature - Medusan Scientist
 Legendary Artifact Creature Mutant	Legendary Artifact Creature - Mutant
 Legendary Artifact Creature Mutant Hero	Legendary Artifact Creature - Mutant Hero
 Legendary Artifact Creature Myr	Legendary Artifact Creature - Myr
@@ -2671,6 +2704,9 @@ Legendary Creature Avatar Wizard	Legendary Creature - Avatar Wizard
 Legendary Creature Azra Assassin	Legendary Creature - Azra Assassin
 Legendary Creature Azra Warlock	Legendary Creature - Azra Warlock
 Legendary Creature Badger Warrior	Legendary Creature - Badger Warrior
+Legendary Creature Bajoran Cleric	Legendary Creature - Bajoran Cleric
+Legendary Creature Bajoran Rogue Officer	Legendary Creature - Bajoran Rogue Officer
+Legendary Creature Bajoran Soldier	Legendary Creature - Bajoran Soldier
 Legendary Creature Bat Cleric	Legendary Creature - Bat Cleric
 Legendary Creature Bat God	Legendary Creature - Bat God
 Legendary Creature Bat Mutant	Legendary Creature - Bat Mutant
@@ -2689,6 +2725,8 @@ Legendary Creature Beast Noble	Legendary Creature - Beast Noble
 Legendary Creature Beast Survivor	Legendary Creature - Beast Survivor
 Legendary Creature Beast Warrior	Legendary Creature - Beast Warrior
 Legendary Creature Beholder	Legendary Creature - Beholder
+Legendary Creature Betazoid Advisor	Legendary Creature - Betazoid Advisor
+Legendary Creature Betazoid Human Advisor	Legendary Creature - Betazoid Human Advisor
 Legendary Creature Bird	Legendary Creature - Bird
 Legendary Creature Bird Advisor	Legendary Creature - Bird Advisor
 Legendary Creature Bird Bard	Legendary Creature - Bird Bard
@@ -2715,6 +2753,9 @@ Legendary Creature Boar God	Legendary Creature - Boar God
 Legendary Creature Boar Mutant	Legendary Creature - Boar Mutant
 Legendary Creature Boar Mutant Warrior	Legendary Creature - Boar Mutant Warrior
 Legendary Creature Boar Rhino Mutant	Legendary Creature - Boar Rhino Mutant
+Legendary Creature Brikar Scientist	Legendary Creature - Brikar Scientist
+Legendary Creature Caitian Officer	Legendary Creature - Caitian Officer
+Legendary Creature Cardassian Rogue	Legendary Creature - Cardassian Rogue
 Legendary Creature Cat	Legendary Creature - Cat
 Legendary Creature Cat Advisor	Legendary Creature - Cat Advisor
 Legendary Creature Cat Archer	Legendary Creature - Cat Archer
@@ -2771,6 +2812,7 @@ Legendary Creature Demon Primarch	Legendary Creature - Demon Primarch
 Legendary Creature Demon Rogue	Legendary Creature - Demon Rogue
 Legendary Creature Demon Spirit	Legendary Creature - Demon Spirit
 Legendary Creature Demon Wizard	Legendary Creature - Demon Wizard
+Legendary Creature Denobulan Doctor	Legendary Creature - Denobulan Doctor
 Legendary Creature Devil	Legendary Creature - Devil
 Legendary Creature Devil Advisor	Legendary Creature - Devil Advisor
 Legendary Creature Devil God	Legendary Creature - Devil God
@@ -2816,6 +2858,7 @@ Legendary Creature Dragon Spirit	Legendary Creature - Dragon Spirit
 Legendary Creature Dragon Wizard	Legendary Creature - Dragon Wizard
 Legendary Creature Drix Pirate	Legendary Creature - Drix Pirate
 Legendary Creature Dryad	Legendary Creature - Dryad
+Legendary Creature Dryad Cleric	Legendary Creature - Dryad Cleric
 Legendary Creature Dryad Detective	Legendary Creature - Dryad Detective
 Legendary Creature Dryad Druid	Legendary Creature - Dryad Druid
 Legendary Creature Dwarf Advisor	Legendary Creature - Dwarf Advisor
@@ -2831,9 +2874,11 @@ Legendary Creature Dwarf Warlock	Legendary Creature - Dwarf Warlock
 Legendary Creature Dwarf Warrior	Legendary Creature - Dwarf Warrior
 Legendary Creature Dwarf Wizard	Legendary Creature - Dwarf Wizard
 Legendary Creature Echidna Warrior	Legendary Creature - Echidna Warrior
+Legendary Creature Edosian Officer	Legendary Creature - Edosian Officer
 Legendary Creature Efreet	Legendary Creature - Efreet
 Legendary Creature Efreet Shaman	Legendary Creature - Efreet Shaman
 Legendary Creature Efreet Wizard	Legendary Creature - Efreet Wizard
+Legendary Creature El-Aurian Advisor	Legendary Creature - El-Aurian Advisor
 Legendary Creature Elder Alien	Legendary Creature - Elder Alien
 Legendary Creature Elder Cat Turtle	Legendary Creature - Elder Cat Turtle
 Legendary Creature Elder Demon	Legendary Creature - Elder Demon
@@ -2924,6 +2969,9 @@ Legendary Creature Faerie Rogue	Legendary Creature - Faerie Rogue
 Legendary Creature Faerie Warlock	Legendary Creature - Faerie Warlock
 Legendary Creature Faerie Warrior	Legendary Creature - Faerie Warrior
 Legendary Creature Faerie Wizard	Legendary Creature - Faerie Wizard
+Legendary Creature Ferengi Bajoran	Legendary Creature - Ferengi Bajoran
+Legendary Creature Ferengi Noble	Legendary Creature - Ferengi Noble
+Legendary Creature Ferengi Rogue	Legendary Creature - Ferengi Rogue
 Legendary Creature Fish Mutant	Legendary Creature - Fish Mutant
 Legendary Creature Fish Spirit	Legendary Creature - Fish Spirit
 Legendary Creature Fox	Legendary Creature - Fox
@@ -3102,6 +3150,7 @@ Legendary Creature Human Detective	Legendary Creature - Human Detective
 Legendary Creature Human Detective Hero	Legendary Creature - Human Detective Hero
 Legendary Creature Human Dinosaur Hero	Legendary Creature - Human Dinosaur Hero
 Legendary Creature Human Doctor	Legendary Creature - Human Doctor
+Legendary Creature Human Doctor Artificer	Legendary Creature - Human Doctor Artificer
 Legendary Creature Human Doctor Hero	Legendary Creature - Human Doctor Hero
 Legendary Creature Human Doctor Villain	Legendary Creature - Human Doctor Villain
 Legendary Creature Human Druid	Legendary Creature - Human Druid
@@ -3174,6 +3223,7 @@ Legendary Creature Human Performer Ally	Legendary Creature - Human Performer All
 Legendary Creature Human Performer Hero	Legendary Creature - Human Performer Hero
 Legendary Creature Human Pilot	Legendary Creature - Human Pilot
 Legendary Creature Human Pilot Ally	Legendary Creature - Human Pilot Ally
+Legendary Creature Human Pilot Doctor	Legendary Creature - Human Pilot Doctor
 Legendary Creature Human Pilot Employee	Legendary Creature - Human Pilot Employee
 Legendary Creature Human Pirate	Legendary Creature - Human Pirate
 Legendary Creature Human Rabbit	Legendary Creature - Human Rabbit
@@ -3189,6 +3239,8 @@ Legendary Creature Human Rogue	Legendary Creature - Human Rogue
 Legendary Creature Human Rogue Ally	Legendary Creature - Human Rogue Ally
 Legendary Creature Human Rogue Bard	Legendary Creature - Human Rogue Bard
 Legendary Creature Human Rogue Hero	Legendary Creature - Human Rogue Hero
+Legendary Creature Human Rogue Noble	Legendary Creature - Human Rogue Noble
+Legendary Creature Human Rogue Officer	Legendary Creature - Human Rogue Officer
 Legendary Creature Human Rogue Pilot	Legendary Creature - Human Rogue Pilot
 Legendary Creature Human Rogue Scientist	Legendary Creature - Human Rogue Scientist
 Legendary Creature Human Rogue Villain	Legendary Creature - Human Rogue Villain
@@ -3197,6 +3249,7 @@ Legendary Creature Human Samurai	Legendary Creature - Human Samurai
 Legendary Creature Human Samurai Hero	Legendary Creature - Human Samurai Hero
 Legendary Creature Human Samurai Noble	Legendary Creature - Human Samurai Noble
 Legendary Creature Human Scientist	Legendary Creature - Human Scientist
+Legendary Creature Human Scientist Artificer	Legendary Creature - Human Scientist Artificer
 Legendary Creature Human Scientist Hero	Legendary Creature - Human Scientist Hero
 Legendary Creature Human Scientist Villain	Legendary Creature - Human Scientist Villain
 Legendary Creature Human Scout	Legendary Creature - Human Scout
@@ -3248,6 +3301,7 @@ Legendary Creature Hydra Horror	Legendary Creature - Hydra Horror
 Legendary Creature Hyena Beast	Legendary Creature - Hyena Beast
 Legendary Creature Illusion	Legendary Creature - Illusion
 Legendary Creature Illusion Beast	Legendary Creature - Illusion Beast
+Legendary Creature Illyrian Officer	Legendary Creature - Illyrian Officer
 Legendary Creature Imp	Legendary Creature - Imp
 Legendary Creature Inhuman Dog Hero	Legendary Creature - Inhuman Dog Hero
 Legendary Creature Inhuman Noble Hero	Legendary Creature - Inhuman Noble Hero
@@ -3269,14 +3323,21 @@ Legendary Creature Jellyfish	Legendary Creature - Jellyfish
 Legendary Creature Jellyfish Advisor	Legendary Creature - Jellyfish Advisor
 Legendary Creature Kavu Pilot	Legendary Creature - Kavu Pilot
 Legendary Creature Kavu Pirate	Legendary Creature - Kavu Pirate
+Legendary Creature Kelpien Officer	Legendary Creature - Kelpien Officer
 Legendary Creature Kirin Spirit	Legendary Creature - Kirin Spirit
 Legendary Creature Kithkin Advisor	Legendary Creature - Kithkin Advisor
 Legendary Creature Kithkin Archer	Legendary Creature - Kithkin Archer
 Legendary Creature Kithkin Soldier	Legendary Creature - Kithkin Soldier
 Legendary Creature Kithkin Warrior	Legendary Creature - Kithkin Warrior
+Legendary Creature Klingon Human	Legendary Creature - Klingon Human
+Legendary Creature Klingon Human Advisor	Legendary Creature - Klingon Human Advisor
+Legendary Creature Klingon Human Artificer	Legendary Creature - Klingon Human Artificer
+Legendary Creature Klingon Noble	Legendary Creature - Klingon Noble
 Legendary Creature Klingon Officer	Legendary Creature - Klingon Officer
+Legendary Creature Klingon Spy	Legendary Creature - Klingon Spy
 Legendary Creature Klingon Warrior	Legendary Creature - Klingon Warrior
 Legendary Creature Klingon Warrior Officer	Legendary Creature - Klingon Warrior Officer
+Legendary Creature Klingon Warrior Spy	Legendary Creature - Klingon Warrior Spy
 Legendary Creature Kobold	Legendary Creature - Kobold
 Legendary Creature Kobold Shaman	Legendary Creature - Kobold Shaman
 Legendary Creature Kobold Warrior	Legendary Creature - Kobold Warrior
@@ -3291,6 +3352,7 @@ Legendary Creature Kraken	Legendary Creature - Kraken
 Legendary Creature Kraken Horror	Legendary Creature - Kraken Horror
 Legendary Creature Kree Skrull Hero	Legendary Creature - Kree Skrull Hero
 Legendary Creature Kree Soldier Hero	Legendary Creature - Kree Soldier Hero
+Legendary Creature Kwejian Rogue	Legendary Creature - Kwejian Rogue
 Legendary Creature Lanthanite Artificer	Legendary Creature - Lanthanite Artificer
 Legendary Creature Lemur Bat Ally	Legendary Creature - Lemur Bat Ally
 Legendary Creature Leviathan	Legendary Creature - Leviathan
@@ -3380,6 +3442,7 @@ Legendary Creature Nightmare Insect	Legendary Creature - Nightmare Insect
 Legendary Creature Nightmare Warlock	Legendary Creature - Nightmare Warlock
 Legendary Creature Noggle Rogue	Legendary Creature - Noggle Rogue
 Legendary Creature Nymph	Legendary Creature - Nymph
+Legendary Creature Ocampa Advisor	Legendary Creature - Ocampa Advisor
 Legendary Creature Octopus	Legendary Creature - Octopus
 Legendary Creature Octopus Advisor	Legendary Creature - Octopus Advisor
 Legendary Creature Octopus Noble	Legendary Creature - Octopus Noble
@@ -3397,9 +3460,11 @@ Legendary Creature Ogre Warrior	Legendary Creature - Ogre Warrior
 Legendary Creature Ogre Wizard	Legendary Creature - Ogre Wizard
 Legendary Creature Ooze	Legendary Creature - Ooze
 Legendary Creature Ooze Giant	Legendary Creature - Ooze Giant
+Legendary Creature Ooze Horror	Legendary Creature - Ooze Horror
 Legendary Creature Ooze Mutant	Legendary Creature - Ooze Mutant
 Legendary Creature Ooze Rogue	Legendary Creature - Ooze Rogue
 Legendary Creature Orc	Legendary Creature - Orc
+Legendary Creature Orc Artificer	Legendary Creature - Orc Artificer
 Legendary Creature Orc Cleric	Legendary Creature - Orc Cleric
 Legendary Creature Orc Dragon	Legendary Creature - Orc Dragon
 Legendary Creature Orc Efreet	Legendary Creature - Orc Efreet
@@ -3488,6 +3553,7 @@ Legendary Creature Rhino Soldier	Legendary Creature - Rhino Soldier
 Legendary Creature Rhino Warrior	Legendary Creature - Rhino Warrior
 Legendary Creature Rogue	Legendary Creature - Rogue
 Legendary Creature Rogue Artificer	Legendary Creature - Rogue Artificer
+Legendary Creature Romulan Human Rogue	Legendary Creature - Romulan Human Rogue
 Legendary Creature Salamander Serpent	Legendary Creature - Salamander Serpent
 Legendary Creature Samurai Goblin	Legendary Creature - Samurai Goblin
 Legendary Creature Sand Elemental Villain	Legendary Creature - Sand Elemental Villain
@@ -3496,6 +3562,7 @@ Legendary Creature Satyr	Legendary Creature - Satyr
 Legendary Creature Scorpion Dragon Rogue	Legendary Creature - Scorpion Dragon Rogue
 Legendary Creature Scorpion Druid	Legendary Creature - Scorpion Druid
 Legendary Creature Scorpion Human Villain	Legendary Creature - Scorpion Human Villain
+Legendary Creature Scout	Legendary Creature - Scout
 Legendary Creature Serpent	Legendary Creature - Serpent
 Legendary Creature Shade Knight	Legendary Creature - Shade Knight
 Legendary Creature Shapeshifter	Legendary Creature - Shapeshifter
@@ -3586,6 +3653,8 @@ Legendary Creature Symbiote Hero Villain	Legendary Creature - Symbiote Hero Vill
 Legendary Creature Symbiote Soldier Hero	Legendary Creature - Symbiote Soldier Hero
 Legendary Creature Symbiote Spider Hero	Legendary Creature - Symbiote Spider Hero
 Legendary Creature Symbiote Villain	Legendary Creature - Symbiote Villain
+Legendary Creature Talaxian Advisor	Legendary Creature - Talaxian Advisor
+Legendary Creature Tamarian Officer	Legendary Creature - Tamarian Officer
 Legendary Creature Tiefling Barbarian	Legendary Creature - Tiefling Barbarian
 Legendary Creature Tiefling Cleric	Legendary Creature - Tiefling Cleric
 Legendary Creature Tiefling Druid	Legendary Creature - Tiefling Druid
@@ -3602,7 +3671,10 @@ Legendary Creature Treefolk Druid	Legendary Creature - Treefolk Druid
 Legendary Creature Treefolk Mutant	Legendary Creature - Treefolk Mutant
 Legendary Creature Treefolk Shaman	Legendary Creature - Treefolk Shaman
 Legendary Creature Treefolk Wizard	Legendary Creature - Treefolk Wizard
+Legendary Creature Trill Advisor	Legendary Creature - Trill Advisor
 Legendary Creature Trill Human Officer	Legendary Creature - Trill Human Officer
+Legendary Creature Trill Scientist	Legendary Creature - Trill Scientist
+Legendary Creature Trill Warrior	Legendary Creature - Trill Warrior
 Legendary Creature Troll	Legendary Creature - Troll
 Legendary Creature Troll Shaman	Legendary Creature - Troll Shaman
 Legendary Creature Troll Warlock	Legendary Creature - Troll Warlock
@@ -3642,13 +3714,16 @@ Legendary Creature Vampire Villain	Legendary Creature - Vampire Villain
 Legendary Creature Vampire Warlock	Legendary Creature - Vampire Warlock
 Legendary Creature Vampire Warrior	Legendary Creature - Vampire Warrior
 Legendary Creature Vampire Wizard	Legendary Creature - Vampire Wizard
+Legendary Creature Vau-N'Akat Advisor	Legendary Creature - Vau-N'Akat Advisor
 Legendary Creature Vedalken Artificer	Legendary Creature - Vedalken Artificer
 Legendary Creature Vedalken Fish Detective	Legendary Creature - Vedalken Fish Detective
 Legendary Creature Vedalken Scout	Legendary Creature - Vedalken Scout
 Legendary Creature Vedalken Wizard	Legendary Creature - Vedalken Wizard
 Legendary Creature Villain	Legendary Creature - Villain
 Legendary Creature Vulcan Advisor	Legendary Creature - Vulcan Advisor
+Legendary Creature Vulcan Citizen	Legendary Creature - Vulcan Citizen
 Legendary Creature Vulcan Human Scientist	Legendary Creature - Vulcan Human Scientist
+Legendary Creature Vulcan Officer	Legendary Creature - Vulcan Officer
 Legendary Creature Vulcan Scientist	Legendary Creature - Vulcan Scientist
 Legendary Creature Wall	Legendary Creature - Wall
 Legendary Creature Weasel Mercenary	Legendary Creature - Weasel Mercenary

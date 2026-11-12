@@ -19,6 +19,7 @@ Ported from `forge-core` for Booster Tutor (ADR-0049). The reference is `crucibl
 | `cardsInSet` is sorted by name without case, sortable collector number, rarity; the section order of a `HashMap` only breaks ties | `CardEdition.java:337-338` |
 | Printing numbers (`artIndex`) count entries of one name in `cardsInSet` order across all sections | `CardDb.java:446-452` |
 | A name an edition lists that no script has becomes a placeholder print with the edition's rarity for it; no sheet holds it, so a booster never deals one | `CardDb.java:1474-1506`, `PrintSheet.java:55-59` |
+| A sheet from a card list (`printsheets.txt`, an edition's custom sheet) iterates in the order of a second insertion: the lines fill a `CardPool`, placeholders included, and the `PrintSheet` constructor copies that pool's entries, in its iteration order, into a fresh map without the placeholders | `PrintSheet.java:41-49`, `:173`, `CardEdition.java:629` |
 | Variant rules (Vanguard, Scheme, Plane, Phenomenon, Conspiracy, Dungeon, Attraction, Contraption, Stickers) are in a second database a print-sheet line falls back to | `CardRules.java:152`, `CardPool.java:76-97` |
 
 ## Not ported

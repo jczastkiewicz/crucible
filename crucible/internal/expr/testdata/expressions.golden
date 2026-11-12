@@ -27,7 +27,7 @@ head	Number
 head	OriginalHost
 head	ParentTargeted
 head	PlayerCount
-head	PlayerCountDefinedActivePlayer
+head	PlayerCountDefinedNonTriggeredPlayer
 head	PlayerCountDefinedNonTriggeredTarget
 head	PlayerCountDefinedPlayer.PlayerUID_RelativePlayerUID
 head	PlayerCountDefinedRegistered
@@ -38,7 +38,6 @@ head	PlayerCountDefinedTriggeredCardOwner
 head	PlayerCountDefinedTriggeredPlayer
 head	PlayerCountDefinedTriggeredSourceController
 head	PlayerCountHasLost
-head	PlayerCountNonActive
 head	PlayerCountOpponents
 head	PlayerCountOther
 head	PlayerCountPlayers
@@ -58,6 +57,7 @@ head	ReplacedCardLKI
 head	ReplacedSource
 head	Returned
 head	Revealed
+head	RevealedCards
 head	SVar
 head	SacCost
 head	Sacrificed
@@ -103,7 +103,7 @@ context	CastSA>	5
 context	Spawner>	6
 context	TriggeredSpellAbility>	1
 operator	Abs	6
-operator	DivideEvenlyDown	7
+operator	DivideEvenlyDown	8
 operator	DivideEvenlyUp	1
 operator	HalfDown	44
 operator	HalfUp	59
@@ -113,12 +113,12 @@ operator	Minus	118
 operator	Mod	3
 operator	NMinus	15
 operator	Negative	1
-operator	Plus	318
+operator	Plus	322
 operator	Pow	1
 operator	ThirdUp	5
 operator	Thrice	9
 operator	Times	183
-operator	Twice	168
+operator	Twice	170
 countHead	AbilityYouCtrl
 countHead	Adamant
 countHead	Adamant_7
@@ -161,7 +161,6 @@ countHead	DifferentCounterKinds_Creature
 countHead	DifferentCounterKinds_Permanent
 countHead	DistinctUnlockedDoors
 countHead	Domain
-countHead	DomainActivePlayer
 countHead	DraftNotesCount.Cogwork
 countHead	DraftNotesHighest.Custodi
 countHead	DraftNotesHighest.Garbage
@@ -247,6 +246,7 @@ countHead	ThisTurnCast_Card.YouCtrl+namedPeer
 countHead	ThisTurnCast_Card.YouCtrl+namedReach
 countHead	ThisTurnCast_Card.nonCreature+ControlledBy
 countHead	ThisTurnCast_Creature
+countHead	ThisTurnCast_Creature.ControlledBy
 countHead	ThisTurnCast_Instant
 countHead	ThisTurnCast_Merfolk
 countHead	ThisTurnEntered_Battlefield_Angel
@@ -254,6 +254,7 @@ countHead	ThisTurnEntered_Battlefield_Artifact
 countHead	ThisTurnEntered_Battlefield_Card
 countHead	ThisTurnEntered_Battlefield_Cleric
 countHead	ThisTurnEntered_Battlefield_Creature
+countHead	ThisTurnEntered_Battlefield_Equipment
 countHead	ThisTurnEntered_Battlefield_Food
 countHead	ThisTurnEntered_Battlefield_Frog
 countHead	ThisTurnEntered_Battlefield_Goblin
@@ -337,6 +338,7 @@ countHead	YouSurveilThisTurn
 countHead	YourCountersEnergy
 countHead	YourCountersExperience
 countHead	YourCountersRAD
+countHead	YourExtraTurns
 countHead	YourLifeTotal
 countHead	YourSpeed
 countHead	YourStartingLibrarySize

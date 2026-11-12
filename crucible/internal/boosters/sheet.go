@@ -24,7 +24,16 @@ func newSheet(name string) *Sheet { return &Sheet{name: name} }
 // does a placeholder of a card no script defines (PrintSheet.java:55-59:
 // "boosters never deal placeholder cards").
 func (s *Sheet) add(p *Print, weight int) error {
-	if p == nil || p.rules == nil || weight <= 0 {
+	if p == nil || p.rules == nil {
+		return nil
+	}
+	return s.merge(p, weight)
+}
+
+// merge is ItemPool.add on the sheet's map, placeholders included: the
+// CardPool a card list builds before PrintSheet copies it (cardPoolSheet).
+func (s *Sheet) merge(p *Print, weight int) error {
+	if p == nil || weight <= 0 {
 		return nil
 	}
 	idx := len(s.prints)

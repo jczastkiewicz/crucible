@@ -23,8 +23,7 @@ import (
 // SpellCast trigger recorded (triggeredObjects.spellAbility; 164 of 255
 // lines) -- or the ability's own targets (ValidTgts$, spells on the stack,
 // targetChoiceFor) and Defined$ Targeted. RememberNewCard$ remembers each
-// copy's card on the host; IgnoreFreeze$ and Secondary$ change nothing
-// (this port never freezes the stack; Secondary$ is a description flag).
+// copy's card on the host; Secondary$ changes nothing (a description flag).
 //
 // Ported from forge-game/src/main/java/forge/game/ability/effects/CopySpellAbilityEffect.java's
 // resolve (CopySpellAbilityEffect.java:65-210) and CardFactory.java's

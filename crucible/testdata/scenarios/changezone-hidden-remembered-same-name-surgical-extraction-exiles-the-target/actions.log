@@ -1,12 +1,12 @@
-# Surgical Extraction's search reads ChangeType$ Remembered.sameName the way
-# AbilityUtils.filterListByType does (:853-868): the first remembered card
-# (the target Pump remembered) is the source, and sameName matches cards
-# sharing its name (CardProperty.java:814-817), so Shock is found and
-# exiled. L2: same as Java.
+# Surgical Extraction exiles its target, Shock, from the graveyard, then
+# searches the hand and library with ChangeType$ Remembered.sameName, read the
+# way AbilityUtils.filterListByType does (:853-868): the remembered target is
+# the source, and sameName matches cards sharing its name
+# (CardProperty.java:814-817), so the library's Shock is found and exiled.
 startturn human
 advance 3
 queue payphyrexian false
 queue targets 72
-queue cardchoice 72
+queue cardchoice 96
 castspell human 1
 resolvestack

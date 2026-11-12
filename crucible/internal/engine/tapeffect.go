@@ -97,7 +97,6 @@ func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		}
 	}
 	_, remTapped := a.Params.Param("RememberTapped")
-	_, alwaysRem := a.Params.Param("AlwaysRemember")
 	// TapEffect.java:50-52: the tapper is the activator unless Tapper$ names
 	// another player; it is the Player of the Taps trigger (ValidPlayer$).
 	tapper := a.Controller
@@ -116,7 +115,7 @@ func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			continue
 		}
 		wasUntapped := !c.Tapped
-		if remTapped && wasUntapped || alwaysRem {
+		if remTapped && wasUntapped {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
 		if wasUntapped {

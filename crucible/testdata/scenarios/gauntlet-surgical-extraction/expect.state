@@ -7,5 +7,6 @@ humanlibrary=Island|Id:4;Island|Id:5;Island|Id:6;Island|Id:7;Island|Id:8;Island|
 ailife=20
 aibattlefield=Grizzly Bears|Id:10;Ornithopter|Id:11;Swamp|Id:12;Pacifism|Id:13|AttachedTo:10
 aihand=Island|Id:14;Lightning Bolt|Id:15;Grizzly Bears|Id:16
-aigraveyard=Shock|Id:17;Hill Giant|Id:18
+aigraveyard=Hill Giant|Id:18
 ailibrary=Island|Id:23;Island|Id:21;Island|Id:19;Island|Id:20;Island|Id:24;Island|Id:22
+aiexile=Shock|Id:17|ExiledWith:1

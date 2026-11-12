@@ -80,6 +80,8 @@ public class CopySpellAbilityEffect extends SpellAbilityEffect {
         }
 
         List<Player> controllers = AbilityUtils.getDefinedPlayers(card, sa.getParam("Controller"), sa);
+        // CR 405.3: copies put on the stack at the same time go on in APNAP order, the active player's lowest
+        sortAPNAP(sa, controllers);
 
         boolean isOptional = sa.hasParam("Optional");
 
@@ -95,7 +97,7 @@ public class CopySpellAbilityEffect extends SpellAbilityEffect {
 
             for (SpellAbility chosenSA : copySpells) {
                 List<SpellAbility> chosenCopies = Lists.newArrayList();
-                if (isOptional && !controller.getController().confirmAction(sa, null, Localizer.getInstance().getMessage("lblDoyouWantCopyTheSpell", chosenSA.getHostCard().getTranslatedName()), null)) {
+                if (isOptional && !controller.getController().confirmAction(sa, null, Localizer.getInstance().getMessage("lblDoyouWantCopyTheSpell", chosenSA.getHostCard().getTranslatedName()), chosenSA.getHostCard(), null)) {
                     continue;
                 }
 
@@ -154,9 +156,6 @@ public class CopySpellAbilityEffect extends SpellAbilityEffect {
                 } else {
                     for (int i = 0; i < amount; i++) {
                         SpellAbility copy = CardFactory.copySpellAbilityAndPossiblyHost(sa, chosenSA, controller);
-                        if (sa.hasParam("IgnoreFreeze")) {
-                            copy.putParam("IgnoreFreeze", "True");
-                        }
                         if (sa.hasParam("MayChooseTarget")) {
                             copy.setMayChooseNewTargets(true);
                         }

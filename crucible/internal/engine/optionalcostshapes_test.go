@@ -10,10 +10,11 @@ import (
 
 // Dragon's Fire's RevealOrChoose<1/Dragon> (a CostReveal over the hand and the
 // battlefield, Cost.java:522-526): the damage is the revealed or chosen
-// Dragon's power through Count$OptionalGenericCostPaid.X.3, X Revealed$CardPower
-// -- the power as it was paid (the Revealed list holds LKI copies,
-// CostPartWithList.java:136-138), so +1/+1 counters added after the cast do
-// not count. Declined, it deals 3.
+// Dragon's power through Count$OptionalGenericCostPaid.X.3, X
+// RevealedCards$CardPower -- the live card's power as the spell resolves (the
+// RevealedCards list holds the cards, not their LKI copies,
+// CostReveal.java:175-177), so +1/+1 counters added after the cast count.
+// Declined, it deals 3.
 func TestDragonsFireRevealsOrChoosesADragon(t *testing.T) {
 	t.Parallel()
 
@@ -23,7 +24,7 @@ func TestDragonsFireRevealsOrChoosesADragon(t *testing.T) {
 		pay    bool
 		damage int
 	}{
-		{"chosen on the battlefield", engine.Battlefield, true, 5},
+		{"chosen on the battlefield", engine.Battlefield, true, 7},
 		{"revealed from hand", engine.Hand, true, 5},
 		{"declined", engine.Battlefield, false, 3},
 	} {
@@ -32,7 +33,7 @@ func TestDragonsFireRevealsOrChoosesADragon(t *testing.T) {
 
 			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 			dragon := g.NewCard(corpusCard(t, "Shivan Dragon"), p, tc.zone)
-			theirs := g.NewCard(corpusCard(t, "Colossal Dreadmaw"), other, engine.Battlefield)
+			theirs := g.NewCard(corpusCard(t, "Ancient Brontodon"), other, engine.Battlefield)
 			fire := g.NewCard(corpusCard(t, "Dragon's Fire"), p, engine.Hand)
 			g.Player(p).ManaPool.Add(mana.Red, 2)
 			c := engine.NewScriptedController()

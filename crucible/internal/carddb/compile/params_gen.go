@@ -2,12 +2,12 @@
 
 // Typed parameters, one struct per ability API (ADR-0007).
 //
-// Field types come from tools/apiscan's evidence table: 6991 rows of
+// Field types come from tools/apiscan's evidence table: 7040 rows of
 // (API, key) with what Java's call sites imply and what the corpus writes.
 // A pair with no evidence, or with evidence pointing two ways, gets a string
 // -- which is what Java has -- rather than a guess.
 //
-// 197 structs.
+// 198 structs.
 
 package compile
 
@@ -182,24 +182,24 @@ func fillAddOrRemoveCounterParams(ps []vocab.Param) AddOrRemoveCounterParams {
 
 // AddPhaseParams are the parameters the AddPhase API reads.
 type AddPhaseParams struct {
-	AfterPhase                     string      // 35 uses
+	AfterPhase                     string      // 36 uses
 	BeforeFirstPostCombatMainEnd   bool        // 1 uses
 	ConditionCheckSVar             string      // 1 uses
 	ConditionCompare               string      // 1 uses
 	ConditionDefined               string      // 3 uses
 	ConditionFirstCombat           bool        // 3 uses
-	ConditionPhases                string      // 16 uses
+	ConditionPhases                string      // 17 uses
 	ConditionPlayerTurn            bool        // 4 uses
 	ConditionPresent               valid.Spec  // 3 uses
 	ConditionSVarCompare           string      // 1 uses
 	Cost                           string      // 1 uses
-	ExtraPhase                     string      // 57 uses
+	ExtraPhase                     string      // 59 uses
 	ExtraPhaseDelayedTrigger       string      // 4 uses
 	ExtraPhaseDelayedTriggerExcute string      // 4 uses
-	FollowedBy                     string      // 13 uses
+	FollowedBy                     string      // 14 uses
 	NumPhases                      expr.Amount // 2 uses
 	SpellDescription               string      // 3 uses
-	SubAbility                     string      // 8 uses
+	SubAbility                     string      // 9 uses
 }
 
 func (p AddPhaseParams) apiName() string { return "AddPhase" }
@@ -252,13 +252,14 @@ func fillAddPhaseParams(ps []vocab.Param) AddPhaseParams {
 // AddTurnParams are the parameters the AddTurn API reads.
 type AddTurnParams struct {
 	Activation                     string      // 1 uses
-	ConditionCheckSVar             string      // 4 uses
+	ConditionCheckSVar             string      // 5 uses
+	ConditionCompare               string      // 1 uses
 	ConditionDefined               string      // 2 uses
-	ConditionPresent               valid.Spec  // 2 uses
-	ConditionSVarCompare           string      // 3 uses
+	ConditionPresent               valid.Spec  // 3 uses
+	ConditionSVarCompare           string      // 4 uses
 	Cost                           string      // 13 uses
 	CostDesc                       string      // 1 uses
-	Defined                        string      // 18 uses
+	Defined                        string      // 19 uses
 	Exhaust                        bool        // 1 uses
 	ExtraTurnDelayedTrigger        string      // 7 uses
 	ExtraTurnDelayedTriggerExecute string      // 7 uses
@@ -266,7 +267,7 @@ type AddTurnParams struct {
 	IsPresent                      string      // 1 uses
 	NoSchemes                      bool        // 1 uses
 	NonBasicSpell                  bool        // 1 uses
-	NumTurns                       expr.Amount // 67 uses
+	NumTurns                       expr.Amount // 68 uses
 	Planeswalker                   bool        // 3 uses
 	PlayerTurn                     bool        // 1 uses
 	PrecostDesc                    string      // 1 uses
@@ -291,6 +292,8 @@ func fillAddTurnParams(ps []vocab.Param) AddTurnParams {
 			out.Activation = p.Value
 		case "conditionchecksvar":
 			out.ConditionCheckSVar = p.Value
+		case "conditioncompare":
+			out.ConditionCompare = p.Value
 		case "conditiondefined":
 			out.ConditionDefined = p.Value
 		case "conditionpresent":
@@ -414,21 +417,22 @@ func fillAirbendParams(ps []vocab.Param) AirbendParams {
 // AlterAttributeParams are the parameters the AlterAttribute API reads.
 type AlterAttributeParams struct {
 	Activate                 bool       // 8 uses
-	Attributes               string     // 168 uses
+	ActivationLimit          int        // 1 uses
+	Attributes               string     // 171 uses
 	ConditionCheckSVar       string     // 1 uses
 	ConditionCompare         string     // 1 uses
 	ConditionDefined         string     // 5 uses
 	ConditionPresent         valid.Spec // 6 uses
 	ConditionSVarCompare     string     // 1 uses
 	ConditionZone            string     // 1 uses
-	Cost                     string     // 42 uses
-	Defined                  string     // 81 uses
+	Cost                     string     // 44 uses
+	Defined                  string     // 82 uses
 	IncludeAllComponentCards bool       // 1 uses
 	Optional                 bool       // 2 uses
 	RememberAltered          bool       // 1 uses
 	RememberTargets          bool       // 1 uses
-	SorcerySpeed             bool       // 35 uses
-	SpellDescription         string     // 57 uses
+	SorcerySpeed             bool       // 37 uses
+	SpellDescription         string     // 58 uses
 	StackDescription         string     // 7 uses
 	SubAbility               string     // 16 uses
 	TargetMax                string     // 6 uses
@@ -445,6 +449,8 @@ func fillAlterAttributeParams(ps []vocab.Param) AlterAttributeParams {
 		switch strings.ToLower(p.Key) {
 		case "activate":
 			out.Activate = true
+		case "activationlimit":
+			out.ActivationLimit, _ = strconv.Atoi(p.Value)
 		case "attributes":
 			out.Attributes = p.Value
 		case "conditionchecksvar":
@@ -548,7 +554,7 @@ type AnimateParams struct {
 	AILogic                      string      // 9 uses
 	AITgts                       valid.Spec  // 6 uses
 	AITgtsStrict                 bool        // 1 uses
-	Abilities                    string      // 43 uses
+	Abilities                    string      // 46 uses
 	Activation                   string      // 2 uses
 	ActivationFirstCombat        bool        // 2 uses
 	ActivationLimit              int         // 1 uses
@@ -557,33 +563,33 @@ type AnimateParams struct {
 	Activator                    string      // 1 uses
 	AddAllCreatureTypes          bool        // 10 uses
 	AddSVar                      string      // 1 uses
-	AtEOT                        string      // 34 uses
+	AtEOT                        string      // 35 uses
 	Boast                        bool        // 1 uses
 	CheckSVar                    expr.Amount // 4 uses
-	Colors                       string      // 174 uses
+	Colors                       string      // 175 uses
 	Condition                    string      // 2 uses
 	ConditionCheckSVar           string      // 5 uses
 	ConditionCompare             string      // 3 uses
-	ConditionDefined             string      // 26 uses
+	ConditionDefined             string      // 28 uses
 	ConditionManaSpent           string      // 1 uses
 	ConditionNotPresent          string      // 1 uses
-	ConditionPresent             valid.Spec  // 39 uses
+	ConditionPresent             valid.Spec  // 41 uses
 	ConditionPresent2            string      // 1 uses
 	ConditionSVarCompare         string      // 5 uses
-	Cost                         string      // 493 uses
+	Cost                         string      // 500 uses
 	CostDesc                     string      // 2 uses
-	Defined                      string      // 835 uses
+	Defined                      string      // 892 uses
 	DefinedDesc                  string      // 1 uses
-	Duration                     string      // 493 uses
+	Duration                     string      // 548 uses
 	Exhaust                      bool        // 5 uses
 	GameActivationLimit          int         // 1 uses
 	HiddenKeywords               string      // 6 uses
 	IfDesc                       bool        // 1 uses
 	ImprintCards                 string      // 3 uses
 	Incorporate                  string      // 6 uses
-	IsCurse                      bool        // 25 uses
+	IsCurse                      bool        // 26 uses
 	IsPresent                    string      // 4 uses
-	Keywords                     string      // 292 uses
+	Keywords                     string      // 333 uses
 	LeaveBattlefield             string      // 4 uses
 	LockInText                   bool        // 5 uses
 	ManaCost                     string      // 1 uses
@@ -594,51 +600,51 @@ type AnimateParams struct {
 	Optional                     bool        // 6 uses
 	OverwriteColors              bool        // 156 uses
 	Pawprint                     expr.Amount // 1 uses
-	Planeswalker                 bool        // 25 uses
-	Power                        expr.Amount // 436 uses
+	Planeswalker                 bool        // 26 uses
+	Power                        expr.Amount // 439 uses
 	PrecostDesc                  string      // 10 uses
 	PresentCompare               string      // 1 uses
 	ReduceCost                   string      // 1 uses
 	RememberAnimated             bool        // 1 uses
 	RememberObjects              string      // 4 uses
 	RememberTargets              bool        // 1 uses
-	RemoveAllAbilities           bool        // 34 uses
+	RemoveAllAbilities           bool        // 35 uses
 	RemoveCardTypes              bool        // 56 uses
-	RemoveCreatureTypes          bool        // 169 uses
+	RemoveCreatureTypes          bool        // 173 uses
 	RemoveEnchantmentTypes       bool        // 14 uses
-	RemoveKeywords               string      // 10 uses
+	RemoveKeywords               string      // 33 uses
 	RemoveLandTypes              bool        // 29 uses
 	RemoveNonManaAbilities       bool        // 1 uses
 	RemoveThisAbility            bool        // 14 uses
-	RemoveTypes                  string      // 7 uses
+	RemoveTypes                  string      // 6 uses
 	Replacements                 string      // 18 uses
 	RevertCost                   string      // 13 uses
 	SVarCompare                  string      // 4 uses
 	SorcerySpeed                 bool        // 10 uses
-	SpellDescription             string      // 477 uses
-	StackDescription             string      // 100 uses
-	SubAbility                   string      // 279 uses
-	TargetMax                    string      // 48 uses
-	TargetMin                    string      // 48 uses
+	SpellDescription             string      // 485 uses
+	StackDescription             string      // 104 uses
+	SubAbility                   string      // 306 uses
+	TargetMax                    string      // 50 uses
+	TargetMin                    string      // 50 uses
 	TargetType                   valid.Spec  // 1 uses
 	TargetUnique                 bool        // 1 uses
 	TargetsForEachPlayer         bool        // 2 uses
 	TargetsWithDefinedController string      // 1 uses
-	TgtPrompt                    string      // 173 uses
+	TgtPrompt                    string      // 175 uses
 	TgtZone                      string      // 15 uses
-	Toughness                    expr.Amount // 427 uses
+	Toughness                    expr.Amount // 429 uses
 	TransferActivator            bool        // 1 uses
-	Triggers                     string      // 138 uses
-	Types                        string      // 719 uses
+	Triggers                     string      // 140 uses
+	Types                        string      // 726 uses
 	Ultimate                     bool        // 3 uses
-	UnlessCost                   expr.Amount // 2 uses
-	UnlessPayer                  string      // 2 uses
+	UnlessCost                   expr.Amount // 18 uses
+	UnlessPayer                  string      // 18 uses
 	UnlessResolveSubs            string      // 1 uses
 	ValidCards                   valid.Spec  // 1 uses
-	ValidTgts                    string      // 318 uses
+	ValidTgts                    string      // 321 uses
 	ValidTgtsDesc                string      // 3 uses
 	SVars                        string      // 5 uses
-	StaticAbilities              string      // 81 uses
+	StaticAbilities              string      // 65 uses
 }
 
 func (p AnimateParams) apiName() string { return "Animate" }
@@ -1052,11 +1058,16 @@ func fillAssignGroupParams(ps []vocab.Param) AssignGroupParams {
 
 // AssimilateParams are the parameters the Assimilate API reads.
 type AssimilateParams struct {
-	Defined    string // 2 uses
-	SubAbility string // 2 uses
-	TgtPrompt  string // 1 uses
-	TgtZone    string // 1 uses
-	ValidTgts  string // 1 uses
+	Defined              string // 6 uses
+	RememberTargets      bool   // 1 uses
+	SpellDescription     string // 2 uses
+	SubAbility           string // 6 uses
+	TargetMax            string // 1 uses
+	TargetMin            string // 1 uses
+	TargetsForEachPlayer bool   // 1 uses
+	TgtZone              string // 3 uses
+	ValidTgts            string // 4 uses
+	ValidTgtsDesc        string // 4 uses
 }
 
 func (p AssimilateParams) apiName() string { return "Assimilate" }
@@ -1067,14 +1078,24 @@ func fillAssimilateParams(ps []vocab.Param) AssimilateParams {
 		switch strings.ToLower(p.Key) {
 		case "defined":
 			out.Defined = p.Value
+		case "remembertargets":
+			out.RememberTargets = true
+		case "spelldescription":
+			out.SpellDescription = p.Value
 		case "subability":
 			out.SubAbility = p.Value
-		case "tgtprompt":
-			out.TgtPrompt = p.Value
+		case "targetmax":
+			out.TargetMax = p.Value
+		case "targetmin":
+			out.TargetMin = p.Value
+		case "targetsforeachplayer":
+			out.TargetsForEachPlayer = true
 		case "tgtzone":
 			out.TgtZone = p.Value
 		case "validtgts":
 			out.ValidTgts = p.Value
+		case "validtgtsdesc":
+			out.ValidTgtsDesc = p.Value
 		}
 	}
 	return out
@@ -1082,35 +1103,39 @@ func fillAssimilateParams(ps []vocab.Param) AssimilateParams {
 
 // AttachParams are the parameters the Attach API reads.
 type AttachParams struct {
-	AILogic            string     // 26 uses
-	AITgts             valid.Spec // 1 uses
-	ActivationLimit    int        // 3 uses
-	ChoiceTitle        string     // 20 uses
-	ChoiceZone         string     // 1 uses
-	Choices            valid.Spec // 31 uses
-	Chooser            string     // 2 uses
-	ConditionCheckSVar string     // 1 uses
-	ConditionCompare   string     // 5 uses
-	ConditionDefined   string     // 9 uses
-	ConditionPresent   valid.Spec // 9 uses
-	Cost               string     // 659 uses
-	Defined            string     // 116 uses
-	IsCurse            bool       // 1 uses
-	Move               bool       // 6 uses
-	Object             string     // 91 uses
-	Optional           bool       // 29 uses
-	Planeswalker       bool       // 1 uses
-	PlayerChoices      string     // 3 uses
-	RememberAttached   bool       // 7 uses
-	SorcerySpeed       bool       // 645 uses
-	SpellDescription   string     // 18 uses
-	StackDescription   string     // 14 uses
-	SubAbility         string     // 89 uses
-	TargetMax          string     // 19 uses
-	TargetMin          string     // 19 uses
-	TgtPrompt          string     // 739 uses
-	ValidTgts          string     // 775 uses
-	ValidTgtsDesc      string     // 14 uses
+	AILogic            string      // 47 uses
+	AITgts             valid.Spec  // 1 uses
+	ActivationLimit    int         // 3 uses
+	AlternateCost      string      // 4 uses
+	ChoiceTitle        string      // 20 uses
+	ChoiceZone         string      // 1 uses
+	Choices            valid.Spec  // 31 uses
+	Chooser            string      // 2 uses
+	ConditionCheckSVar string      // 1 uses
+	ConditionCompare   string      // 5 uses
+	ConditionDefined   string      // 9 uses
+	ConditionPresent   valid.Spec  // 9 uses
+	Cost               string      // 705 uses
+	Defined            string      // 152 uses
+	IsCurse            bool        // 1 uses
+	Move               bool        // 6 uses
+	Object             string      // 92 uses
+	Optional           bool        // 29 uses
+	Planeswalker       bool        // 1 uses
+	PlayerChoices      string      // 3 uses
+	ReduceCost         string      // 7 uses
+	RememberAttached   bool        // 7 uses
+	Secondary          bool        // 21 uses
+	SorcerySpeed       bool        // 691 uses
+	SpellDescription   string      // 18 uses
+	StackDescription   string      // 14 uses
+	SubAbility         string      // 125 uses
+	TargetMax          string      // 19 uses
+	TargetMin          string      // 19 uses
+	TgtPrompt          string      // 785 uses
+	ValidTgts          string      // 821 uses
+	ValidTgtsDesc      string      // 14 uses
+	XAlternative       expr.Amount // 1 uses
 }
 
 func (p AttachParams) apiName() string { return "Attach" }
@@ -1125,6 +1150,8 @@ func fillAttachParams(ps []vocab.Param) AttachParams {
 			out.AITgts = valid.Parse(p.Value)
 		case "activationlimit":
 			out.ActivationLimit, _ = strconv.Atoi(p.Value)
+		case "alternatecost":
+			out.AlternateCost = p.Value
 		case "choicetitle":
 			out.ChoiceTitle = p.Value
 		case "choicezone":
@@ -1157,8 +1184,12 @@ func fillAttachParams(ps []vocab.Param) AttachParams {
 			out.Planeswalker = true
 		case "playerchoices":
 			out.PlayerChoices = p.Value
+		case "reducecost":
+			out.ReduceCost = p.Value
 		case "rememberattached":
 			out.RememberAttached = true
+		case "secondary":
+			out.Secondary = true
 		case "sorceryspeed":
 			out.SorcerySpeed = true
 		case "spelldescription":
@@ -1177,6 +1208,8 @@ func fillAttachParams(ps []vocab.Param) AttachParams {
 			out.ValidTgts = p.Value
 		case "validtgtsdesc":
 			out.ValidTgtsDesc = p.Value
+		case "xalternative":
+			out.XAlternative = expr.Parse(p.Value)
 		}
 	}
 	return out
@@ -1489,7 +1522,7 @@ func fillBondParams(ps []vocab.Param) BondParams {
 type BranchParams struct {
 	AILogic                    string      // 4 uses
 	ActivationLimit            int         // 1 uses
-	BranchConditionSVar        expr.Amount // 122 uses
+	BranchConditionSVar        expr.Amount // 123 uses
 	BranchConditionSVarCompare string      // 89 uses
 	Cost                       string      // 6 uses
 	Defined                    string      // 1 uses
@@ -1503,7 +1536,7 @@ type BranchParams struct {
 	TargetType                 valid.Spec  // 2 uses
 	TgtPrompt                  string      // 7 uses
 	TgtZone                    string      // 3 uses
-	TrueSubAbility             string      // 122 uses
+	TrueSubAbility             string      // 123 uses
 	ValidTgts                  string      // 13 uses
 }
 
@@ -1581,17 +1614,18 @@ func fillCamouflageParams(ps []vocab.Param) CamouflageParams {
 // ChangeCombatantsParams are the parameters the ChangeCombatants API reads.
 type ChangeCombatantsParams struct {
 	AILogic                      string     // 1 uses
-	Attacking                    string     // 9 uses
+	Attacking                    string     // 10 uses
 	ConditionDefined             string     // 3 uses
 	ConditionPresent             valid.Spec // 3 uses
 	Defined                      string     // 6 uses
-	Optional                     bool       // 1 uses
+	Optional                     bool       // 2 uses
 	SubAbility                   string     // 4 uses
-	TargetMax                    string     // 1 uses
-	TargetMin                    string     // 1 uses
+	TargetMax                    string     // 2 uses
+	TargetMin                    string     // 2 uses
 	TargetsWithDefinedController string     // 1 uses
 	TgtPrompt                    string     // 3 uses
-	ValidTgts                    string     // 3 uses
+	ValidTgts                    string     // 4 uses
+	ValidTgtsDesc                string     // 1 uses
 }
 
 func (p ChangeCombatantsParams) apiName() string { return "ChangeCombatants" }
@@ -1624,6 +1658,8 @@ func fillChangeCombatantsParams(ps []vocab.Param) ChangeCombatantsParams {
 			out.TgtPrompt = p.Value
 		case "validtgts":
 			out.ValidTgts = p.Value
+		case "validtgtsdesc":
+			out.ValidTgtsDesc = p.Value
 		}
 	}
 	return out
@@ -1818,7 +1854,7 @@ func fillChangeXParams(ps []vocab.Param) ChangeXParams {
 // ChangeZoneParams are the parameters the ChangeZone API reads.
 type ChangeZoneParams struct {
 	AILifeThreshold                 int         // 1 uses
-	AILogic                         string      // 155 uses
+	AILogic                         string      // 156 uses
 	AIManaPref                      string      // 2 uses
 	AIMinTgts                       int         // 3 uses
 	AITgtOwnCards                   bool        // 6 uses
@@ -1828,10 +1864,10 @@ type ChangeZoneParams struct {
 	ActivationFirstCombat           bool        // 6 uses
 	ActivationLimit                 int         // 2 uses
 	ActivationPhases                string      // 28 uses
-	ActivationZone                  string      // 278 uses
+	ActivationZone                  string      // 348 uses
 	Activator                       string      // 8 uses
 	AdditionalActivationZone        string      // 1 uses
-	AlreadyRevealed                 bool        // 11 uses
+	AlreadyRevealed                 bool        // 13 uses
 	AlternateCost                   string      // 2 uses
 	AlternativeDecider              string      // 36 uses
 	Amount                          expr.Amount // 3 uses
@@ -1840,25 +1876,26 @@ type ChangeZoneParams struct {
 	AnnounceType                    string      // 2 uses
 	AnyNumber                       bool        // 5 uses
 	AtEOT                           string      // 10 uses
-	AtRandom                        bool        // 53 uses
+	AtRandom                        bool        // 54 uses
 	AttachAfter                     valid.Spec  // 2 uses
 	AttachedTo                      string      // 44 uses
 	AttachedToPlayer                string      // 5 uses
-	Attacking                       string      // 34 uses
+	Attacking                       string      // 35 uses
 	Blocking                        string      // 1 uses
 	Boast                           bool        // 3 uses
-	ChangeNum                       expr.Amount // 1448 uses
+	Champion                        bool        // 12 uses
+	ChangeNum                       expr.Amount // 1468 uses
 	ChangeNumDesc                   string      // 3 uses
-	ChangeType                      string      // 2126 uses
-	ChangeTypeDesc                  string      // 379 uses
-	CheckSVar                       expr.Amount // 25 uses
+	ChangeType                      valid.Spec  // 2172 uses
+	ChangeTypeDesc                  string      // 382 uses
+	CheckSVar                       expr.Amount // 26 uses
 	ChoiceZone                      string      // 3 uses
 	ChooseFromDefined               string      // 16 uses
-	Chooser                         string      // 247 uses
+	Chooser                         string      // 257 uses
 	Condition                       string      // 14 uses
 	ConditionCheckSVar              string      // 104 uses
-	ConditionCompare                string      // 166 uses
-	ConditionDefined                string      // 230 uses
+	ConditionCompare                string      // 167 uses
+	ConditionDefined                string      // 236 uses
 	ConditionDescription            string      // 9 uses
 	ConditionLifeAmount             string      // 2 uses
 	ConditionLifeTotal              string      // 2 uses
@@ -1867,17 +1904,17 @@ type ChangeZoneParams struct {
 	ConditionNotPresent             string      // 1 uses
 	ConditionPhases                 string      // 1 uses
 	ConditionPlayerTurn             bool        // 2 uses
-	ConditionPresent                valid.Spec  // 248 uses
+	ConditionPresent                valid.Spec  // 254 uses
 	ConditionSVarCompare            string      // 87 uses
 	ConditionZone                   string      // 4 uses
-	Cost                            string      // 1320 uses
+	Cost                            string      // 1420 uses
 	CostDesc                        string      // 22 uses
-	Defined                         string      // 1979 uses
+	Defined                         string      // 2183 uses
 	DefinedDesc                     string      // 4 uses
-	DefinedPlayer                   string      // 329 uses
+	DefinedPlayer                   string      // 336 uses
 	DestAltSVar                     string      // 6 uses
 	DestAltSVarCompare              string      // 1 uses
-	Destination                     string      // 7108 uses
+	Destination                     string      // 7401 uses
 	DestinationAlternative          string      // 49 uses
 	DifferentCMC                    bool        // 1 uses
 	DifferentNames                  bool        // 21 uses
@@ -1886,9 +1923,9 @@ type ChangeZoneParams struct {
 	ETB                             bool        // 2 uses
 	Exactly                         bool        // 3 uses
 	Exhaust                         bool        // 2 uses
-	ExileFaceDown                   bool        // 25 uses
-	ExiledWithEffectSource          bool        // 2 uses
-	FaceDown                        bool        // 11 uses
+	ExileFaceDown                   bool        // 26 uses
+	ExiledWithEffectSource          bool        // 3 uses
+	FaceDown                        bool        // 10 uses
 	FaceDownPower                   expr.Amount // 5 uses
 	FaceDownSetType                 string      // 6 uses
 	FaceDownToughness               expr.Amount // 5 uses
@@ -1897,33 +1934,33 @@ type ChangeZoneParams struct {
 	ForetoldCost                    bool        // 2 uses
 	ForgetChanged                   bool        // 50 uses
 	ForgetOtherRemembered           bool        // 55 uses
-	ForgetOtherTargets              bool        // 23 uses
+	ForgetOtherTargets              bool        // 24 uses
 	GainControl                     string      // 275 uses
 	GameActivationLimit             int         // 3 uses
-	Hidden                          bool        // 749 uses
-	Imprint                         bool        // 79 uses
+	Hidden                          bool        // 774 uses
+	Imprint                         bool        // 81 uses
 	ImprintLast                     bool        // 1 uses
-	IsCurse                         bool        // 129 uses
+	IsCurse                         bool        // 130 uses
 	IsPresent                       string      // 11 uses
 	LeaveBattlefield                string      // 2 uses
-	LibraryPosition                 expr.Amount // 294 uses
+	LibraryPosition                 expr.Amount // 299 uses
 	LibraryPositionAlternative      int         // 39 uses
 	LockInText                      bool        // 15 uses
-	Mandatory                       bool        // 512 uses
+	Mandatory                       bool        // 520 uses
 	MaxTotalTargetCMC               string      // 13 uses
 	MaxTotalTargetPower             string      // 2 uses
 	ModeCost                        string      // 13 uses
 	NoLooking                       bool        // 53 uses
 	NoReveal                        bool        // 10 uses
-	NoShuffle                       bool        // 32 uses
+	NoShuffle                       bool        // 33 uses
 	NonBasicSpell                   bool        // 3 uses
 	NumCards                        expr.Amount // 2 uses
 	OpponentTurn                    bool        // 1 uses
-	Optional                        string      // 241 uses
+	Optional                        string      // 256 uses
 	OptionalDecider                 string      // 1 uses
 	OptionalPrompt                  string      // 3 uses
 	OrOtherConditionSVarCompare     string      // 2 uses
-	Origin                          string      // 7094 uses
+	Origin                          string      // 7386 uses
 	OriginAlternative               string      // 63 uses
 	Pawprint                        expr.Amount // 2 uses
 	Planeswalker                    bool        // 97 uses
@@ -1934,33 +1971,33 @@ type ChangeZoneParams struct {
 	PresentZone                     string      // 4 uses
 	RandomOrder                     bool        // 3 uses
 	ReduceCost                      string      // 5 uses
-	RememberChanged                 bool        // 750 uses
+	RememberChanged                 bool        // 820 uses
 	RememberLKI                     bool        // 50 uses
-	RememberSearched                bool        // 3 uses
-	RememberTargets                 bool        // 63 uses
+	RememberSearcher                bool        // 3 uses
+	RememberTargets                 bool        // 64 uses
 	Reorder                         bool        // 16 uses
 	ReturnAbility                   string      // 1 uses
 	ReturnValid                     string      // 1 uses
-	Reveal                          bool        // 62 uses
-	SVarCompare                     string      // 14 uses
+	Reveal                          bool        // 64 uses
+	SVarCompare                     string      // 15 uses
 	SameNameAsEach                  string      // 3 uses
 	Secondary                       bool        // 2 uses
-	SelectPrompt                    string      // 168 uses
+	SelectPrompt                    string      // 170 uses
 	ShareLandType                   bool        // 1 uses
 	ShowCurrentCard                 string      // 1 uses
-	Shuffle                         bool        // 252 uses
+	Shuffle                         bool        // 256 uses
 	ShuffleChangedPile              bool        // 2 uses
-	ShuffleNonMandatory             bool        // 218 uses
-	SorcerySpeed                    bool        // 108 uses
-	SpellDescription                string      // 2755 uses
-	StackDescription                string      // 532 uses
+	ShuffleNonMandatory             bool        // 221 uses
+	SorcerySpeed                    bool        // 201 uses
+	SpellDescription                string      // 2793 uses
+	StackDescription                string      // 533 uses
 	StaticEffect                    string      // 50 uses
 	StaticEffectCheckSVar           expr.Amount // 1 uses
 	StaticEffectSVarCompare         string      // 1 uses
-	SubAbility                      string      // 2325 uses
-	Tapped                          bool        // 491 uses
-	TargetMax                       string      // 611 uses
-	TargetMin                       string      // 618 uses
+	SubAbility                      string      // 2429 uses
+	Tapped                          bool        // 499 uses
+	TargetMax                       string      // 626 uses
+	TargetMin                       string      // 633 uses
 	TargetType                      valid.Spec  // 10 uses
 	TargetUnique                    bool        // 6 uses
 	TargetValidTargeting            string      // 1 uses
@@ -1973,11 +2010,11 @@ type ChangeZoneParams struct {
 	TargetsWithDifferentNames       bool        // 2 uses
 	TargetsWithSameController       bool        // 26 uses
 	TargetsWithSameCreatureType     bool        // 3 uses
-	TgtPrompt                       string      // 1822 uses
-	TgtZone                         string      // 52 uses
+	TgtPrompt                       string      // 1824 uses
+	TgtZone                         string      // 56 uses
 	ThisDefinedAndTgts              string      // 14 uses
-	TrackDiscarded                  bool        // 62 uses
-	Transformed                     bool        // 76 uses
+	TrackDiscarded                  bool        // 63 uses
+	Transformed                     bool        // 100 uses
 	TriggerDescription              string      // 1 uses
 	Ultimate                        bool        // 24 uses
 	Unimprint                       bool        // 6 uses
@@ -1985,11 +2022,11 @@ type ChangeZoneParams struct {
 	UnlessPayer                     string      // 37 uses
 	UnlessResolveSubs               string      // 1 uses
 	UnlessSwitched                  bool        // 12 uses
-	ValidTgts                       string      // 2630 uses
-	ValidTgtsDesc                   string      // 120 uses
-	WithCountersAmount              expr.Amount // 56 uses
+	ValidTgts                       string      // 2673 uses
+	ValidTgtsDesc                   string      // 152 uses
+	WithCountersAmount              expr.Amount // 59 uses
 	WithCountersPlacer              string      // 1 uses
-	WithCountersType                string      // 189 uses
+	WithCountersType                string      // 207 uses
 	WithMayLook                     bool        // 1 uses
 	WithNotedCounters               bool        // 2 uses
 	WithTotalCMC                    string      // 5 uses
@@ -2064,12 +2101,14 @@ func fillChangeZoneParams(ps []vocab.Param) ChangeZoneParams {
 			out.Blocking = p.Value
 		case "boast":
 			out.Boast = true
+		case "champion":
+			out.Champion = true
 		case "changenum":
 			out.ChangeNum = expr.Parse(p.Value)
 		case "changenumdesc":
 			out.ChangeNumDesc = p.Value
 		case "changetype":
-			out.ChangeType = p.Value
+			out.ChangeType = valid.Parse(p.Value)
 		case "changetypedesc":
 			out.ChangeTypeDesc = p.Value
 		case "checksvar":
@@ -2242,8 +2281,8 @@ func fillChangeZoneParams(ps []vocab.Param) ChangeZoneParams {
 			out.RememberChanged = true
 		case "rememberlki":
 			out.RememberLKI = true
-		case "remembersearched":
-			out.RememberSearched = true
+		case "remembersearcher":
+			out.RememberSearcher = true
 		case "remembertargets":
 			out.RememberTargets = true
 		case "reorder":
@@ -2369,24 +2408,24 @@ func fillChangeZoneParams(ps []vocab.Param) ChangeZoneParams {
 
 // ChangeZoneAllParams are the parameters the ChangeZoneAll API reads.
 type ChangeZoneAllParams struct {
-	AILogic               string      // 24 uses
+	AILogic               string      // 25 uses
 	AbilityCount          string      // 1 uses
 	AtEOT                 string      // 2 uses
 	ChangeNum             expr.Amount // 2 uses
-	ChangeType            string      // 712 uses
+	ChangeType            valid.Spec  // 739 uses
 	CheckSVar             expr.Amount // 1 uses
 	Condition             string      // 2 uses
 	ConditionCheckSVar    string      // 10 uses
-	ConditionCompare      string      // 2 uses
-	ConditionDefined      string      // 7 uses
+	ConditionCompare      string      // 3 uses
+	ConditionDefined      string      // 8 uses
 	ConditionOptionalPaid bool        // 1 uses
-	ConditionPresent      valid.Spec  // 8 uses
+	ConditionPresent      valid.Spec  // 9 uses
 	ConditionSVarCompare  string      // 9 uses
-	Cost                  string      // 86 uses
+	Cost                  string      // 84 uses
 	CostDesc              string      // 1 uses
-	Defined               string      // 51 uses
+	Defined               string      // 50 uses
 	DefinedPlayer         string      // 3 uses
-	Destination           string      // 726 uses
+	Destination           string      // 753 uses
 	Duration              string      // 7 uses
 	ExileFaceDown         bool        // 12 uses
 	FaceDown              bool        // 1 uses
@@ -2398,12 +2437,12 @@ type ChangeZoneAllParams struct {
 	GainControl           bool        // 22 uses
 	Hidden                bool        // 2 uses
 	Imprint               bool        // 5 uses
-	IsCurse               bool        // 18 uses
+	IsCurse               bool        // 19 uses
 	IsPresent             string      // 2 uses
-	LibraryPosition       int         // 111 uses
+	LibraryPosition       int         // 133 uses
 	OptionQuestion        string      // 3 uses
 	Optional              bool        // 3 uses
-	Origin                string      // 726 uses
+	Origin                string      // 753 uses
 	Pawprint              expr.Amount // 1 uses
 	Planeswalker          bool        // 20 uses
 	PlayerTurn            bool        // 2 uses
@@ -2411,17 +2450,17 @@ type ChangeZoneAllParams struct {
 	PrecostDesc           string      // 1 uses
 	PresentCompare        string      // 1 uses
 	Random                bool        // 1 uses
-	RandomOrder           bool        // 87 uses
+	RandomOrder           bool        // 111 uses
 	RememberChanged       string      // 93 uses
 	RememberLKI           bool        // 5 uses
 	RememberTargets       bool        // 1 uses
 	SVarCompare           string      // 1 uses
-	Shuffle               bool        // 90 uses
+	Shuffle               bool        // 88 uses
 	SorcerySpeed          bool        // 5 uses
-	SpellDescription      string      // 284 uses
+	SpellDescription      string      // 283 uses
 	StackDescription      string      // 46 uses
 	StaticEffect          string      // 4 uses
-	SubAbility            string      // 397 uses
+	SubAbility            string      // 424 uses
 	Tapped                bool        // 17 uses
 	TargetMax             string      // 6 uses
 	TargetMin             string      // 6 uses
@@ -2431,7 +2470,7 @@ type ChangeZoneAllParams struct {
 	UnlessCost            expr.Amount // 1 uses
 	UnlessPayer           string      // 1 uses
 	UseAllOriginZones     bool        // 32 uses
-	ValidTgts             string      // 74 uses
+	ValidTgts             string      // 76 uses
 	WithCountersType      string      // 2 uses
 }
 
@@ -2450,7 +2489,7 @@ func fillChangeZoneAllParams(ps []vocab.Param) ChangeZoneAllParams {
 		case "changenum":
 			out.ChangeNum = expr.Parse(p.Value)
 		case "changetype":
-			out.ChangeType = p.Value
+			out.ChangeType = valid.Parse(p.Value)
 		case "checksvar":
 			out.CheckSVar = expr.Parse(p.Value)
 		case "condition":
@@ -2617,20 +2656,20 @@ func fillChaosEnsuesParams(ps []vocab.Param) ChaosEnsuesParams {
 type CharmParams struct {
 	ActivationLimit       expr.Amount // 1 uses
 	ActivationPhases      string      // 1 uses
-	AdditionalDescription string      // 61 uses
+	AdditionalDescription string      // 62 uses
 	Announce              string      // 4 uses
 	CanRepeatModes        bool        // 24 uses
-	CharmNum              expr.Amount // 220 uses
-	ChoiceRestriction     string      // 28 uses
-	Choices               valid.Spec  // 836 uses
+	CharmNum              expr.Amount // 222 uses
+	ChoiceRestriction     string      // 29 uses
+	Choices               valid.Spec  // 866 uses
 	Chooser               string      // 3 uses
 	ConditionCheckSVar    string      // 1 uses
 	ConditionSVarCompare  string      // 1 uses
-	Cost                  string      // 34 uses
+	Cost                  string      // 36 uses
 	CostDesc              string      // 1 uses
 	GameActivationLimit   expr.Amount // 1 uses
 	IsPresent             string      // 1 uses
-	MinCharmNum           expr.Amount // 157 uses
+	MinCharmNum           expr.Amount // 158 uses
 	Optional              bool        // 1 uses
 	Pawprint              expr.Amount // 6 uses
 	PlayerTurn            bool        // 1 uses
@@ -2711,69 +2750,69 @@ func fillCharmParams(ps []vocab.Param) CharmParams {
 
 // ChooseCardParams are the parameters the ChooseCard API reads.
 type ChooseCardParams struct {
-	AILogic               string      // 67 uses
-	ActivationZone        string      // 2 uses
-	AllCards              bool        // 2 uses
-	Amount                expr.Amount // 187 uses
-	AtRandom              bool        // 67 uses
-	ChoiceDesc            string      // 11 uses
-	ChoiceTitle           string      // 211 uses
-	ChoiceTitleAppend     string      // 4 uses
-	ChoiceZone            string      // 218 uses
-	Choices               valid.Spec  // 432 uses
-	ChooseEach            string      // 10 uses
-	ChosenMap             bool        // 3 uses
-	ConditionCheckSVar    string      // 6 uses
-	ConditionCompare      string      // 5 uses
-	ConditionDefined      string      // 7 uses
-	ConditionManaNotSpent string      // 1 uses
-	ConditionPresent      valid.Spec  // 7 uses
-	ConditionSVarCompare  string      // 6 uses
-	ControlAndNot         bool        // 1 uses
-	ControlledByPlayer    string      // 37 uses
-	Cost                  string      // 33 uses
-	Defined               string      // 229 uses
-	DefinedCards          string      // 20 uses
-	ETB                   bool        // 1 uses
-	EachBasicType         bool        // 4 uses
-	EachDifferentPower    bool        // 1 uses
-	ForgetChosen          bool        // 12 uses
-	ForgetOtherRemembered bool        // 3 uses
-	ForgetOtherTargets    bool        // 1 uses
-	FromDesc              string      // 2 uses
-	ImprintChosen         bool        // 19 uses
-	IncludeSpellsOnStack  bool        // 5 uses
-	LockInText            bool        // 5 uses
-	Mandatory             bool        // 230 uses
-	MinAmount             int         // 43 uses
-	ModeCost              string      // 1 uses
-	Optional              bool        // 4 uses
-	OrString              string      // 1 uses
-	Planeswalker          bool        // 4 uses
-	PlayerTurn            bool        // 2 uses
-	RememberChosen        bool        // 97 uses
-	Reveal                bool        // 49 uses
-	RevealTitle           string      // 3 uses
-	Secretly              bool        // 4 uses
-	ShowCurrentCard       string      // 2 uses
-	SorcerySpeed          bool        // 3 uses
-	SpellDescription      string      // 147 uses
-	StackDescription      string      // 55 uses
-	StartingWith          string      // 3 uses
-	SubAbility            string      // 391 uses
-	TargetControls        bool        // 10 uses
-	TargetMax             string      // 3 uses
-	TargetMin             string      // 3 uses
-	TgtPrompt             string      // 7 uses
-	TgtZone               string      // 2 uses
-	Ultimate              bool        // 2 uses
-	UnlessCost            expr.Amount // 4 uses
-	UnlessPayer           string      // 4 uses
-	UnlessResolveSubs     string      // 2 uses
-	UnlessSwitched        bool        // 3 uses
-	ValidTgts             string      // 27 uses
-	WithDifferentPowers   bool        // 3 uses
-	WithTotalPower        expr.Amount // 2 uses
+	AILogic                 string      // 66 uses
+	ActivationZone          string      // 2 uses
+	AllCards                bool        // 2 uses
+	Amount                  expr.Amount // 183 uses
+	AtRandom                bool        // 68 uses
+	ChoiceDesc              string      // 12 uses
+	ChoiceTitle             string      // 206 uses
+	ChoiceTitleAppend       string      // 4 uses
+	ChoiceZone              string      // 214 uses
+	Choices                 valid.Spec  // 428 uses
+	ChooseEach              string      // 11 uses
+	ChosenMap               bool        // 3 uses
+	ConditionCheckSVar      string      // 6 uses
+	ConditionCompare        string      // 4 uses
+	ConditionDefined        string      // 6 uses
+	ConditionManaNotSpent   string      // 1 uses
+	ConditionPresent        valid.Spec  // 6 uses
+	ConditionSVarCompare    string      // 6 uses
+	ControlAndNot           bool        // 1 uses
+	ControlledByPlayer      string      // 49 uses
+	Cost                    string      // 33 uses
+	Defined                 string      // 224 uses
+	DefinedCards            string      // 19 uses
+	ETB                     bool        // 1 uses
+	EachBasicType           bool        // 4 uses
+	EachDifferentPower      bool        // 1 uses
+	ForgetChosen            bool        // 13 uses
+	ForgetOtherRemembered   bool        // 3 uses
+	FromDesc                string      // 2 uses
+	ImprintChosen           bool        // 19 uses
+	IncludeSpellsOnStack    bool        // 5 uses
+	LockInText              bool        // 6 uses
+	Mandatory               bool        // 282 uses
+	MinAmount               int         // 44 uses
+	ModeCost                string      // 1 uses
+	Optional                bool        // 5 uses
+	OrString                string      // 1 uses
+	Planeswalker            bool        // 4 uses
+	PlayerTurn              bool        // 2 uses
+	PrecostDesc             string      // 1 uses
+	RememberChosen          bool        // 92 uses
+	Reveal                  bool        // 49 uses
+	RevealTitle             string      // 3 uses
+	Secretly                bool        // 4 uses
+	ShowCurrentCard         string      // 2 uses
+	SorcerySpeed            bool        // 3 uses
+	SpellDescription        string      // 148 uses
+	StackDescription        string      // 52 uses
+	StartingWith            string      // 3 uses
+	SubAbility              string      // 387 uses
+	TargetMax               string      // 3 uses
+	TargetMin               string      // 3 uses
+	TgtPrompt               string      // 7 uses
+	TgtZone                 string      // 2 uses
+	Ultimate                bool        // 2 uses
+	UnlessCost              expr.Amount // 4 uses
+	UnlessPayer             string      // 4 uses
+	UnlessResolveSubs       string      // 2 uses
+	UnlessSwitched          bool        // 3 uses
+	ValidTgts               string      // 27 uses
+	WithDifferentManaValues bool        // 1 uses
+	WithDifferentPowers     bool        // 3 uses
+	WithTotalPower          expr.Amount // 2 uses
 }
 
 func (p ChooseCardParams) apiName() string { return "ChooseCard" }
@@ -2838,8 +2877,6 @@ func fillChooseCardParams(ps []vocab.Param) ChooseCardParams {
 			out.ForgetChosen = true
 		case "forgetotherremembered":
 			out.ForgetOtherRemembered = true
-		case "forgetothertargets":
-			out.ForgetOtherTargets = true
 		case "fromdesc":
 			out.FromDesc = p.Value
 		case "imprintchosen":
@@ -2862,6 +2899,8 @@ func fillChooseCardParams(ps []vocab.Param) ChooseCardParams {
 			out.Planeswalker = true
 		case "playerturn":
 			out.PlayerTurn = true
+		case "precostdesc":
+			out.PrecostDesc = p.Value
 		case "rememberchosen":
 			out.RememberChosen = true
 		case "reveal":
@@ -2882,8 +2921,6 @@ func fillChooseCardParams(ps []vocab.Param) ChooseCardParams {
 			out.StartingWith = p.Value
 		case "subability":
 			out.SubAbility = p.Value
-		case "targetcontrols":
-			out.TargetControls = true
 		case "targetmax":
 			out.TargetMax = p.Value
 		case "targetmin":
@@ -2904,6 +2941,8 @@ func fillChooseCardParams(ps []vocab.Param) ChooseCardParams {
 			out.UnlessSwitched = true
 		case "validtgts":
 			out.ValidTgts = p.Value
+		case "withdifferentmanavalues":
+			out.WithDifferentManaValues = true
 		case "withdifferentpowers":
 			out.WithDifferentPowers = true
 		case "withtotalpower":
@@ -2924,16 +2963,17 @@ type ChooseColorParams struct {
 	Cost               string      // 32 uses
 	Defined            string      // 125 uses
 	Exclude            string      // 10 uses
+	ExcludeColorsFrom  string      // 1 uses
 	Forecast           bool        // 1 uses
 	InstantSpeed       bool        // 1 uses
 	OrColors           bool        // 8 uses
 	PrecostDesc        string      // 1 uses
-	Random             bool        // 5 uses
+	Random             bool        // 6 uses
 	SVarCompare        string      // 1 uses
 	SorcerySpeed       bool        // 1 uses
 	SpellDescription   string      // 119 uses
 	StackDescription   string      // 2 uses
-	SubAbility         string      // 60 uses
+	SubAbility         string      // 61 uses
 	TwoColors          bool        // 3 uses
 	UpTo               bool        // 1 uses
 }
@@ -2962,6 +3002,8 @@ func fillChooseColorParams(ps []vocab.Param) ChooseColorParams {
 			out.Defined = p.Value
 		case "exclude":
 			out.Exclude = p.Value
+		case "excludecolorsfrom":
+			out.ExcludeColorsFrom = p.Value
 		case "forecast":
 			out.Forecast = true
 		case "instantspeed":
@@ -3062,7 +3104,7 @@ type ChooseNumberParams struct {
 	ConditionCheckSVar     string      // 1 uses
 	ConditionSVarCompare   string      // 1 uses
 	Cost                   string      // 4 uses
-	Defined                string      // 36 uses
+	Defined                string      // 37 uses
 	GuessCorrect           string      // 1 uses
 	GuessWrong             string      // 1 uses
 	Guesser                string      // 1 uses
@@ -3071,8 +3113,8 @@ type ChooseNumberParams struct {
 	ListTitle              string      // 33 uses
 	Lowest                 string      // 1 uses
 	MatchedAbility         string      // 1 uses
-	Max                    expr.Amount // 34 uses
-	Min                    expr.Amount // 22 uses
+	Max                    expr.Amount // 35 uses
+	Min                    expr.Amount // 23 uses
 	NotLowest              string      // 1 uses
 	Notify                 bool        // 1 uses
 	Planeswalker           bool        // 2 uses
@@ -3081,7 +3123,7 @@ type ChooseNumberParams struct {
 	RememberHighest        bool        // 1 uses
 	RemoveChoices          string      // 1 uses
 	Secretly               bool        // 7 uses
-	SpellDescription       string      // 24 uses
+	SpellDescription       string      // 25 uses
 	StackDescription       string      // 12 uses
 	SubAbility             string      // 48 uses
 	UnmatchedAbility       string      // 1 uses
@@ -3161,10 +3203,10 @@ func fillChooseNumberParams(ps []vocab.Param) ChooseNumberParams {
 
 // ChoosePlayerParams are the parameters the ChoosePlayer API reads.
 type ChoosePlayerParams struct {
-	AILogic                     string     // 54 uses
+	AILogic                     string     // 55 uses
 	CantChooseSubAbility        string     // 1 uses
 	ChoiceTitle                 string     // 48 uses
-	Choices                     string     // 133 uses
+	Choices                     string     // 134 uses
 	ChooseSubAbility            string     // 1 uses
 	ConditionCheckSVar          string     // 4 uses
 	ConditionCompare            string     // 1 uses
@@ -3173,7 +3215,7 @@ type ChoosePlayerParams struct {
 	ConditionPresent            valid.Spec // 1 uses
 	ConditionSVarCompare        string     // 3 uses
 	Cost                        string     // 6 uses
-	Defined                     string     // 121 uses
+	Defined                     string     // 122 uses
 	DontNotify                  bool       // 1 uses
 	Optional                    bool       // 1 uses
 	OrOtherConditionSVarCompare string     // 1 uses
@@ -3181,9 +3223,9 @@ type ChoosePlayerParams struct {
 	Random                      bool       // 20 uses
 	RememberChosen              bool       // 7 uses
 	Secretly                    bool       // 3 uses
-	SpellDescription            string     // 47 uses
+	SpellDescription            string     // 48 uses
 	StackDescription            string     // 5 uses
-	SubAbility                  string     // 106 uses
+	SubAbility                  string     // 107 uses
 	TargetUnique                bool       // 1 uses
 	ValidTgts                   string     // 4 uses
 }
@@ -3345,15 +3387,15 @@ type ChooseTypeParams struct {
 	ETB                        bool   // 1 uses
 	InvalidTypes               string // 8 uses
 	IsCurse                    bool   // 1 uses
-	MostPrevalentInDefinedZone string // 1 uses
-	Note                       bool   // 7 uses
+	MostPrevalentInDefinedZone string // 2 uses
+	Note                       bool   // 8 uses
 	Planeswalker               bool   // 1 uses
 	PlayerTurn                 bool   // 1 uses
 	Secretly                   bool   // 1 uses
 	SpellDescription           string // 154 uses
 	StackDescription           string // 8 uses
 	SubAbility                 string // 103 uses
-	Type                       string // 187 uses
+	Type                       string // 188 uses
 	TypesFromDefined           string // 1 uses
 	Ultimate                   bool   // 1 uses
 	ValidTgts                  string // 1 uses
@@ -3412,6 +3454,27 @@ func fillChooseTypeParams(ps []vocab.Param) ChooseTypeParams {
 			out.ValidTgts = p.Value
 		case "validtypes":
 			out.ValidTypes = p.Value
+		}
+	}
+	return out
+}
+
+// ClaimThePrizeParams are the parameters the ClaimThePrize API reads.
+type ClaimThePrizeParams struct {
+	ConditionDefined string     // 1 uses
+	ConditionPresent valid.Spec // 1 uses
+}
+
+func (p ClaimThePrizeParams) apiName() string { return "ClaimThePrize" }
+
+func fillClaimThePrizeParams(ps []vocab.Param) ClaimThePrizeParams {
+	var out ClaimThePrizeParams
+	for _, p := range ps {
+		switch strings.ToLower(p.Key) {
+		case "conditiondefined":
+			out.ConditionDefined = p.Value
+		case "conditionpresent":
+			out.ConditionPresent = valid.Parse(p.Value)
 		}
 	}
 	return out
@@ -3485,24 +3548,26 @@ func fillClassLevelUpParams(ps []vocab.Param) ClassLevelUpParams {
 
 // CleanupParams are the parameters the Cleanup API reads.
 type CleanupParams struct {
-	ClearChosenCard   bool        // 286 uses
-	ClearChosenColor  bool        // 11 uses
+	ClearChosenCard   bool        // 293 uses
+	ClearChosenColor  bool        // 12 uses
 	ClearChosenPlayer bool        // 55 uses
 	ClearChosenType   bool        // 4 uses
 	ClearCoinFlips    bool        // 2 uses
-	ClearImprinted    bool        // 274 uses
-	ClearNamedCard    bool        // 46 uses
-	ClearRemembered   bool        // 3071 uses
+	ClearImprinted    bool        // 299 uses
+	ClearNamedCard    bool        // 54 uses
+	ClearRemembered   bool        // 3277 uses
 	ClearTriggered    bool        // 3 uses
-	ConditionCompare  string      // 1 uses
+	ConditionCompare  string      // 2 uses
 	ConditionDefined  string      // 1 uses
-	ConditionPresent  valid.Spec  // 1 uses
-	ForgetDefined     string      // 5 uses
+	ConditionPresent  valid.Spec  // 2 uses
+	ConditionZone     string      // 1 uses
+	Defined           string      // 28 uses
+	ForgetDefined     string      // 34 uses
 	Log               bool        // 34 uses
 	ShowCurrentCard   string      // 1 uses
 	SpellDescription  string      // 10 uses
 	StackDescription  string      // 4 uses
-	SubAbility        string      // 100 uses
+	SubAbility        string      // 103 uses
 	UnlessCost        expr.Amount // 1 uses
 	UnlessPayer       string      // 1 uses
 	UnlessSwitched    bool        // 1 uses
@@ -3538,6 +3603,10 @@ func fillCleanupParams(ps []vocab.Param) CleanupParams {
 			out.ConditionDefined = p.Value
 		case "conditionpresent":
 			out.ConditionPresent = valid.Parse(p.Value)
+		case "conditionzone":
+			out.ConditionZone = p.Value
+		case "defined":
+			out.Defined = p.Value
 		case "forgetdefined":
 			out.ForgetDefined = p.Value
 		case "log":
@@ -3605,21 +3674,21 @@ func fillCloakParams(ps []vocab.Param) CloakParams {
 
 // CloneParams are the parameters the Clone API reads.
 type CloneParams struct {
-	AILogic                    string      // 17 uses
+	AILogic                    string      // 18 uses
 	Activation                 string      // 1 uses
 	AddAbilities               string      // 5 uses
 	AddColors                  string      // 2 uses
-	AddKeywords                string      // 32 uses
-	AddSVars                   string      // 22 uses
-	AddStaticAbilities         string      // 3 uses
+	AddKeywords                string      // 33 uses
+	AddSVars                   string      // 23 uses
+	AddStaticAbilities         string      // 4 uses
 	AddTriggers                string      // 11 uses
-	AddTypes                   string      // 43 uses
+	AddTypes                   string      // 46 uses
 	AiChoiceLogic              string      // 1 uses
 	ChoiceOptional             bool        // 1 uses
-	ChoiceTitle                string      // 8 uses
-	ChoiceZone                 string      // 13 uses
-	Choices                    valid.Spec  // 75 uses
-	CloneTarget                string      // 47 uses
+	ChoiceTitle                string      // 9 uses
+	ChoiceZone                 string      // 16 uses
+	Choices                    valid.Spec  // 79 uses
+	CloneTarget                string      // 49 uses
 	CloneZone                  string      // 2 uses
 	ConditionCheckSVar         string      // 2 uses
 	ConditionCompare           string      // 1 uses
@@ -3628,10 +3697,10 @@ type CloneParams struct {
 	ConditionSVarCompare       string      // 2 uses
 	ConditionZone              string      // 1 uses
 	CopyFromChosenName         bool        // 1 uses
-	Cost                       string      // 22 uses
+	Cost                       string      // 25 uses
 	CostDesc                   string      // 1 uses
-	Defined                    string      // 65 uses
-	Duration                   string      // 63 uses
+	Defined                    string      // 66 uses
+	Duration                   string      // 66 uses
 	Embalm                     bool        // 1 uses
 	ExcludeChosen              bool        // 2 uses
 	GainThisAbility            bool        // 24 uses
@@ -3639,8 +3708,8 @@ type CloneParams struct {
 	ImprintRememberedNoCleanup bool        // 1 uses
 	IntoPlayTapped             bool        // 3 uses
 	KeepName                   bool        // 1 uses
-	NewName                    string      // 15 uses
-	NonLegendary               bool        // 7 uses
+	NewName                    string      // 16 uses
+	NonLegendary               bool        // 10 uses
 	Optional                   bool        // 13 uses
 	Planeswalker               bool        // 1 uses
 	PrecostDesc                string      // 1 uses
@@ -3654,16 +3723,16 @@ type CloneParams struct {
 	SetPower                   expr.Amount // 27 uses
 	SetToughness               expr.Amount // 27 uses
 	SorcerySpeed               bool        // 3 uses
-	SpellDescription           string      // 111 uses
-	StackDescription           string      // 8 uses
-	SubAbility                 string      // 28 uses
+	SpellDescription           string      // 118 uses
+	StackDescription           string      // 9 uses
+	SubAbility                 string      // 27 uses
 	TargetMax                  string      // 9 uses
 	TargetMin                  string      // 9 uses
 	TargetUnique               bool        // 4 uses
-	TgtPrompt                  string      // 47 uses
+	TgtPrompt                  string      // 48 uses
 	TgtZone                    string      // 5 uses
-	ValidTgts                  string      // 55 uses
-	ValidTgtsDesc              string      // 8 uses
+	ValidTgts                  string      // 58 uses
+	ValidTgtsDesc              string      // 10 uses
 }
 
 func (p CloneParams) apiName() string { return "Clone" }
@@ -3797,6 +3866,7 @@ func fillCloneParams(ps []vocab.Param) CloneParams {
 
 // ConniveParams are the parameters the Connive API reads.
 type ConniveParams struct {
+	AILogic          string      // 1 uses
 	ActiveZones      string      // 1 uses
 	ConniveNum       expr.Amount // 3 uses
 	Cost             string      // 5 uses
@@ -3822,6 +3892,8 @@ func fillConniveParams(ps []vocab.Param) ConniveParams {
 	var out ConniveParams
 	for _, p := range ps {
 		switch strings.ToLower(p.Key) {
+		case "ailogic":
+			out.AILogic = p.Value
 		case "activezones":
 			out.ActiveZones = p.Value
 		case "connivenum":
@@ -3983,15 +4055,15 @@ type CopyPermanentParams struct {
 	AILogic                 string      // 15 uses
 	AITgts                  valid.Spec  // 1 uses
 	ActivationLimit         int         // 1 uses
-	ActivationZone          string      // 1 uses
+	ActivationZone          string      // 59 uses
 	AddAbilities            string      // 2 uses
 	AddColors               string      // 3 uses
-	AddKeywords             string      // 32 uses
+	AddKeywords             string      // 36 uses
 	AddSVars                string      // 7 uses
 	AddStaticAbilities      string      // 2 uses
-	AddTriggers             string      // 6 uses
-	AddTypes                string      // 58 uses
-	AtEOT                   string      // 63 uses
+	AddTriggers             string      // 7 uses
+	AddTypes                string      // 88 uses
+	AtEOT                   string      // 128 uses
 	AtEOTCondition          string      // 1 uses
 	AtEOTDesc               string      // 1 uses
 	AtEOTTrig               string      // 11 uses
@@ -4001,6 +4073,7 @@ type CopyPermanentParams struct {
 	Choices                 valid.Spec  // 22 uses
 	Chooser                 string      // 2 uses
 	ChosenMapIndex          int         // 1 uses
+	CleanupForEach          bool        // 31 uses
 	Condition               string      // 2 uses
 	ConditionCheckSVar      string      // 10 uses
 	ConditionCompare        string      // 4 uses
@@ -4010,56 +4083,59 @@ type CopyPermanentParams struct {
 	ConditionPresent        valid.Spec  // 12 uses
 	ConditionSVarCompare    string      // 6 uses
 	Controller              string      // 28 uses
-	Cost                    string      // 76 uses
+	Cost                    string      // 135 uses
 	CostDesc                string      // 2 uses
-	Defined                 string      // 247 uses
+	Defined                 string      // 344 uses
 	DefinedName             string      // 21 uses
 	DoesntHaveThisAbility   bool        // 1 uses
+	ForEach                 string      // 59 uses
 	ImprintTokens           bool        // 3 uses
 	ModeCost                string      // 1 uses
 	NewName                 string      // 2 uses
-	NonLegendary            bool        // 32 uses
-	NumCopies               expr.Amount // 47 uses
+	NonLegendary            bool        // 34 uses
+	NumCopies               expr.Amount // 48 uses
 	Optional                bool        // 3 uses
+	OptionalForEach         bool        // 31 uses
 	Pawprint                expr.Amount // 1 uses
 	Planeswalker            bool        // 12 uses
 	Populate                bool        // 27 uses
-	PumpDuration            string      // 8 uses
-	PumpKeywords            string      // 41 uses
+	PumpDuration            string      // 9 uses
+	PumpKeywords            string      // 73 uses
 	RandomCopied            bool        // 4 uses
 	RandomNum               string      // 4 uses
-	RememberTokens          bool        // 24 uses
+	RememberTokens          bool        // 52 uses
 	RemoveCardTypes         bool        // 6 uses
+	RemoveCost              bool        // 29 uses
 	RemoveKeywords          string      // 1 uses
 	RemoveSubTypes          bool        // 4 uses
-	SetColor                string      // 16 uses
+	SetColor                string      // 45 uses
 	SetCreatureTypes        string      // 11 uses
 	SetLoyalty              expr.Amount // 1 uses
-	SetPower                expr.Amount // 68 uses
-	SetToughness            expr.Amount // 68 uses
-	SorcerySpeed            bool        // 17 uses
-	SpellDescription        string      // 143 uses
+	SetPower                expr.Amount // 82 uses
+	SetToughness            expr.Amount // 82 uses
+	SorcerySpeed            bool        // 75 uses
+	SpellDescription        string      // 147 uses
 	StackDescription        string      // 20 uses
-	SubAbility              string      // 84 uses
-	TargetMax               string      // 9 uses
-	TargetMin               string      // 9 uses
+	SubAbility              string      // 115 uses
+	TargetMax               string      // 12 uses
+	TargetMin               string      // 12 uses
 	TargetingPlayer         string      // 1 uses
 	TargetingPlayerControls bool        // 1 uses
 	TargetsForEachPlayer    bool        // 1 uses
 	TgtPrompt               string      // 104 uses
 	TgtZone                 string      // 5 uses
-	TokenAttacking          string      // 27 uses
+	TokenAttacking          string      // 58 uses
 	TokenBlocking           string      // 1 uses
 	TokenRemembered         string      // 1 uses
-	TokenTapped             bool        // 37 uses
+	TokenTapped             bool        // 69 uses
 	Ultimate                bool        // 8 uses
 	UnlessCost              expr.Amount // 1 uses
 	UnlessPayer             string      // 1 uses
 	UnlessResolveSubs       string      // 1 uses
 	UnlessSwitched          bool        // 1 uses
 	ValidSupportedCopy      string      // 4 uses
-	ValidTgts               string      // 133 uses
-	ValidTgtsDesc           string      // 6 uses
+	ValidTgts               string      // 140 uses
+	ValidTgtsDesc           string      // 12 uses
 	WithCountersAmount      expr.Amount // 2 uses
 	WithCountersType        string      // 4 uses
 	WithDifferentNames      bool        // 1 uses
@@ -4113,6 +4189,8 @@ func fillCopyPermanentParams(ps []vocab.Param) CopyPermanentParams {
 			out.Chooser = p.Value
 		case "chosenmapindex":
 			out.ChosenMapIndex, _ = strconv.Atoi(p.Value)
+		case "cleanupforeach":
+			out.CleanupForEach = true
 		case "condition":
 			out.Condition = p.Value
 		case "conditionchecksvar":
@@ -4141,6 +4219,8 @@ func fillCopyPermanentParams(ps []vocab.Param) CopyPermanentParams {
 			out.DefinedName = p.Value
 		case "doesnthavethisability":
 			out.DoesntHaveThisAbility = true
+		case "foreach":
+			out.ForEach = p.Value
 		case "imprinttokens":
 			out.ImprintTokens = true
 		case "modecost":
@@ -4153,6 +4233,8 @@ func fillCopyPermanentParams(ps []vocab.Param) CopyPermanentParams {
 			out.NumCopies = expr.Parse(p.Value)
 		case "optional":
 			out.Optional = true
+		case "optionalforeach":
+			out.OptionalForEach = true
 		case "pawprint":
 			out.Pawprint = expr.Parse(p.Value)
 		case "planeswalker":
@@ -4171,6 +4253,8 @@ func fillCopyPermanentParams(ps []vocab.Param) CopyPermanentParams {
 			out.RememberTokens = true
 		case "removecardtypes":
 			out.RemoveCardTypes = true
+		case "removecost":
+			out.RemoveCost = true
 		case "removekeywords":
 			out.RemoveKeywords = p.Value
 		case "removesubtypes":
@@ -4249,25 +4333,24 @@ type CopySpellAbilityParams struct {
 	ActivationLimit      int         // 2 uses
 	ActivationZone       string      // 1 uses
 	AddTypes             string      // 2 uses
-	Amount               expr.Amount // 92 uses
+	Amount               expr.Amount // 105 uses
 	CantCopy             bool        // 1 uses
 	CheckSVar            expr.Amount // 1 uses
 	ChooseOnlyOne        bool        // 3 uses
 	ConditionCheckSVar   string      // 2 uses
 	ConditionCompare     string      // 6 uses
-	ConditionDefined     string      // 7 uses
-	ConditionPresent     valid.Spec  // 13 uses
+	ConditionDefined     string      // 8 uses
+	ConditionPresent     valid.Spec  // 14 uses
 	ConditionSVarCompare string      // 1 uses
 	ConditionZone        string      // 1 uses
 	Controller           string      // 36 uses
 	CopyForEachCanTarget string      // 11 uses
 	Cost                 string      // 60 uses
-	Defined              string      // 275 uses
+	Defined              string      // 300 uses
 	DefinedTarget        string      // 3 uses
 	GameActivationLimit  int         // 2 uses
-	IgnoreFreeze         bool        // 3 uses
 	IsPresent            string      // 1 uses
-	MayChooseTarget      bool        // 292 uses
+	MayChooseTarget      bool        // 316 uses
 	ModeCost             string      // 1 uses
 	NonLegendary         bool        // 8 uses
 	Optional             bool        // 11 uses
@@ -4283,7 +4366,7 @@ type CopySpellAbilityParams struct {
 	SetToughness         expr.Amount // 2 uses
 	SpellDescription     string      // 67 uses
 	StackDescription     string      // 12 uses
-	SubAbility           string      // 20 uses
+	SubAbility           string      // 21 uses
 	TargetMax            string      // 1 uses
 	TargetMin            string      // 1 uses
 	TargetType           valid.Spec  // 59 uses
@@ -4346,8 +4429,6 @@ func fillCopySpellAbilityParams(ps []vocab.Param) CopySpellAbilityParams {
 			out.DefinedTarget = p.Value
 		case "gameactivationlimit":
 			out.GameActivationLimit, _ = strconv.Atoi(p.Value)
-		case "ignorefreeze":
-			out.IgnoreFreeze = true
 		case "ispresent":
 			out.IsPresent = p.Value
 		case "maychoosetarget":
@@ -4434,12 +4515,12 @@ type CounterParams struct {
 	Cost                              string      // 77 uses
 	CostDesc                          string      // 2 uses
 	Defined                           string      // 71 uses
-	Description                       string      // 128 uses
+	Description                       string      // 129 uses
 	Destination                       string      // 45 uses
 	DestinationChoice                 string      // 1 uses
 	DestroyPermanent                  bool        // 2 uses
 	IsPresent                         string      // 2 uses
-	Layer                             string      // 127 uses
+	Layer                             string      // 128 uses
 	ModeCost                          string      // 2 uses
 	NonBasicSpell                     bool        // 1 uses
 	Optional                          bool        // 1 uses
@@ -4455,26 +4536,26 @@ type CounterParams struct {
 	ReplaceWith                       string      // 1 uses
 	SVarCompare                       string      // 2 uses
 	Secondary                         bool        // 4 uses
-	SpellDescription                  string      // 449 uses
+	SpellDescription                  string      // 451 uses
 	StackDescription                  string      // 15 uses
 	SubAbility                        string      // 165 uses
 	TargetMax                         string      // 9 uses
 	TargetMin                         string      // 9 uses
-	TargetType                        valid.Spec  // 466 uses
+	TargetType                        valid.Spec  // 468 uses
 	TargetValidTargeting              string      // 21 uses
 	TargetsWithControllerProperty     string      // 1 uses
 	TgtPrompt                         string      // 403 uses
 	TgtZone                           string      // 3 uses
 	UnlessAI                          string      // 1 uses
-	UnlessCost                        expr.Amount // 155 uses
-	UnlessPayer                       string      // 33 uses
+	UnlessCost                        expr.Amount // 156 uses
+	UnlessPayer                       string      // 34 uses
 	UnlessResolveSubs                 string      // 4 uses
 	UnlessSwitched                    bool        // 5 uses
-	ValidCard                         valid.Spec  // 104 uses
+	ValidCard                         valid.Spec  // 105 uses
 	ValidCause                        string      // 2 uses
-	ValidSA                           valid.Spec  // 128 uses
-	ValidTgts                         string      // 466 uses
-	ValidTgtsDesc                     string      // 4 uses
+	ValidSA                           valid.Spec  // 129 uses
+	ValidTgts                         string      // 468 uses
+	ValidTgtsDesc                     string      // 6 uses
 }
 
 func (p CounterParams) apiName() string { return "Counter" }
@@ -4631,14 +4712,14 @@ type DamageAllParams struct {
 	DamageSource         string      // 19 uses
 	Execute              string      // 10 uses
 	ModeCost             string      // 5 uses
-	NumDmg               expr.Amount // 442 uses
+	NumDmg               expr.Amount // 445 uses
 	OptionalDecider      string      // 1 uses
 	Planeswalker         bool        // 8 uses
 	PlayerTurn           bool        // 1 uses
 	PrecostDesc          string      // 6 uses
 	RememberDamaged      bool        // 11 uses
 	ReplaceDyingDefined  string      // 6 uses
-	SpellDescription     string      // 243 uses
+	SpellDescription     string      // 244 uses
 	StackDescription     string      // 23 uses
 	SubAbility           string      // 98 uses
 	TargetUnique         bool        // 2 uses
@@ -4646,9 +4727,9 @@ type DamageAllParams struct {
 	TriggerDescription   string      // 10 uses
 	TriggerZones         string      // 9 uses
 	Ultimate             bool        // 4 uses
-	ValidCards           valid.Spec  // 379 uses
-	ValidDescription     string      // 219 uses
-	ValidPlayers         string      // 172 uses
+	ValidCards           valid.Spec  // 381 uses
+	ValidDescription     string      // 220 uses
+	ValidPlayers         string      // 175 uses
 	ValidSource          string      // 8 uses
 	ValidTarget          valid.Spec  // 10 uses
 	ValidTgts            string      // 14 uses
@@ -4757,6 +4838,7 @@ func fillDamageAllParams(ps []vocab.Param) DamageAllParams {
 
 // DamageResolveParams are the parameters the DamageResolve API reads.
 type DamageResolveParams struct {
+	NoPrevention        bool   // 1 uses
 	RememberDamaged     bool   // 1 uses
 	ReplaceDyingDefined string // 1 uses
 	SubAbility          string // 7 uses
@@ -4768,6 +4850,8 @@ func fillDamageResolveParams(ps []vocab.Param) DamageResolveParams {
 	var out DamageResolveParams
 	for _, p := range ps {
 		switch strings.ToLower(p.Key) {
+		case "noprevention":
+			out.NoPrevention = true
 		case "rememberdamaged":
 			out.RememberDamaged = true
 		case "replacedyingdefined":
@@ -4785,7 +4869,7 @@ type DayTimeParams struct {
 	SorcerySpeed     bool   // 1 uses
 	SpellDescription string // 3 uses
 	SubAbility       string // 3 uses
-	Value            string // 15 uses
+	Value            string // 87 uses
 }
 
 func (p DayTimeParams) apiName() string { return "DayTime" }
@@ -4820,7 +4904,7 @@ type DealDamageParams struct {
 	ActivationFirstCombat        bool        // 5 uses
 	ActivationLimit              int         // 2 uses
 	ActivationPhases             string      // 8 uses
-	ActivationZone               string      // 13 uses
+	ActivationZone               string      // 14 uses
 	Activator                    string      // 2 uses
 	AlternateCost                string      // 2 uses
 	Announce                     string      // 4 uses
@@ -4833,19 +4917,19 @@ type DealDamageParams struct {
 	Condition                    string      // 11 uses
 	ConditionCheckSVar           string      // 46 uses
 	ConditionCompare             string      // 43 uses
-	ConditionDefined             string      // 43 uses
+	ConditionDefined             string      // 44 uses
 	ConditionDescription         string      // 6 uses
 	ConditionManaSpent           string      // 2 uses
 	ConditionOpponentTurn        bool        // 1 uses
-	ConditionPresent             valid.Spec  // 59 uses
+	ConditionPresent             valid.Spec  // 60 uses
 	ConditionSVarCompare         string      // 34 uses
 	ConditionZone                string      // 3 uses
-	Cost                         string      // 654 uses
+	Cost                         string      // 657 uses
 	CostDesc                     string      // 10 uses
 	CounterNum                   expr.Amount // 1 uses
 	DamageMap                    bool        // 70 uses
-	DamageSource                 string      // 190 uses
-	Defined                      string      // 840 uses
+	DamageSource                 string      // 192 uses
+	Defined                      string      // 850 uses
 	Description                  string      // 1 uses
 	DivideEvenly                 string      // 1 uses
 	DividedAsYouChoose           expr.Amount // 74 uses
@@ -4864,9 +4948,8 @@ type DealDamageParams struct {
 	NoPrevention                 bool        // 12 uses
 	NoRedirection                bool        // 1 uses
 	NonBasicSpell                bool        // 2 uses
-	NumDmg                       expr.Amount // 2933 uses
-	Optional                     bool        // 1 uses
-	OptionalDecider              string      // 5 uses
+	NumDmg                       expr.Amount // 2951 uses
+	OptionalDecider              string      // 6 uses
 	Planeswalker                 bool        // 67 uses
 	PlayerChoices                string      // 4 uses
 	PlayerTurn                   bool        // 6 uses
@@ -4883,14 +4966,14 @@ type DealDamageParams struct {
 	RememberRedirectedExcess     bool        // 1 uses
 	RememberTargets              bool        // 2 uses
 	ReplaceDyingCondition        string      // 1 uses
-	ReplaceDyingDefined          string      // 44 uses
+	ReplaceDyingDefined          string      // 45 uses
 	SVarCompare                  string      // 1 uses
 	Secondary                    bool        // 2 uses
 	ShowCurrentCard              string      // 1 uses
 	SorcerySpeed                 bool        // 8 uses
-	SpellDescription             string      // 1458 uses
+	SpellDescription             string      // 1467 uses
 	StackDescription             string      // 70 uses
-	SubAbility                   string      // 719 uses
+	SubAbility                   string      // 724 uses
 	TargetMax                    string      // 163 uses
 	TargetMin                    string      // 163 uses
 	TargetUnique                 bool        // 32 uses
@@ -4898,15 +4981,15 @@ type DealDamageParams struct {
 	TargetsAtRandom              bool        // 3 uses
 	TargetsForEachPlayer         bool        // 3 uses
 	TargetsWithDefinedController string      // 6 uses
-	TgtPrompt                    string      // 725 uses
+	TgtPrompt                    string      // 724 uses
 	Ultimate                     bool        // 16 uses
 	UnlessCost                   expr.Amount // 32 uses
 	UnlessPayer                  string      // 31 uses
 	UnlessResolveSubs            string      // 3 uses
 	UnlessSwitched               bool        // 4 uses
 	ValidAfterStack              string      // 1 uses
-	ValidTgts                    string      // 2088 uses
-	ValidTgtsDesc                string      // 31 uses
+	ValidTgts                    string      // 2096 uses
+	ValidTgtsDesc                string      // 32 uses
 	XAnnounceTitle               string      // 1 uses
 	XColor                       string      // 2 uses
 }
@@ -5025,8 +5108,6 @@ func fillDealDamageParams(ps []vocab.Param) DealDamageParams {
 			out.NonBasicSpell = true
 		case "numdmg":
 			out.NumDmg = expr.Parse(p.Value)
-		case "optional":
-			out.Optional = true
 		case "optionaldecider":
 			out.OptionalDecider = p.Value
 		case "planeswalker":
@@ -5177,46 +5258,47 @@ type DelayedTriggerParams struct {
 	Condition                   string     // 1 uses
 	ConditionCheckSVar          string     // 2 uses
 	ConditionCompare            string     // 5 uses
-	ConditionDefined            string     // 39 uses
-	ConditionPresent            valid.Spec // 41 uses
+	ConditionDefined            string     // 44 uses
+	ConditionPresent            valid.Spec // 46 uses
 	ConditionSVarCompare        string     // 1 uses
-	ConditionZone               string     // 2 uses
-	Cost                        string     // 26 uses
+	ConditionZone               string     // 3 uses
+	Cost                        string     // 27 uses
 	DelayedTriggerDefinedPlayer string     // 9 uses
-	Destination                 string     // 41 uses
-	Execute                     string     // 523 uses
+	Destination                 string     // 42 uses
+	Execute                     string     // 595 uses
 	IsPresent                   string     // 10 uses
 	NextTurn                    bool       // 60 uses
-	OptionalDecider             string     // 2 uses
-	Origin                      string     // 46 uses
-	Phase                       string     // 426 uses
+	OptionalDecider             string     // 42 uses
+	Origin                      string     // 47 uses
+	Phase                       string     // 483 uses
 	Planeswalker                bool       // 6 uses
 	PresentZone                 string     // 8 uses
 	RememberNumber              bool       // 4 uses
-	RememberObjects             string     // 313 uses
+	RememberObjects             string     // 367 uses
 	Secondary                   bool       // 2 uses
 	SorcerySpeed                bool       // 1 uses
-	SpellDescription            string     // 106 uses
-	StackDescription            string     // 21 uses
+	SpellDescription            string     // 108 uses
+	StackDescription            string     // 22 uses
 	Stackable                   bool       // 1 uses
 	Static                      bool       // 17 uses
-	SubAbility                  string     // 147 uses
-	TargetMax                   string     // 1 uses
-	TargetMin                   string     // 1 uses
+	SubAbility                  string     // 160 uses
+	TargetMax                   string     // 2 uses
+	TargetMin                   string     // 2 uses
 	TgtPrompt                   string     // 4 uses
 	TgtZone                     string     // 1 uses
-	ThisTurn                    bool       // 98 uses
-	TriggerDescription          string     // 420 uses
+	ThisTurn                    bool       // 113 uses
+	TriggerDescription          string     // 449 uses
 	TriggerZones                string     // 1 uses
 	UpcomingTurn                bool       // 2 uses
-	ValidActivatingPlayer       string     // 44 uses
-	ValidCard                   valid.Spec // 91 uses
+	ValidActivatingPlayer       string     // 54 uses
+	ValidCard                   valid.Spec // 105 uses
 	ValidOriginalController     string     // 5 uses
-	ValidPlayer                 string     // 197 uses
-	ValidSA                     valid.Spec // 3 uses
+	ValidPlayer                 string     // 238 uses
+	ValidSA                     valid.Spec // 4 uses
 	ValidSource                 string     // 1 uses
 	ValidTarget                 valid.Spec // 1 uses
-	ValidTgts                   string     // 13 uses
+	ValidTgts                   string     // 14 uses
+	ValidTgtsDesc               string     // 1 uses
 }
 
 func (p DelayedTriggerParams) apiName() string { return "DelayedTrigger" }
@@ -5317,6 +5399,8 @@ func fillDelayedTriggerParams(ps []vocab.Param) DelayedTriggerParams {
 			out.ValidTarget = valid.Parse(p.Value)
 		case "validtgts":
 			out.ValidTgts = p.Value
+		case "validtgtsdesc":
+			out.ValidTgtsDesc = p.Value
 		}
 	}
 	return out
@@ -5331,8 +5415,7 @@ type DestroyParams struct {
 	ActivationPhases                string      // 8 uses
 	ActivationZone                  string      // 6 uses
 	Activator                       string      // 4 uses
-	ActiveZones                     string      // 3 uses
-	AlwaysRemember                  bool        // 11 uses
+	ActiveZones                     string      // 21 uses
 	Announce                        string      // 1 uses
 	AnnounceTitle                   string      // 1 uses
 	CheckSVar                       expr.Amount // 4 uses
@@ -5347,10 +5430,10 @@ type DestroyParams struct {
 	ConditionOptionalPaid           bool        // 1 uses
 	ConditionPresent                valid.Spec  // 24 uses
 	ConditionSVarCompare            string      // 9 uses
-	Cost                            string      // 297 uses
+	Cost                            string      // 298 uses
 	CostDesc                        string      // 8 uses
-	Defined                         string      // 229 uses
-	Description                     string      // 6 uses
+	Defined                         string      // 247 uses
+	Description                     string      // 7 uses
 	ForgetOtherTargets              bool        // 2 uses
 	IsCurse                         bool        // 1 uses
 	IsPresent                       string      // 2 uses
@@ -5366,34 +5449,34 @@ type DestroyParams struct {
 	Radiance                        bool        // 1 uses
 	ReduceCost                      string      // 2 uses
 	Regeneration                    bool        // 3 uses
-	RememberDestroyed               bool        // 19 uses
-	RememberLKI                     bool        // 24 uses
+	RememberDestroyed               bool        // 20 uses
+	RememberLKI                     bool        // 13 uses
 	RememberTargets                 bool        // 6 uses
-	ReplaceWith                     string      // 6 uses
+	ReplaceWith                     string      // 24 uses
 	SVarCompare                     string      // 1 uses
+	Secondary                       bool        // 17 uses
 	SorcerySpeed                    bool        // 9 uses
-	SpellDescription                string      // 1084 uses
+	SpellDescription                string      // 1089 uses
 	StackDescription                string      // 24 uses
-	SubAbility                      string      // 422 uses
-	TargetMax                       string      // 125 uses
-	TargetMin                       string      // 123 uses
+	SubAbility                      string      // 426 uses
+	TargetMax                       string      // 127 uses
+	TargetMin                       string      // 125 uses
 	TargetUnique                    bool        // 3 uses
 	TargetingPlayer                 string      // 4 uses
 	TargetsForEachPlayer            bool        // 9 uses
 	TargetsWithControllerProperty   string      // 1 uses
 	TargetsWithDefinedController    string      // 7 uses
-	TargetsWithDifferentCMC         bool        // 1 uses
 	TargetsWithDifferentControllers bool        // 1 uses
 	TargetsWithEqualToughness       bool        // 1 uses
-	TgtPrompt                       string      // 841 uses
+	TgtPrompt                       string      // 840 uses
 	Ultimate                        bool        // 4 uses
 	UnlessCost                      expr.Amount // 21 uses
 	UnlessPayer                     string      // 19 uses
 	UnlessResolveSubs               string      // 4 uses
 	UnlessSwitched                  bool        // 3 uses
-	ValidCard                       valid.Spec  // 6 uses
-	ValidTgts                       string      // 1361 uses
-	ValidTgtsDesc                   string      // 39 uses
+	ValidCard                       valid.Spec  // 24 uses
+	ValidTgts                       string      // 1368 uses
+	ValidTgtsDesc                   string      // 45 uses
 }
 
 func (p DestroyParams) apiName() string { return "Destroy" }
@@ -5418,8 +5501,6 @@ func fillDestroyParams(ps []vocab.Param) DestroyParams {
 			out.Activator = p.Value
 		case "activezones":
 			out.ActiveZones = p.Value
-		case "alwaysremember":
-			out.AlwaysRemember = true
 		case "announce":
 			out.Announce = p.Value
 		case "announcetitle":
@@ -5496,6 +5577,8 @@ func fillDestroyParams(ps []vocab.Param) DestroyParams {
 			out.ReplaceWith = p.Value
 		case "svarcompare":
 			out.SVarCompare = p.Value
+		case "secondary":
+			out.Secondary = true
 		case "sorceryspeed":
 			out.SorcerySpeed = true
 		case "spelldescription":
@@ -5518,8 +5601,6 @@ func fillDestroyParams(ps []vocab.Param) DestroyParams {
 			out.TargetsWithControllerProperty = p.Value
 		case "targetswithdefinedcontroller":
 			out.TargetsWithDefinedController = p.Value
-		case "targetswithdifferentcmc":
-			out.TargetsWithDifferentCMC = true
 		case "targetswithdifferentcontrollers":
 			out.TargetsWithDifferentControllers = true
 		case "targetswithequaltoughness":
@@ -5583,7 +5664,7 @@ type DestroyAllParams struct {
 	UnlessCost           expr.Amount // 2 uses
 	UnlessPayer          string      // 2 uses
 	UnlessSwitched       bool        // 1 uses
-	ValidCards           valid.Spec  // 377 uses
+	ValidCards           valid.Spec  // 378 uses
 	ValidDescription     string      // 6 uses
 	ValidTgts            string      // 11 uses
 	Zone                 string      // 2 uses
@@ -5729,9 +5810,9 @@ type DigParams struct {
 	AnnounceTitle               string      // 1 uses
 	Attacking                   string      // 7 uses
 	Boast                       bool        // 1 uses
-	ChangeNum                   expr.Amount // 935 uses
-	ChangeType                  string      // 1 uses
-	ChangeValid                 string      // 402 uses
+	ChangeNum                   expr.Amount // 962 uses
+	ChangeType                  valid.Spec  // 1 uses
+	ChangeValid                 string      // 408 uses
 	ChangeValidDesc             string      // 5 uses
 	CheckSVar                   expr.Amount // 1 uses
 	Choser                      string      // 9 uses
@@ -5743,59 +5824,59 @@ type DigParams struct {
 	ConditionPresent            valid.Spec  // 16 uses
 	ConditionSVarCompare        string      // 5 uses
 	ConditionZone               string      // 1 uses
-	Cost                        string      // 180 uses
-	Defined                     string      // 347 uses
-	DefinedExiler               string      // 2 uses
+	Cost                        string      // 182 uses
+	Defined                     string      // 381 uses
+	DefinedExiler               string      // 3 uses
 	DestZone2Optional           bool        // 2 uses
-	DestinationZone             string      // 711 uses
-	DestinationZone2            string      // 211 uses
-	DigNum                      expr.Amount // 1015 uses
-	ExileFaceDown               bool        // 54 uses
+	DestinationZone             string      // 751 uses
+	DestinationZone2            string      // 214 uses
+	DigNum                      expr.Amount // 1058 uses
+	ExileFaceDown               bool        // 72 uses
 	ExileWithCounters           string      // 6 uses
 	FaceDown                    bool        // 1 uses
 	FaceDownPower               expr.Amount // 1 uses
 	FaceDownSetType             string      // 1 uses
 	FaceDownToughness           expr.Amount // 1 uses
 	ForEachColorPair            bool        // 1 uses
-	ForceReveal                 string      // 1 uses
-	ForceRevealToController     bool        // 132 uses
+	ForceReveal                 string      // 2 uses
+	ForceRevealToController     bool        // 9 uses
 	ForgetOtherRemembered       bool        // 2 uses
 	FromBottom                  bool        // 2 uses
 	GainControl                 bool        // 1 uses
 	Imprint                     bool        // 19 uses
 	ImprintRevealed             bool        // 1 uses
 	IsPresent                   string      // 2 uses
-	LibraryPosition             int         // 96 uses
+	LibraryPosition             int         // 97 uses
 	LibraryPosition2            string      // 96 uses
 	Mandatory                   bool        // 1 uses
-	NoLooking                   bool        // 11 uses
+	NoLooking                   bool        // 5 uses
 	NoReveal                    bool        // 85 uses
-	Optional                    bool        // 274 uses
+	Optional                    bool        // 278 uses
 	OptionalAbilityPrompt       string      // 5 uses
 	Pawprint                    expr.Amount // 1 uses
 	Planeswalker                bool        // 55 uses
 	PlayerTurn                  bool        // 2 uses
-	PrecostDesc                 string      // 3 uses
+	PrecostDesc                 string      // 4 uses
 	PresentCompare              string      // 1 uses
 	PrimaryPrompt               string      // 5 uses
 	PromptToSkipOptionalAbility bool        // 9 uses
 	RandomChange                bool        // 2 uses
-	RememberChanged             bool        // 426 uses
+	RememberChanged             bool        // 453 uses
 	RememberMovedToZone         string      // 2 uses
 	RememberRevealed            bool        // 9 uses
-	RestRandomOrder             bool        // 214 uses
-	Reveal                      bool        // 168 uses
+	RestRandomOrder             bool        // 234 uses
+	Reveal                      bool        // 170 uses
 	RevealOptional              bool        // 3 uses
 	SVarCompare                 string      // 1 uses
 	SetChosenPlayer             bool        // 2 uses
 	SkipReorder                 bool        // 17 uses
 	SorcerySpeed                bool        // 1 uses
 	SourceZone                  string      // 2 uses
-	SpellDescription            string      // 423 uses
+	SpellDescription            string      // 431 uses
 	StackDescription            string      // 88 uses
 	StaticEffect                string      // 1 uses
-	SubAbility                  string      // 522 uses
-	Tapped                      bool        // 31 uses
+	SubAbility                  string      // 549 uses
+	Tapped                      bool        // 33 uses
 	TgtPrompt                   string      // 3 uses
 	Ultimate                    bool        // 12 uses
 	UnlessAI                    string      // 1 uses
@@ -5803,7 +5884,7 @@ type DigParams struct {
 	UnlessPayer                 string      // 7 uses
 	UnlessResolveSubs           string      // 2 uses
 	UnlessSwitched              bool        // 6 uses
-	ValidTgts                   string      // 57 uses
+	ValidTgts                   string      // 59 uses
 	WithCounters                string      // 2 uses
 	WithDifferentPowers         bool        // 1 uses
 	WithMayLook                 bool        // 31 uses
@@ -5837,7 +5918,7 @@ func fillDigParams(ps []vocab.Param) DigParams {
 		case "changenum":
 			out.ChangeNum = expr.Parse(p.Value)
 		case "changetype":
-			out.ChangeType = p.Value
+			out.ChangeType = valid.Parse(p.Value)
 		case "changevalid":
 			out.ChangeValid = p.Value
 		case "changevaliddesc":
@@ -6076,7 +6157,7 @@ func fillDigMultipleParams(ps []vocab.Param) DigMultipleParams {
 type DigUntilParams struct {
 	AILogic                  string      // 2 uses
 	ActivationZone           string      // 1 uses
-	Amount                   expr.Amount // 74 uses
+	Amount                   expr.Amount // 96 uses
 	AttachedTo               string      // 1 uses
 	Attacking                bool        // 2 uses
 	CheckSVar                expr.Amount // 1 uses
@@ -6085,23 +6166,23 @@ type DigUntilParams struct {
 	ConditionDefined         string      // 6 uses
 	ConditionPresent         valid.Spec  // 6 uses
 	ConditionSVarCompare     string      // 4 uses
-	Cost                     string      // 31 uses
+	Cost                     string      // 32 uses
 	CostDesc                 string      // 3 uses
-	Defined                  string      // 106 uses
+	Defined                  string      // 129 uses
 	DigZone                  string      // 4 uses
 	Exhaust                  bool        // 1 uses
 	ForgetOtherRemembered    bool        // 3 uses
-	FoundDestination         string      // 205 uses
+	FoundDestination         string      // 238 uses
 	FoundLibraryPosition     expr.Amount // 3 uses
 	GainControl              bool        // 11 uses
-	ImprintFound             bool        // 62 uses
-	ImprintRevealed          bool        // 6 uses
-	IsCurse                  bool        // 18 uses
+	ImprintFound             bool        // 83 uses
+	ImprintRevealed          bool        // 8 uses
+	IsCurse                  bool        // 21 uses
 	MaxRevealed              expr.Amount // 1 uses
 	MinTotalCMC              expr.Amount // 3 uses
 	NoMoveFound              bool        // 1 uses
 	NoMoveRevealed           bool        // 8 uses
-	NoPutDesc                bool        // 4 uses
+	NoPutDesc                bool        // 5 uses
 	NoneFoundDestination     string      // 1 uses
 	NoneFoundLibraryPosition expr.Amount // 1 uses
 	Optional                 bool        // 2 uses
@@ -6109,22 +6190,22 @@ type DigUntilParams struct {
 	OptionalNoDestination    string      // 1 uses
 	Planeswalker             bool        // 5 uses
 	PrecostDesc              string      // 1 uses
-	RememberFound            bool        // 64 uses
-	RememberRevealed         bool        // 69 uses
-	RevealRandomOrder        bool        // 65 uses
-	RevealedDestination      string      // 223 uses
-	RevealedLibraryPosition  expr.Amount // 85 uses
+	RememberFound            bool        // 71 uses
+	RememberRevealed         bool        // 90 uses
+	RevealRandomOrder        bool        // 71 uses
+	RevealedDestination      string      // 257 uses
+	RevealedLibraryPosition  expr.Amount // 91 uses
 	Shuffle                  bool        // 21 uses
 	ShuffleCondition         string      // 1 uses
 	SorcerySpeed             bool        // 1 uses
-	SpellDescription         string      // 59 uses
+	SpellDescription         string      // 64 uses
 	StackDescription         string      // 17 uses
-	SubAbility               string      // 148 uses
-	Tapped                   bool        // 8 uses
-	Valid                    string      // 230 uses
-	ValidDescription         string      // 125 uses
+	SubAbility               string      // 176 uses
+	Tapped                   bool        // 11 uses
+	Valid                    string      // 264 uses
+	ValidDescription         string      // 135 uses
 	ValidPlayer              string      // 1 uses
-	ValidTgts                string      // 20 uses
+	ValidTgts                string      // 23 uses
 	XMax                     expr.Amount // 1 uses
 }
 
@@ -6253,40 +6334,40 @@ type DiscardParams struct {
 	Activator                 string      // 1 uses
 	AnyNumber                 bool        // 23 uses
 	Condition                 string      // 2 uses
-	ConditionCheckSVar        string      // 16 uses
-	ConditionCompare          string      // 26 uses
-	ConditionDefined          string      // 23 uses
+	ConditionCheckSVar        string      // 17 uses
+	ConditionCompare          string      // 25 uses
+	ConditionDefined          string      // 22 uses
 	ConditionDescription      string      // 1 uses
 	ConditionManaSpent        string      // 1 uses
-	ConditionPresent          valid.Spec  // 33 uses
-	ConditionSVarCompare      string      // 13 uses
+	ConditionPresent          valid.Spec  // 32 uses
+	ConditionSVarCompare      string      // 14 uses
 	ConditionZone             string      // 1 uses
 	Cost                      string      // 143 uses
 	CostDesc                  string      // 3 uses
-	Defined                   string      // 712 uses
-	DefinedCards              string      // 27 uses
+	Defined                   string      // 718 uses
+	DefinedCards              string      // 28 uses
 	DiscardMessage            string      // 1 uses
 	DiscardValid              string      // 100 uses
-	DiscardValidDesc          string      // 20 uses
+	DiscardValidDesc          string      // 21 uses
 	Exhaust                   bool        // 1 uses
 	InstantSpeed              bool        // 1 uses
 	IsCurse                   bool        // 1 uses
 	Mandatory                 bool        // 3 uses
 	ModeCost                  string      // 1 uses
 	NonBasicSpell             bool        // 1 uses
-	NumCards                  expr.Amount // 780 uses
+	NumCards                  expr.Amount // 788 uses
 	Optional                  bool        // 60 uses
 	Planeswalker              bool        // 21 uses
 	PlayerTurn                bool        // 8 uses
 	PowerUp                   bool        // 2 uses
 	PrecostDesc               string      // 4 uses
 	ReduceCost                string      // 1 uses
-	RememberDiscarded         bool        // 151 uses
+	RememberDiscarded         bool        // 153 uses
 	RememberDiscardingPlayers bool        // 8 uses
 	RevealNumber              expr.Amount // 11 uses
 	SorcerySpeed              bool        // 30 uses
-	SpellDescription          string      // 366 uses
-	StackDescription          string      // 31 uses
+	SpellDescription          string      // 368 uses
+	StackDescription          string      // 30 uses
 	SubAbility                string      // 399 uses
 	TargetMax                 string      // 5 uses
 	TargetMin                 string      // 5 uses
@@ -6298,7 +6379,7 @@ type DiscardParams struct {
 	UnlessPayer               string      // 18 uses
 	UnlessSwitched            bool        // 5 uses
 	UnlessType                string      // 15 uses
-	ValidTgts                 string      // 277 uses
+	ValidTgts                 string      // 279 uses
 }
 
 func (p DiscardParams) apiName() string { return "Discard" }
@@ -6428,7 +6509,7 @@ type DiscoverParams struct {
 	Cost               string      // 12 uses
 	Defined            string      // 1 uses
 	Execute            string      // 2 uses
-	Num                expr.Amount // 35 uses
+	Num                expr.Amount // 38 uses
 	Planeswalker       bool        // 1 uses
 	RememberDiscovered bool        // 1 uses
 	SorcerySpeed       bool        // 8 uses
@@ -6582,30 +6663,30 @@ type DrawParams struct {
 	ActivationGameTypes         string      // 1 uses
 	ActivationLimit             int         // 5 uses
 	ActivationPhases            string      // 4 uses
-	ActivationZone              string      // 325 uses
+	ActivationZone              string      // 329 uses
 	Activator                   string      // 4 uses
 	ActivePhases                string      // 1 uses
-	ActiveZones                 string      // 38 uses
+	ActiveZones                 string      // 55 uses
 	Amount                      expr.Amount // 1 uses
 	AnnounceType                string      // 1 uses
-	CheckSVar                   expr.Amount // 16 uses
+	CheckSVar                   expr.Amount // 31 uses
 	Condition                   string      // 7 uses
-	ConditionCheckSVar          string      // 97 uses
-	ConditionCompare            string      // 84 uses
-	ConditionDefined            string      // 115 uses
+	ConditionCheckSVar          string      // 100 uses
+	ConditionCompare            string      // 87 uses
+	ConditionDefined            string      // 119 uses
 	ConditionDescription        string      // 17 uses
 	ConditionManaSpent          string      // 1 uses
 	ConditionPhases             string      // 1 uses
 	ConditionPlayerContains     string      // 2 uses
 	ConditionPlayerDefined      string      // 2 uses
 	ConditionPlayerTurn         bool        // 1 uses
-	ConditionPresent            valid.Spec  // 157 uses
-	ConditionSVarCompare        string      // 75 uses
+	ConditionPresent            valid.Spec  // 161 uses
+	ConditionSVarCompare        string      // 77 uses
 	ConditionZone               string      // 4 uses
-	Cost                        string      // 1182 uses
+	Cost                        string      // 1205 uses
 	CostDesc                    string      // 23 uses
-	Defined                     string      // 1391 uses
-	Description                 string      // 49 uses
+	Defined                     string      // 1409 uses
+	Description                 string      // 51 uses
 	Exhaust                     bool        // 3 uses
 	FirstExtraCardDrawnThisTurn bool        // 1 uses
 	Forecast                    bool        // 2 uses
@@ -6620,31 +6701,31 @@ type DrawParams struct {
 	ModeCost                    string      // 3 uses
 	NonBasicSpell               bool        // 2 uses
 	NotFirstCardInDrawStep      bool        // 7 uses
-	NumCards                    expr.Amount // 2255 uses
+	NumCards                    expr.Amount // 2296 uses
 	NumCardsDesc                string      // 2 uses
-	Optional                    bool        // 7 uses
+	Optional                    bool        // 23 uses
 	OptionalDecider             string      // 36 uses
 	OrOtherConditionSVarCompare string      // 1 uses
 	OrString                    string      // 1 uses
 	Pawprint                    expr.Amount // 3 uses
 	Planeswalker                bool        // 68 uses
 	PlayerTurn                  bool        // 6 uses
-	PrecostDesc                 string      // 23 uses
+	PrecostDesc                 string      // 25 uses
 	PresentCompare              string      // 10 uses
 	PresentZone                 string      // 9 uses
 	Prevent                     bool        // 3 uses
 	RaiseCost                   string      // 1 uses
 	ReduceAmount                string      // 1 uses
-	ReduceCost                  string      // 10 uses
-	RememberDrawn               string      // 31 uses
-	ReplaceWith                 string      // 46 uses
+	ReduceCost                  string      // 11 uses
+	RememberDrawn               string      // 33 uses
+	ReplaceWith                 string      // 63 uses
 	Reveal                      string      // 5 uses
-	SVarCompare                 string      // 8 uses
-	Secondary                   bool        // 11 uses
+	SVarCompare                 string      // 23 uses
+	Secondary                   bool        // 26 uses
 	SorcerySpeed                bool        // 17 uses
-	SpellDescription            string      // 1392 uses
+	SpellDescription            string      // 1424 uses
 	StackDescription            string      // 109 uses
-	SubAbility                  string      // 1229 uses
+	SubAbility                  string      // 1266 uses
 	TapCreaturesForMana         bool        // 1 uses
 	TargetMax                   string      // 6 uses
 	TargetMin                   string      // 6 uses
@@ -6659,8 +6740,8 @@ type DrawParams struct {
 	Upto                        bool        // 9 uses
 	ValidAfterStack             string      // 1 uses
 	ValidCause                  string      // 1 uses
-	ValidPlayer                 string      // 48 uses
-	ValidTgts                   string      // 146 uses
+	ValidPlayer                 string      // 65 uses
+	ValidTgts                   string      // 151 uses
 	XMax                        expr.Amount // 1 uses
 }
 
@@ -6971,7 +7052,7 @@ func fillEarthbendParams(ps []vocab.Param) EarthbendParams {
 
 // EffectParams are the parameters the Effect API reads.
 type EffectParams struct {
-	AILogic                     string      // 302 uses
+	AILogic                     string      // 309 uses
 	AINoRecursiveCheck          bool        // 6 uses
 	AITgts                      valid.Spec  // 3 uses
 	Abilities                   string      // 11 uses
@@ -6990,60 +7071,60 @@ type EffectParams struct {
 	CheckSVar                   expr.Amount // 5 uses
 	Condition                   string      // 8 uses
 	ConditionCheckSVar          string      // 17 uses
-	ConditionCompare            string      // 52 uses
-	ConditionDefined            string      // 94 uses
+	ConditionCompare            string      // 53 uses
+	ConditionDefined            string      // 97 uses
 	ConditionDescription        string      // 1 uses
 	ConditionManaSpent          string      // 3 uses
 	ConditionOptionalPaid       bool        // 2 uses
 	ConditionPlayerContains     string      // 1 uses
 	ConditionPlayerDefined      string      // 1 uses
-	ConditionPresent            valid.Spec  // 105 uses
+	ConditionPresent            valid.Spec  // 106 uses
 	ConditionSVarCompare        string      // 12 uses
 	ConditionZone               string      // 4 uses
-	Cost                        string      // 432 uses
+	Cost                        string      // 439 uses
 	CostDesc                    string      // 4 uses
 	CounterNum                  expr.Amount // 1 uses
 	CounterType                 string      // 1 uses
 	Defined                     string      // 11 uses
 	Description                 string      // 10 uses
-	Duration                    string      // 758 uses
-	EffectOwner                 string      // 52 uses
+	Duration                    string      // 790 uses
+	EffectOwner                 string      // 54 uses
 	Execute                     string      // 2 uses
 	ExileOnLost                 bool        // 1 uses
-	ExileOnMoved                string      // 506 uses
+	ExileOnMoved                string      // 544 uses
 	Forecast                    bool        // 3 uses
 	ForgetCounter               string      // 22 uses
-	ForgetOnCast                string      // 31 uses
-	ForgetOnMoved               string      // 451 uses
+	ForgetOnCast                string      // 36 uses
+	ForgetOnMoved               string      // 481 uses
 	ForgetOnPhasedIn            bool        // 6 uses
-	Image                       string      // 78 uses
+	Image                       string      // 79 uses
 	ImprintCards                string      // 48 uses
 	ImprintOnHost               bool        // 7 uses
 	IsCurse                     bool        // 73 uses
 	IsPresent                   string      // 1 uses
 	ModeCost                    string      // 1 uses
-	Name                        string      // 189 uses
+	Name                        string      // 190 uses
 	NoteCounterDefined          string      // 1 uses
 	OneOff                      bool        // 2 uses
 	OpponentTurn                bool        // 4 uses
 	Pawprint                    expr.Amount // 1 uses
-	Planeswalker                bool        // 124 uses
+	Planeswalker                bool        // 125 uses
 	PlayerTurn                  bool        // 3 uses
 	PrecostDesc                 string      // 7 uses
 	PresentZone                 string      // 1 uses
 	ReduceCost                  string      // 2 uses
 	RememberLKI                 string      // 3 uses
-	RememberObjects             string      // 1196 uses
+	RememberObjects             string      // 1272 uses
 	RememberSpell               string      // 1 uses
-	ReplacementEffects          string      // 453 uses
+	ReplacementEffects          string      // 459 uses
 	SVarCompare                 string      // 2 uses
 	SetChosenNumber             expr.Amount // 22 uses
 	SorcerySpeed                bool        // 3 uses
-	SpellDescription            string      // 807 uses
+	SpellDescription            string      // 820 uses
 	StackDescription            string      // 137 uses
 	Stackable                   bool        // 47 uses
-	StaticAbilities             string      // 1272 uses
-	SubAbility                  string      // 689 uses
+	StaticAbilities             string      // 1346 uses
+	SubAbility                  string      // 749 uses
 	TargetMax                   string      // 29 uses
 	TargetMin                   string      // 29 uses
 	TargetType                  valid.Spec  // 3 uses
@@ -7052,15 +7133,15 @@ type EffectParams struct {
 	TargetsWithSameCreatureType bool        // 1 uses
 	TgtPrompt                   string      // 185 uses
 	TgtZone                     string      // 22 uses
-	Triggers                    string      // 352 uses
-	Ultimate                    bool        // 88 uses
+	Triggers                    string      // 360 uses
+	Ultimate                    bool        // 89 uses
 	Unique                      bool        // 1 uses
 	UnlessAI                    string      // 2 uses
 	UnlessCost                  expr.Amount // 13 uses
 	UnlessPayer                 string      // 13 uses
 	UnlessSwitched              bool        // 7 uses
-	ValidTgts                   string      // 346 uses
-	ValidTgtsDesc               string      // 4 uses
+	ValidTgts                   string      // 355 uses
+	ValidTgtsDesc               string      // 7 uses
 	SVars                       string      // 1 uses
 }
 
@@ -7262,11 +7343,11 @@ type EmpowerParams struct {
 	ActivationZone     string      // 1 uses
 	ConditionCheckSVar string      // 1 uses
 	Cost               string      // 4 uses
-	Num                expr.Amount // 35 uses
+	Num                expr.Amount // 36 uses
 	Planeswalker       bool        // 1 uses
-	SpellDescription   string      // 10 uses
+	SpellDescription   string      // 12 uses
 	SubAbility         string      // 2 uses
-	Type               string      // 35 uses
+	Type               string      // 36 uses
 }
 
 func (p EmpowerParams) apiName() string { return "Empower" }
@@ -7298,6 +7379,8 @@ func fillEmpowerParams(ps []vocab.Param) EmpowerParams {
 
 // EndCombatPhaseParams are the parameters the EndCombatPhase API reads.
 type EndCombatPhaseParams struct {
+	ConditionPhases  string // 1 uses
+	Optional         bool   // 1 uses
 	SpellDescription string // 1 uses
 }
 
@@ -7307,6 +7390,10 @@ func fillEndCombatPhaseParams(ps []vocab.Param) EndCombatPhaseParams {
 	var out EndCombatPhaseParams
 	for _, p := range ps {
 		switch strings.ToLower(p.Key) {
+		case "conditionphases":
+			out.ConditionPhases = p.Value
+		case "optional":
+			out.Optional = true
 		case "spelldescription":
 			out.SpellDescription = p.Value
 		}
@@ -7758,7 +7845,7 @@ type FightParams struct {
 	ConditionCheckSVar             string     // 1 uses
 	ConditionSVarCompare           string     // 1 uses
 	Cost                           string     // 8 uses
-	Defined                        string     // 149 uses
+	Defined                        string     // 151 uses
 	ExcessSVar                     string     // 2 uses
 	ExcessSVarCondition            valid.Spec // 2 uses
 	Execute                        string     // 1 uses
@@ -7766,9 +7853,9 @@ type FightParams struct {
 	ReplaceDyingDefined            string     // 4 uses
 	ReplaceDyingExiledWith         bool       // 1 uses
 	SorcerySpeed                   bool       // 1 uses
-	SpellDescription               string     // 25 uses
+	SpellDescription               string     // 26 uses
 	StackDescription               string     // 9 uses
-	SubAbility                     string     // 11 uses
+	SubAbility                     string     // 13 uses
 	TargetMax                      string     // 52 uses
 	TargetMin                      string     // 52 uses
 	TargetUnique                   bool       // 7 uses
@@ -7778,8 +7865,8 @@ type FightParams struct {
 	TriggerDescription             string     // 1 uses
 	TriggerZones                   string     // 1 uses
 	ValidCard                      valid.Spec // 1 uses
-	ValidTgts                      string     // 146 uses
-	ValidTgtsDesc                  string     // 7 uses
+	ValidTgts                      string     // 147 uses
+	ValidTgtsDesc                  string     // 8 uses
 }
 
 func (p FightParams) apiName() string { return "Fight" }
@@ -8037,11 +8124,11 @@ type GainControlParams struct {
 	AITgts                        valid.Spec  // 1 uses
 	AITgtsStrict                  bool        // 1 uses
 	ActivationPhases              string      // 1 uses
-	AddKWs                        string      // 106 uses
+	AddKWs                        string      // 107 uses
 	AllValid                      string      // 34 uses
 	ChoiceTitle                   string      // 1 uses
-	Choices                       valid.Spec  // 3 uses
-	Chooser                       string      // 1 uses
+	Choices                       valid.Spec  // 5 uses
+	Chooser                       string      // 3 uses
 	Condition                     string      // 1 uses
 	ConditionCheckSVar            string      // 10 uses
 	ConditionCompare              string      // 2 uses
@@ -8051,34 +8138,34 @@ type GainControlParams struct {
 	Cost                          string      // 58 uses
 	CostDesc                      string      // 1 uses
 	Defined                       string      // 98 uses
-	LoseControl                   string      // 177 uses
+	LoseControl                   string      // 179 uses
 	MaxTotalTargetCMC             string      // 1 uses
-	NewController                 string      // 92 uses
+	NewController                 string      // 94 uses
 	Optional                      bool        // 3 uses
 	Planeswalker                  bool        // 15 uses
 	PlayerTurn                    bool        // 2 uses
-	RememberControlled            bool        // 14 uses
+	RememberControlled            bool        // 15 uses
 	SorcerySpeed                  bool        // 3 uses
 	SpellDescription              string      // 164 uses
 	StackDescription              string      // 15 uses
 	StaticCommandCheckSVar        string      // 2 uses
 	StaticCommandSVarCompare      string      // 2 uses
-	SubAbility                    string      // 117 uses
-	TargetMax                     string      // 19 uses
-	TargetMin                     string      // 20 uses
+	SubAbility                    string      // 121 uses
+	TargetMax                     string      // 20 uses
+	TargetMin                     string      // 21 uses
 	TargetingPlayer               string      // 2 uses
 	TargetingPlayerControls       bool        // 2 uses
 	TargetsAtRandom               bool        // 1 uses
-	TargetsForEachPlayer          bool        // 8 uses
+	TargetsForEachPlayer          bool        // 9 uses
 	TargetsWithControllerProperty string      // 1 uses
 	TgtPrompt                     string      // 108 uses
 	Ultimate                      bool        // 10 uses
 	UnlessCost                    expr.Amount // 5 uses
 	UnlessPayer                   string      // 5 uses
 	UnlessSwitched                bool        // 3 uses
-	Untap                         bool        // 113 uses
-	ValidTgts                     string      // 220 uses
-	ValidTgtsDesc                 string      // 1 uses
+	Untap                         bool        // 115 uses
+	ValidTgts                     string      // 223 uses
+	ValidTgtsDesc                 string      // 4 uses
 }
 
 func (p GainControlParams) apiName() string { return "GainControl" }
@@ -8223,12 +8310,12 @@ type GainLifeParams struct {
 	Activation            string      // 2 uses
 	ActivationFirstCombat bool        // 2 uses
 	ActivationPhases      string      // 5 uses
-	ActivationZone        string      // 4 uses
+	ActivationZone        string      // 5 uses
 	ActiveZones           string      // 21 uses
 	Announce              string      // 1 uses
 	CheckSVar             expr.Amount // 3 uses
 	Condition             string      // 6 uses
-	ConditionCheckSVar    string      // 34 uses
+	ConditionCheckSVar    string      // 35 uses
 	ConditionCompare      string      // 29 uses
 	ConditionDefined      string      // 47 uses
 	ConditionDescription  string      // 3 uses
@@ -8238,14 +8325,14 @@ type GainLifeParams struct {
 	ConditionPhases       string      // 1 uses
 	ConditionPlayerTurn   bool        // 1 uses
 	ConditionPresent      valid.Spec  // 61 uses
-	ConditionSVarCompare  string      // 21 uses
+	ConditionSVarCompare  string      // 22 uses
 	ConditionZone         string      // 3 uses
-	Cost                  string      // 226 uses
+	Cost                  string      // 228 uses
 	CostDesc              string      // 1 uses
-	Defined               string      // 1067 uses
+	Defined               string      // 1082 uses
 	Description           string      // 22 uses
 	IsPresent             string      // 2 uses
-	LifeAmount            expr.Amount // 1882 uses
+	LifeAmount            expr.Amount // 1914 uses
 	LockInText            bool        // 1 uses
 	Planeswalker          bool        // 23 uses
 	PlayerTurn            bool        // 5 uses
@@ -8256,9 +8343,9 @@ type GainLifeParams struct {
 	SVarCompare           string      // 2 uses
 	SorcerySpeed          bool        // 2 uses
 	SourceController      bool        // 1 uses
-	SpellDescription      string      // 425 uses
+	SpellDescription      string      // 431 uses
 	StackDescription      string      // 44 uses
-	SubAbility            string      // 345 uses
+	SubAbility            string      // 349 uses
 	TargetMax             string      // 2 uses
 	TargetMin             string      // 2 uses
 	TgtPrompt             string      // 8 uses
@@ -8385,8 +8472,8 @@ func fillGainLifeParams(ps []vocab.Param) GainLifeParams {
 // GainOwnershipParams are the parameters the GainOwnership API reads.
 type GainOwnershipParams struct {
 	ConditionCompare string     // 2 uses
-	ConditionDefined string     // 2 uses
-	ConditionPresent valid.Spec // 2 uses
+	ConditionDefined string     // 4 uses
+	ConditionPresent valid.Spec // 4 uses
 	Defined          string     // 10 uses
 	DefinedPlayer    string     // 10 uses
 	SpellDescription string     // 3 uses
@@ -8458,7 +8545,7 @@ type GenericChoiceParams struct {
 	AtRandom             string      // 14 uses
 	ChangeZoneTable      bool        // 1 uses
 	ChoicePrompt         string      // 4 uses
-	Choices              valid.Spec  // 169 uses
+	Choices              valid.Spec  // 172 uses
 	ConditionCheckSVar   string      // 14 uses
 	ConditionCompare     string      // 3 uses
 	ConditionDefined     string      // 4 uses
@@ -8467,7 +8554,7 @@ type GenericChoiceParams struct {
 	ConditionZone        string      // 1 uses
 	Cost                 string      // 21 uses
 	DamageMap            bool        // 2 uses
-	Defined              string      // 115 uses
+	Defined              string      // 116 uses
 	FallbackAbility      string      // 14 uses
 	Guess                bool        // 2 uses
 	IsCurse              bool        // 1 uses
@@ -8489,7 +8576,7 @@ type GenericChoiceParams struct {
 	TgtPrompt            string      // 3 uses
 	TgtZone              string      // 2 uses
 	Ultimate             bool        // 1 uses
-	ValidTgts            string      // 24 uses
+	ValidTgts            string      // 25 uses
 }
 
 func (p GenericChoiceParams) apiName() string { return "GenericChoice" }
@@ -8590,12 +8677,12 @@ type GoadParams struct {
 	SpellDescription             string // 16 uses
 	StackDescription             string // 1 uses
 	SubAbility                   string // 26 uses
-	TargetMax                    string // 7 uses
-	TargetMin                    string // 7 uses
+	TargetMax                    string // 8 uses
+	TargetMin                    string // 8 uses
 	TargetsForEachPlayer         bool   // 4 uses
 	TargetsWithDefinedController string // 5 uses
 	TgtPrompt                    string // 22 uses
-	ValidTgts                    string // 33 uses
+	ValidTgts                    string // 34 uses
 }
 
 func (p GoadParams) apiName() string { return "Goad" }
@@ -8666,8 +8753,8 @@ func fillHauntParams(ps []vocab.Param) HauntParams {
 
 // HealDamageParams are the parameters the HealDamage API reads.
 type HealDamageParams struct {
-	Defined    string // 2 uses
-	SubAbility string // 1 uses
+	Defined    string // 20 uses
+	SubAbility string // 18 uses
 }
 
 func (p HealDamageParams) apiName() string { return "HealDamage" }
@@ -8711,36 +8798,36 @@ func fillHeistParams(ps []vocab.Param) HeistParams {
 
 // ImmediateTriggerParams are the parameters the ImmediateTrigger API reads.
 type ImmediateTriggerParams struct {
-	AILogic              string      // 5 uses
+	AILogic              string      // 7 uses
 	AfterReplacement     bool        // 1 uses
 	Announce             string      // 7 uses
 	AnnounceMax          expr.Amount // 2 uses
 	ConditionCheckSVar   string      // 24 uses
-	ConditionCompare     string      // 38 uses
-	ConditionDefined     string      // 101 uses
-	ConditionPresent     valid.Spec  // 105 uses
+	ConditionCompare     string      // 39 uses
+	ConditionDefined     string      // 104 uses
+	ConditionPresent     valid.Spec  // 108 uses
 	ConditionSVarCompare string      // 7 uses
 	ConditionZone        string      // 2 uses
-	Cost                 string      // 153 uses
+	Cost                 string      // 155 uses
 	CostDesc             string      // 1 uses
 	Defined              string      // 1 uses
-	Execute              string      // 340 uses
+	Execute              string      // 345 uses
 	IsPresent            string      // 1 uses
 	OptionalDecider      string      // 2 uses
 	Planeswalker         bool        // 1 uses
 	PresentZone          string      // 1 uses
 	RememberDiscarded    bool        // 1 uses
 	RememberEach         bool        // 3 uses
-	RememberObjects      string      // 63 uses
+	RememberObjects      string      // 64 uses
 	RememberSVarAmount   string      // 19 uses
 	Secondary            bool        // 2 uses
 	SpellDescription     string      // 67 uses
 	StackDescription     string      // 7 uses
 	Static               bool        // 1 uses
-	SubAbility           string      // 112 uses
+	SubAbility           string      // 114 uses
 	TgtPrompt            string      // 1 uses
 	TriggerAmount        expr.Amount // 18 uses
-	TriggerDescription   string      // 268 uses
+	TriggerDescription   string      // 273 uses
 	UnlessCost           expr.Amount // 22 uses
 	UnlessPayer          string      // 22 uses
 	UnlessSwitched       bool        // 22 uses
@@ -8948,18 +9035,19 @@ func fillInternalIgnoreEffectParams(ps []vocab.Param) InternalIgnoreEffectParams
 
 // InvestigateParams are the parameters the Investigate API reads.
 type InvestigateParams struct {
-	ConditionCheckSVar           string      // 2 uses
+	ConditionCheckSVar           string      // 3 uses
 	ConditionCompare             string      // 2 uses
 	ConditionDefined             string      // 4 uses
 	ConditionPresent             valid.Spec  // 4 uses
+	ConditionSVarCompare         string      // 1 uses
 	Cost                         string      // 16 uses
 	Defined                      string      // 14 uses
-	Num                          expr.Amount // 34 uses
+	Num                          expr.Amount // 35 uses
 	Optional                     bool        // 3 uses
 	RememberInvestigatingPlayers bool        // 2 uses
-	SpellDescription             string      // 40 uses
+	SpellDescription             string      // 43 uses
 	StackDescription             string      // 2 uses
-	SubAbility                   string      // 21 uses
+	SubAbility                   string      // 22 uses
 	ValidTgts                    string      // 1 uses
 }
 
@@ -8977,6 +9065,8 @@ func fillInvestigateParams(ps []vocab.Param) InvestigateParams {
 			out.ConditionDefined = p.Value
 		case "conditionpresent":
 			out.ConditionPresent = valid.Parse(p.Value)
+		case "conditionsvarcompare":
+			out.ConditionSVarCompare = p.Value
 		case "cost":
 			out.Cost = p.Value
 		case "defined":
@@ -9095,7 +9185,7 @@ type LoseLifeParams struct {
 	AnnounceType         string      // 1 uses
 	Boast                bool        // 1 uses
 	CheckSVar            expr.Amount // 1 uses
-	ConditionCheckSVar   string      // 23 uses
+	ConditionCheckSVar   string      // 24 uses
 	ConditionCompare     string      // 28 uses
 	ConditionDefined     string      // 34 uses
 	ConditionDescription string      // 2 uses
@@ -9103,13 +9193,13 @@ type LoseLifeParams struct {
 	ConditionPresent     valid.Spec  // 50 uses
 	ConditionSVarCompare string      // 19 uses
 	ConditionZone        string      // 1 uses
-	Cost                 string      // 134 uses
+	Cost                 string      // 136 uses
 	CostDesc             string      // 3 uses
-	Defined              string      // 900 uses
+	Defined              string      // 918 uses
 	ForgetOtherTargets   bool        // 2 uses
 	IsCurse              bool        // 1 uses
 	IsPresent            string      // 3 uses
-	LifeAmount           expr.Amount // 1298 uses
+	LifeAmount           expr.Amount // 1318 uses
 	Max                  expr.Amount // 1 uses
 	Min                  expr.Amount // 1 uses
 	ModeCost             string      // 1 uses
@@ -9122,9 +9212,9 @@ type LoseLifeParams struct {
 	ReduceAmount         string      // 1 uses
 	ReduceCost           string      // 2 uses
 	RememberTargets      bool        // 2 uses
-	SpellDescription     string      // 234 uses
+	SpellDescription     string      // 236 uses
 	StackDescription     string      // 26 uses
-	SubAbility           string      // 509 uses
+	SubAbility           string      // 516 uses
 	TargetMax            string      // 1 uses
 	TargetMin            string      // 1 uses
 	TargetUnique         bool        // 1 uses
@@ -9134,7 +9224,7 @@ type LoseLifeParams struct {
 	UnlessPayer          string      // 45 uses
 	UnlessResolveSubs    string      // 1 uses
 	UnlessSwitched       bool        // 2 uses
-	ValidTgts            string      // 198 uses
+	ValidTgts            string      // 199 uses
 	XMax                 expr.Amount // 1 uses
 }
 
@@ -9275,11 +9365,11 @@ type LosesGameParams struct {
 	ConditionPresent     valid.Spec  // 4 uses
 	ConditionSVarCompare string      // 7 uses
 	Cost                 string      // 2 uses
-	Defined              string      // 54 uses
+	Defined              string      // 55 uses
 	Execute              string      // 8 uses
 	Planeswalker         bool        // 1 uses
 	Secondary            bool        // 1 uses
-	SpellDescription     string      // 8 uses
+	SpellDescription     string      // 9 uses
 	SubAbility           string      // 12 uses
 	TriggerDescription   string      // 8 uses
 	TriggerZones         string      // 5 uses
@@ -9343,7 +9433,7 @@ func fillLosesGameParams(ps []vocab.Param) LosesGameParams {
 type MakeCardParams struct {
 	ActivationZone           string      // 3 uses
 	AdditionalActivationZone string      // 1 uses
-	Amount                   expr.Amount // 24 uses
+	Amount                   expr.Amount // 25 uses
 	AtRandom                 bool        // 11 uses
 	AttachedTo               string      // 1 uses
 	Booster                  bool        // 1 uses
@@ -9352,35 +9442,35 @@ type MakeCardParams struct {
 	Condition                string      // 1 uses
 	ConditionCheckSVar       string      // 3 uses
 	ConditionCompare         string      // 1 uses
-	ConditionDefined         string      // 6 uses
-	ConditionPresent         valid.Spec  // 6 uses
+	ConditionDefined         string      // 7 uses
+	ConditionPresent         valid.Spec  // 7 uses
 	ConditionSVarCompare     string      // 2 uses
-	Conjure                  bool        // 192 uses
-	Cost                     string      // 21 uses
-	Defined                  string      // 6 uses
-	DefinedName              string      // 52 uses
-	Exhaust                  bool        // 2 uses
+	Conjure                  bool        // 226 uses
+	Cost                     string      // 23 uses
+	Defined                  string      // 7 uses
+	DefinedName              string      // 76 uses
+	Exhaust                  bool        // 3 uses
 	FaceDown                 bool        // 1 uses
 	Filter                   valid.Spec  // 2 uses
 	GiftDescription          string      // 1 uses
 	ImprintMade              bool        // 4 uses
 	LibraryPosition          expr.Amount // 12 uses
-	Name                     string      // 129 uses
+	Name                     string      // 141 uses
 	Names                    string      // 7 uses
 	OptionPrompt             string      // 2 uses
 	Optional                 bool        // 2 uses
 	Planeswalker             bool        // 4 uses
 	PrecostDesc              string      // 3 uses
-	RememberMade             bool        // 68 uses
+	RememberMade             bool        // 95 uses
 	Reveal                   bool        // 2 uses
 	SVarCompare              string      // 2 uses
 	SorcerySpeed             bool        // 5 uses
-	SpellDescription         string      // 52 uses
+	SpellDescription         string      // 54 uses
 	Spellbook                string      // 21 uses
 	SpellbookAmount          expr.Amount // 2 uses
 	SpellbookName            string      // 5 uses
 	StackDescription         string      // 10 uses
-	SubAbility               string      // 98 uses
+	SubAbility               string      // 129 uses
 	Tapped                   bool        // 7 uses
 	TargetMax                string      // 3 uses
 	TargetMin                string      // 3 uses
@@ -9395,7 +9485,7 @@ type MakeCardParams struct {
 	ValidTgts                string      // 14 uses
 	WithCounter              string      // 2 uses
 	WithCounterNum           expr.Amount // 2 uses
-	Zone                     string      // 211 uses
+	Zone                     string      // 247 uses
 }
 
 func (p MakeCardParams) apiName() string { return "MakeCard" }
@@ -9521,6 +9611,7 @@ func fillMakeCardParams(ps []vocab.Param) MakeCardParams {
 
 // ManaParams are the parameters the Mana API reads.
 type ManaParams struct {
+	AILifeThreshold      int         // 1 uses
 	AILogic              string      // 57 uses
 	AINoRecursiveCheck   bool        // 39 uses
 	Activation           string      // 2 uses
@@ -9533,40 +9624,40 @@ type ManaParams struct {
 	AddsKeywordsUntil    string      // 4 uses
 	AddsKeywordsValid    string      // 6 uses
 	AddsNoCounter        string      // 3 uses
-	Amount               expr.Amount // 673 uses
+	Amount               expr.Amount // 711 uses
 	AmountDesc           string      // 1 uses
 	CheckSVar            expr.Amount // 6 uses
 	Chooser              string      // 1 uses
-	CombatMana           bool        // 2 uses
+	CombatMana           bool        // 33 uses
 	Condition            string      // 1 uses
 	ConditionCheckSVar   string      // 12 uses
 	ConditionCompare     string      // 6 uses
-	ConditionDefined     string      // 7 uses
-	ConditionPresent     valid.Spec  // 8 uses
+	ConditionDefined     string      // 8 uses
+	ConditionPresent     valid.Spec  // 9 uses
 	ConditionSVarCompare string      // 11 uses
 	ConditionZone        string      // 1 uses
-	Cost                 string      // 2277 uses
+	Cost                 string      // 2308 uses
 	CostDesc             string      // 7 uses
-	Defined              string      // 52 uses
+	Defined              string      // 83 uses
 	Each                 expr.Amount // 2 uses
 	Exhaust              bool        // 1 uses
 	InstantSpeed         bool        // 3 uses
 	IsPresent            string      // 30 uses
 	OpponentTurn         bool        // 1 uses
 	Optional             bool        // 1 uses
-	PersistentMana       bool        // 24 uses
+	PersistentMana       bool        // 25 uses
 	Planeswalker         bool        // 22 uses
 	PlayerTurn           bool        // 3 uses
-	PrecostDesc          string      // 18 uses
+	PrecostDesc          string      // 19 uses
 	PresentCompare       string      // 2 uses
-	Produced             string      // 2544 uses
-	RestrictValid        string      // 193 uses
+	Produced             string      // 2611 uses
+	RestrictValid        string      // 196 uses
 	SVarCompare          string      // 5 uses
 	Secondary            bool        // 3 uses
 	SorcerySpeed         bool        // 1 uses
-	SpellDescription     string      // 2333 uses
+	SpellDescription     string      // 2365 uses
 	StackDescription     string      // 7 uses
-	SubAbility           string      // 171 uses
+	SubAbility           string      // 172 uses
 	TriggersWhenSpent    string      // 14 uses
 	Ultimate             bool        // 1 uses
 	UnlessCost           expr.Amount // 3 uses
@@ -9582,6 +9673,8 @@ func fillManaParams(ps []vocab.Param) ManaParams {
 	var out ManaParams
 	for _, p := range ps {
 		switch strings.ToLower(p.Key) {
+		case "ailifethreshold":
+			out.AILifeThreshold, _ = strconv.Atoi(p.Value)
 		case "ailogic":
 			out.AILogic = p.Value
 		case "ainorecursivecheck":
@@ -9919,24 +10012,24 @@ type MillParams struct {
 	ConditionManaSpent   string      // 1 uses
 	ConditionPresent     valid.Spec  // 5 uses
 	ConditionSVarCompare string      // 1 uses
-	Cost                 string      // 100 uses
-	Defined              string      // 368 uses
+	Cost                 string      // 101 uses
+	Defined              string      // 386 uses
 	Description          string      // 2 uses
 	IfDesc               bool        // 1 uses
 	Imprint              bool        // 8 uses
 	ModeCost             string      // 1 uses
-	NumCards             expr.Amount // 610 uses
+	NumCards             expr.Amount // 629 uses
 	Optional             bool        // 28 uses
 	Planeswalker         bool        // 14 uses
 	PrecostDesc          string      // 2 uses
 	ReduceCost           string      // 1 uses
-	RememberMilled       bool        // 116 uses
+	RememberMilled       bool        // 118 uses
 	ReplaceWith          string      // 2 uses
 	ShowMilledCards      bool        // 1 uses
 	SorcerySpeed         bool        // 2 uses
-	SpellDescription     string      // 230 uses
+	SpellDescription     string      // 232 uses
 	StackDescription     string      // 12 uses
-	SubAbility           string      // 277 uses
+	SubAbility           string      // 296 uses
 	TargetMax            string      // 6 uses
 	TargetMin            string      // 6 uses
 	TgtPrompt            string      // 30 uses
@@ -10040,15 +10133,15 @@ type MoveCounterParams struct {
 	AILogic                   string      // 2 uses
 	CheckSVar                 expr.Amount // 1 uses
 	Cost                      string      // 14 uses
-	CounterNum                expr.Amount // 28 uses
-	CounterType               string      // 33 uses
-	Defined                   string      // 8 uses
+	CounterNum                expr.Amount // 41 uses
+	CounterType               string      // 46 uses
+	Defined                   string      // 21 uses
 	NonZero                   bool        // 1 uses
 	RememberAmount            bool        // 1 uses
 	RememberPut               bool        // 1 uses
 	SVarCompare               string      // 1 uses
 	SorcerySpeed              bool        // 4 uses
-	Source                    string      // 18 uses
+	Source                    string      // 31 uses
 	SpellDescription          string      // 17 uses
 	StackDescription          string      // 8 uses
 	SubAbility                string      // 3 uses
@@ -10167,15 +10260,15 @@ type MultiplyCounterParams struct {
 	Cost                 string     // 10 uses
 	CounterType          string     // 44 uses
 	Defined              string     // 40 uses
-	Multiplier           int        // 6 uses
+	Multiplier           int        // 7 uses
 	SpellDescription     string     // 17 uses
 	StackDescription     string     // 5 uses
 	SubAbility           string     // 6 uses
 	TargetMax            string     // 5 uses
 	TargetMin            string     // 5 uses
 	TgtPrompt            string     // 7 uses
-	ValidTgts            string     // 16 uses
-	ValidTgtsDesc        string     // 1 uses
+	ValidTgts            string     // 17 uses
+	ValidTgtsDesc        string     // 2 uses
 }
 
 func (p MultiplyCounterParams) apiName() string { return "MultiplyCounter" }
@@ -10232,17 +10325,18 @@ type MustBlockParams struct {
 	Defined          string      // 2 uses
 	DefinedAttacker  string      // 10 uses
 	Description      string      // 24 uses
-	Duration         string      // 4 uses
+	Duration         string      // 14 uses
 	PrecostDesc      string      // 1 uses
 	SVarCompare      string      // 1 uses
 	SpellDescription string      // 13 uses
 	StackDescription string      // 1 uses
+	SubAbility       string      // 10 uses
 	TargetMax        string      // 3 uses
 	TargetMin        string      // 3 uses
 	TargetUnique     bool        // 1 uses
 	TgtPrompt        string      // 14 uses
 	ValidCreature    string      // 28 uses
-	ValidTgts        string      // 24 uses
+	ValidTgts        string      // 34 uses
 }
 
 func (p MustBlockParams) apiName() string { return "MustBlock" }
@@ -10279,6 +10373,8 @@ func fillMustBlockParams(ps []vocab.Param) MustBlockParams {
 			out.SpellDescription = p.Value
 		case "stackdescription":
 			out.StackDescription = p.Value
+		case "subability":
+			out.SubAbility = p.Value
 		case "targetmax":
 			out.TargetMax = p.Value
 		case "targetmin":
@@ -10298,8 +10394,8 @@ func fillMustBlockParams(ps []vocab.Param) MustBlockParams {
 
 // NameCardParams are the parameters the NameCard API reads.
 type NameCardParams struct {
-	AILogic                string     // 15 uses
-	AtRandom               bool       // 21 uses
+	AILogic                string     // 25 uses
+	AtRandom               bool       // 26 uses
 	ChooseFromDefinedCards string     // 1 uses
 	ChooseFromList         string     // 14 uses
 	ConditionCheckSVar     string     // 2 uses
@@ -10308,17 +10404,17 @@ type NameCardParams struct {
 	ConditionPresent       valid.Spec // 3 uses
 	ConditionSVarCompare   string     // 1 uses
 	Cost                   string     // 16 uses
-	Defined                string     // 80 uses
+	Defined                string     // 83 uses
 	ExcludeChosen          bool       // 2 uses
 	Planeswalker           bool       // 3 uses
 	PlayerTurn             bool       // 2 uses
 	SelectPrompt           string     // 1 uses
 	SorcerySpeed           bool       // 2 uses
-	SpellDescription       string     // 72 uses
+	SpellDescription       string     // 74 uses
 	StackDescription       string     // 16 uses
-	SubAbility             string     // 83 uses
-	ValidCards             valid.Spec // 51 uses
-	ValidDescription       string     // 34 uses
+	SubAbility             string     // 89 uses
+	ValidCards             valid.Spec // 58 uses
+	ValidDescription       string     // 35 uses
 	ValidTgts              string     // 2 uses
 }
 
@@ -10400,27 +10496,27 @@ func fillOpenAttractionParams(ps []vocab.Param) OpenAttractionParams {
 
 // PeekAndRevealParams are the parameters the PeekAndReveal API reads.
 type PeekAndRevealParams struct {
-	AILogic              string      // 7 uses
+	AILogic              string      // 8 uses
 	ActivationLimit      int         // 5 uses
 	CheckSVar            expr.Amount // 1 uses
 	ConditionCheckSVar   string      // 2 uses
 	ConditionSVarCompare string      // 2 uses
-	Cost                 string      // 36 uses
-	Defined              string      // 46 uses
+	Cost                 string      // 37 uses
+	Defined              string      // 48 uses
 	ImprintRevealed      bool        // 8 uses
-	NoPeek               bool        // 59 uses
+	NoPeek               bool        // 60 uses
 	NoReveal             bool        // 50 uses
 	PeekAmount           expr.Amount // 109 uses
 	Planeswalker         bool        // 4 uses
 	PrecostDesc          string      // 2 uses
 	RememberPeeked       bool        // 33 uses
-	RememberRevealed     bool        // 105 uses
-	RevealOptional       bool        // 37 uses
+	RememberRevealed     bool        // 108 uses
+	RevealOptional       bool        // 38 uses
 	RevealValid          valid.Spec  // 39 uses
 	SourceZone           string      // 1 uses
-	SpellDescription     string      // 72 uses
+	SpellDescription     string      // 73 uses
 	StackDescription     string      // 12 uses
-	SubAbility           string      // 157 uses
+	SubAbility           string      // 160 uses
 	TargetMax            string      // 1 uses
 	TargetMin            string      // 1 uses
 	TgtPrompt            string      // 1 uses
@@ -10552,25 +10648,26 @@ type PhasesParams struct {
 	ConditionPresent  valid.Spec  // 5 uses
 	ConditionZone     string      // 1 uses
 	Cost              string      // 11 uses
-	Defined           string      // 42 uses
+	Defined           string      // 44 uses
 	IsCurse           bool        // 4 uses
-	PhaseInOrOut      bool        // 8 uses
+	PhaseInOrOut      bool        // 9 uses
 	Planeswalker      bool        // 2 uses
 	PrecostDesc       string      // 2 uses
-	RememberAffected  bool        // 3 uses
+	RememberAffected  bool        // 4 uses
 	RememberValids    bool        // 1 uses
-	SpellDescription  string      // 34 uses
+	SpellDescription  string      // 35 uses
 	StackDescription  string      // 4 uses
-	SubAbility        string      // 26 uses
+	SubAbility        string      // 28 uses
 	Tapped            bool        // 1 uses
-	TargetMax         string      // 8 uses
-	TargetMin         string      // 8 uses
-	TgtPrompt         string      // 12 uses
+	TargetMax         string      // 9 uses
+	TargetMin         string      // 9 uses
+	TgtPrompt         string      // 13 uses
 	Ultimate          bool        // 1 uses
 	UnlessCost        expr.Amount // 2 uses
 	UnlessPayer       string      // 2 uses
-	ValidTgts         string      // 22 uses
-	WontPhaseInNormal bool        // 4 uses
+	ValidTgts         string      // 24 uses
+	ValidTgtsDesc     string      // 1 uses
+	WontPhaseInNormal bool        // 5 uses
 }
 
 func (p PhasesParams) apiName() string { return "Phases" }
@@ -10637,6 +10734,8 @@ func fillPhasesParams(ps []vocab.Param) PhasesParams {
 			out.UnlessPayer = p.Value
 		case "validtgts":
 			out.ValidTgts = p.Value
+		case "validtgtsdesc":
+			out.ValidTgtsDesc = p.Value
 		case "wontphaseinnormal":
 			out.WontPhaseInNormal = true
 		}
@@ -10703,77 +10802,77 @@ func fillPlaneswalkParams(ps []vocab.Param) PlaneswalkParams {
 
 // PlayParams are the parameters the Play API reads.
 type PlayParams struct {
-	AILogic               string      // 35 uses
-	ActivationZone        string      // 2 uses
-	AllowRepeats          bool        // 2 uses
-	Amount                expr.Amount // 142 uses
-	AnySupportedCard      string      // 5 uses
-	Boast                 bool        // 1 uses
-	CastFaceDown          bool        // 1 uses
-	ChoiceNum             expr.Amount // 2 uses
-	Condition             string      // 1 uses
-	ConditionCheckSVar    string      // 19 uses
-	ConditionCompare      string      // 19 uses
-	ConditionDefined      string      // 83 uses
-	ConditionPresent      valid.Spec  // 91 uses
-	ConditionSVarCompare  string      // 17 uses
-	ConditionZone         string      // 5 uses
-	ControlledByPlayer    string      // 1 uses
-	Controller            string      // 141 uses
-	CopyCard              bool        // 57 uses
-	CopyFromChosenName    bool        // 7 uses
-	Cost                  string      // 36 uses
-	CostDesc              string      // 1 uses
-	Defined               string      // 242 uses
-	DefinedDesc           string      // 6 uses
-	Destination           string      // 1 uses
-	ForgetPlayed          bool        // 21 uses
-	ForgetRemembered      bool        // 4 uses
-	IfDesc                string      // 2 uses
-	ImprintPlayed         bool        // 5 uses
-	IsPresent             string      // 1 uses
-	ManaConversion        string      // 5 uses
-	Mandatory             bool        // 1 uses
-	Optional              bool        // 422 uses
-	Planeswalker          bool        // 8 uses
-	PlayCost              string      // 70 uses
-	PlayRaiseCost         string      // 1 uses
-	PlayReduceCost        string      // 2 uses
-	PlayerTurn            bool        // 1 uses
-	PrecostDesc           string      // 1 uses
-	PresentCompare        string      // 1 uses
-	PresentZone           string      // 1 uses
-	RandomCopied          bool        // 5 uses
-	RandomNum             string      // 2 uses
-	RememberObjects       string      // 1 uses
-	RememberPlayed        bool        // 81 uses
-	ReplaceGraveyard      string      // 35 uses
-	ReplaceGraveyardValid valid.Spec  // 2 uses
-	ReplaceIlluMask       bool        // 1 uses
-	ShowCardToActivator   bool        // 2 uses
-	ShowCards             string      // 1 uses
-	SorcerySpeed          bool        // 6 uses
-	SpellDescription      string      // 63 uses
-	StackDescription      string      // 22 uses
-	SubAbility            string      // 295 uses
-	TargetMax             string      // 3 uses
-	TargetMin             string      // 3 uses
-	TargetsForEachPlayer  bool        // 1 uses
-	TgtPrompt             string      // 30 uses
-	TgtZone               string      // 33 uses
-	Ultimate              bool        // 4 uses
-	UnlessCost            expr.Amount // 1 uses
-	UnlessPayer           string      // 1 uses
-	UnlessSwitched        bool        // 1 uses
-	Valid                 string      // 156 uses
-	ValidAfterStack       string      // 2 uses
-	ValidSA               valid.Spec  // 376 uses
-	ValidTgts             string      // 34 uses
-	ValidTgtsDesc         string      // 2 uses
-	ValidZone             string      // 157 uses
-	WithTotalCMC          expr.Amount // 4 uses
-	WithoutManaCost       bool        // 332 uses
-	ZoneRegardless        bool        // 2 uses
+	AILogic                   string      // 35 uses
+	ActivationZone            string      // 4 uses
+	AllowRepeats              bool        // 3 uses
+	Amount                    expr.Amount // 148 uses
+	AnySupportedCard          string      // 5 uses
+	Boast                     bool        // 1 uses
+	CastFaceDown              bool        // 1 uses
+	ChoiceNum                 expr.Amount // 2 uses
+	Condition                 string      // 1 uses
+	ConditionCheckSVar        string      // 19 uses
+	ConditionCompare          string      // 20 uses
+	ConditionDefined          string      // 85 uses
+	ConditionPresent          valid.Spec  // 93 uses
+	ConditionSVarCompare      string      // 17 uses
+	ConditionZone             string      // 5 uses
+	ControlledByPlayer        string      // 1 uses
+	Controller                string      // 146 uses
+	CopyCard                  bool        // 74 uses
+	CopyFromChosenName        bool        // 8 uses
+	Cost                      string      // 39 uses
+	CostDesc                  string      // 1 uses
+	Defined                   string      // 392 uses
+	DefinedDesc               string      // 7 uses
+	DescriptionFromChosenName bool        // 1 uses
+	Destination               string      // 1 uses
+	ForgetPlayed              bool        // 22 uses
+	ForgetRemembered          bool        // 4 uses
+	IfDesc                    string      // 2 uses
+	ImprintPlayed             bool        // 5 uses
+	IsPresent                 string      // 1 uses
+	ManaConversion            string      // 6 uses
+	Mandatory                 bool        // 1 uses
+	Optional                  bool        // 565 uses
+	Planeswalker              bool        // 8 uses
+	PlayCost                  string      // 71 uses
+	PlayRaiseCost             string      // 1 uses
+	PlayReduceCost            string      // 2 uses
+	PlayerTurn                bool        // 2 uses
+	PrecostDesc               string      // 1 uses
+	PresentCompare            string      // 1 uses
+	PresentZone               string      // 1 uses
+	RandomCopied              bool        // 5 uses
+	RandomNum                 string      // 2 uses
+	RememberObjects           string      // 1 uses
+	RememberPlayed            bool        // 123 uses
+	ReplaceGraveyard          string      // 35 uses
+	ReplaceGraveyardValid     valid.Spec  // 2 uses
+	ReplaceIlluMask           bool        // 1 uses
+	ShowCardToActivator       bool        // 2 uses
+	ShowCards                 string      // 1 uses
+	SorcerySpeed              bool        // 6 uses
+	SpellDescription          string      // 66 uses
+	StackDescription          string      // 22 uses
+	SubAbility                string      // 364 uses
+	TargetMax                 string      // 3 uses
+	TargetMin                 string      // 3 uses
+	TargetsForEachPlayer      bool        // 1 uses
+	TgtPrompt                 string      // 30 uses
+	TgtZone                   string      // 33 uses
+	Ultimate                  bool        // 4 uses
+	UnlessCost                expr.Amount // 1 uses
+	UnlessPayer               string      // 1 uses
+	UnlessSwitched            bool        // 1 uses
+	Valid                     string      // 163 uses
+	ValidSA                   valid.Spec  // 407 uses
+	ValidTgts                 string      // 35 uses
+	ValidTgtsDesc             string      // 3 uses
+	ValidZone                 string      // 164 uses
+	WithTotalCMC              expr.Amount // 4 uses
+	WithoutManaCost           bool        // 487 uses
+	ZoneRegardless            bool        // 2 uses
 }
 
 func (p PlayParams) apiName() string { return "Play" }
@@ -10828,6 +10927,8 @@ func fillPlayParams(ps []vocab.Param) PlayParams {
 			out.Defined = p.Value
 		case "defineddesc":
 			out.DefinedDesc = p.Value
+		case "descriptionfromchosenname":
+			out.DescriptionFromChosenName = true
 		case "destination":
 			out.Destination = p.Value
 		case "forgetplayed":
@@ -10908,8 +11009,6 @@ func fillPlayParams(ps []vocab.Param) PlayParams {
 			out.UnlessSwitched = true
 		case "valid":
 			out.Valid = p.Value
-		case "validafterstack":
-			out.ValidAfterStack = p.Value
 		case "validsa":
 			out.ValidSA = valid.Parse(p.Value)
 		case "validtgts":
@@ -11114,11 +11213,11 @@ type ProliferateParams struct {
 	ConditionDefined     string      // 3 uses
 	ConditionPresent     valid.Spec  // 3 uses
 	ConditionSVarCompare string      // 1 uses
-	Cost                 string      // 22 uses
+	Cost                 string      // 23 uses
 	Description          string      // 1 uses
 	Execute              string      // 7 uses
 	IsPresent            string      // 3 uses
-	Planeswalker         bool        // 1 uses
+	Planeswalker         bool        // 2 uses
 	PlayerTurn           bool        // 1 uses
 	PresentPlayer        string      // 1 uses
 	PresentZone          string      // 3 uses
@@ -11126,9 +11225,9 @@ type ProliferateParams struct {
 	ReplaceWith          string      // 1 uses
 	Secondary            bool        // 1 uses
 	SorcerySpeed         bool        // 2 uses
-	SpellDescription     string      // 40 uses
+	SpellDescription     string      // 41 uses
 	StackDescription     string      // 1 uses
-	SubAbility           string      // 9 uses
+	SubAbility           string      // 10 uses
 	TriggerDescription   string      // 7 uses
 	TriggerZones         string      // 7 uses
 	ValidPlayer          string      // 8 uses
@@ -11277,16 +11376,16 @@ func fillProtectionParams(ps []vocab.Param) ProtectionParams {
 // ProtectionAllParams are the parameters the ProtectionAll API reads.
 type ProtectionAllParams struct {
 	ActivationZone       string     // 1 uses
-	Choices              valid.Spec // 4 uses
+	Choices              valid.Spec // 5 uses
 	Condition            string     // 1 uses
 	ConditionCheckSVar   string     // 1 uses
 	ConditionSVarCompare string     // 1 uses
 	Cost                 string     // 2 uses
-	Gains                string     // 10 uses
+	Gains                string     // 11 uses
 	SpellDescription     string     // 2 uses
 	StackDescription     string     // 1 uses
 	TgtPrompt            string     // 1 uses
-	ValidCards           valid.Spec // 9 uses
+	ValidCards           valid.Spec // 10 uses
 	ValidPlayers         string     // 2 uses
 	ValidTgts            string     // 1 uses
 }
@@ -11330,14 +11429,14 @@ func fillProtectionAllParams(ps []vocab.Param) ProtectionAllParams {
 
 // PumpParams are the parameters the Pump API reads.
 type PumpParams struct {
-	AILogic                      string      // 271 uses
+	AILogic                      string      // 273 uses
 	AIManaPref                   string      // 1 uses
 	AITgts                       valid.Spec  // 8 uses
 	Activation                   string      // 7 uses
 	ActivationFirstCombat        bool        // 9 uses
-	ActivationLimit              int         // 68 uses
+	ActivationLimit              int         // 69 uses
 	ActivationPhases             string      // 20 uses
-	ActivationZone               string      // 40 uses
+	ActivationZone               string      // 41 uses
 	Activator                    string      // 11 uses
 	AlternateCost                string      // 1 uses
 	Announce                     string      // 1 uses
@@ -11353,35 +11452,35 @@ type PumpParams struct {
 	ConditionActivationLimit     int         // 4 uses
 	ConditionCheckSVar           string      // 30 uses
 	ConditionCompare             string      // 34 uses
-	ConditionDefined             string      // 74 uses
+	ConditionDefined             string      // 113 uses
 	ConditionDescription         string      // 10 uses
 	ConditionManaSpent           string      // 2 uses
 	ConditionPhases              string      // 3 uses
 	ConditionPlayerContains      string      // 1 uses
 	ConditionPlayerDefined       string      // 1 uses
 	ConditionPlayerTurn          bool        // 6 uses
-	ConditionPresent             valid.Spec  // 106 uses
+	ConditionPresent             valid.Spec  // 145 uses
 	ConditionPresent2            string      // 1 uses
 	ConditionSVarCompare         string      // 17 uses
 	ConditionZone                string      // 5 uses
-	Cost                         string      // 1629 uses
+	Cost                         string      // 1633 uses
 	CostDesc                     string      // 14 uses
 	CounterNum                   expr.Amount // 1 uses
-	Defined                      string      // 2334 uses
+	Defined                      string      // 2418 uses
 	DefinedKW                    string      // 14 uses
 	DefinedLandwalk              string      // 1 uses
 	Description                  string      // 1 uses
-	Duration                     string      // 342 uses
+	Duration                     string      // 385 uses
 	Exhaust                      bool        // 1 uses
 	Forecast                     bool        // 2 uses
 	ForgetImprinted              string      // 20 uses
-	ForgetObjects                string      // 24 uses
+	ForgetObjects                string      // 20 uses
 	GameActivationLimit          int         // 3 uses
 	IfDesc                       bool        // 3 uses
 	ImprintCards                 string      // 24 uses
-	IsCurse                      bool        // 613 uses
+	IsCurse                      bool        // 616 uses
 	IsPresent                    string      // 11 uses
-	KW                           string      // 2134 uses
+	KW                           string      // 2191 uses
 	KWChoice                     string      // 32 uses
 	LeaveBattlefield             string      // 2 uses
 	Mandatory                    bool        // 1 uses
@@ -11390,57 +11489,57 @@ type PumpParams struct {
 	NoteCards                    string      // 28 uses
 	NoteCardsFor                 string      // 28 uses
 	NoteNumber                   expr.Amount // 1 uses
-	NumAtt                       expr.Amount // 2950 uses
-	NumDef                       expr.Amount // 2071 uses
+	NumAtt                       expr.Amount // 3015 uses
+	NumDef                       expr.Amount // 2116 uses
 	OptionQuestion               string      // 3 uses
 	Optional                     bool        // 4 uses
 	Origin                       string      // 2 uses
 	Pawprint                     expr.Amount // 1 uses
 	Planeswalker                 bool        // 53 uses
 	PlayerTurn                   bool        // 8 uses
-	PrecostDesc                  string      // 55 uses
+	PrecostDesc                  string      // 57 uses
 	PresentCompare               string      // 1 uses
 	PresentZone                  string      // 1 uses
-	PumpZone                     string      // 124 uses
+	PumpZone                     string      // 166 uses
 	Radiance                     bool        // 4 uses
 	RandomKWNum                  string      // 1 uses
 	RandomKeyword                bool        // 3 uses
-	ReduceCost                   string      // 4 uses
-	RememberObjects              string      // 66 uses
+	ReduceCost                   string      // 5 uses
+	RememberObjects              string      // 90 uses
 	RememberPumped               bool        // 4 uses
-	RememberTargets              bool        // 13 uses
+	RememberTargets              bool        // 12 uses
 	ReplaceDyingDefined          string      // 4 uses
 	SVarCompare                  string      // 3 uses
 	Secondary                    bool        // 4 uses
 	SharedKeywordsZone           string      // 3 uses
 	SharedRestrictions           string      // 3 uses
 	ShowCurrentCard              string      // 2 uses
-	SorcerySpeed                 bool        // 60 uses
-	SpellDescription             string      // 2930 uses
-	StackDescription             string      // 419 uses
-	SubAbility                   string      // 1320 uses
-	TargetMax                    string      // 247 uses
-	TargetMin                    string      // 248 uses
-	TargetType                   valid.Spec  // 8 uses
+	SorcerySpeed                 bool        // 61 uses
+	SpellDescription             string      // 2943 uses
+	StackDescription             string      // 420 uses
+	SubAbility                   string      // 1389 uses
+	TargetMax                    string      // 251 uses
+	TargetMin                    string      // 252 uses
+	TargetType                   valid.Spec  // 9 uses
 	TargetUnique                 bool        // 35 uses
 	TargetingPlayer              string      // 7 uses
 	TargetsAtRandom              bool        // 1 uses
 	TargetsForEachPlayer         bool        // 4 uses
 	TargetsWithDefinedController string      // 4 uses
 	TargetsWithSameController    bool        // 6 uses
-	TgtPrompt                    string      // 1115 uses
+	TgtPrompt                    string      // 1114 uses
 	TgtZone                      string      // 67 uses
 	ThisDefinedAndTgts           string      // 2 uses
 	Ultimate                     bool        // 3 uses
 	UnlessAI                     string      // 1 uses
-	UnlessCost                   expr.Amount // 15 uses
-	UnlessPayer                  string      // 15 uses
+	UnlessCost                   expr.Amount // 16 uses
+	UnlessPayer                  string      // 16 uses
 	UnlessResolveSubs            string      // 4 uses
-	UnlessSwitched               bool        // 9 uses
+	UnlessSwitched               bool        // 10 uses
 	ValidAfterStack              string      // 2 uses
 	ValidCard                    valid.Spec  // 2 uses
-	ValidTgts                    string      // 2585 uses
-	ValidTgtsDesc                string      // 88 uses
+	ValidTgts                    string      // 2604 uses
+	ValidTgtsDesc                string      // 100 uses
 	StaticAbilities              string      // 1 uses
 }
 
@@ -11689,7 +11788,7 @@ type PumpAllParams struct {
 	Boast                bool        // 1 uses
 	CheckSVar            expr.Amount // 3 uses
 	Condition            string      // 4 uses
-	ConditionCheckSVar   string      // 12 uses
+	ConditionCheckSVar   string      // 13 uses
 	ConditionCompare     string      // 14 uses
 	ConditionDefined     string      // 6 uses
 	ConditionDescription string      // 7 uses
@@ -11697,19 +11796,19 @@ type PumpAllParams struct {
 	ConditionPhases      string      // 1 uses
 	ConditionPlayerTurn  bool        // 1 uses
 	ConditionPresent     valid.Spec  // 18 uses
-	ConditionSVarCompare string      // 9 uses
+	ConditionSVarCompare string      // 10 uses
 	ConditionZone        string      // 3 uses
-	Cost                 string      // 218 uses
+	Cost                 string      // 220 uses
 	CostDesc             string      // 1 uses
 	Defined              string      // 3 uses
 	Duration             string      // 55 uses
 	Exhaust              bool        // 4 uses
 	GameActivationLimit  int         // 1 uses
-	IsCurse              bool        // 114 uses
-	KW                   string      // 483 uses
+	IsCurse              bool        // 115 uses
+	KW                   string      // 491 uses
 	ModeCost             string      // 3 uses
-	NumAtt               expr.Amount // 731 uses
-	NumDef               expr.Amount // 518 uses
+	NumAtt               expr.Amount // 747 uses
+	NumDef               expr.Amount // 525 uses
 	Planeswalker         bool        // 26 uses
 	PlayerTurn           bool        // 2 uses
 	PrecostDesc          string      // 4 uses
@@ -11722,15 +11821,15 @@ type PumpAllParams struct {
 	SharedRestrictions   string      // 4 uses
 	ShowCurrentCard      string      // 1 uses
 	SorcerySpeed         bool        // 3 uses
-	SpellDescription     string      // 583 uses
+	SpellDescription     string      // 594 uses
 	StackDescription     string      // 16 uses
-	SubAbility           string      // 178 uses
+	SubAbility           string      // 179 uses
 	TgtPrompt            string      // 2 uses
 	Ultimate             bool        // 13 uses
 	UnlessCost           expr.Amount // 3 uses
 	UnlessPayer          string      // 3 uses
 	UnlessSwitched       bool        // 1 uses
-	ValidCards           valid.Spec  // 1092 uses
+	ValidCards           valid.Spec  // 1114 uses
 	ValidTgts            string      // 18 uses
 }
 
@@ -11856,7 +11955,7 @@ type PutCounterParams struct {
 	Activation                   string      // 3 uses
 	ActivationLimit              int         // 3 uses
 	ActivationPhases             string      // 13 uses
-	ActivationZone               string      // 24 uses
+	ActivationZone               string      // 25 uses
 	Activator                    string      // 4 uses
 	Adapt                        string      // 25 uses
 	AltChoiceForEach             string      // 1 uses
@@ -11872,7 +11971,7 @@ type PutCounterParams struct {
 	ChooseDifferent              int         // 1 uses
 	Chooser                      string      // 6 uses
 	Condition                    string      // 3 uses
-	ConditionCheckSVar           string      // 33 uses
+	ConditionCheckSVar           string      // 35 uses
 	ConditionCompare             string      // 39 uses
 	ConditionDefined             string      // 83 uses
 	ConditionDescription         string      // 2 uses
@@ -11883,29 +11982,29 @@ type PutCounterParams struct {
 	ConditionPlayerTurn          bool        // 2 uses
 	ConditionPresent             valid.Spec  // 117 uses
 	ConditionPresent2            string      // 23 uses
-	ConditionSVarCompare         string      // 22 uses
+	ConditionSVarCompare         string      // 23 uses
 	ConditionZone                string      // 3 uses
-	Cost                         string      // 612 uses
+	Cost                         string      // 686 uses
 	CostDesc                     string      // 8 uses
 	CounterMapValues             string      // 1 uses
-	CounterNum                   expr.Amount // 3767 uses
+	CounterNum                   expr.Amount // 4008 uses
 	CounterNumPerDefined         expr.Amount // 3 uses
-	CounterType                  string      // 4010 uses
+	CounterType                  string      // 4253 uses
 	CounterTypePerDefined        bool        // 3 uses
 	CounterTypes                 string      // 19 uses
-	Defined                      string      // 2533 uses
+	Defined                      string      // 2734 uses
 	Description                  string      // 1 uses
-	DividedAsYouChoose           expr.Amount // 54 uses
+	DividedAsYouChoose           expr.Amount // 55 uses
 	DividedRandomly              bool        // 2 uses
 	DividedUpTo                  bool        // 1 uses
-	ETB                          bool        // 706 uses
+	ETB                          bool        // 817 uses
 	EachExistingCounter          bool        // 4 uses
 	EachFromSource               string      // 24 uses
 	Exhaust                      bool        // 17 uses
 	ForColor                     bool        // 1 uses
 	GameActivationLimit          int         // 3 uses
 	IfDesc                       bool        // 1 uses
-	IsCurse                      bool        // 85 uses
+	IsCurse                      bool        // 86 uses
 	IsPresent                    string      // 3 uses
 	Mandatory                    bool        // 1 uses
 	MaxFromEffect                int         // 4 uses
@@ -11919,7 +12018,7 @@ type PutCounterParams struct {
 	Planeswalker                 bool        // 31 uses
 	PlayerTurn                   bool        // 12 uses
 	PowerUp                      bool        // 30 uses
-	PrecostDesc                  string      // 23 uses
+	PrecostDesc                  string      // 24 uses
 	PresentDefined               string      // 1 uses
 	PutOnDefined                 string      // 1 uses
 	PutOnEachOther               valid.Spec  // 1 uses
@@ -11938,21 +12037,21 @@ type PutCounterParams struct {
 	SharedKeywordsDefined        string      // 1 uses
 	SharedKeywordsZone           string      // 1 uses
 	SharedRestrictions           string      // 1 uses
-	SorcerySpeed                 bool        // 78 uses
+	SorcerySpeed                 bool        // 150 uses
 	SpecifyCounter               bool        // 1 uses
-	SpellDescription             string      // 925 uses
+	SpellDescription             string      // 935 uses
 	SplitAmount                  bool        // 1 uses
 	StackDescription             string      // 68 uses
-	SubAbility                   string      // 975 uses
+	SubAbility                   string      // 992 uses
 	Support                      string      // 19 uses
-	TargetMax                    string      // 213 uses
-	TargetMin                    string      // 213 uses
+	TargetMax                    string      // 221 uses
+	TargetMin                    string      // 221 uses
 	TargetUnique                 bool        // 10 uses
 	TargetingPlayer              string      // 4 uses
 	TargetsAtRandom              bool        // 1 uses
-	TargetsForEachPlayer         bool        // 5 uses
+	TargetsForEachPlayer         bool        // 7 uses
 	TargetsWithDefinedController string      // 3 uses
-	TgtPrompt                    string      // 586 uses
+	TgtPrompt                    string      // 588 uses
 	TgtZone                      string      // 9 uses
 	TriggeredCounterMap          bool        // 3 uses
 	TypeList                     string      // 1 uses
@@ -11964,8 +12063,8 @@ type PutCounterParams struct {
 	UnlessSwitched               bool        // 9 uses
 	UpTo                         bool        // 8 uses
 	ValidCards                   valid.Spec  // 1 uses
-	ValidTgts                    string      // 1039 uses
-	ValidTgtsDesc                string      // 55 uses
+	ValidTgts                    string      // 1066 uses
+	ValidTgtsDesc                string      // 65 uses
 }
 
 func (p PutCounterParams) apiName() string { return "PutCounter" }
@@ -12220,17 +12319,17 @@ type PutCounterAllParams struct {
 	ActivationZone       string      // 2 uses
 	AmountByChosenMap    string      // 1 uses
 	Condition            string      // 2 uses
-	ConditionCheckSVar   string      // 3 uses
+	ConditionCheckSVar   string      // 4 uses
 	ConditionCompare     string      // 4 uses
 	ConditionDefined     string      // 6 uses
 	ConditionPhases      string      // 1 uses
 	ConditionPlayerTurn  bool        // 1 uses
 	ConditionPresent     valid.Spec  // 7 uses
-	ConditionSVarCompare string      // 3 uses
-	Cost                 string      // 58 uses
-	CounterNum           expr.Amount // 311 uses
+	ConditionSVarCompare string      // 4 uses
+	Cost                 string      // 59 uses
+	CounterNum           expr.Amount // 317 uses
 	CounterNum2          string      // 6 uses
-	CounterType          string      // 321 uses
+	CounterType          string      // 327 uses
 	CounterType2         string      // 13 uses
 	IsCurse              bool        // 9 uses
 	ModeCost             string      // 1 uses
@@ -12239,15 +12338,16 @@ type PutCounterAllParams struct {
 	PlayerTurn           bool        // 1 uses
 	PowerUp              bool        // 1 uses
 	PrecostDesc          string      // 2 uses
+	RememberAmount       bool        // 1 uses
 	RememberPut          bool        // 1 uses
 	SorcerySpeed         bool        // 3 uses
-	SpellDescription     string      // 108 uses
+	SpellDescription     string      // 110 uses
 	StackDescription     string      // 10 uses
-	SubAbility           string      // 62 uses
+	SubAbility           string      // 64 uses
 	TargetUnique         bool        // 2 uses
 	TgtPrompt            string      // 2 uses
 	Ultimate             bool        // 3 uses
-	ValidCards           valid.Spec  // 321 uses
+	ValidCards           valid.Spec  // 327 uses
 	ValidCards2          string      // 7 uses
 	ValidCardsDesc       string      // 10 uses
 	ValidTgts            string      // 9 uses
@@ -12308,6 +12408,8 @@ func fillPutCounterAllParams(ps []vocab.Param) PutCounterAllParams {
 			out.PowerUp = true
 		case "precostdesc":
 			out.PrecostDesc = p.Value
+		case "rememberamount":
+			out.RememberAmount = true
 		case "rememberput":
 			out.RememberPut = true
 		case "sorceryspeed":
@@ -12341,17 +12443,17 @@ func fillPutCounterAllParams(ps []vocab.Param) PutCounterAllParams {
 
 // PutStickerParams are the parameters the PutSticker API reads.
 type PutStickerParams struct {
-	ChoiceTitle      string      // 24 uses
+	ChoiceTitle      string      // 25 uses
 	ChoiceZone       string      // 1 uses
-	Choices          valid.Spec  // 24 uses
+	Choices          valid.Spec  // 25 uses
 	Cost             string      // 2 uses
 	Defined          string      // 13 uses
 	Kind             string      // 19 uses
 	MaxTickets       expr.Amount // 1 uses
 	NoTicketCost     bool        // 1 uses
-	Optional         bool        // 30 uses
+	Optional         bool        // 31 uses
 	SorcerySpeed     bool        // 1 uses
-	SpellDescription string      // 4 uses
+	SpellDescription string      // 5 uses
 	SubAbility       string      // 10 uses
 }
 
@@ -12602,10 +12704,10 @@ type RemoveCounterParams struct {
 	ConditionSVarCompare string      // 2 uses
 	Cost                 string      // 20 uses
 	CostDesc             string      // 2 uses
-	CounterNum           expr.Amount // 210 uses
+	CounterNum           expr.Amount // 329 uses
 	CounterNumShared     bool        // 1 uses
-	CounterType          string      // 219 uses
-	Defined              string      // 124 uses
+	CounterType          string      // 338 uses
+	Defined              string      // 243 uses
 	Description          string      // 2 uses
 	IsDamage             bool        // 1 uses
 	IsPresent            string      // 2 uses
@@ -12615,13 +12717,13 @@ type RemoveCounterParams struct {
 	PlayerTurn           bool        // 1 uses
 	PresentZone          string      // 1 uses
 	RememberAmount       bool        // 14 uses
-	RememberRemoved      bool        // 30 uses
+	RememberRemoved      bool        // 48 uses
 	ReplaceWith          string      // 1 uses
 	Result               string      // 1 uses
 	SorcerySpeed         bool        // 1 uses
 	SpellDescription     string      // 48 uses
 	StackDescription     string      // 6 uses
-	SubAbility           string      // 87 uses
+	SubAbility           string      // 106 uses
 	TargetMax            string      // 3 uses
 	TargetMin            string      // 3 uses
 	TgtPrompt            string      // 15 uses
@@ -12938,10 +13040,10 @@ type RepeatParams struct {
 	AILogic               string      // 9 uses
 	ConditionCheckSVar    string      // 5 uses
 	ConditionSVarCompare  string      // 3 uses
-	Cost                  string      // 6 uses
+	Cost                  string      // 7 uses
 	IsCurse               bool        // 2 uses
 	Mandatory             bool        // 1 uses
-	MaxRepeat             expr.Amount // 24 uses
+	MaxRepeat             expr.Amount // 25 uses
 	Planeswalker          bool        // 2 uses
 	RepeatCheckSVar       expr.Amount // 30 uses
 	RepeatCompare         string      // 5 uses
@@ -12950,9 +13052,9 @@ type RepeatParams struct {
 	RepeatOptionalDecider string      // 1 uses
 	RepeatPresent         string      // 12 uses
 	RepeatSVarCompare     string      // 33 uses
-	RepeatSubAbility      string      // 63 uses
-	SpellDescription      string      // 31 uses
-	StackDescription      string      // 40 uses
+	RepeatSubAbility      string      // 64 uses
+	SpellDescription      string      // 32 uses
+	StackDescription      string      // 41 uses
 	SubAbility            string      // 32 uses
 	Ultimate              bool        // 1 uses
 	ValidTgts             string      // 10 uses
@@ -13032,7 +13134,7 @@ type RepeatEachParams struct {
 	ConditionZone               string      // 1 uses
 	Cost                        string      // 20 uses
 	DamageMap                   bool        // 22 uses
-	DefinedCards                string      // 36 uses
+	DefinedCards                string      // 64 uses
 	IsCurse                     bool        // 1 uses
 	LoseLifeMap                 bool        // 1 uses
 	NextTurnForEachPlayer       bool        // 2 uses
@@ -13045,20 +13147,20 @@ type RepeatEachParams struct {
 	RepeatOptionalMessage       string      // 8 uses
 	RepeatPlayers               string      // 273 uses
 	RepeatSpellAbilities        string      // 1 uses
-	RepeatSubAbility            string      // 374 uses
+	RepeatSubAbility            string      // 402 uses
 	RepeatTargeted              string      // 4 uses
 	RepeatTypesFrom             string      // 5 uses
 	SVarCompare                 string      // 1 uses
-	SpellDescription            string      // 126 uses
+	SpellDescription            string      // 127 uses
 	StackDescription            string      // 34 uses
 	StartingWith                string      // 19 uses
-	SubAbility                  string      // 216 uses
+	SubAbility                  string      // 219 uses
 	TargetMax                   string      // 7 uses
 	TargetMin                   string      // 7 uses
 	TgtPrompt                   string      // 6 uses
 	TgtZone                     string      // 1 uses
 	Ultimate                    bool        // 1 uses
-	UseImprinted                bool        // 43 uses
+	UseImprinted                bool        // 71 uses
 	ValidTgts                   string      // 10 uses
 	XMax                        expr.Amount // 1 uses
 	Zone                        string      // 27 uses
@@ -13175,11 +13277,11 @@ func fillRepeatEachParams(ps []vocab.Param) RepeatEachParams {
 
 // ReplaceCounterParams are the parameters the ReplaceCounter API reads.
 type ReplaceCounterParams struct {
-	Amount           expr.Amount // 36 uses
-	ChooseCounter    bool        // 24 uses
+	Amount           expr.Amount // 39 uses
+	ChooseCounter    bool        // 25 uses
 	SubAbility       string      // 1 uses
-	ValidCounterType string      // 23 uses
-	ValidSource      string      // 3 uses
+	ValidCounterType string      // 25 uses
+	ValidSource      string      // 4 uses
 }
 
 func (p ReplaceCounterParams) apiName() string { return "ReplaceCounter" }
@@ -13234,9 +13336,9 @@ type ReplaceEffectParams struct {
 	ConditionPresent valid.Spec  // 1 uses
 	SubAbility       string      // 23 uses
 	VarKey           string      // 1 uses
-	VarName          expr.Amount // 166 uses
+	VarName          expr.Amount // 167 uses
 	VarType          string      // 45 uses
-	VarValue         string      // 166 uses
+	VarValue         string      // 167 uses
 }
 
 func (p ReplaceEffectParams) apiName() string { return "ReplaceEffect" }
@@ -13325,8 +13427,8 @@ type ReplaceTokenParams struct {
 	Amount           expr.Amount // 12 uses
 	NewController    string      // 1 uses
 	SpellDescription string      // 2 uses
-	TokenScript      string      // 24 uses
-	Type             string      // 38 uses
+	TokenScript      string      // 25 uses
+	Type             string      // 39 uses
 	ValidChoices     valid.Spec  // 3 uses
 }
 
@@ -13402,16 +13504,16 @@ type RevealParams struct {
 	PlayerTurn         bool        // 1 uses
 	Random             bool        // 22 uses
 	RememberRevealed   bool        // 60 uses
-	RevealAllValid     valid.Spec  // 9 uses
+	RevealAllValid     valid.Spec  // 11 uses
 	RevealDefined      string      // 10 uses
 	RevealTitle        string      // 1 uses
 	RevealToAll        bool        // 1 uses
 	RevealValid        valid.Spec  // 27 uses
 	SorcerySpeed       bool        // 3 uses
-	SpellDescription   string      // 38 uses
+	SpellDescription   string      // 39 uses
 	StackDescription   string      // 9 uses
-	SubAbility         string      // 68 uses
-	ValidTgts          string      // 25 uses
+	SubAbility         string      // 70 uses
+	ValidTgts          string      // 27 uses
 }
 
 func (p RevealParams) apiName() string { return "Reveal" }
@@ -13471,24 +13573,24 @@ func fillRevealParams(ps []vocab.Param) RevealParams {
 type RevealHandParams struct {
 	AIPhyrexianPayment     int         // 1 uses
 	Cost                   string      // 2 uses
-	Defined                string      // 34 uses
+	Defined                string      // 33 uses
 	ImprintRevealed        bool        // 2 uses
 	IsCurse                bool        // 3 uses
-	Look                   bool        // 29 uses
+	Look                   bool        // 25 uses
 	Optional               bool        // 2 uses
 	PlayerTurn             bool        // 1 uses
-	RememberRevealed       bool        // 26 uses
+	RememberRevealed       bool        // 22 uses
 	RememberRevealedPlayer bool        // 3 uses
 	RememberTargets        bool        // 3 uses
 	RevealType             string      // 1 uses
 	SpellDescription       string      // 41 uses
-	StackDescription       string      // 14 uses
-	SubAbility             string      // 70 uses
+	StackDescription       string      // 13 uses
+	SubAbility             string      // 66 uses
 	TgtPrompt              string      // 2 uses
 	UnlessCost             expr.Amount // 1 uses
 	UnlessPayer            string      // 1 uses
 	UnlessSwitched         bool        // 1 uses
-	ValidTgts              string      // 59 uses
+	ValidTgts              string      // 55 uses
 }
 
 func (p RevealHandParams) apiName() string { return "RevealHand" }
@@ -13648,13 +13750,13 @@ type RollDiceParams struct {
 	RememberHighestPlayer     bool        // 1 uses
 	ReplaceWith               string      // 5 uses
 	RerollResults             bool        // 1 uses
-	ResultSVar                string      // 58 uses
+	ResultSVar                string      // 59 uses
 	ResultSubAbilities        string      // 65 uses
-	Sides                     string      // 79 uses
-	SpellDescription          string      // 74 uses
+	Sides                     string      // 80 uses
+	SpellDescription          string      // 75 uses
 	StackDescription          string      // 15 uses
 	StoreResults              bool        // 1 uses
-	SubAbility                string      // 66 uses
+	SubAbility                string      // 67 uses
 	SubsForEach               bool        // 1 uses
 	ToVisitYourAttractions    bool        // 3 uses
 	UseDifferenceBetweenRolls bool        // 4 uses
@@ -13807,42 +13909,42 @@ func fillRunChaosParams(ps []vocab.Param) RunChaosParams {
 type SacrificeParams struct {
 	AILogic                     string      // 10 uses
 	ActivationZone              string      // 1 uses
-	Amount                      expr.Amount // 186 uses
+	Amount                      expr.Amount // 192 uses
 	Boast                       bool        // 1 uses
 	ChangeNum                   expr.Amount // 5 uses
-	ConditionCheckSVar          string      // 32 uses
-	ConditionCompare            string      // 15 uses
-	ConditionDefined            string      // 20 uses
+	ConditionCheckSVar          string      // 50 uses
+	ConditionCompare            string      // 27 uses
+	ConditionDefined            string      // 33 uses
 	ConditionDescription        string      // 1 uses
 	ConditionManaNotSpent       string      // 1 uses
 	ConditionNotPresent         string      // 3 uses
-	ConditionPresent            valid.Spec  // 39 uses
-	ConditionSVarCompare        string      // 30 uses
+	ConditionPresent            valid.Spec  // 52 uses
+	ConditionSVarCompare        string      // 48 uses
 	ConditionZone               string      // 1 uses
-	Cost                        string      // 30 uses
-	CumulativeUpkeep            string      // 80 uses
-	Defined                     string      // 411 uses
+	Cost                        string      // 31 uses
+	CumulativeUpkeep            string      // 85 uses
+	Defined                     string      // 423 uses
 	Destroy                     bool        // 4 uses
 	Echo                        string      // 52 uses
 	Mandatory                   bool        // 1 uses
 	ModeCost                    string      // 1 uses
-	Optional                    bool        // 109 uses
+	Optional                    bool        // 113 uses
 	OrOtherConditionSVarCompare string      // 1 uses
 	OrString                    string      // 2 uses
 	Pawprint                    expr.Amount // 1 uses
 	Planeswalker                bool        // 11 uses
 	PresentCompare              string      // 1 uses
 	Random                      bool        // 1 uses
-	RememberSacrificed          bool        // 187 uses
+	RememberSacrificed          bool        // 189 uses
 	SacEachValid                bool        // 4 uses
-	SacMessage                  string      // 63 uses
-	SacValid                    string      // 775 uses
+	SacMessage                  string      // 64 uses
+	SacValid                    string      // 836 uses
 	ShowSacrificedCards         bool        // 1 uses
-	SorcerySpeed                bool        // 1 uses
-	SpellDescription            string      // 217 uses
-	StackDescription            string      // 27 uses
-	StrictAmount                bool        // 3 uses
-	SubAbility                  string      // 323 uses
+	SorcerySpeed                bool        // 2 uses
+	SpellDescription            string      // 222 uses
+	StackDescription            string      // 28 uses
+	StrictAmount                bool        // 4 uses
+	SubAbility                  string      // 342 uses
 	TargetUnique                bool        // 3 uses
 	TgtPrompt                   string      // 3 uses
 	UnlessColor                 string      // 1 uses
@@ -13976,7 +14078,7 @@ type SacrificeAllParams struct {
 	RememberSacrificed   bool        // 13 uses
 	SorcerySpeed         bool        // 1 uses
 	SpellDescription     string      // 16 uses
-	StackDescription     string      // 19 uses
+	StackDescription     string      // 18 uses
 	SubAbility           string      // 90 uses
 	TgtPrompt            string      // 2 uses
 	UnlessCost           expr.Amount // 6 uses
@@ -14057,7 +14159,7 @@ type ScryParams struct {
 	ConditionPresent            valid.Spec  // 15 uses
 	ConditionSVarCompare        string      // 4 uses
 	ConditionZone               string      // 1 uses
-	Cost                        string      // 61 uses
+	Cost                        string      // 60 uses
 	Defined                     string      // 8 uses
 	Description                 string      // 2 uses
 	Execute                     string      // 24 uses
@@ -14074,10 +14176,10 @@ type ScryParams struct {
 	ReplaceWith                 string      // 2 uses
 	ResolvedLimit               int         // 1 uses
 	SVarCompare                 string      // 1 uses
-	ScryNum                     expr.Amount // 440 uses
+	ScryNum                     expr.Amount // 445 uses
 	Secondary                   bool        // 1 uses
 	SorcerySpeed                bool        // 1 uses
-	SpellDescription            string      // 140 uses
+	SpellDescription            string      // 141 uses
 	StackDescription            string      // 8 uses
 	SubAbility                  string      // 101 uses
 	ToBottom                    bool        // 1 uses
@@ -14206,23 +14308,23 @@ type SeekParams struct {
 	ConditionPresent            valid.Spec  // 5 uses
 	ConditionSVarCompare        string      // 1 uses
 	ConditionZone               string      // 1 uses
-	Cost                        string      // 18 uses
+	Cost                        string      // 19 uses
 	Defined                     string      // 8 uses
 	DefinedCards                string      // 2 uses
 	Exhaust                     bool        // 3 uses
 	GameActivationLimit         int         // 5 uses
 	ImprintFound                bool        // 5 uses
-	Num                         expr.Amount // 29 uses
+	Num                         expr.Amount // 30 uses
 	OrOtherConditionSVarCompare string      // 1 uses
-	Planeswalker                bool        // 1 uses
+	Planeswalker                bool        // 2 uses
 	PrecostDesc                 string      // 1 uses
 	ReduceCost                  string      // 1 uses
-	RememberFound               bool        // 36 uses
+	RememberFound               bool        // 37 uses
 	SorcerySpeed                bool        // 1 uses
-	SpellDescription            string      // 48 uses
+	SpellDescription            string      // 49 uses
 	StackDescription            string      // 15 uses
-	SubAbility                  string      // 58 uses
-	Type                        string      // 121 uses
+	SubAbility                  string      // 59 uses
+	Type                        string      // 123 uses
 	Types                       string      // 3 uses
 }
 
@@ -14356,14 +14458,14 @@ type SetLifeParams struct {
 	ConditionPresent valid.Spec  // 1 uses
 	Cost             string      // 4 uses
 	Defined          string      // 36 uses
-	LifeAmount       expr.Amount // 44 uses
+	LifeAmount       expr.Amount // 45 uses
 	Planeswalker     bool        // 2 uses
 	PlayerChoices    string      // 3 uses
 	Redistribute     bool        // 3 uses
 	SorcerySpeed     bool        // 1 uses
-	SpellDescription string      // 15 uses
+	SpellDescription string      // 16 uses
 	StackDescription string      // 3 uses
-	SubAbility       string      // 12 uses
+	SubAbility       string      // 13 uses
 	TargetMax        string      // 1 uses
 	TargetMin        string      // 1 uses
 	Ultimate         bool        // 1 uses
@@ -14423,48 +14525,51 @@ func fillSetLifeParams(ps []vocab.Param) SetLifeParams {
 
 // SetStateParams are the parameters the SetState API reads.
 type SetStateParams struct {
-	AILogic              string      // 34 uses
-	Activation           string      // 1 uses
-	ActivationLimit      int         // 1 uses
-	Amount               expr.Amount // 1 uses
-	CheckSVar            expr.Amount // 5 uses
-	ChoiceTitle          string      // 5 uses
-	Choices              valid.Spec  // 5 uses
-	ConditionCheckSVar   string      // 20 uses
-	ConditionCompare     string      // 15 uses
-	ConditionDefined     string      // 12 uses
-	ConditionPresent     valid.Spec  // 25 uses
-	ConditionSVarCompare string      // 17 uses
-	ConditionZone        string      // 4 uses
-	Cost                 string      // 99 uses
-	Defined              string      // 292 uses
-	FaceDownPower        expr.Amount // 3 uses
-	FaceDownSetType      string      // 3 uses
-	FaceDownToughness    expr.Amount // 3 uses
-	IsPresent            string      // 4 uses
-	Mandatory            bool        // 1 uses
-	MinAmount            int         // 1 uses
-	NewState             string      // 1 uses
-	Optional             bool        // 7 uses
-	PrecostDesc          string      // 2 uses
-	PresentCompare       string      // 2 uses
-	PresentDefined       string      // 1 uses
-	ReduceCost           string      // 1 uses
-	RememberChanged      bool        // 14 uses
-	RevealFirst          bool        // 1 uses
-	SVarCompare          string      // 4 uses
-	SorcerySpeed         bool        // 39 uses
-	SpellDescription     string      // 98 uses
-	StackDescription     string      // 14 uses
-	SubAbility           string      // 48 uses
-	TargetMax            string      // 6 uses
-	TargetMin            string      // 6 uses
-	TgtPrompt            string      // 15 uses
-	UnlessCost           expr.Amount // 2 uses
-	UnlessPayer          string      // 2 uses
-	UnlessSwitched       bool        // 1 uses
-	ValidNewFace         valid.Spec  // 1 uses
-	ValidTgts            string      // 20 uses
+	AILogic                  string      // 34 uses
+	Activation               string      // 1 uses
+	ActivationLimit          int         // 1 uses
+	ActivationZone           string      // 19 uses
+	AdditionalActivationZone string      // 1 uses
+	Amount                   expr.Amount // 1 uses
+	CheckSVar                expr.Amount // 6 uses
+	ChoiceTitle              string      // 5 uses
+	Choices                  valid.Spec  // 5 uses
+	ConditionCheckSVar       string      // 20 uses
+	ConditionCompare         string      // 15 uses
+	ConditionDefined         string      // 12 uses
+	ConditionPresent         valid.Spec  // 25 uses
+	ConditionSVarCompare     string      // 17 uses
+	ConditionZone            string      // 4 uses
+	Cost                     string      // 118 uses
+	Defined                  string      // 328 uses
+	ETB                      bool        // 36 uses
+	FaceDownPower            expr.Amount // 3 uses
+	FaceDownSetType          string      // 3 uses
+	FaceDownToughness        expr.Amount // 3 uses
+	IsPresent                string      // 5 uses
+	Mandatory                bool        // 1 uses
+	MinAmount                int         // 1 uses
+	NewState                 string      // 1 uses
+	Optional                 bool        // 7 uses
+	PrecostDesc              string      // 2 uses
+	PresentCompare           string      // 3 uses
+	PresentDefined           string      // 1 uses
+	ReduceCost               string      // 2 uses
+	RememberChanged          bool        // 14 uses
+	RevealFirst              bool        // 1 uses
+	SVarCompare              string      // 5 uses
+	SorcerySpeed             bool        // 58 uses
+	SpellDescription         string      // 98 uses
+	StackDescription         string      // 14 uses
+	SubAbility               string      // 48 uses
+	TargetMax                string      // 6 uses
+	TargetMin                string      // 6 uses
+	TgtPrompt                string      // 15 uses
+	UnlessCost               expr.Amount // 2 uses
+	UnlessPayer              string      // 2 uses
+	UnlessSwitched           bool        // 1 uses
+	ValidNewFace             valid.Spec  // 1 uses
+	ValidTgts                string      // 20 uses
 }
 
 func (p SetStateParams) apiName() string { return "SetState" }
@@ -14479,6 +14584,10 @@ func fillSetStateParams(ps []vocab.Param) SetStateParams {
 			out.Activation = p.Value
 		case "activationlimit":
 			out.ActivationLimit, _ = strconv.Atoi(p.Value)
+		case "activationzone":
+			out.ActivationZone = p.Value
+		case "additionalactivationzone":
+			out.AdditionalActivationZone = p.Value
 		case "amount":
 			out.Amount = expr.Parse(p.Value)
 		case "checksvar":
@@ -14503,6 +14612,8 @@ func fillSetStateParams(ps []vocab.Param) SetStateParams {
 			out.Cost = p.Value
 		case "defined":
 			out.Defined = p.Value
+		case "etb":
+			out.ETB = true
 		case "facedownpower":
 			out.FaceDownPower = expr.Parse(p.Value)
 		case "facedownsettype":
@@ -14577,7 +14688,7 @@ type ShuffleParams struct {
 	PresentCompare       string     // 1 uses
 	SpellDescription     string     // 16 uses
 	StackDescription     string     // 7 uses
-	SubAbility           string     // 44 uses
+	SubAbility           string     // 45 uses
 	ValidTgts            string     // 3 uses
 }
 
@@ -14700,12 +14811,12 @@ type StoreSVarParams struct {
 	ConditionSVarCompare string      // 13 uses
 	ConditionZone        string      // 1 uses
 	Cost                 string      // 4 uses
-	Expression           string      // 150 uses
-	SVar                 string      // 150 uses
+	Expression           string      // 143 uses
+	SVar                 string      // 143 uses
 	SpellDescription     string      // 34 uses
 	StackDescription     string      // 3 uses
 	SubAbility           string      // 47 uses
-	Type                 string      // 150 uses
+	Type                 string      // 143 uses
 	UnlessAI             string      // 1 uses
 	UnlessCost           expr.Amount // 11 uses
 	UnlessPayer          string      // 11 uses
@@ -14803,16 +14914,16 @@ func fillSubgameParams(ps []vocab.Param) SubgameParams {
 type SurveilParams struct {
 	AILogic               string      // 1 uses
 	ActivationLimit       int         // 3 uses
-	Amount                expr.Amount // 238 uses
+	Amount                expr.Amount // 255 uses
 	CheckSVar             expr.Amount // 1 uses
 	Condition             string      // 1 uses
-	ConditionCheckSVar    string      // 4 uses
+	ConditionCheckSVar    string      // 5 uses
 	ConditionCompare      string      // 2 uses
 	ConditionDefined      string      // 2 uses
 	ConditionOptionalPaid bool        // 1 uses
 	ConditionPresent      valid.Spec  // 4 uses
-	ConditionSVarCompare  string      // 3 uses
-	Cost                  string      // 45 uses
+	ConditionSVarCompare  string      // 4 uses
+	Cost                  string      // 48 uses
 	Defined               string      // 1 uses
 	Execute               string      // 16 uses
 	Exhaust               bool        // 1 uses
@@ -14827,9 +14938,9 @@ type SurveilParams struct {
 	RememberMoved         bool        // 2 uses
 	Secondary             bool        // 9 uses
 	SorcerySpeed          bool        // 1 uses
-	SpellDescription      string      // 83 uses
+	SpellDescription      string      // 95 uses
 	StackDescription      string      // 2 uses
-	SubAbility            string      // 42 uses
+	SubAbility            string      // 45 uses
 	TriggerDescription    string      // 16 uses
 	TriggerZones          string      // 16 uses
 	ValidPlayer           string      // 16 uses
@@ -14995,7 +15106,6 @@ type TapParams struct {
 	AITgts                       valid.Spec  // 1 uses
 	Activation                   string      // 2 uses
 	ActivationZone               string      // 4 uses
-	AlwaysRemember               bool        // 2 uses
 	Announce                     string      // 1 uses
 	AnnounceTitle                string      // 1 uses
 	AnyNumber                    bool        // 13 uses
@@ -15005,52 +15115,52 @@ type TapParams struct {
 	CheckSVar                    expr.Amount // 2 uses
 	ChoiceAmount                 expr.Amount // 13 uses
 	ChoicePrompt                 string      // 1 uses
-	ConditionCheckSVar           string      // 34 uses
-	ConditionCompare             string      // 107 uses
+	ConditionCheckSVar           string      // 35 uses
+	ConditionCompare             string      // 112 uses
 	ConditionDefined             string      // 7 uses
 	ConditionPhases              string      // 1 uses
 	ConditionPlayerContains      string      // 2 uses
 	ConditionPlayerDefined       string      // 2 uses
 	ConditionPlayerTurn          bool        // 3 uses
-	ConditionPresent             valid.Spec  // 110 uses
-	ConditionSVarCompare         string      // 33 uses
-	Cost                         string      // 188 uses
+	ConditionPresent             valid.Spec  // 115 uses
+	ConditionSVarCompare         string      // 34 uses
+	Cost                         string      // 190 uses
 	CostDesc                     string      // 2 uses
-	Defined                      string      // 974 uses
+	Defined                      string      // 991 uses
 	Description                  string      // 1 uses
-	ETB                          bool        // 823 uses
+	ETB                          bool        // 840 uses
 	Forecast                     bool        // 2 uses
 	IsCurse                      bool        // 3 uses
 	IsPresent                    string      // 3 uses
 	Layer                        string      // 1 uses
 	OpponentTurn                 bool        // 1 uses
 	Planeswalker                 bool        // 8 uses
-	PrecostDesc                  string      // 9 uses
+	PrecostDesc                  string      // 11 uses
 	PresentCompare               string      // 1 uses
-	ReduceCost                   string      // 4 uses
-	RememberTapped               bool        // 14 uses
+	ReduceCost                   string      // 5 uses
+	RememberTapped               bool        // 13 uses
 	RememberTargets              bool        // 1 uses
 	SVarCompare                  string      // 1 uses
 	SorcerySpeed                 bool        // 3 uses
-	SpellDescription             string      // 331 uses
+	SpellDescription             string      // 336 uses
 	StackDescription             string      // 72 uses
-	SubAbility                   string      // 332 uses
+	SubAbility                   string      // 336 uses
 	Tapper                       string      // 2 uses
-	TargetMax                    string      // 133 uses
-	TargetMin                    string      // 132 uses
+	TargetMax                    string      // 135 uses
+	TargetMin                    string      // 134 uses
 	TargetingPlayer              string      // 2 uses
 	TargetingPlayerControls      bool        // 2 uses
 	TargetsAtRandom              bool        // 1 uses
 	TargetsForEachPlayer         bool        // 6 uses
 	TargetsWithDefinedController string      // 7 uses
-	TgtPrompt                    string      // 293 uses
+	TgtPrompt                    string      // 295 uses
 	UnlessCost                   expr.Amount // 59 uses
 	UnlessPayer                  string      // 59 uses
 	UnlessResolveSubs            string      // 4 uses
 	UnlessSwitched               bool        // 2 uses
 	ValidCard                    valid.Spec  // 1 uses
-	ValidTgts                    string      // 512 uses
-	ValidTgtsDesc                string      // 10 uses
+	ValidTgts                    string      // 520 uses
+	ValidTgtsDesc                string      // 15 uses
 	XColor                       string      // 1 uses
 }
 
@@ -15070,8 +15180,6 @@ func fillTapParams(ps []vocab.Param) TapParams {
 			out.Activation = p.Value
 		case "activationzone":
 			out.ActivationZone = p.Value
-		case "alwaysremember":
-			out.AlwaysRemember = true
 		case "announce":
 			out.Announce = p.Value
 		case "announcetitle":
@@ -15378,25 +15486,25 @@ func fillTimeTravelParams(ps []vocab.Param) TimeTravelParams {
 // TokenParams are the parameters the Token API reads.
 type TokenParams struct {
 	AICheckSVar             string      // 1 uses
-	AILogic                 string      // 9 uses
+	AILogic                 string      // 10 uses
 	AIManaPref              string      // 1 uses
 	AISVarCompare           string      // 1 uses
 	AITgts                  valid.Spec  // 1 uses
 	ActivationAfterBlockers bool        // 1 uses
 	ActivationLimit         int         // 2 uses
 	ActivationPhases        string      // 3 uses
-	ActivationZone          string      // 27 uses
+	ActivationZone          string      // 28 uses
 	Activator               string      // 1 uses
 	AddTriggersFrom         string      // 1 uses
 	AnnounceTitle           string      // 1 uses
-	AtEOT                   string      // 45 uses
+	AtEOT                   string      // 65 uses
 	AtEOTCondition          string      // 1 uses
 	AtEOTDesc               string      // 1 uses
 	AttachedTo              string      // 53 uses
 	Boast                   bool        // 3 uses
 	CheckSVar               expr.Amount // 11 uses
 	Condition               string      // 9 uses
-	ConditionCheckSVar      string      // 41 uses
+	ConditionCheckSVar      string      // 44 uses
 	ConditionChosenColor    string      // 5 uses
 	ConditionCompare        string      // 50 uses
 	ConditionDefined        string      // 95 uses
@@ -15407,9 +15515,9 @@ type TokenParams struct {
 	ConditionPlayerTurn     bool        // 1 uses
 	ConditionPresent        valid.Spec  // 107 uses
 	ConditionPresent2       string      // 1 uses
-	ConditionSVarCompare    string      // 29 uses
+	ConditionSVarCompare    string      // 32 uses
 	ConditionZone           string      // 1 uses
-	Cost                    string      // 642 uses
+	Cost                    string      // 650 uses
 	CostDesc                string      // 11 uses
 	Destination             string      // 1 uses
 	EffectZone              string      // 1 uses
@@ -15422,7 +15530,7 @@ type TokenParams struct {
 	LockTokenScript         bool        // 14 uses
 	ModeCost                string      // 3 uses
 	Pawprint                expr.Amount // 2 uses
-	Planeswalker            bool        // 126 uses
+	Planeswalker            bool        // 128 uses
 	PlayerTurn              bool        // 5 uses
 	PrecostDesc             string      // 10 uses
 	PresentCompare          string      // 3 uses
@@ -15431,31 +15539,31 @@ type TokenParams struct {
 	ReduceCost              string      // 4 uses
 	RememberOriginalTokens  bool        // 8 uses
 	RememberSource          bool        // 2 uses
-	RememberTokens          bool        // 120 uses
+	RememberTokens          bool        // 156 uses
 	SVarCompare             string      // 4 uses
 	Secondary               bool        // 4 uses
-	SorcerySpeed            bool        // 50 uses
-	SpellDescription        string      // 1304 uses
+	SorcerySpeed            bool        // 52 uses
+	SpellDescription        string      // 1322 uses
 	StackDescription        string      // 44 uses
-	SubAbility              string      // 523 uses
+	SubAbility              string      // 566 uses
 	TargetMax               string      // 13 uses
 	TargetMin               string      // 13 uses
 	TargetUnique            bool        // 3 uses
 	TgtPrompt               string      // 35 uses
-	TokenAmount             expr.Amount // 1075 uses
-	TokenAttacking          string      // 63 uses
+	TokenAmount             expr.Amount // 1134 uses
+	TokenAttacking          string      // 83 uses
 	TokenBlocking           string      // 3 uses
 	TokenColors             string      // 2 uses
-	TokenOwner              string      // 2572 uses
+	TokenOwner              string      // 2673 uses
 	TokenPower              string      // 77 uses
 	TokenRemembered         string      // 1 uses
-	TokenScript             string      // 3797 uses
-	TokenTapped             bool        // 244 uses
+	TokenScript             string      // 3931 uses
+	TokenTapped             bool        // 276 uses
 	TokenToughness          string      // 75 uses
 	TokenTypes              string      // 2 uses
 	Ultimate                bool        // 13 uses
-	UnlessCost              expr.Amount // 28 uses
-	UnlessPayer             string      // 28 uses
+	UnlessCost              expr.Amount // 29 uses
+	UnlessPayer             string      // 29 uses
 	UnlessResolveSubs       string      // 1 uses
 	UnlessSwitched          bool        // 7 uses
 	ValidAfterStack         string      // 1 uses
@@ -15740,9 +15848,14 @@ func fillTwoPilesParams(ps []vocab.Param) TwoPilesParams {
 
 // UnattachParams are the parameters the Unattach API reads.
 type UnattachParams struct {
+	AlternateCost    string     // 1 uses
 	ConditionDefined string     // 1 uses
 	ConditionPresent valid.Spec // 1 uses
-	Defined          string     // 8 uses
+	Cost             string     // 21 uses
+	Defined          string     // 29 uses
+	IsPresent        string     // 21 uses
+	Secondary        bool       // 21 uses
+	SorcerySpeed     bool       // 21 uses
 	SpellDescription string     // 1 uses
 	StackDescription string     // 1 uses
 	SubAbility       string     // 2 uses
@@ -15755,12 +15868,22 @@ func fillUnattachParams(ps []vocab.Param) UnattachParams {
 	var out UnattachParams
 	for _, p := range ps {
 		switch strings.ToLower(p.Key) {
+		case "alternatecost":
+			out.AlternateCost = p.Value
 		case "conditiondefined":
 			out.ConditionDefined = p.Value
 		case "conditionpresent":
 			out.ConditionPresent = valid.Parse(p.Value)
+		case "cost":
+			out.Cost = p.Value
 		case "defined":
 			out.Defined = p.Value
+		case "ispresent":
+			out.IsPresent = p.Value
+		case "secondary":
+			out.Secondary = true
+		case "sorceryspeed":
+			out.SorcerySpeed = true
 		case "spelldescription":
 			out.SpellDescription = p.Value
 		case "stackdescription":
@@ -15853,11 +15976,11 @@ type UntapParams struct {
 	ConditionPresent          valid.Spec  // 11 uses
 	ConditionSVarCompare      string      // 4 uses
 	ConditionZone             string      // 1 uses
-	Cost                      string      // 172 uses
+	Cost                      string      // 174 uses
 	CostDesc                  string      // 2 uses
-	Defined                   string      // 229 uses
+	Defined                   string      // 241 uses
 	Description               string      // 214 uses
-	ETB                       bool        // 6 uses
+	ETB                       bool        // 7 uses
 	EnduringStory             bool        // 1 uses
 	GameActivationLimit       int         // 1 uses
 	IsCurse                   bool        // 2 uses
@@ -15866,7 +15989,7 @@ type UntapParams struct {
 	OpponentTurn              bool        // 1 uses
 	Planeswalker              bool        // 19 uses
 	PlayerTurn                bool        // 6 uses
-	PrecostDesc               string      // 4 uses
+	PrecostDesc               string      // 5 uses
 	Radiance                  bool        // 1 uses
 	RememberTargets           bool        // 1 uses
 	ReplaceWith               string      // 3 uses
@@ -15874,11 +15997,11 @@ type UntapParams struct {
 	Secondary                 bool        // 10 uses
 	ShowCurrentCard           string      // 4 uses
 	SorcerySpeed              bool        // 4 uses
-	SpellDescription          string      // 211 uses
+	SpellDescription          string      // 214 uses
 	StackDescription          string      // 7 uses
-	SubAbility                string      // 135 uses
-	TargetMax                 string      // 40 uses
-	TargetMin                 string      // 40 uses
+	SubAbility                string      // 134 uses
+	TargetMax                 string      // 41 uses
+	TargetMin                 string      // 41 uses
 	TargetUnique              bool        // 1 uses
 	TargetsForEachPlayer      bool        // 1 uses
 	TgtPrompt                 string      // 102 uses
@@ -15892,8 +16015,8 @@ type UntapParams struct {
 	UntapUpTo                 bool        // 16 uses
 	ValidCard                 valid.Spec  // 214 uses
 	ValidStepTurnToController valid.Spec  // 211 uses
-	ValidTgts                 string      // 196 uses
-	ValidTgtsDesc             string      // 6 uses
+	ValidTgts                 string      // 199 uses
+	ValidTgtsDesc             string      // 9 uses
 }
 
 func (p UntapParams) apiName() string { return "Untap" }
@@ -16051,16 +16174,16 @@ type UntapAllParams struct {
 	PlayerTurn           bool        // 1 uses
 	RememberUntapped     bool        // 2 uses
 	SorcerySpeed         bool        // 1 uses
-	SpellDescription     string      // 41 uses
+	SpellDescription     string      // 43 uses
 	StackDescription     string      // 1 uses
-	SubAbility           string      // 49 uses
+	SubAbility           string      // 51 uses
 	TriggerDescription   string      // 1 uses
 	TriggerZones         string      // 1 uses
 	UnlessCost           expr.Amount // 1 uses
 	UnlessPayer          string      // 1 uses
 	UnlessResolveSubs    string      // 1 uses
 	UnlessSwitched       bool        // 1 uses
-	ValidCards           valid.Spec  // 129 uses
+	ValidCards           valid.Spec  // 132 uses
 	ValidPlayer          string      // 1 uses
 	ValidTgts            string      // 3 uses
 }
@@ -16307,7 +16430,7 @@ type WinsGameParams struct {
 	ConditionPresent     valid.Spec // 5 uses
 	ConditionSVarCompare string     // 15 uses
 	Cost                 string     // 1 uses
-	Defined              string     // 42 uses
+	Defined              string     // 43 uses
 	SpellDescription     string     // 3 uses
 	SubAbility           string     // 3 uses
 }
@@ -16433,6 +16556,8 @@ func ParseParams(api string, ps []vocab.Param) (Params, bool) {
 		return fillChooseSourceParams(ps), true
 	case "ChooseType":
 		return fillChooseTypeParams(ps), true
+	case "ClaimThePrize":
+		return fillClaimThePrizeParams(ps), true
 	case "Clash":
 		return fillClashParams(ps), true
 	case "ClassLevelUp":
@@ -16791,6 +16916,7 @@ func GeneratedAPIs() []string {
 		"ChooseSector",
 		"ChooseSource",
 		"ChooseType",
+		"ClaimThePrize",
 		"Clash",
 		"ClassLevelUp",
 		"Cleanup",

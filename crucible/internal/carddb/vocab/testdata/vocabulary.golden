@@ -88,7 +88,6 @@ paramKey	AlreadyRevealed
 paramKey	AltChoiceForEach
 paramKey	AlternateCost
 paramKey	AlternativeDecider
-paramKey	AlwaysRemember
 paramKey	AlwaysReplace
 paramKey	Amount
 paramKey	AmountByChosenMap
@@ -359,6 +358,7 @@ paramKey	ExcessSVar
 paramKey	ExcessSVarCondition
 paramKey	Exclude
 paramKey	ExcludeChosen
+paramKey	ExcludeColorsFrom
 paramKey	ExcludeDestination
 paramKey	ExcludeZone
 paramKey	ExcludedDestinations
@@ -459,7 +459,6 @@ paramKey	HiddenKeywords
 paramKey	Highest
 paramKey	IfDesc
 paramKey	IgnoreEffectCost
-paramKey	IgnoreFreeze
 paramKey	IgnoreGeneric
 paramKey	IgnoreLower
 paramKey	Image
@@ -1738,7 +1737,6 @@ countHead	DifferentCounterKinds_Creature
 countHead	DifferentCounterKinds_Permanent
 countHead	DistinctUnlockedDoors
 countHead	Domain
-countHead	DomainActivePlayer
 countHead	DraftNotesCount.Cogwork
 countHead	DraftNotesHighest.Custodi
 countHead	DraftNotesHighest.Garbage
@@ -1840,6 +1838,7 @@ countHead	ThisTurnCast_Card.YouCtrl+namedPeer
 countHead	ThisTurnCast_Card.YouCtrl+namedReach
 countHead	ThisTurnCast_Card.nonCreature+ControlledBy
 countHead	ThisTurnCast_Creature
+countHead	ThisTurnCast_Creature.ControlledBy
 countHead	ThisTurnCast_Instant
 countHead	ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl
 countHead	ThisTurnCast_Merfolk
@@ -1849,6 +1848,7 @@ countHead	ThisTurnEntered_Battlefield_Card
 countHead	ThisTurnEntered_Battlefield_Card.Self+YouCtrl,Artifact.YouCtrl+Other
 countHead	ThisTurnEntered_Battlefield_Cleric
 countHead	ThisTurnEntered_Battlefield_Creature
+countHead	ThisTurnEntered_Battlefield_Equipment
 countHead	ThisTurnEntered_Battlefield_Food
 countHead	ThisTurnEntered_Battlefield_Frog
 countHead	ThisTurnEntered_Battlefield_Goblin
@@ -1934,6 +1934,7 @@ countHead	YouSurveilThisTurn
 countHead	YourCountersEnergy
 countHead	YourCountersExperience
 countHead	YourCountersRAD
+countHead	YourExtraTurns
 countHead	YourLifeTotal
 countHead	YourSpeed
 countHead	YourStartingLibrarySize
@@ -2214,6 +2215,7 @@ validBase	Permanent
 validBase	Pest
 validBase	Phoenix
 validBase	Phyrexian
+validBase	Pilot
 validBase	Pirate
 validBase	Plains
 validBase	PlanarDie
@@ -2240,6 +2242,7 @@ validBase	Salamander
 validBase	Samurai
 validBase	Saproling
 validBase	Scarecrow
+validBase	Scientist
 validBase	Scion
 validBase	Scout
 validBase	Sculpture
@@ -2379,6 +2382,7 @@ validProperty	!targetedBy
 validProperty	!token
 validProperty	!wasCast
 validProperty	!wasCastFromExile
+validProperty	!wasCastFromHand
 validProperty	!wasCastFromTheirHand
 validProperty	!wasCastFromYourHand
 validProperty	!wasCastFromYourHandByYou
@@ -2400,7 +2404,7 @@ validProperty	Assembly-Worker
 validProperty	Attached
 validProperty	Attached$GreatestCardManaCost
 validProperty	AttachedBy
-validProperty	AttachedBy Communicator
+validProperty	AttachedBy Valid Communicator
 validProperty	AttachedTo Card
 validProperty	AttachedTo Card.IsRemembered
 validProperty	AttachedTo Card.Self
@@ -2743,7 +2747,7 @@ validProperty	OppOwn$CardTypes
 validProperty	OppProtect
 validProperty	Opponent
 validProperty	OpponentOf Remembered
-validProperty	OpponentToActive
+validProperty	OpponentOf TriggeredPlayer
 validProperty	Orc
 validProperty	OriginalHostRemembered
 validProperty	Other
@@ -3046,6 +3050,7 @@ validProperty	controlsCreature.IsRemembered_GE1
 validProperty	controlsCreature.White_GE1
 validProperty	controlsLand.counters\_GE1\_CONTESTED
 validProperty	couldAttackButNotAttacking
+validProperty	countersReceivedThisTurn_GE1_Any_You
 validProperty	countersReceivedThisTurn_GE1_P1P1_You
 validProperty	counters_EQ0_BLAZE
 validProperty	counters_EQ0_Contract
@@ -3062,6 +3067,7 @@ validProperty	counters_EQ3_TIDE
 validProperty	counters_GE10_CHARGE
 validProperty	counters_GE10_P1P1
 validProperty	counters_GE12_CHARGE
+validProperty	counters_GE16_CHARGE
 validProperty	counters_GE1_BOUNTY
 validProperty	counters_GE1_BRIBERY
 validProperty	counters_GE1_CHARGE
@@ -3172,7 +3178,7 @@ validProperty	greatestPowerControlledByYou
 validProperty	hadToAttackThisCombat
 validProperty	hasAbility Activated.Exhaust
 validProperty	hasAbility Activated.hasTapCost
-validProperty	hasFewerCreaturesInYardThanActive
+validProperty	hasFewerCreaturesInYardThanTriggeredPlayer
 validProperty	hasKeywordCARDNAME count as Flame Burst.
 validProperty	hasKeywordCARDNAME count as Muscle Burst.
 validProperty	hasKeywordConvoke
@@ -3180,8 +3186,8 @@ validProperty	hasKeywordEnchant:Creature
 validProperty	hasKeywordFlash
 validProperty	hasKeywordLandwalk:Island
 validProperty	hasManaAbility
-validProperty	hasMoreCardsInHandThanActive
-validProperty	hasMoreLifeThanActive
+validProperty	hasMoreCardsInHandThanTriggeredPlayer
+validProperty	hasMoreLifeThanTriggeredPlayer
 validProperty	hasNonManaActivatedAbility
 validProperty	hasTapCost
 validProperty	hasXCost
@@ -3204,6 +3210,7 @@ validProperty	milledThisTurn
 validProperty	modified
 validProperty	namedAccumulated Knowledge
 validProperty	namedAncestral Anger
+validProperty	namedAndromedan Automatons
 validProperty	namedApproach of the Second Sun
 validProperty	namedApproachingSuns
 validProperty	namedArguel's Blood Fast
@@ -3317,6 +3324,7 @@ validProperty	nonDemon
 validProperty	nonDetective
 validProperty	nonDevil
 validProperty	nonDinosaur
+validProperty	nonDoctor
 validProperty	nonDragon
 validProperty	nonElemental
 validProperty	nonElf
@@ -3437,6 +3445,7 @@ validProperty	sharesCardTypeWith Imprinted.ExiledWithSource
 validProperty	sharesCardTypeWith Remembered
 validProperty	sharesCardTypeWith RememberedLKI
 validProperty	sharesCardTypeWith ReplacedSource
+validProperty	sharesCardTypeWith Targeted
 validProperty	sharesCardTypeWith TriggeredCard
 validProperty	sharesCardTypeWith TriggeredCardLKICopy
 validProperty	sharesCardTypeWith ValidExile Card.ExiledWithSource
@@ -3558,8 +3567,8 @@ validProperty	withMadness
 validProperty	withMegamorph
 validProperty	withMenace
 validProperty	withModular
-validProperty	withMoreCreaturesThanActive
-validProperty	withMoreLandsThanActive
+validProperty	withMoreCreaturesThanTriggeredPlayer
+validProperty	withMoreLandsThanTriggeredPlayer
 validProperty	withMoreLandsThanYou
 validProperty	withMorph
 validProperty	withMostPermanentInPlay
@@ -3868,7 +3877,7 @@ svarHead	Number
 svarHead	OriginalHost
 svarHead	ParentTargeted
 svarHead	PlayerCount
-svarHead	PlayerCountDefinedActivePlayer
+svarHead	PlayerCountDefinedNonTriggeredPlayer
 svarHead	PlayerCountDefinedNonTriggeredTarget
 svarHead	PlayerCountDefinedRegistered
 svarHead	PlayerCountDefinedRememberedOwner
@@ -3877,7 +3886,6 @@ svarHead	PlayerCountDefinedTriggeredCardOwner
 svarHead	PlayerCountDefinedTriggeredPlayer
 svarHead	PlayerCountDefinedTriggeredSourceController
 svarHead	PlayerCountHasLost
-svarHead	PlayerCountNonActive
 svarHead	PlayerCountOpponents
 svarHead	PlayerCountOther
 svarHead	PlayerCountPlayers
@@ -3896,6 +3904,7 @@ svarHead	ReplacedCard
 svarHead	ReplacedCardLKI
 svarHead	ReplacedSource
 svarHead	Revealed
+svarHead	RevealedCards
 svarHead	SVar
 svarHead	Sacrificed
 svarHead	SpellTargeted
@@ -4154,6 +4163,7 @@ svarProperty	ScryBottom
 svarProperty	ScryNum
 svarProperty	SharesCardTypes
 svarProperty	SpellsCastThisTurn
+svarProperty	StartingLibrarySize
 svarProperty	StartingLife
 svarProperty	Sum
 svarProperty	TgtNum
@@ -4190,6 +4200,7 @@ svarProperty	Valid Card.Green
 svarProperty	Valid Card.Insect
 svarProperty	Valid Card.IsCommander+YouCtrl+inZoneBattlefield
 svarProperty	Valid Card.IsSuspected
+svarProperty	Valid Card.Klingon
 svarProperty	Valid Card.Land
 svarProperty	Valid Card.Legendary
 svarProperty	Valid Card.Mountain
@@ -4206,6 +4217,7 @@ svarProperty	Valid Card.White
 svarProperty	Valid Card.YouCtrl
 svarProperty	Valid Card.YouCtrl$CardToughness
 svarProperty	Valid Card.YouOwn
+svarProperty	Valid Card.YouOwn+inZoneHand
 svarProperty	Valid Card.Zombie
 svarProperty	Valid Card.attackingBattle
 svarProperty	Valid Card.cmcLEY
@@ -4256,6 +4268,7 @@ svarProperty	Valid Creature.counters_GE1_P1P1
 svarProperty	Valid Creature.inZoneBattlefield
 svarProperty	Valid Creature.inZoneGraveyard
 svarProperty	Valid Creature.nonArtifact
+svarProperty	Valid Creature.powerGTY
 svarProperty	Valid Creature.powerGTY,Creature.toughnessGTZ
 svarProperty	Valid Creature.powerLE0
 svarProperty	Valid Creature.powerLE3
@@ -4333,6 +4346,7 @@ aiHintKey	MaxControlled
 aiHintKey	MaxControlledGlobally
 aiHintKey	MaxRollsPerTurn
 aiHintKey	MinCreaturesBelowThreshold
+aiHintKey	MinOtherCardsInHand
 aiHintKey	MinTurn
 aiHintKey	Mode
 aiHintKey	MustHaveInHand

@@ -440,3 +440,36 @@ func TestSheetSkipsPlaceholders(t *testing.T) {
 		t.Errorf("total weight = %d, want 2", got)
 	}
 }
+
+// A card list's CardPool holds placeholders (prints with no rules) that the
+// PrintSheet copy drops (PrintSheet.java:41-49, 55-59), and a weight of zero
+// or less adds nothing to either.
+func TestCardListPoolKeepsPlaceholdersTheSheetDrops(t *testing.T) {
+	t.Parallel()
+
+	card := &Print{Name: "A", Edition: "X", Collector: "1", Art: 1, rules: &compile.Card{}}
+	card.hash = card.hashOf()
+	placeholder := &Print{Name: "B", Edition: "X", Collector: "2", Art: 1}
+	placeholder.hash = placeholder.hashOf()
+	pool := newSheet("pool")
+	for _, p := range []*Print{card, placeholder, card} {
+		if err := pool.merge(p, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := pool.merge(card, 0); err != nil {
+		t.Fatal(err)
+	}
+	if pool.distinct() != 2 || pool.countAll() != 3 {
+		t.Errorf("pool: %d distinct, %d in all; want 2 and 3", pool.distinct(), pool.countAll())
+	}
+	sh := newSheet("sheet")
+	for _, i := range pool.entries() {
+		if err := sh.add(pool.prints[i], pool.weights[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sh.distinct() != 1 || sh.countAll() != 2 {
+		t.Errorf("sheet: %d distinct, %d in all; want 1 and 2", sh.distinct(), sh.countAll())
+	}
+}

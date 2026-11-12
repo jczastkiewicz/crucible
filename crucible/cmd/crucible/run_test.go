@@ -155,13 +155,14 @@ func TestPrintSummaryNamesMatchupsAndCards(t *testing.T) {
 			{A: "A", B: "C"}: {Games: 1, Undecided: 1},
 		},
 		Cards: map[string]map[string]*telemetry.CardStat{
-			"A": {"Bolt": {Tenures: 2, HeldTotal: 6, Cast: 2}, "Wall": {Tenures: 1, HeldTotal: 1, Stuck: 1}},
+			"A": {"Bolt": {Tenures: 2, HeldTotal: 6, Cast: 2, MissingColors: map[string]int{"R": 3, "W": 1}}, "Wall": {Tenures: 1, HeldTotal: 1, Stuck: 1}},
 		},
+		Mana: map[string]*telemetry.ManaStat{"A": {Games: 1, FloatedLost: 5}},
 	}
 	var buf bytes.Buffer
 	printSummary(&buf, s, 1)
 	got := buf.String()
-	for _, want := range []string{"A vs B: 4 games, 3-1", "75.0%", "on the play 2/2 won, on the draw 1/2", "A vs C: 1 games, 0-0, 1 undecided", "Bolt"} {
+	for _, want := range []string{"A vs B: 4 games, 3-1", "75.0%", "on the play 2/2 won, on the draw 1/2", "A vs C: 1 games, 0-0, 1 undecided", "Bolt", "waiting on W 1 R 3", "floated and lost 5"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("summary lacks %q:\n%s", want, got)
 		}

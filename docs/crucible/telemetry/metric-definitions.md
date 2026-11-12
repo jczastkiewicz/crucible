@@ -165,6 +165,11 @@ Any turn on which a card in hand carries `BlockColorUnavailable` (MET-6).
 Reported per missing colour and per card, never as a single rate. "Colour screw: 12%" tells a deckbuilder nothing; "12
 games wanted a second black source by turn 3" tells them what to change.
 
+The missing colours of a blocked card are those whose one-colour shards in the cost outnumber the untapped sources able
+to make that colour, so a lone Swamp short of `{B}{B}` names black. A cost blocked only through hybrid or Phyrexian
+shards names the cost's colours no source makes. Reason: the second source of a colour the deck already has is the usual
+fix, and "no source of that colour" would never name it.
+
 ## MET-13 — Unused mana
 
 ```text
@@ -174,6 +179,10 @@ FloatedLost = sum over turns of ManaFloatedLost
 
 Reported raw and normalised per turn, split by game outcome. Floated-and-lost mana is kept separate because it indicates
 a sequencing error rather than a deck construction problem.
+
+`ManaFloatedLost` is the mana the engine empties from the active player's pool at step and phase ends (`ManaLost`
+events), on that player's own turns only. Reason: the sample is one row per own turn, and mana lost on an opponent's
+turn is an instant-speed sequencing question the row cannot place.
 
 ## MET-14 — Missed land drops
 

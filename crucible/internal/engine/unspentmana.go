@@ -108,7 +108,11 @@ func (g *Game) clearManaPool(controller PlayerController, pid PlayerID) {
 	pool.emptyKeeping(func(u poolUnit) bool {
 		return keepCombat && u.combat || keep[int(u.bucket)%bucketSnow]
 	})
-	if lost := before - pool.Total(); lost > 0 && g.hasManaBurn(pid) {
+	lost := before - pool.Total()
+	if lost > 0 {
+		g.sink.Emit(Event{Kind: ManaLost, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Amount: int32(lost)})
+	}
+	if lost > 0 && g.hasManaBurn(pid) {
 		g.loseLife(controller, pid, lost, NoCard)
 	}
 }

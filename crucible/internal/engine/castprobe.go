@@ -12,6 +12,7 @@ package engine
 
 import (
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // CastBlock is a bitmask of the reasons a card could not be cast (MET-5).
@@ -47,6 +48,10 @@ type CastProbe struct {
 	// Castable is true when nothing blocks the card; Blocked is then zero.
 	Castable bool
 	Blocked  CastBlock
+	// MissingColors are, when Blocked holds BlockColorUnavailable, the
+	// colours whose shards in the cost outnumber the untapped sources that
+	// make them (MET-12: colour screw per missing colour).
+	MissingColors mana.Colors
 }
 
 // CastabilityProbe asks, for every card in pid's hand, whether pid could cast
@@ -67,7 +72,7 @@ func (g *Game) CastabilityProbe(pid PlayerID) []CastProbe {
 		c := g.Card(id)
 		p := CastProbe{Card: id}
 		if c.Def != nil {
-			p.Blocked = g.probeBlocks(pid, c)
+			p.Blocked, p.MissingColors = g.probeBlocks(pid, c)
 		}
 		p.Castable = p.Blocked == 0 && c.Def != nil
 		out = append(out, p)
@@ -75,8 +80,9 @@ func (g *Game) CastabilityProbe(pid PlayerID) []CastProbe {
 	return out
 }
 
-func (g *Game) probeBlocks(pid PlayerID, c *Card) CastBlock {
+func (g *Game) probeBlocks(pid PlayerID, c *Card) (CastBlock, mana.Colors) {
 	var b CastBlock
+	var missing mana.Colors
 	if c.Type().Has(cardtype.Land) {
 		if !g.hasLandDrop(pid) {
 			b |= BlockLandDropUsed
@@ -87,7 +93,7 @@ func (g *Game) probeBlocks(pid PlayerID, c *Card) CastBlock {
 		if pid != g.activePlayer || (g.activePhase != Main1 && g.activePhase != Main2) || len(g.stack) != 0 {
 			b |= BlockTimingRestriction
 		}
-		return b
+		return b, missing
 	}
 	if g.cantBeCast(pid, c.ID) {
 		b |= BlockOpponentLock
@@ -109,6 +115,7 @@ func (g *Game) probeBlocks(pid PlayerID, c *Card) CastBlock {
 		if _, paid := g.PlanMana(pid, total); !paid {
 			if _, hypo := g.PlanManaAnyColor(pid, total); hypo {
 				b |= BlockColorUnavailable
+				missing = g.missingCostColors(pid, total)
 			} else {
 				b |= BlockInsufficientMana
 			}
@@ -122,5 +129,42 @@ func (g *Game) probeBlocks(pid PlayerID, c *Card) CastBlock {
 			}
 		}
 	}
-	return b
+	return b, missing
+}
+
+// shardOfColor is the one-colour shard of each colour, in WUBRG order.
+var shardOfColor = [...]struct {
+	color mana.Colors
+	shard mana.Shard
+}{{mana.White, mana.ShardW}, {mana.Blue, mana.ShardU}, {mana.Black, mana.ShardB}, {mana.Red, mana.ShardR}, {mana.Green, mana.ShardG}}
+
+// missingCostColors are the colours of cost whose one-colour shards
+// outnumber pid's untapped sources able to make that colour: a second black
+// source short of {B}{B} names black. A cost blocked only through its hybrid
+// or Phyrexian shards names the cost's colours no source makes.
+func (g *Game) missingCostColors(pid PlayerID, cost mana.Cost) mana.Colors {
+	sources := g.ManaSources(pid)
+	var missing, avail mana.Colors
+	for _, s := range sources {
+		avail |= s.Colors
+	}
+	for _, sc := range shardOfColor {
+		need := cost.Count(sc.shard)
+		if need == 0 {
+			continue
+		}
+		have := 0
+		for _, s := range sources {
+			if s.Colors&sc.color != 0 {
+				have++
+			}
+		}
+		if have < need {
+			missing |= sc.color
+		}
+	}
+	if missing == 0 {
+		missing = cost.Colors() &^ avail
+	}
+	return missing
 }

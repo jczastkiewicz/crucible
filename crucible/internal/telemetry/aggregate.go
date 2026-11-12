@@ -61,6 +61,9 @@ type CardStat struct {
 	DeadTenures int
 	// Blocks counts tenures by the reason that dominated them.
 	Blocks map[string]int
+	// MissingColors totals, per colour, the turns the card waited on that
+	// colour (MET-12: colour screw per missing colour).
+	MissingColors map[string]int
 }
 
 // DeadThresholdTurns is MET-9's default: a card is dead in a game when the
@@ -115,6 +118,9 @@ type ManaStat struct {
 	MissedHeld    int
 	UnusedMana    int
 	CurveTurnsMet int
+	// FloatedLost is the mana that emptied from the deck's pool unspent on
+	// its own turns (MET-13).
+	FloatedLost int
 }
 
 // ScrewRate and FloodRate are the shares of the deck's games flagged.
@@ -144,6 +150,7 @@ func (m *ManaStat) foldMana(rows []ManaRow) {
 			m.MissedHeld++
 		}
 		m.UnusedMana += r.ManaAvailable - r.ManaSpent
+		m.FloatedLost += r.FloatedLost
 		if r.ManaSpent >= min(turn, DeckCurveTop) {
 			m.CurveTurnsMet++
 		}
@@ -296,6 +303,12 @@ func (s *Summary) addTenure(deck string, t TenureRow) {
 			c.Blocks = map[string]int{}
 		}
 		c.Blocks[t.DominantBlock]++
+	}
+	for colour, n := range t.MissingColors {
+		if c.MissingColors == nil {
+			c.MissingColors = map[string]int{}
+		}
+		c.MissingColors[colour] += n
 	}
 	switch t.Exit {
 	case "cast":

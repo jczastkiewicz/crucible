@@ -361,8 +361,8 @@ func printSummary(w io.Writer, s telemetry.Summary, top int) {
 	sort.Strings(manaDecks)
 	for _, d := range manaDecks {
 		m := s.Mana[d]
-		_, _ = fmt.Fprintf(w, "%s mana: %d games, screw %.0f%%, flood %.0f%% (MET-10/11); %d turns, missed land drops %d with none in hand and %d with one held; unused mana %d; curve met %d turns\n",
-			d, m.Games, 100*m.ScrewRate(), 100*m.FloodRate(), m.Turns, m.MissedNoLand, m.MissedHeld, m.UnusedMana, m.CurveTurnsMet)
+		_, _ = fmt.Fprintf(w, "%s mana: %d games, screw %.0f%%, flood %.0f%% (MET-10/11); %d turns, missed land drops %d with none in hand and %d with one held; unused mana %d, floated and lost %d; curve met %d turns\n",
+			d, m.Games, 100*m.ScrewRate(), 100*m.FloodRate(), m.Turns, m.MissedNoLand, m.MissedHeld, m.UnusedMana, m.FloatedLost, m.CurveTurnsMet)
 	}
 	for _, d := range decks {
 		type row struct {
@@ -385,11 +385,26 @@ func printSummary(w io.Writer, s telemetry.Summary, top int) {
 		}
 		_, _ = fmt.Fprintf(w, "%s: cards held longest (mean turns in hand)\n", d)
 		for _, r := range rows {
-			_, _ = fmt.Fprintf(w, "  %-32s %5.1f  held %d, cast %d, played %d, discarded %d, in hand at the end %d; blocked turns %d, playable unused turns %d, dead %.0f%%\n",
+			_, _ = fmt.Fprintf(w, "  %-32s %5.1f  held %d, cast %d, played %d, discarded %d, in hand at the end %d; blocked turns %d, playable unused turns %d, dead %.0f%%%s\n",
 				r.name, r.stat.MeanTurnsHeld(), r.stat.Tenures, r.stat.Cast, r.stat.Played, r.stat.Discarded, r.stat.Stuck,
-				r.stat.BlockedTurns, r.stat.PlayableUnusedTurns, 100*r.stat.DeadRate())
+				r.stat.BlockedTurns, r.stat.PlayableUnusedTurns, 100*r.stat.DeadRate(), missingColours(r.stat.MissingColors))
 		}
 	}
+}
+
+// missingColours prints MET-12's per-colour wait turns in WUBRG order, or
+// nothing when the card never waited on a colour.
+func missingColours(m map[string]int) string {
+	var b strings.Builder
+	for _, c := range []string{"W", "U", "B", "R", "G"} {
+		if n := m[c]; n > 0 {
+			if b.Len() == 0 {
+				b.WriteString("; waiting on")
+			}
+			fmt.Fprintf(&b, " %s %d", c, n)
+		}
+	}
+	return b.String()
 }
 
 // parseVariant reads -variant: empty for a constructed game, else a comma

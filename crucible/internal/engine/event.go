@@ -13,8 +13,8 @@ package engine
 // that silently unions two schemas produces a column meaning one thing for
 // half its rows.
 //
-// Version 2 added Phased (ADR-0021).
-const SchemaVersion = 2
+// Version 2 added Phased (ADR-0021), version 3 ManaLost (MET-13).
+const SchemaVersion = 3
 
 // EventKind is what happened.
 type EventKind uint8
@@ -40,8 +40,13 @@ const (
 	// GameEventCardPhased). Not a zone change: no ZoneChanged accompanies it
 	// (ADR-0021, decision 4). Detail is a PhaseDetail.
 	Phased
+	// ManaLost is mana a player's pool lost when it emptied at a step's end
+	// (CR 500.4, ManaPool.clearPool): Actor is the player, Amount the mana
+	// lost. Mana an UnspentMana static keeps or a LoseMana replacement
+	// converts is not lost (MET-13's floated-and-lost mana).
+	ManaLost
 
-	numEventKinds = int(Phased) + 1
+	numEventKinds = int(ManaLost) + 1
 )
 
 var eventKindNames = [numEventKinds]string{
@@ -50,6 +55,7 @@ var eventKindNames = [numEventKinds]string{
 	AbilityActivated: "AbilityActivated", AbilityResolved: "AbilityResolved",
 	DamageDealt: "DamageDealt", LifeChanged: "LifeChanged", CardDrawn: "CardDrawn",
 	CounterChanged: "CounterChanged", GameEnded: "GameEnded", Phased: "Phased",
+	ManaLost: "ManaLost",
 }
 
 // String returns the kind's name, for reports and debugging.

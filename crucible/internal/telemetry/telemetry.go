@@ -20,7 +20,7 @@ import (
 
 // SchemaVersion is stamped on every shard (ADR-0013); it moves when a row
 // gains a field or a kind.
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 // MetricsVersion is MET-1's version of the metric definitions the rows were
 // folded under.
@@ -56,6 +56,10 @@ type ManaRow struct {
 	// MET-14's AI or sequencing case).
 	LandPlayed bool   `json:"land_played"`
 	MissedDrop string `json:"missed_drop,omitempty"`
+	// FloatedLost is the mana the player's pool lost when it emptied at the
+	// end of a step of this turn (engine.ManaLost): MET-13's floated-and-lost
+	// mana, a sequencing error rather than a deck problem.
+	FloatedLost int `json:"floated_lost,omitempty"`
 }
 
 // GameRow is one game's outcome.
@@ -96,6 +100,10 @@ type TenureRow struct {
 	// blocked it most turns ("" when it was never blocked).
 	BlockedBy     []string `json:"blocked_by,omitempty"`
 	DominantBlock string   `json:"dominant_block,omitempty"`
+	// MissingColors counts, per colour (W, U, B, R, G), the turns the probe
+	// blocked the card for want of that colour (MET-12: colour screw per
+	// missing colour and per card).
+	MissingColors map[string]int `json:"missing_colors,omitempty"`
 }
 
 type openTenure struct {
@@ -106,6 +114,8 @@ type openTenure struct {
 	// The probe's tally over the turns the card sat in hand.
 	blocked, unused int
 	reasons         [8]int
+	// missing counts the ColorUnavailable turns per colour, WUBRG.
+	missing [5]int
 }
 
 // Recorder is an engine.Sink that keeps hand tenures and mana samples.
@@ -120,6 +130,8 @@ type Recorder struct {
 	upkeepSources []engine.ManaSource
 	upkeepSeat    int
 	mana          []ManaRow
+	// lost is the mana each seat's pool lost this turn before its sample.
+	lost map[int]int
 }
 
 // ManaRows are the mana samples taken so far, in turn order.
@@ -138,8 +150,17 @@ func (r *Recorder) Emit(e engine.Event) {
 			r.probe(e.Active)
 		case engine.Upkeep:
 			r.upkeepSources, r.upkeepSeat = r.g.ManaSources(e.Active), int(e.Active)
+			r.lost = nil
 		case engine.EndOfTurn:
 			r.sampleMana(e.Active, int(e.Turn))
+		}
+		return
+	}
+	if e.Kind == engine.ManaLost {
+		// The sample is the active player's turn: mana another seat lost on
+		// it has no row.
+		if e.Actor == e.Active {
+			r.manaLost(int(e.Actor), int(e.Turn), int(e.Amount))
 		}
 		return
 	}
@@ -188,6 +209,11 @@ func (r *Recorder) probe(pid engine.PlayerID) {
 					t.reasons[i]++
 				}
 			}
+			for i, c := range wubrg {
+				if p.MissingColors&c != 0 {
+					t.missing[i]++
+				}
+			}
 		}
 		r.open[p.Card] = t
 	}
@@ -215,7 +241,7 @@ func (r *Recorder) sampleMana(pid engine.PlayerID, turn int) {
 		}
 		seen[s.Card] = true
 	}
-	for _, c := range [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+	for _, c := range wubrg {
 		if colors&c != 0 {
 			row.Colors = append(row.Colors, c.String())
 		}
@@ -230,6 +256,8 @@ func (r *Recorder) sampleMana(pid engine.PlayerID, turn int) {
 			row.LandsInHand++
 		}
 	}
+	row.FloatedLost = r.lost[int(pid)]
+	delete(r.lost, int(pid))
 	row.LandPlayed = r.g.Player(pid).LandsPlayed > 0
 	if !row.LandPlayed {
 		row.MissedDrop = "no_land"
@@ -275,6 +303,14 @@ func (r *Recorder) close(id engine.CardID, t openTenure, turn int, exit string) 
 			most, row.DominantBlock = n, name
 		}
 	}
+	for i, n := range t.missing {
+		if n > 0 {
+			if row.MissingColors == nil {
+				row.MissingColors = map[string]int{}
+			}
+			row.MissingColors[wubrg[i].String()] = n
+		}
+	}
 	r.rows = append(r.rows, row)
 }
 
@@ -303,4 +339,21 @@ func SortedCards(rows []TenureRow) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// wubrg is the colour order rows list colours in.
+var wubrg = [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green}
+
+// manaLost adds mana a seat's pool lost on turn to that seat's sample: to the
+// open turn before its end-step sample, else to the sample already taken
+// (the pool also empties after the end step).
+func (r *Recorder) manaLost(seat, turn, n int) {
+	if k := len(r.mana) - 1; k >= 0 && r.mana[k].Seat == seat && r.mana[k].Turn == turn {
+		r.mana[k].FloatedLost += n
+		return
+	}
+	if r.lost == nil {
+		r.lost = map[int]int{}
+	}
+	r.lost[seat] += n
 }

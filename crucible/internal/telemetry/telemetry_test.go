@@ -3,6 +3,7 @@ package telemetry_test
 import (
 	"math"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
@@ -213,8 +214,8 @@ func TestSummarizeFoldsTheProbeColumnsSeparately(t *testing.T) {
 	t.Parallel()
 	r := writeRun(t, func(sh *store.Shard) {
 		_ = sh.Write(telemetry.KindGame, telemetry.GameRow{Game: 0, Decks: [2]string{"A", "B"}, Outcome: "won", Winner: 1})
-		_ = sh.Write(telemetry.KindTenure, telemetry.TenureRow{Game: 0, Seat: 1, Card: "X", TurnsBlocked: 3, TurnsPlayableUnused: 1, DominantBlock: "ColorUnavailable"})
-		_ = sh.Write(telemetry.KindTenure, telemetry.TenureRow{Game: 0, Seat: 1, Card: "X", TurnsBlocked: 1, TurnsPlayableUnused: 4, DominantBlock: "InsufficientMana"})
+		_ = sh.Write(telemetry.KindTenure, telemetry.TenureRow{Game: 0, Seat: 1, Card: "X", TurnsBlocked: 3, TurnsPlayableUnused: 1, DominantBlock: "ColorUnavailable", MissingColors: map[string]int{"B": 2, "G": 1}})
+		_ = sh.Write(telemetry.KindTenure, telemetry.TenureRow{Game: 0, Seat: 1, Card: "X", TurnsBlocked: 1, TurnsPlayableUnused: 4, DominantBlock: "InsufficientMana", MissingColors: map[string]int{"B": 1}})
 	})
 	s, err := telemetry.Summarize(r)
 	if err != nil {
@@ -226,6 +227,9 @@ func TestSummarizeFoldsTheProbeColumnsSeparately(t *testing.T) {
 	}
 	if x.Blocks["ColorUnavailable"] != 1 || x.Blocks["InsufficientMana"] != 1 {
 		t.Errorf("blocks %v", x.Blocks)
+	}
+	if x.MissingColors["B"] != 3 || x.MissingColors["G"] != 1 {
+		t.Errorf("missing colours %v, want B 3 and G 1", x.MissingColors)
 	}
 	if (telemetry.CardStat{}).DeadRate() != 0 {
 		t.Error("an empty stat has a dead rate")
@@ -242,7 +246,7 @@ func TestSummarizeFoldsManaHealthPerDeck(t *testing.T) {
 		}
 		// B: seven turns, flooding from its sixth turn on.
 		for turn := 1; turn <= 7; turn++ {
-			row := telemetry.ManaRow{Game: 0, Seat: 2, Turn: 2 * turn, LandsInPlay: turn, ManaAvailable: turn, ManaSpent: min(turn, 3), LandPlayed: true}
+			row := telemetry.ManaRow{Game: 0, Seat: 2, Turn: 2 * turn, LandsInPlay: turn, ManaAvailable: turn, ManaSpent: min(turn, 3), LandPlayed: true, FloatedLost: turn % 2}
 			if turn >= 6 {
 				row.LandsInHand = 3
 			}
@@ -262,6 +266,9 @@ func TestSummarizeFoldsManaHealthPerDeck(t *testing.T) {
 	}
 	if b.UnusedMana != 0+0+0+1+2+3+4 || b.CurveTurnsMet != 3 {
 		t.Errorf("B unused %d curve %d, want 10 and 3", b.UnusedMana, b.CurveTurnsMet)
+	}
+	if b.FloatedLost != 4 {
+		t.Errorf("B floated and lost %d, want 4", b.FloatedLost)
 	}
 	if (telemetry.ManaStat{}).ScrewRate() != 0 {
 		t.Error("an empty mana stat has a rate")
@@ -302,5 +309,59 @@ func TestRecorderSamplesManaPerTurn(t *testing.T) {
 	}
 	if r.LandPlayed || r.MissedDrop != "held" || len(r.Colors) != 1 || r.NonLandSources != 0 {
 		t.Errorf("sample %+v, want a held land drop and one colour", r)
+	}
+}
+
+// The active player's lost mana lands on their turn's sample, before the
+// end-step sample and after it; another seat's is ignored (MET-13).
+func TestRecorderAddsFloatedLostManaToTheTurn(t *testing.T) {
+	t.Parallel()
+	g := engine.NewGame(compile.NewDB(map[string]*compile.Card{}), javarand.New(1), []string{"a", "b"})
+	p, o := g.Players()[0], g.Players()[1]
+	rec := telemetry.NewRecorder(g, 0)
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.Upkeep, Active: p, Turn: 3})
+	rec.Emit(engine.Event{Kind: engine.ManaLost, Active: p, Actor: p, Turn: 3, Amount: 2})
+	rec.Emit(engine.Event{Kind: engine.ManaLost, Active: p, Actor: o, Turn: 3, Amount: 5})
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.EndOfTurn, Active: p, Turn: 3})
+	rec.Emit(engine.Event{Kind: engine.ManaLost, Active: p, Actor: p, Turn: 3, Amount: 1})
+	rows := rec.ManaRows()
+	if len(rows) != 1 || rows[0].FloatedLost != 3 {
+		t.Fatalf("rows %+v, want one sample with 3 lost", rows)
+	}
+}
+
+// A card the probe finds short of a colour counts the turn against that
+// colour on its tenure (MET-12).
+func TestRecorderCountsTheColourACardWaitsOn(t *testing.T) {
+	t.Parallel()
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cards := map[string]*compile.Card{}
+	for name, script := range map[string]string{
+		"Blk":   "Name:Blk\nManaCost:B\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 1\n",
+		"Woods": "Name:Woods\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G\n",
+	} {
+		raw, err := carddb.ParseScript(reg, name, []byte(script))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cards[name], err = compile.Compile(raw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g := engine.NewGame(compile.NewDB(cards), javarand.New(1), []string{"a", "b"})
+	p := g.Players()[0]
+	g.SetTurnState(2, p, engine.CombatBegin)
+	g.NewCard(cards["Woods"], p, engine.Battlefield)
+	id := g.NewCard(cards["Blk"], p, engine.Hand)
+	rec := telemetry.NewRecorder(g, 0)
+	g.SetSink(rec)
+	rec.Emit(engine.Event{Kind: engine.ZoneChanged, Source: id, Actor: p, From: engine.Library, To: engine.Hand, Turn: 1})
+	rec.Emit(engine.Event{Kind: engine.PhaseBegan, Phase: engine.CombatBegin, Active: p, Turn: 2})
+	rows := rec.Finish(3)
+	if len(rows) != 1 || rows[0].MissingColors["B"] != 1 || len(rows[0].MissingColors) != 1 || rows[0].DominantBlock != "ColorUnavailable" {
+		t.Fatalf("rows %+v, want one tenure waiting one turn on black", rows)
 	}
 }

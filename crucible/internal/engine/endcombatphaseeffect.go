@@ -2,8 +2,8 @@ package engine
 
 //enginelint:allow game ability control effecthelpers card condition action phase
 
-// endCombatPhaseEffect is EndCombatPhaseEffect.java: outside combat it does
-// nothing. Inside, every spell on the stack is exiled and every ability
+// endCombatPhaseEffect is EndCombatPhaseEffect.java: outside combat, or when
+// an Optional$ line is declined, it does nothing. Inside, every spell on the stack is exiled and every ability
 // removed, combat ends, state-based actions are checked, and the game moves
 // straight past the end-of-combat step (PhaseHandler.
 // endCombatPhaseByEffect sets COMBAT_END, then advances).
@@ -20,6 +20,11 @@ func (endCombatPhaseEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 		return nil
 	}
 	if !g.activePhase.IsCombat() {
+		return nil
+	}
+	// EndCombatPhaseEffect.java:28-30: Optional$ asks the activator first
+	// (Merciful Mandate's "you may end the combat phase").
+	if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 		return nil
 	}
 	g.exileStack(controller)

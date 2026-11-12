@@ -209,8 +209,9 @@ func (g *Game) priorityRound(reg *Registry, controller PlayerController) error {
 			return nil
 		}
 		// An EndTurn spell or ability that ended the turn hands nobody
-		// priority (MagicStack.java:757-759 skips onStackResolved): the
-		// Cleanup it began grants it only under CR 514.3a, a window Step
+		// priority (the Cleanup it began clears givePriorityToPlayer,
+		// PhaseHandler.java:486, and resolveStack no longer sets it back,
+		// :1289-1290): that Cleanup grants it only under CR 514.3a, a window Step
 		// plays (Game.endTurnCleanup). One declined (Optional$) or whose
 		// condition failed leaves Java's givePriorityToPlayer as it was, so
 		// the round goes on; an EndTurn sub-ability is not the root's API.

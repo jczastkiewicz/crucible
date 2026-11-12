@@ -947,7 +947,7 @@ func stackTargetEntity(item *Ability) EntityID {
 // canTargetStackItem is SpellAbility.canTargetSpellAbility
 // (SpellAbility.java:2046-2110) for the targeting ability a and the stack
 // item it would target, asked both as targets are chosen and at resolution
-// (MagicStack.java:753-755): item is not a itself, matches one of
+// (MagicStack.java:783-788): item is not a itself, matches one of
 // TargetType$'s comma-separated alternatives (stackItemMatches), one of its
 // targets matches TargetValidTargeting$ when a names one, and its host card
 // matches ValidTgts$ (stackItemHostMatches).
@@ -1460,7 +1460,7 @@ func (g *Game) withoutIllegal(owner *Ability, targets []EntityID, chosen, kept *
 //   - a player target has not left the game (Player.canBeTargetedBy,
 //     Player.java:1033-1043) and still matches owner's ValidTgts$;
 //   - an ability on the stack (ADR-0041) is still there and owner can still
-//     target it (MagicStack.java:753-755: canTarget reaches
+//     target it (MagicStack.java:783-788: canTarget reaches
 //     canTargetSpellAbility through SpellAbility.canBeTargetedBy).
 //
 // Hexproof, shroud and protection (StaticAbilityCantTarget,
@@ -1559,7 +1559,7 @@ func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
 		}
 		if _, stackTargeting := owner.Params.Param("TargetType"); stackTargeting && c.Zone == Stack {
 			// A spell is a SpellAbility target in Java, re-checked by
-			// canTargetSpellAbility like an ability (MagicStack.java:753-755):
+			// canTargetSpellAbility like an ability (MagicStack.java:783-788):
 			// TargetValidTargeting$ reads its targets as they are now.
 			if sid, ok := g.spellItemOf(id); ok {
 				item, _ := g.stackItem(sid)

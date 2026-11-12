@@ -294,7 +294,7 @@ func playerProperty(g *Game, candidate, host PlayerID, source CardID, property s
 		}
 		return javaCompare(p.Life, property, n), true
 	}
-	return comparePlayers(g, candidate, host, property)
+	return comparePlayers(g, candidate, host, source, property)
 }
 
 // compareProperty is the "<name>[ <op><amount>]" shape (LostLifeThisTurn,
@@ -449,30 +449,50 @@ func typeCount(g *Game, pid PlayerID, zone ZoneType, cardType string) int {
 	return n
 }
 
-// comparePlayers is PlayerProperty.java:319-439: the candidate against the
-// player the property names ("...ThanActive" the active player, anything else
-// host) or against every player in the game. A shape Java would throw on, or
-// answer true for without comparing anything (an unknown withMost/withLowest
-// kind), is unresolved.
-func comparePlayers(g *Game, candidate, host PlayerID, property string) (matched, ok bool) {
-	versus := func(word string) PlayerID {
-		if word == "Active" {
-			return g.ActivePlayer()
+// comparePlayers is PlayerProperty.java:310-343: the candidate against the
+// player the property's "Than<Defined>" names, or against every player in the
+// game (withMost). versus is comparedPlayer (:511-516): "You" (or no Than) is
+// the host, any other Defined the first player definedPlayers reads with the
+// refs of the trait in context (triggerRefs), as Java passes its trait to
+// getDefinedPlayers -- the Oaths' "ThanTriggeredPlayer", the upkeep's player
+// -- and the host when it names none. Outside a context, or a Defined it
+// cannot read, the property is unresolved (GO-7). A shape Java would throw
+// on, or answer true for without comparing anything (an unknown
+// withMost/withLowest kind), is unresolved too.
+func comparePlayers(g *Game, candidate, host PlayerID, source CardID, property string) (matched, ok bool) {
+	versus := func(word string) (PlayerID, bool) {
+		if word == "" || word == "You" {
+			return host, true
 		}
-		return host
+		refs, _, inContext := g.triggerRefs(source)
+		if !inContext {
+			return NoPlayer, false
+		}
+		named, err := definedPlayers(g, host, source, word, refs)
+		if err != nil {
+			return NoPlayer, false
+		}
+		if len(named) == 0 {
+			return host, true
+		}
+		return named[0], true
 	}
 	switch {
 	case strings.HasPrefix(property, "withMore"):
-		// "withMore<Type>sThan<You|Active>": strictly more of the type on the
+		// "withMore<Type>sThan<Defined>": strictly more of the type on the
 		// battlefield.
 		head, who, found := strings.Cut(property, "sThan")
 		if !found {
 			return false, false
 		}
 		cardType := head[len("withMore"):]
-		return typeCount(g, candidate, Battlefield, cardType) > typeCount(g, versus(who), Battlefield, cardType), true
+		other, known := versus(who)
+		if !known {
+			return false, false
+		}
+		return typeCount(g, candidate, Battlefield, cardType) > typeCount(g, other, Battlefield, cardType), true
 	case strings.HasPrefix(property, "withAtLeast"):
-		// "withAtLeast<d>More<Type>sThan<You|Active>": at least d more, d one
+		// "withAtLeast<d>More<Type>sThan<Defined>": at least d more, d one
 		// digit (Java's substring(11, 12)).
 		_, after, found := strings.Cut(property, "More")
 		head, who, thanFound := strings.Cut(after, "sThan")
@@ -483,11 +503,18 @@ func comparePlayers(g *Game, candidate, host PlayerID, property string) (matched
 		if err != nil {
 			return false, false
 		}
-		return typeCount(g, candidate, Battlefield, head) >= typeCount(g, versus(who), Battlefield, head)+d, true
+		other, known := versus(who)
+		if !known {
+			return false, false
+		}
+		return typeCount(g, candidate, Battlefield, head) >= typeCount(g, other, Battlefield, head)+d, true
 	case strings.HasPrefix(property, "hasMore"):
-		// "hasMore<Life|CardsInHand>[Than<Active>]": strictly more.
+		// "hasMore<Life|CardsInHand>[Than<Defined>]": strictly more.
 		_, who, _ := strings.Cut(property, "Than")
-		other := versus(who)
+		other, known := versus(who)
+		if !known {
+			return false, false
+		}
 		switch rest := property[len("hasMore"):]; {
 		case strings.HasPrefix(rest, "Life"):
 			return g.Player(candidate).Life > g.Player(other).Life, true
@@ -496,7 +523,7 @@ func comparePlayers(g *Game, candidate, host PlayerID, property string) (matched
 		}
 		return false, false
 	case strings.HasPrefix(property, "hasFewer"):
-		// "hasFewer<Type>sIn<Play|Yard>Than<You|Active>": strictly fewer; only
+		// "hasFewer<Type>sIn<Play|Yard>Than<Defined>": strictly fewer; only
 		// "CreaturesInYard" reads the graveyard, as in Java.
 		head, _, found := strings.Cut(property, "sIn")
 		_, who, thanFound := strings.Cut(property, "Than")
@@ -508,7 +535,11 @@ func comparePlayers(g *Game, candidate, host PlayerID, property string) (matched
 			zone = Graveyard
 		}
 		cardType := head[len("hasFewer"):]
-		return typeCount(g, candidate, zone, cardType) < typeCount(g, versus(who), zone, cardType), true
+		other, known := versus(who)
+		if !known {
+			return false, false
+		}
+		return typeCount(g, candidate, zone, cardType) < typeCount(g, other, zone, cardType), true
 	case strings.HasPrefix(property, "withMost"):
 		return withMost(g, candidate, property[len("withMost"):])
 	}

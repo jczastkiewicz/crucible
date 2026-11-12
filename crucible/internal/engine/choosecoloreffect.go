@@ -79,6 +79,25 @@ func (chooseColorEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		}
 		options &^= c
 	}
+	if raw, ok := a.Params.Param("ExcludeColorsFrom"); ok {
+		// ChooseColorEffect.java:58-68: the colors of the defined cards leave
+		// the choices; colorless cards remove nothing, and no color left
+		// ends the effect (Opulent Clomper, already all colors).
+		cards, err := definedCardsInGame(g, a.Controller, source, raw, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: ChooseColor: ExcludeColorsFrom$: %w", err)
+		}
+		var from mana.Colors
+		for _, id := range cards {
+			from |= g.Card(id).Colors()
+		}
+		if !from.IsColorless() {
+			options &^= from
+			if options.IsColorless() {
+				return nil
+			}
+		}
+	}
 	_, upTo := a.Params.Param("UpTo")
 	_, two := a.Params.Param("TwoColors")
 	_, or := a.Params.Param("OrColors")

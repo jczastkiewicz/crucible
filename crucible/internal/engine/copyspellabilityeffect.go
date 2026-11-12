@@ -85,6 +85,9 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 	if err != nil {
 		return fmt.Errorf("engine: CopySpellAbility: Controller$: %w", err)
 	}
+	// CopySpellAbilityEffect.java:83-84 (CR 405.3): copies put on the stack
+	// at once go on in APNAP order, the active player's lowest.
+	copiers = g.inAPNAPOrder(copiers)
 	optional := hasParam(a, "Optional")
 	mayChoose := hasParam(a, "MayChooseTarget")
 	// Every copy goes on the stack before any BecomesTarget trigger a copy's
@@ -521,6 +524,9 @@ func (g *Game) copyForEachTarget(controller PlayerController, a *Ability, spells
 	if err != nil {
 		return fmt.Errorf("engine: CopySpellAbility: Controller$: %w", err)
 	}
+	// CopySpellAbilityEffect.java:83-84 (CR 405.3): copies put on the stack
+	// at once go on in APNAP order, the active player's lowest.
+	copiers = g.inAPNAPOrder(copiers)
 	var targeted []copiedTargets
 	for _, copier := range copiers {
 		for _, orig := range spells {

@@ -193,7 +193,8 @@ func (r *cleanupAskRecorder) TakeAction(g *engine.Game, pid engine.PlayerID) eng
 
 // TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup is CR 514.3 after an
 // EndTurn spell (Time Stop's shape): its resolution hands nobody priority
-// (MagicStack.java:757-759 skips onStackResolved for EndTurn), and the
+// (PhaseHandler.java:486 clears givePriorityToPlayer and resolveStack leaves
+// it, :1289-1290), and the
 // Cleanup it began found nothing to do, so nobody is asked to act in it.
 func TestEndTurnResolutionGrantsNoPriorityInAQuietCleanup(t *testing.T) {
 	t.Parallel()

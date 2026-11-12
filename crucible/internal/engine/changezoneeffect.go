@@ -938,6 +938,10 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: DefinedPlayer$: %w", err)
 	}
+	// ChangeZoneEffect.java:910-911: "each player" searches resolve in APNAP
+	// order (sortAPNAP, SpellAbilityEffect.java:366-373; no hidden ChangeZone
+	// line names StartingWith$).
+	fetchers = g.inAPNAPOrder(fetchers)
 	_, usesTargeting := a.Params.Param("ValidTgts")
 	chooseFrom, chooseFromDefined := a.Params.Param("ChooseFromDefined")
 	definedSpec, hasDefined := a.Params.Param("Defined")

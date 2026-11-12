@@ -637,7 +637,8 @@
       "amount",
       "combat",
       "castrecord",
-      "excessdamage"
+      "excessdamage",
+      "defined"
     ],
     "foretell": [
       "id",

@@ -132,6 +132,15 @@ func TestEndCombatPhaseMovesToMain2(t *testing.T) {
 	if got := g.ActivePhase(); got != engine.Main1 {
 		t.Errorf("outside combat phase = %v, want Main1", got)
 	}
+	// Optional$ declined (EndCombatPhaseEffect.java:28-30): combat goes on.
+	g.SetTurnState(1, p, engine.DeclareAttackers)
+	c.QueueConfirmEffect(false)
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ EndCombatPhase | Optional$ True"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.ActivePhase(); got != engine.DeclareAttackers {
+		t.Errorf("declined phase = %v, want DeclareAttackers", got)
+	}
 }
 
 func TestChooseEvenOddDrivesValidProperty(t *testing.T) {

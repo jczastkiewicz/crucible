@@ -139,7 +139,7 @@ func TestBindDoesNotOfferATriggeredAbility(t *testing.T) {
 
 // Two Binds on one activated ability: the first to resolve counters it and
 // draws, the second finds its only target gone and fizzles without drawing
-// (CR 608.2b, MagicStack.java:753-755).
+// (CR 608.2b, MagicStack.java:783-788).
 func TestCounterOfAnAbilityThatLeftTheStackFizzles(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))

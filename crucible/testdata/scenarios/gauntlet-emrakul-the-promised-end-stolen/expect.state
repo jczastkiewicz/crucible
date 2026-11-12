@@ -1,0 +1,12 @@
+turn=3
+activeplayer=ai
+activephase=Upkeep
+humanlife=20
+humanbattlefield=Island|Id:1|Tapped;Island|Id:2|Tapped;Island|Id:3|Tapped;Island|Id:4|Tapped;Island|Id:5|Tapped;Island|Id:6|Tapped;Island|Id:7|Tapped;Island|Id:8|Tapped;Island|Id:9|Tapped;Island|Id:10|Tapped;Island|Id:11|Tapped;Emrakul, the Promised End|Id:12|SummonSick
+humangraveyard=Lightning Bolt|Id:13;Grizzly Bears|Id:14
+humanlibrary=Island|Id:15;Island|Id:16;Island|Id:17;Island|Id:18;Island|Id:19;Island|Id:20
+ailife=20
+aibattlefield=Grizzly Bears|Id:21;Ornithopter|Id:22;Swamp|Id:23;Pacifism|Id:24|AttachedTo:21
+aihand=Island|Id:25;Lightning Bolt|Id:26;Grizzly Bears|Id:27;Island|Id:30
+aigraveyard=Shock|Id:28;Hill Giant|Id:29
+ailibrary=Island|Id:31;Island|Id:32;Island|Id:33;Island|Id:34;Island|Id:35

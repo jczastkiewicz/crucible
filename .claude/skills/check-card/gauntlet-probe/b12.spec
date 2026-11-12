@@ -33,3 +33,14 @@ resolvestack
 tapformana human 110 R
 castspell human 40
 resolvestack
+== Emrakul, the Promised End
+cost 11
+queue targets ai
+resolvestack
+resolvestack
+== Emrakul, the Promised End #stolen
+cost 11
+queue targets ai
+resolvestack
+resolvestack
+advance 24

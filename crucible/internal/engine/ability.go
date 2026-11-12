@@ -335,6 +335,12 @@ type Ability struct {
 	// pusher of a trigger, sets it. hasSourceOnStack reads it (CR 704.5v's
 	// "source of an ability that has triggered but not yet left the stack").
 	isTrigger bool
+	// resolveRoot is the chain root's resolveKey, set on every sub-ability
+	// (resolveSubAbility): Card.numberAbilityResolved counts the root alone
+	// (AbilityUtils.resolve, never re-entered for a sub-ability) and a
+	// sub-ability's Count$ResolvedThisTurn reads the root's count.
+	resolveRoot    resolveKey
+	hasResolveRoot bool
 	// trigger is the Mode$ line a triggered ability came from (Trigger,
 	// SpellAbility.getTrigger): AbilityTriggered's Mode and the LastChapter
 	// property read it. nil for any other ability, and for a trigger from a
@@ -904,4 +910,16 @@ type paidLists struct {
 type voteCount struct {
 	entity EntityID
 	n      int
+}
+
+// resolvedKey is the key a's resolution counts under: the chain's root,
+// inherited by every sub-ability (SpellAbility.getRootAbility).
+func (a *Ability) resolvedKey() resolveKey {
+	if a.hasResolveRoot {
+		return a.resolveRoot
+	}
+	if a.isTrigger {
+		return triggerResolveKey(a.Params)
+	}
+	return resolveKey{ab: a.Params}
 }

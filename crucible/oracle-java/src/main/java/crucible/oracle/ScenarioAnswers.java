@@ -38,7 +38,7 @@ final class ScenarioAnswers {
             "paycolorlesshybrid", "payhybridphyrexian", "returnchoice", "enchanttarget", "divide", "abilitychoice", "playerchoice",
             "discard", "exertattackers", "legendarykeep", "option", "hybridmanacolor", "coincall", "damage",
             "startingplayer", "keephand", "tuck", "battleprotector", "sector", "tapchoice", "entitychoice",
-            "optionname", "roomdoor", "assistant", "assistamount", "manacolor");
+            "optionname", "roomdoor", "assistant", "assistamount", "manacolor", "triggerorder", "cardontop");
 
     /**
      * A tapformana, castspell or playland line, with the turn and phase Go
@@ -60,6 +60,8 @@ final class ScenarioAnswers {
     private final Deque<String> attackTargets = new ArrayDeque<>();
     private final Deque<List<String>> targets = new ArrayDeque<>();
     private final Deque<List<Integer>> cardOrders = new ArrayDeque<>();
+    private final Deque<List<Integer>> triggerOrders = new ArrayDeque<>();
+    private final Deque<Boolean> cardOnTops = new ArrayDeque<>();
     private final Deque<List<Integer>> cardChoices = new ArrayDeque<>();
     private final Deque<Boolean> confirmEffects = new ArrayDeque<>();
     private final Deque<Boolean> optionalTriggers = new ArrayDeque<>();
@@ -161,6 +163,8 @@ final class ScenarioAnswers {
             case "abilitychoice" -> abilityChoices.add(ids(value));
             case "playerchoice" -> playerChoices.add(value.strip());
             case "cardorder" -> cardOrders.add(ids(value));
+            case "triggerorder" -> triggerOrders.add(ids(value));
+            case "cardontop" -> cardOnTops.add(bool(value));
             case "confirmeffect" -> confirmEffects.add(bool(value));
             case "optionaltrigger" -> optionalTriggers.add(bool(value));
             case "confirmpaycost" -> confirmPayCosts.add(bool(value));
@@ -380,6 +384,29 @@ final class ScenarioAnswers {
     @Subscribe
     public void onPush(GameEventSpellAbilityCast e) {
         pushes.add(e.si().getId());
+    }
+
+    /**
+     * The next trigger order answer (Go's OrderSimultaneousTriggers): the
+     * indices of the simultaneous triggers in the order they resolve, first
+     * to resolve first, or null when none is queued. An answer that is not a
+     * permutation of 0..n-1 is ignored, as Go ignores it.
+     */
+    List<Integer> nextTriggerOrder(int n) {
+        List<Integer> order = triggerOrders.poll();
+        if (order == null || order.size() != n || !new java.util.HashSet<>(order).equals(
+                java.util.stream.IntStream.range(0, n).boxed().collect(java.util.stream.Collectors.toSet()))) {
+            return null;
+        }
+        return order;
+    }
+
+    /**
+     * The next clash answer (Go's WillPutCardOnTop): true keeps the revealed
+     * card on top. Null when none is queued.
+     */
+    Boolean nextCardOnTop() {
+        return cardOnTops.poll();
     }
 
     /**
@@ -874,6 +901,8 @@ final class ScenarioAnswers {
         }
         Map<String, Deque<?>> rest = new LinkedHashMap<>();
         rest.put("discardchoice", discardChoices);
+        rest.put("triggerorder", triggerOrders);
+        rest.put("cardontop", cardOnTops);
         rest.put("sacrificechoice", sacrificeChoices);
         rest.put("modechoice", modeChoices);
         rest.put("scry", scries);

@@ -3,7 +3,9 @@
 # Phyrexian Arena's upkeep loss of 1 adds a counter. Sahir's
 # Eminence deals it 1 damage, which its DamageDone line answers; the life
 # that damage costs has no cause (Player.java:813), so the LifeLost line
-# does not answer it too. Two counters, life 18.
+# does not answer it too. Two counters, life 18. Both lines run TrigPutCounter,
+# one ability (CardState.getAbilityForTrigger), so its second resolution this
+# turn draws: Arena's card and Sahir's.
 queue triggerorder 0,1
 startturn human
 advance

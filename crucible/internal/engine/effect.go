@@ -143,11 +143,12 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
 	a.game = g
-	if g != nil && a.Params != nil && (a.isTrigger || a.Params.Record != compile.Spell) {
-		// AbilityUtils.resolve counts each resolution of a non-wrapper ability,
-		// a sub-ability included (AbilityUtils.java:1313-1319): ResolvedLimit$'s
-		// state, and Count$ResolvedThisTurn's.
-		g.Card(a.Source).trigResolved.note(a.Params)
+	if g != nil && a.Params != nil && !a.hasResolveRoot && (a.isTrigger || a.Params.Record != compile.Spell) {
+		// AbilityUtils.resolve counts each resolution of a non-wrapper ability
+		// under its root (AbilityUtils.java:1318-1323, ActivationTable.getOriginal);
+		// a sub-ability resolves through resolveSubAbilities and is not
+		// counted again: ResolvedLimit$'s state, and Count$ResolvedThisTurn's.
+		g.Card(a.Source).trigResolved.note(a.resolvedKey())
 	}
 	if g != nil && a.Params != nil {
 		g.checkGiveGiftTriggers(controller, a)

@@ -486,9 +486,9 @@ type Card struct {
 	// hiddenPrinted is this pass's bit set of printed A: line indices a
 	// RemoveThisAbility$ animate hides (AnimateEffectBase.java:86-88).
 	hiddenPrinted uint64
-	// trigResolved counts, this turn, how often each of the card's triggers
+	// trigResolved counts, this turn, how often each of the card's abilities
 	// resolved (Card.numberAbilityResolved, ResolvedLimit$).
-	trigResolved triggerActivations
+	trigResolved resolvedCounts
 
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a

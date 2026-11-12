@@ -261,8 +261,7 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		if g.resolving == nil || g.resolving.Params == nil || source == NoCard {
 			return 0, false
 		}
-		turn, _ := g.Card(source).trigResolved.of(g.resolving.Params)
-		return turn, true
+		return g.Card(source).trigResolved.of(g.resolving.resolvedKey()), true
 	case "CardManaCost":
 		// Count$CardManaCost: the source card's own mana value (Cascade's X),
 		// the X paid included while it is on the stack (AbilityUtils.java:

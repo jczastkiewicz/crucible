@@ -657,6 +657,34 @@ final class ScenarioController extends PlayerControllerForTests {
     // played as a spell is, its targets from the queue
     // (PlayerControllerHuman.orderAndPlaySimultaneousSa); the order stays
     // upstream's, the list's.
+    // Go's triggerorder lists the triggers in resolve order, first to resolve
+    // first; the loop below puts the list on the stack front to back, so the
+    // queued order is returned reversed. Unqueued, upstream's (the list's).
+    @Override
+    public List<SpellAbility> orderSimultaneousSa(List<SpellAbility> activePlayerSAs) {
+        // Go asks only when two or more triggered together.
+        if (activePlayerSAs.size() < 2) {
+            return super.orderSimultaneousSa(activePlayerSAs);
+        }
+        List<Integer> order = answers.nextTriggerOrder(activePlayerSAs.size());
+        if (order == null) {
+            return super.orderSimultaneousSa(activePlayerSAs);
+        }
+        List<SpellAbility> out = new java.util.ArrayList<>();
+        for (int i = order.size() - 1; i >= 0; i--) {
+            out.add(activePlayerSAs.get(order.get(i)));
+        }
+        return out;
+    }
+
+    // ClashEffect.java:129-140 asks each clashing player through
+    // clashMoveToTopOrBottom; Go's cardontop answers it. Unqueued, upstream's.
+    @Override
+    public boolean willPutCardOnTop(Card c) {
+        Boolean top = answers.nextCardOnTop();
+        return top == null ? super.willPutCardOnTop(c) : top;
+    }
+
     @Override
     public void orderAndPlaySimultaneousSa(List<SpellAbility> activePlayerSAs) {
         for (SpellAbility sa : orderSimultaneousSa(activePlayerSAs)) {

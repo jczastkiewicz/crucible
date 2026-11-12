@@ -3182,7 +3182,7 @@ func triggerResolvedLimitMet(host *Card, t, execute *compile.Ability) bool {
 		return true
 	}
 	limit, err := strconv.Atoi(raw)
-	resolved, _ := host.trigResolved.of(execute)
+	resolved := host.trigResolved.of(triggerResolveKey(execute))
 	return err == nil && resolved < limit
 }
 

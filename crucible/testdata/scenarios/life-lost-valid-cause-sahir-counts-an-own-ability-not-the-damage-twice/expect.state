@@ -2,7 +2,7 @@ turn=1
 activeplayer=human
 activephase=Upkeep
 humanlife=18
-humanhand=Island
+humanhand=Island;Island
 humanbattlefield=Sahir, Visitor in Darkness|Counters:P1P1=2;Phyrexian Arena
-humanlibrary=Island;Island;Island
+humanlibrary=Island;Island
 ailife=20

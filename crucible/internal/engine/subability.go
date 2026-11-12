@@ -104,6 +104,7 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		// on every ability of the ReplaceWith$ chain, not the head alone.
 		replacing: parent.replacing,
 	}
+	child.resolveRoot, child.hasResolveRoot = parent.resolvedKey(), true
 	child.chainTargets = parent.chainTargets
 	if ct, ok := parent.chainTargetsFor(sub.Ability); ok {
 		child.Targets, child.Target, child.divided, child.targetsErr = ct.Targets, NoCard, ct.Divided, ct.Err

@@ -93,3 +93,62 @@ func (a triggerActivations) resetTurn() {
 
 // clone is triggerActivations' half of Game.Clone.
 func (a triggerActivations) clone() triggerActivations { return append(triggerActivations(nil), a...) }
+
+// resolveKey is what Card.numberAbilityResolved counts a resolution under
+// (ActivationTable.getOriginal): the root of the chain, never a sub-ability,
+// and for a trigger its Execute SVar by name. CardState.getAbilityForTrigger
+// (CardState.java:1301-1303) builds one ability per SVar, which every T: line
+// naming it shares: Sahir, Visitor in Darkness's DamageDone and LifeLost
+// lines count as one ability.
+type resolveKey struct {
+	ab   *compile.Ability
+	svar string
+}
+
+// triggerResolveKey is the key of a trigger whose Execute$ is execute.
+func triggerResolveKey(execute *compile.Ability) resolveKey {
+	if execute != nil && execute.SVar != "" {
+		return resolveKey{svar: execute.SVar}
+	}
+	return resolveKey{ab: execute}
+}
+
+type resolvedCount struct {
+	key  resolveKey
+	turn int
+}
+
+// resolvedCounts is a card's resolution table this turn: ResolvedLimit$ and
+// Count$ResolvedThisTurn's state (Card.numberAbilityResolved).
+type resolvedCounts []resolvedCount
+
+// of is how often the ability under k resolved this turn.
+func (a resolvedCounts) of(k resolveKey) int {
+	for _, c := range a {
+		if c.key == k {
+			return c.turn
+		}
+	}
+	return 0
+}
+
+// note is Card.addAbilityResolved (AbilityUtils.java:1318-1323).
+func (a *resolvedCounts) note(k resolveKey) {
+	for i := range *a {
+		if (*a)[i].key == k {
+			(*a)[i].turn++
+			return
+		}
+	}
+	*a = append(*a, resolvedCount{key: k, turn: 1})
+}
+
+// resetTurn is Card.resetAbilityResolvedThisTurn.
+func (a resolvedCounts) resetTurn() {
+	for i := range a {
+		a[i].turn = 0
+	}
+}
+
+// clone is resolvedCounts' half of Game.Clone.
+func (a resolvedCounts) clone() resolvedCounts { return append(resolvedCounts(nil), a...) }

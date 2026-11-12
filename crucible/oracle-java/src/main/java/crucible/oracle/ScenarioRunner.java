@@ -246,7 +246,7 @@ public final class ScenarioRunner {
         }
 
         List<String> setupLines = new ArrayList<>(Files.readAllLines(dir.resolve("setup.state")));
-        String lost = notInCommonCards(setupLines);
+        String lost = notInCardPools(setupLines);
         if (lost != null) {
             return new String[] {"unmapped", "setup card " + lost + " is not in GameState's card pool\n"};
         }
@@ -357,10 +357,11 @@ public final class ScenarioRunner {
         return new String[] {"state", withProtectors(game, text) + crucibleKeys(game)};
     }
 
-    // GameState.processCardsForZone looks a card up in the common cards only
-    // (GameState.java:1305) and drops any other, a Scheme or a Plane, with
-    // a line on stderr: the Java run would play a different board.
-    private static String notInCommonCards(List<String> setupLines) {
+    // GameState.processCardsForZone looks a card up in the common cards, then
+    // the variant cards (GameState.java:1306-1309, upstream-patches.md), and
+    // drops any other with a line on stderr: the Java run would play a
+    // different board.
+    private static String notInCardPools(List<String> setupLines) {
         for (String line : setupLines) {
             Matcher m = ZONE_LINE.matcher(line);
             if (!m.matches()) {
@@ -368,7 +369,8 @@ public final class ScenarioRunner {
             }
             for (String card : m.group(1).split(";")) {
                 String name = card.split("\\|")[0];
-                if (!name.startsWith("t:") && !name.startsWith("T:") && StaticData.instance().getCommonCards().getCard(name) == null) {
+                if (!name.startsWith("t:") && !name.startsWith("T:") && StaticData.instance().getCommonCards().getCard(name) == null
+                        && StaticData.instance().getVariantCards().getCard(name) == null) {
                     return name;
                 }
             }

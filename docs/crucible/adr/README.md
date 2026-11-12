@@ -73,10 +73,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0060](0060-l2-java-scenario-runner.md)                               | L2 scenario runner on the Java engine: decision script, engine-to-engine diff   | Accepted                  |
 | [0061](0061-print-identity-for-border-color.md)                       | A card carries its print, pinned by the deck or by latest art                   | Accepted                  |
 | [0062](0062-replay-log-records-the-ai-play-from-the-spell-ability.md) | Replay log: the AI's own choices for a play, read from the cast spell ability   | Accepted                  |
+| [0063](0063-replay-event-comparison-anchors-and-intervals.md)         | Replay events: anchors in order, everything between as net changes              | Proposed                  |
 
 ## Numbering
 
-No gap and no missing number: 0001-0062, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0063, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

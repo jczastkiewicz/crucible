@@ -1,0 +1,11 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Mountain|Id:1|Tapped
+humangraveyard=Lightning Bolt|Id:3;Grizzly Bears|Id:4;Lightning Bolt|Id:2
+humanlibrary=Island|Id:5;Island|Id:6;Island|Id:7;Island|Id:8;Island|Id:9;Island|Id:10
+ailife=20
+aihand=Island|Id:12;Lightning Bolt|Id:13;Grizzly Bears|Id:14
+aigraveyard=Shock|Id:15;Hill Giant|Id:16;Underdark Beholder|Id:11
+ailibrary=Island|Id:17;Island|Id:18;Island|Id:19;Island|Id:20;Island|Id:21;Island|Id:22

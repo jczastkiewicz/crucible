@@ -468,21 +468,23 @@ func putCounterType(a *compile.Ability) (CounterType, error) {
 // reached because Defined$ itself names a player, the identical shape this
 // dispatch reproduces.
 func definedCounterTargets(g *Game, controller PlayerID, host *Card, defined string, refs abilityRefs) ([]CardID, []PlayerID, error) {
+	switch defined {
+	case "You", "Opponent", "Player.Opponent":
+		players, err := definedPlayers(g, controller, host.ID, defined, refs)
+		return nil, players, err
+	}
 	// getDefinedEntitiesOrTargeted (CountersPutEffect.java:279): the players
 	// the spelling names and the cards, a player's Defined$ TriggeredTarget
-	// (Miss Highwater's contract counter) as much as You or a card.
-	entities, err := definedEntities(g, controller, host, defined, refs)
-	if err != nil {
-		return nil, nil, err
+	// (Miss Highwater's contract counter) as much as a card. A spelling that
+	// names nothing on either side while the card reader refused it is that
+	// refusal, never a silent no-op (GO-7).
+	players, perr := definedPlayers(g, controller, host.ID, defined, refs)
+	cards, cerr := definedCardsInGame(g, controller, host, defined, refs)
+	if cerr != nil && (len(players) == 0 || perr != nil) {
+		return nil, nil, cerr
 	}
-	var cards []CardID
-	var players []PlayerID
-	for _, e := range entities {
-		if id, ok := e.AsCard(); ok {
-			cards = append(cards, id)
-		} else if pid, ok := e.AsPlayer(); ok {
-			players = append(players, pid)
-		}
+	if perr != nil {
+		players = nil
 	}
 	return cards, players, nil
 }

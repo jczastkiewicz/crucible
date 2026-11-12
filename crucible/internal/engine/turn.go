@@ -584,13 +584,24 @@ func (g *Game) untapStep(controller PlayerController) {
 // counter instead, so the card stays tapped and no Untaps trigger fires. A
 // static that stops the removal leaves the untap replaced all the same.
 func (g *Game) untapCard(controller PlayerController, id CardID) {
-	if c := g.Card(id); c.Tapped && c.Zone == Battlefield && c.Counters.Count(Stun) > 0 {
-		removeCountersOfKind(g, id, CardEntity(id), &c.Counters, Stun, 1, false)
+	if g.Card(id).Tapped && g.stunReplacesUntap(id) {
 		return
 	}
 	g.checkUntapsTriggers(controller, id)
 	g.runUntapCommands(controller, id)
 	g.Card(id).Tapped = false
+}
+
+// stunReplacesUntap is the stun counter's Event$ Untap replacement
+// (Card.java:7203-7211, CR 122.1d): a permanent with one stays tapped and
+// loses a stun counter instead. It reports whether the untap was replaced.
+func (g *Game) stunReplacesUntap(id CardID) bool {
+	c := g.Card(id)
+	if c.Zone != Battlefield || c.Counters.Count(Stun) == 0 {
+		return false
+	}
+	removeCountersOfKind(g, id, CardEntity(id), &c.Counters, Stun, 1, false)
+	return true
 }
 
 // drawStep draws one card for the active player, ported from

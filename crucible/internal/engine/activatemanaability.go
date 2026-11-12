@@ -619,7 +619,10 @@ func (g *Game) payManaAbilityGeneral(controller PlayerController, act *Ability, 
 	if parsed.Tap {
 		c.Tapped = true
 	}
-	if parsed.Untap {
+	// CostUntap.payAsDecided untaps through Card.untap, which a stun counter
+	// replaces (stunReplacesUntap): the host stays tapped, no Untaps trigger.
+	untapped := parsed.Untap && !g.stunReplacesUntap(act.Source)
+	if untapped {
 		c.Tapped = false
 	}
 	if !g.payActivatedUnlessCost(controller, act, pid, uc) {
@@ -631,7 +634,7 @@ func (g *Game) payManaAbilityGeneral(controller PlayerController, act *Ability, 
 		g.checkTapsTriggers(controller, act.Source, pid, false)
 		g.checkTapAllTriggers(controller, []CardID{act.Source})
 	}
-	if parsed.Untap {
+	if untapped {
 		// CostUntap.payAsDecided (CostUntap.java:88-95): Card.untap's triggers
 		// and untap commands, then UntapAll for the activator. The flag
 		// cleared before the other parts were paid, so the Untaps check sees

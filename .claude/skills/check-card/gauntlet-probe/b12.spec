@@ -161,3 +161,21 @@ cost 3
 nocast
 set humanbattlefield=Sleep-Cursed Faerie|Id:2|Tapped|Counters:STUN=3
 advance 24
+== Lightning Bolt #underdark-five
+nocast
+set humanbattlefield=Mountain|Id:3
+set aibattlefield=Underdark Beholder|Id:50|Counters:EYESTALK=5
+queue targets 50
+tapformana human 3 R
+castspell human 1
+resolvestack
+resolvestack
+== Lightning Bolt #underdark-two
+nocast
+set humanbattlefield=Mountain|Id:3
+set aibattlefield=Underdark Beholder|Id:50|Counters:EYESTALK=2
+queue targets 50
+tapformana human 3 R
+castspell human 1
+resolvestack
+resolvestack

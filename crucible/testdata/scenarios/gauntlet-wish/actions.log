@@ -1,0 +1,15 @@
+# R20c gauntlet probe (Wish): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric R
+queue paygeneric R
+queue targets ai
+tapformana human 100 R
+tapformana human 101 R
+tapformana human 102 R
+castspell human 1
+resolvestack
+tapformana human 110 R
+castspell human 40
+resolvestack

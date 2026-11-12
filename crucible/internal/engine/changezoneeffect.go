@@ -852,16 +852,23 @@ func changeZoneIsHidden(a *Ability) bool {
 	return err == nil && (zoneIn(Library, origin) || zoneIn(Hand, origin) || zoneIn(Sideboard, origin))
 }
 
-// changeZoneAtRandom is the AtRandom$ branch of the pick loop
-// (ChangeZoneEffect.java:1195-1199): fetchList.sort() orders the list by
-// CardView.toString, "name (id)" compared as text (:1097), then each of the
-// changeNum picks is Aggregates.random over what is left -- no draw for one
-// card. The id is the arena id, which counts cards from 1 in creation order
-// as Game.nextCardId does, so same-name cards tie-break as Java's do.
-func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
+// sortFetchList is ChangeZoneEffect.java:1089's fetchList.sort(): the list
+// by CardView.toString, "name (id)" compared as text (:1097). The id is the
+// arena id, which counts cards from 1 in creation order as Game.nextCardId
+// does, so same-name cards tie-break as Java's do. It returns a copy.
+func (g *Game) sortFetchList(fetchList []CardID) []CardID {
 	key := func(id CardID) string { return g.Card(id).Name() + " (" + strconv.Itoa(int(id)) + ")" }
 	list := slices.Clone(fetchList)
 	slices.SortStableFunc(list, func(x, y CardID) int { return strings.Compare(key(x), key(y)) })
+	return list
+}
+
+// changeZoneAtRandom is the AtRandom$ branch of the pick loop
+// (ChangeZoneEffect.java:1195-1199): the list in sortFetchList's order, then
+// each of the changeNum picks is Aggregates.random over what is left -- no
+// draw for one card.
+func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
+	list := g.sortFetchList(fetchList)
 	var chosen []CardID
 	for i := 0; i < changeNum; i++ {
 		j := g.randomIndex(len(list))
@@ -1110,11 +1117,14 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 
 		var chosen []CardID
 		if defined && !chooseFromDefined {
+			// ChangeZoneEffect.java:1089, :1211: the defined cards go in
+			// fetchList.sort()'s order, each pick the first left (Atraxa,
+			// Grand Unifier's cards reach the hand by name, not pick order).
 			n := changeNum
 			if n > len(fetchList) {
 				n = len(fetchList)
 			}
-			chosen = append(chosen, fetchList[:n]...)
+			chosen = append(chosen, g.sortFetchList(fetchList)[:n]...)
 		} else {
 			// ChangeZoneEffect.java:1070-1076, 1268: a searched library is
 			// searched under the control grant ControlOpponentsSearching-

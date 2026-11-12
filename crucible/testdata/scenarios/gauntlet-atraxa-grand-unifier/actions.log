@@ -1,0 +1,23 @@
+# R20c gauntlet probe (Atraxa, Grand Unifier): the card played the way the Modern
+# gauntlet plays it, on a fixed board; L2: same as Java.
+startturn human
+advance 3
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue optionname Creature
+queue cardchoice 81
+queue optionname Instant
+queue cardchoice 82
+queue optionname Land
+queue cardchoice 80
+tapformana human 100 G
+tapformana human 101 G
+tapformana human 102 G
+tapformana human 103 G
+tapformana human 104 W
+tapformana human 105 U
+tapformana human 106 B
+castspell human 1
+resolvestack
+resolvestack

@@ -23,7 +23,7 @@ resolvestack
 resolvestack
 == Atraxa, Grand Unifier
 cost 3 G W U B
-set humanlibrary=Island|Id:80;Grizzly Bears|Id:81;Lightning Bolt|Id:82;Island|Id:83;Island|Id:84;Island|Id:85
+set humanlibrary=Island|Id:80;Grizzly Bears|Id:81;Lightning Bolt|Id:82
 queue optionname Creature
 queue cardchoice 81
 queue optionname Instant

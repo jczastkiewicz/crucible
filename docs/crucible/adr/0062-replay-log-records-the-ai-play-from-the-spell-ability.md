@@ -1,8 +1,8 @@
 # ADR-0062 — Replay Log Records the AI's Own Choices for a Play from the Cast Spell Ability
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-12
-- **Deciders:** Crucible session (R21a), owner
+- **Deciders:** Crucible session (R21a), accepted by the owner
 
 ## Context
 

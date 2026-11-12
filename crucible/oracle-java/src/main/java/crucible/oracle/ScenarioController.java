@@ -130,7 +130,12 @@ final class ScenarioController extends PlayerControllerForTests {
                 if (!sa.isManaAbility()) {
                     return List.of(sa);
                 }
-                if (!PlaySpellAbility.playSpellAbilityNoStack(this, player, sa, true)) {
+                // Activated as a player activates it (MagicStack.add's mana
+                // branch, MagicStack.java:222-241), so it counts as activated
+                // and fires AbilityCast and AbilityResolves (Tyvar the
+                // Bellicose), as Go's manaability does; a tapformana is the
+                // harness's own payment and skips the stack.
+                if (!PlaySpellAbility.playSpellAbility(this, player, sa)) {
                     throw new IllegalStateException(card + " did not activate " + sa);
                 }
                 continue;
@@ -248,13 +253,23 @@ final class ScenarioController extends PlayerControllerForTests {
     private void refuse(Card card, boolean land) {
         for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
             if (land ? sa.isLandAbility() : sa.isSpell()) {
-                if (PlaySpellAbility.playSpellAbility(this, player, sa)) {
-                    throw new IllegalStateException(player + " played " + sa + ", which Go refused");
+                refusing = true;
+                try {
+                    if (PlaySpellAbility.playSpellAbility(this, player, sa)) {
+                        throw new IllegalStateException(player + " played " + sa + ", which Go refused");
+                    }
+                } finally {
+                    refusing = false;
                 }
                 return;
             }
         }
     }
+
+    // Set while refuse() tries a play Go refused: a cost the pool cannot pay
+    // cancels the play (PlaySpellAbility refunds the mana, :417-418) instead
+    // of taking a tapformana Go made after the refusal.
+    private boolean refusing;
 
     // Go's ChooseAbilitiesForEffect: indices into the abilities offered, in
     // Choices$ order (GenericChoice, ChooseGenericEffect.java:102).
@@ -350,6 +365,11 @@ final class ScenarioController extends PlayerControllerForTests {
     public boolean chooseTargetsFor(SpellAbility currentAbility) {
         TargetRestrictions tgt = currentAbility.getTargetRestrictions();
         if (tgt.getNumCandidates(currentAbility) == 0) {
+            return tgt.getMinTargets(currentAbility.getHostCard(), currentAbility) == 0;
+        }
+        // Nor where the target count is zero (a promised gift's X = 0, Jolly
+        // Gerbils): targeting.go asks nothing when max and min are both 0.
+        if (tgt.getMaxTargets(currentAbility.getHostCard(), currentAbility) == 0) {
             return tgt.getMinTargets(currentAbility.getHostCard(), currentAbility) == 0;
         }
         if (currentAbility.isSpell() && currentAbility.getHostCard().isAura()) {
@@ -472,9 +492,13 @@ final class ScenarioController extends PlayerControllerForTests {
             if (!toPay.toString().equals(before)) {
                 continue;
             }
+            if (refusing) {
+                return false;
+            }
             ScenarioAnswers.Play tap = answers.nextTapNow();
             if (tap == null) {
-                throw new IllegalStateException(player + "'s pool cannot pay " + toPay + " for " + ability);
+                throw new IllegalStateException(player + "'s pool (" + player.getManaPool() + ") cannot pay " + toPay
+                        + " for " + ability);
             }
             tapForMana(answers.card(tap.id()), tap.arg());
         }
@@ -679,6 +703,76 @@ final class ScenarioController extends PlayerControllerForTests {
         return name;
     }
 
+    // One of several abilities (VentureEffect.chooseNextRoom, VentureEffect.
+    // java:107): Go's ChooseAbilitiesForEffect for one (queue abilitychoice,
+    // ventureeffect.go chooseNextRoom).
+    @Override
+    public SpellAbility chooseSingleSpellForEffect(List<SpellAbility> spells, SpellAbility sa, String title,
+            Map<String, Object> params) {
+        List<Integer> idx = answers.bound() && spells.size() > 1 ? answers.nextAbilityChoice() : null;
+        if (idx == null) {
+            return super.chooseSingleSpellForEffect(spells, sa, title, params);
+        }
+        if (idx.size() != 1 || idx.get(0) < 0 || idx.get(0) >= spells.size()) {
+            throw new IllegalStateException("abilitychoice " + idx + " for one of " + spells);
+        }
+        return spells.get(idx.get(0));
+    }
+
+    // A vote among Choices$ abilities (VoteEffect.java:104): Go's castVote
+    // asks ChooseAbilitiesForEffect (queue abilitychoice), one index a vote.
+    @Override
+    public Object vote(SpellAbility sa, String prompt, List<Object> options,
+            com.google.common.collect.ListMultimap<Object, Player> votes, Player forPlayer, boolean optional) {
+        if (answers.bound() && !options.isEmpty() && options.get(0) instanceof SpellAbility) {
+            List<Integer> idx = answers.nextAbilityChoice();
+            if (idx != null) {
+                if (idx.size() != 1 || idx.get(0) < 0 || idx.get(0) >= options.size()) {
+                    throw new IllegalStateException("vote answer " + idx + " for " + options);
+                }
+                return options.get(idx.get(0));
+            }
+        }
+        return super.vote(sa, prompt, options, votes, forPlayer, optional);
+    }
+
+    // "You may have it assign its combat damage as though it weren't blocked"
+    // and Cunning Giant's "to a creature defending player controls"
+    // (Combat.java:845-866, :901-904): Go's ConfirmEffect (combatdamage.go).
+    @Override
+    public boolean confirmStaticApplication(Card hostCard, PlayerActionConfirmMode mode, String message, String logic) {
+        if (answers.bound() && mode == PlayerActionConfirmMode.AlternativeDamageAssignment) {
+            Boolean v = answers.nextConfirmEffect();
+            if (v != null) {
+                return v;
+            }
+        }
+        return super.confirmStaticApplication(hostCard, mode, message, logic);
+    }
+
+    // Replicate's, Multikicker's, Squad's and Offspring's count
+    // (GameActionUtil.java:673-733): Go's ChooseNumber (queue numberchoice).
+    @Override
+    public int chooseNumberForKeywordCost(SpellAbility sa, forge.game.cost.Cost cost,
+            forge.game.keyword.KeywordInterface keyword, String prompt, int max) {
+        Integer v = answers.bound() ? answers.nextNumberChoice() : null;
+        return v != null ? Math.min(v, max) : super.chooseNumberForKeywordCost(sa, cost, keyword, prompt, max);
+    }
+
+    // A dungeon to venture into (VentureEffect.getDungeonCard,
+    // VentureEffect.java:63): Go's ChooseOption by name (queue optionname).
+    @Override
+    public ICardFace chooseSingleCardFace(SpellAbility sa, List<ICardFace> faces, String message) {
+        if (!answers.bound()) {
+            return super.chooseSingleCardFace(sa, faces, message);
+        }
+        String name = answers.nextOptionName(n -> faces.stream().anyMatch(f -> f.getName().equals(n)));
+        if (name == null) {
+            throw new IllegalStateException("choosing one of " + faces + " for " + sa + " needs queue optionname");
+        }
+        return faces.stream().filter(f -> f.getName().equals(name)).findFirst().orElseThrow();
+    }
+
     // Assist (CR 702.132a, CostAdjustment.adjustCostByAssist): the caster's
     // ChooseAssistant, then the assistant's AssistAmount, paid from the
     // assistant's pool as any cost is (applyManaToCost, S25).
@@ -776,6 +870,29 @@ final class ScenarioController extends PlayerControllerForTests {
     public List<Card> exertAttackers(List<Card> attackers) {
         List<Card> chosen = answers.nextExert(attackers);
         return chosen != null ? chosen : super.exertAttackers(attackers);
+    }
+
+    // Go's enlistAttacker asks ChooseCardsForEffect, 0 or 1 of the creatures
+    // that can be tapped, once per attacker with Enlist: a queued card choice
+    // that fits enlists that attacker, none leaves it out. The picks are paid
+    // by visit(CostEnlist).
+    @Override
+    public List<Card> enlistAttackers(List<Card> attackers) {
+        if (!answers.bound()) {
+            return super.enlistAttackers(attackers);
+        }
+        List<Card> out = new ArrayList<>();
+        answers.enlistPicks.clear();
+        for (Card attacker : attackers) {
+            CardCollection options = forge.game.cost.CostEnlist.getCardsForEnlisting(player);
+            options.removeAll(answers.enlistPicks);
+            List<Card> pick = answers.nextCardChoice(options, 1, 1);
+            if (pick != null) {
+                out.add(attacker);
+                answers.enlistPicks.add(pick.get(0));
+            }
+        }
+        return out;
     }
 
     // A coin flip's call (FlipCoinEffect.flipCoin): Go's CallCoinFlip, true
@@ -1012,7 +1129,9 @@ final class ScenarioController extends PlayerControllerForTests {
     public boolean payCombatCost(Card c, Cost cost, SpellAbility sa, String prompt) {
         // An exert the player already chose (exertAttackers) is the whole
         // cost (getAttackCost starts from a zero mana part): Go's ExertAttackers answer exerts it, with no confirmation.
+        // An enlist enlistAttackers already picked is paid the same way.
         if (cost.getCostParts().stream().allMatch(part -> part instanceof CostExert
+                || part instanceof forge.game.cost.CostEnlist
                 || part instanceof CostPartMana m && m.getMana().isZero())) {
             return pay(cost, sa);
         }

@@ -2,7 +2,11 @@
 # counts the lands that entered this turn under the moved land's
 # controller. The human's land drop is the first (X = 1, no trigger); the
 # Forest Rampant Growth fetches is the second (X = 2), so Ignus deals 3.
-startturn human
+# The human plays on their own second turn: Java's GameState puts the
+# setup's battlefield cards onto it this turn, so on turn 1 its two Forests
+# would count too (X = 3 for the land drop).
+startturn ai
+advance 13
 advance 3
 queue action human playland 1
 passpriority

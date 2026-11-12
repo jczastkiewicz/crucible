@@ -1,8 +1,9 @@
-turn=1
+turn=2
 activeplayer=human
 activephase=Main1
 humanlife=17
 humanlandsplayed=1
+humanhand=Island
 humanbattlefield=Forest|Tapped;Forest|Tapped;Forest;Forest|Tapped
 humangraveyard=Rampant Growth
 ailife=20

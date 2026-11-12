@@ -7,9 +7,12 @@ import forge.game.card.Card;
 import forge.game.card.CardCollectionView;
 import forge.game.card.CardLists;
 import forge.game.card.CardPredicates;
+import forge.game.cost.CostCollectEvidence;
 import forge.game.cost.CostDiscard;
+import forge.game.cost.CostEnlist;
 import forge.game.cost.CostExile;
 import forge.game.cost.CostForage;
+import forge.game.cost.CostPromiseGift;
 import forge.game.cost.CostPutCounter;
 import forge.game.cost.CostReturn;
 import forge.game.cost.CostReveal;
@@ -118,14 +121,57 @@ final class ScenarioCostDecision extends AiCostDecision {
         return chosen != null ? PaymentDecision.card(chosen) : super.visit(cost);
     }
 
-    // tapXType<N/Type>: Go's ChoosePermanentsToTap (Station, Crew), from the
-    // untapped permanents the cost lists; the AI's pick when none fits.
+    // tapXType<N/Type>: Go's ChoosePermanentsToTap (Station), from the
+    // untapped permanents the cost lists; the AI's pick when none fits. Crew
+    // and Saddle (withTotalPowerGE) are any number of creatures whose total
+    // power reaches N: Go asks ChooseCardsForEffect for them
+    // (activateability.go), so a queued card choice picks them.
     @Override
     public PaymentDecision visit(CostTapType cost) {
         PaymentDecision ai = super.visit(cost);
+        if (cost.getType().contains("withTotalPowerGE")) {
+            List<Card> chosen = answers.nextCardChoice(
+                    CardLists.filter(valid(player.getCardsIn(ZoneType.Battlefield), cost.getType().replaceAll("\\+withTotalPowerGE[^;+]*", "")),
+                            CardPredicates.UNTAPPED), 1, Integer.MAX_VALUE);
+            return chosen != null ? PaymentDecision.card(chosen) : ai;
+        }
         List<Card> chosen = answers.nextTapChoice(
                 CardLists.filter(player.getCardsIn(ZoneType.Battlefield), CardPredicates.UNTAPPED), 1, Integer.MAX_VALUE);
         return chosen != null ? PaymentDecision.card(chosen) : ai;
+    }
+
+    // CollectEvidence<N>: graveyard cards whose total mana value reaches N.
+    // Go asks ChooseCardsForEffect for them (unlesscost.go, collectEvidence), so a
+    // queued card choice picks them.
+    @Override
+    public PaymentDecision visit(CostCollectEvidence cost) {
+        PaymentDecision ai = super.visit(cost);
+        CardCollectionView graveyard = CardLists.filter(player.getCardsIn(ZoneType.Graveyard),
+                CardPredicates.canExiledBy(ability, isEffect()));
+        List<Card> chosen = answers.nextCardChoice(graveyard, 1, graveyard.size());
+        return chosen != null ? PaymentDecision.card(chosen) : ai;
+    }
+
+    // Enlist: the creature enlistAttackers picked for this attacker (Go's
+    // enlistAttacker, attack.go); the AI's pick when none was queued.
+    @Override
+    public PaymentDecision visit(CostEnlist cost) {
+        Card pick = answers.enlistPicks.poll();
+        return pick != null ? PaymentDecision.card(pick) : super.visit(cost);
+    }
+
+    // Gift: the opponent promised the gift. Go asks ChoosePlayerForEffect
+    // (queue playerchoice); the AI's pick shuffles the opponents with the
+    // game's random stream (AiCostDecision.visit(CostPromiseGift)).
+    @Override
+    public PaymentDecision visit(CostPromiseGift cost) {
+        if (cost.canPay(ability, player, isEffect())) {
+            Player chosen = answers.nextPlayerChoice(cost.getPotentialPlayers(player, ability));
+            if (chosen != null) {
+                return PaymentDecision.players(List.of(chosen));
+            }
+        }
+        return super.visit(cost);
     }
 
     private CardCollectionView valid(CardCollectionView cards, String type) {

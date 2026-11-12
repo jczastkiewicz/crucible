@@ -65,6 +65,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java` | `Chooser$` naming nobody returns instead of `get(0)` on an empty list | PR [#12376](https://github.com/Card-Forge/forge/pull/12376), branch `upstream-pr/null-guards-combat-zones` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/CopySpellAbilityEffect.java` | Copies counted per spell (`chosenCopies`), so the `CopySpell` replacement sees one spell's amount, not the running total | PR [#12379](https://github.com/Card-Forge/forge/pull/12379), branch `upstream-pr/copy-spell-amount` |
 | 2026-10-31 | `forge-gui/res/cardsfolder/c/cogwork_tracker.txt` | second static names the defender with `MustAttack$`: `ValidPlayer$` is read by `PlayerMustAttack` alone, so under `Mode$ MustAttack` it was ignored | PR [#12536](https://github.com/Card-Forge/forge/pull/12536), branch `upstream-pr/cogwork-tracker-noted-defender` (also carries the `PlayerProperty.java` `NotedDefender` fix, not in the fork) |
+| 2026-11-12 | `forge-game/src/main/java/forge/game/player/Player.java` | `addCounterInternal` checks `params` for null before reading the RAD counter's cause | not filed, branch `upstream-pr/player-rad-counter-null-params` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

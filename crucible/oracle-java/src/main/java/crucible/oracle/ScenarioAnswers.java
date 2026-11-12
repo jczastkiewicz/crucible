@@ -290,19 +290,21 @@ final class ScenarioAnswers {
         if (next != null && next.verb().equals("concede") && due(next)) {
             return plays.poll();
         }
-        if (next != null && (next.player().equalsIgnoreCase(p.getName()) || next.verb().equals("tapformana"))
-                && now(next)
-                && (!next.afterResolve() || game.getStack().isEmpty())) {
-            return plays.poll();
-        }
         // An action waits for the first priority at or after its round: Go
-        // keeps it queued through a step that gives none.
+        // keeps it queued through a step that gives none. It is made before a
+        // play a later line made (a queued playland, then a tapformana and a
+        // castspell: Go plays the land at the passpriority between them), and
+        // never before one an earlier line made.
         Deque<Play> own = actions.get(p.getName().toLowerCase());
-        // Nor before a play an earlier line made.
         if (own != null && own.peek() != null && due(own.peek())
                 && (!own.peek().afterResolve() || game.getStack().isEmpty())
                 && (next == null || next.line() > own.peek().line())) {
             return own.poll();
+        }
+        if (next != null && (next.player().equalsIgnoreCase(p.getName()) || next.verb().equals("tapformana"))
+                && now(next)
+                && (!next.afterResolve() || game.getStack().isEmpty())) {
+            return plays.poll();
         }
         return null;
     }
@@ -488,6 +490,13 @@ final class ScenarioAnswers {
         }
         return out;
     }
+
+    /**
+     * The creatures enlistAttackers picked to tap, in the order the enlisting
+     * attackers pay (Go's enlistAttacker asks ChooseCardsForEffect once per
+     * attacker); visit(CostEnlist) takes them.
+     */
+    final java.util.ArrayDeque<Card> enlistPicks = new java.util.ArrayDeque<>();
 
     /**
      * The next exertattackers answer (Go's ExertAttackers) as cards of the

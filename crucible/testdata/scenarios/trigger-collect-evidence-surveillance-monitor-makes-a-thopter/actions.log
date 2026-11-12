@@ -12,7 +12,6 @@ queue paygeneric U
 queue paygeneric U
 queue paygeneric U
 queue optionaltrigger true
-queue confirmpaycost true
 queue cardchoice 6
 castspell human 1
 resolvestack

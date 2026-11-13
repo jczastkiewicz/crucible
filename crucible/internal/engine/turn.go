@@ -809,12 +809,11 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	hand := g.Zone(Hand, g.activePlayer).Cards()
 	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(g.Player(g.activePlayer).StartingHandSize); hasLimit && len(hand) > limit {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
-		for _, id := range discard {
-			// CR 514.1's discard is no effect's (Player.discard with effect
-			// false): a discard replacement's EffectOnly$ does not apply.
-			g.discardToGraveyard(controller, id, discardCause{known: true})
-			g.checkDiscardedTriggers(controller, id, g.activePlayer, discardCause{known: true})
-		}
+		// CR 514.1's discard is no effect's (Player.discard with effect
+		// false): a discard replacement's EffectOnly$ does not apply. Its
+		// table fires ChangesZoneAll, then DiscardedAll
+		// (PhaseHandler.java:287-306).
+		discardForCost(g, controller, discard, g.activePlayer, discardCause{known: true})
 	}
 
 	// CR 514.2 (PhaseHandler.java:400-405): phased-out permanents too

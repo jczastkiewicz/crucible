@@ -72,10 +72,15 @@ func (balanceEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		}
 		sacrificeCards(g, controller, a, chosen)
 	}
+	// BalanceEffect.java:52-72: one table for every player's discards.
+	var all []CardID
 	for i, p := range players {
 		if len(discards[i]) > 0 {
-			discardCards(g, controller, discards[i], p, effectDiscardCause(a))
+			g.discardEach(controller, discards[i], p, effectDiscardCause(a))
+			g.checkDiscardedAllTriggers(controller, p, discards[i])
+			all = append(all, discards[i]...)
 		}
 	}
+	g.checkChangesZoneAllTriggers(controller, all, Hand, Graveyard)
 	return nil
 }

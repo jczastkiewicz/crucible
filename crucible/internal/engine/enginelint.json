@@ -192,6 +192,7 @@
     ],
     "turn": [
       "removecountereffect",
+      "discardeffect",
       "id",
       "zone",
       "parts",

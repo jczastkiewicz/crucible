@@ -54,8 +54,10 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// Both Kaheera games replay to their end with no gap.
 		{fixture, "", ""},
 		{counterFixture, "", ""},
-		// Java casts Moonshadow in its second main phase; Go passes.
-		{rakdosFixture, "java only:\n    push card 112 (Moonshadow) by seat 0", ""},
+		// Lethal combat damage: Java checks state-based actions before any
+		// trigger reaches the stack and ends the game; Go pushes Ragavan's
+		// combat damage trigger first.
+		{rakdosFixture, "java only:\n    end, seat 0 wins", ""},
 		// Java won Ral's coin flip and transformed it; Go flips with its own
 		// stream (the replay feeds shuffles, not coins), loses, and is dealt 1.
 		{"../../testdata/replay/domain-zoo-vs-ruby-storm-seed5.jsonl",

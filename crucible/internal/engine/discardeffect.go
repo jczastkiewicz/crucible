@@ -155,24 +155,26 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 
 	_, remember := a.Params.Param("RememberDiscarded")
 	discarded := make([][]CardID, len(picks))
+	var all []CardID
 	for i, pick := range picks {
 		for _, id := range pick.cards {
 			if g.Card(id).Zone != Hand {
 				continue
 			}
-			cause := effectDiscardCause(a)
-			g.discardToGraveyard(controller, id, cause)
-			g.checkDiscardedTriggers(controller, id, pick.player, cause)
-			g.checkLeftZoneTriggers(controller, []CardID{id}, Hand)
+			g.discardEach(controller, []CardID{id}, pick.player, effectDiscardCause(a))
 			if remember {
 				source.Memory.Remember(CardEntity(id))
 			}
 			discarded[i] = append(discarded[i], id)
+			all = append(all, id)
 		}
 	}
 	for i, pick := range picks {
 		g.checkDiscardedAllTriggers(controller, pick.player, discarded[i])
 	}
+	// DiscardEffect.java:286-295: one table for every player's discards, its
+	// ChangesZoneAll after the discards' DiscardedAll (Moonshadow).
+	g.checkChangesZoneAllTriggers(controller, all, Hand, Graveyard)
 	return nil
 }
 
@@ -354,20 +356,41 @@ func discardValidResolvable(g *Game, spec string, controller PlayerID, source Ca
 	return nil
 }
 
-// discardCards moves each of ids from its owner's hand to their graveyard
+// discardEach moves each of ids from its owner's hand to their graveyard
 // and fires Mode$ Discarded (checkDiscardedTriggers), CR 701.8's own "move
-// directly from hand to graveyard" -- a Discard<N/Card> activation cost
-// (ActivateAbility, activateability.go) and the other cost sites discard
-// through it; the effect above runs the same steps across several players.
-// A discard replacement may send a card elsewhere (discardToGraveyard,
-// Madness); cause says whether an effect made the discard (EffectOnly$,
-// Player.discard's effect flag), unknown where the caller cannot tell.
-func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID, cause discardCause) {
+// directly from hand to graveyard": Player.discard for each card. A discard
+// replacement may send a card elsewhere (discardToGraveyard, Madness); cause
+// says whether an effect made the discard (EffectOnly$, Player.discard's
+// effect flag), unknown where the caller cannot tell. The caller fires the
+// batch triggers, DiscardedAll and the CardZoneTable's ChangesZoneAll, in
+// its own order.
+func (g *Game) discardEach(controller PlayerController, ids []CardID, pid PlayerID, cause discardCause) {
 	for _, id := range ids {
 		g.discardToGraveyard(controller, id, cause)
 		g.checkDiscardedTriggers(controller, id, pid, cause)
 		g.checkLeftZoneTriggers(controller, []CardID{id}, Hand)
 	}
+}
+
+// discardCards is an effect's discard of ids by pid
+// (SpellAbilityEffect.discard, SpellAbilityEffect.java:931-960, then the
+// effect's table.triggerChangesZoneAll): the discards, Mode$ DiscardedAll,
+// then Mode$ ChangesZoneAll for the batch (ConniveEffect.java:104-106,
+// RecruitEffect.java:62-63, LearnEffect.java:30-34).
+func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID, cause discardCause) {
+	g.discardEach(controller, ids, pid, cause)
+	g.checkDiscardedAllTriggers(controller, pid, ids)
+	g.checkChangesZoneAllTriggers(controller, ids, Hand, Graveyard)
+}
+
+// discardForCost is CostDiscard's payment of ids by pid (a Discard<N/Card>
+// cost, an unless cost) and cleanup's discard to hand size: the discards,
+// then Mode$ ChangesZoneAll before Mode$ DiscardedAll
+// (CostDiscard.handleChangeZoneTrigger, CostDiscard.java:238-249, runs its
+// table first; PhaseHandler.discardToHandSize, PhaseHandler.java:287-306).
+func discardForCost(g *Game, controller PlayerController, ids []CardID, pid PlayerID, cause discardCause) {
+	g.discardEach(controller, ids, pid, cause)
+	g.checkChangesZoneAllTriggers(controller, ids, Hand, Graveyard)
 	g.checkDiscardedAllTriggers(controller, pid, ids)
 }
 

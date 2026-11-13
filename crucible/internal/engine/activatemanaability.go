@@ -30,41 +30,41 @@ import (
 // human and this port never renders it. Any other key present fails the
 // whole line loudly rather than producing the wrong mana or ignoring a real
 // restriction (PORT-8/GO-7): RestrictValid$ is admitted when
-// manaRestrictionSupported can judge it (ADR-0046); SubAbility$ is admitted and resolved once the
-// mana is made (resolveManaSubAbility); IsPresent$/ConditionCheckSVar$/ConditionSVarCompare$/
-// PresentCompare$/CheckSVar$/SVarCompare$ (combined) are an
-// "activate only if..." restriction this port has no general resolving-
-// ability gate for (distinct from subAbilityConditionMet's own Condition-
-// prefixed pair, which a *resolving* Mana ability never carries in the real
-// corpus); TriggersWhenSpent$ is admitted: the units it makes carry its
-// trigger (poolUnit.whenSpent); AddsKeywords$/AddsKeywordsValid$/
-// AddsKeywordsUntil$ tag the mana itself with a further effect this port's
-// own Pool cannot carry; AILogic$/AINoRecursiveCheck$/
-// PrecostDesc$/Activation$ (13 combined) are AI hinting or a further
-// "Activate only as..." cost-description gate, neither read here.
-// Planeswalker$ (CR 606.3's own loyalty-ability marker, SpellAbility.
-// isPwAbility's own bare hasParam check) and Ultimate$ (purely descriptive,
-// never itself a restriction) are both admitted: 21 real A:AB$ Mana lines
-// name the first, every one paired with AddCounter<...>/SubCounter<...>.
-// ActivationPhases$, PlayerTurn$, OpponentTurn$, ActivationFirstCombat$ and
-// ActivationAfterBlockers$ are admitted too -- ActivateManaAbility checks
-// them before this gate the identical way ActivateAbility does
-// (timingRestrictionsMet, activateability.go). The sole real corpus line
-// naming ActivationPhases$, mana_cache.txt's "Upkeep->Main2", stays
-// unreachable regardless: it also names Activator$ (CR 606's own "any
-// player" grant, a restriction this function has no general gate for, the
-// identical reasoning as the IsPresent$/ConditionCheckSVar$/... group
-// above).
+// manaRestrictionSupported can judge it (ADR-0046); SubAbility$ is admitted
+// and resolved once the mana is made (resolveManaSubAbility); TriggersWhenSpent$
+// is admitted: the units it makes carry its trigger (poolUnit.whenSpent).
+// A mana ability is restricted as any activated ability is
+// (SpellAbilityRestriction.canPlay): the timing keys ActivationPhases$,
+// PlayerTurn$, OpponentTurn$, ActivationFirstCombat$ and
+// ActivationAfterBlockers$ (timingRestrictionsMet) and the board keys
+// Activation$ (Mox Opal's Metalcraft), IsPresent$ with PresentCompare$,
+// PresentDefined$ and PresentZone$ (Riverpyre Verge), LifeTotal$ with
+// LifeAmount$, CheckSVar$ with SVarCompare$, ClassLevel$ and
+// ActivationGameTypes$ (otherRestrictionsMet) are read before this gate.
+// Still refused: ActivationLimit$ (no activation count is kept for a mana
+// ability), ConditionCheckSVar$/ConditionSVarCompare$, Activator$, and
+// AddsKeywords$/AddsKeywordsValid$/AddsKeywordsUntil$, which tag the mana
+// itself with a further effect this port's Pool cannot carry.
+// AILogic$/AINoRecursiveCheck$ are AI hints; PrecostDesc$, CostDesc$,
+// StackDescription$ and AmountDesc$ describe the ability to a human. Planeswalker$ (CR 606.3's own loyalty-ability marker,
+// SpellAbility.isPwAbility's own bare hasParam check) and Ultimate$ (purely
+// descriptive) are admitted: 21 real A:AB$ Mana lines name the first, every
+// one paired with AddCounter<...>/SubCounter<...>.
 var manaAbilityAllowedParams = map[string]bool{
 	"ab": true, "cost": true, "spelldescription": true, "produced": true, "amount": true, "subability": true,
 	"triggerswhenspent": true,
 	"planeswalker":      true, "ultimate": true, "activationzone": true, "activationphases": true,
 	"playerturn": true, "opponentturn": true, "activationfirstcombat": true, "activationafterblockers": true,
 	// AI hints and a description: neither changes what the ability does.
-	"ailogic": true, "ainorecursivecheck": true, "precostdesc": true,
+	"ailogic": true, "ainorecursivecheck": true, "precostdesc": true, "costdesc": true, "stackdescription": true,
+	"amountdesc": true,
 	// SpellAbilityRestriction's instant-speed grant: a mana ability has no
 	// stack timing to restrict.
 	"instantspeed": true,
+	// SpellAbilityRestriction.checkOtherRestrictions (otherRestrictionsMet).
+	"activation": true, "ispresent": true, "presentcompare": true, "presentdefined": true, "presentzone": true,
+	"lifetotal": true, "lifeamount": true, "checksvar": true, "svarcompare": true, "classlevel": true,
+	"activationgametypes": true,
 }
 
 // manaAbilityParamsResolvable reports whether a is nothing but the params
@@ -273,7 +273,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if ability.Record != compile.Activated || ability.Name != "Mana" || !isManaAbility(ability) {
 		return false
 	}
-	if g.cantBeActivated(pid, c, true, false) || !g.timingRestrictionsMet(pid, ability) {
+	if g.cantBeActivated(pid, c, true, false) || !g.timingRestrictionsMet(pid, ability) || !g.otherRestrictionsMet(c, ability) {
 		return false
 	}
 	if !g.manaAbilityParamsResolvable(ability) {

@@ -406,7 +406,10 @@ func (c *Controller) printed(id engine.CardID, a abilityID) (ab *compile.Ability
 	}
 	lines := def.Faces[0].Abilities
 	index = *a.Index
-	if !c.g.Card(id).Type().Has(cardtype.Land) && !slices.ContainsFunc(lines, func(l *compile.Ability) bool {
+	// A back face with no mana cost (a transformed planeswalker) has no
+	// spell; a token's state, with none either, has one.
+	transformed := a.State == "Backside" && def.Faces[0].ManaCost.IsNoCost()
+	if !c.g.Card(id).Type().Has(cardtype.Land) && !transformed && !slices.ContainsFunc(lines, func(l *compile.Ability) bool {
 		return l.Record == compile.Spell
 	}) {
 		if index == 0 {
@@ -454,6 +457,7 @@ func (c *Controller) PayManaCost(_ *engine.Game, payer engine.PlayerID, toPay ma
 	if c.cur != nil && !c.paid && paidFor != engine.NoCard {
 		if host, ok := c.goCard(c.cur.Ability.Host); ok && host == paidFor {
 			c.paid = true
+			c.paymentCall(payer, paidFor)
 			abilities = c.cur.ManaAbilities
 			for _, m := range c.cur.PayingMana {
 				colors[m.Source.Card] = append(colors[m.Source.Card], m.Color)
@@ -461,7 +465,8 @@ func (c *Controller) PayManaCost(_ *engine.Game, payer engine.PlayerID, toPay ma
 		}
 	}
 	if abilities == nil {
-		k := c.next(payer, "payManaCost")
+		k, before := c.paymentCall(payer, paidFor)
+		abilities = before
 		if k == nil {
 			if toPay.IsZero() {
 				return nil
@@ -470,7 +475,7 @@ func (c *Controller) PayManaCost(_ *engine.Game, payer engine.PlayerID, toPay ma
 			return nil
 		}
 		if p := c.s.paymentFor(k.Seq); p != nil {
-			abilities = p.ManaAbilities
+			abilities = append(abilities, p.ManaAbilities...)
 		}
 	}
 	var out []engine.Action
@@ -490,6 +495,45 @@ func (c *Controller) PayManaCost(_ *engine.Game, payer engine.PlayerID, toPay ma
 		out = append(out, act)
 	}
 	return out
+}
+
+// paymentCall is payer's first unread payManaCost call paying for paidFor,
+// else the first unread one, marked read. The AI can activate a mana ability for
+// another one's cost before it asks to pay that cost (an Island tapped,
+// then Mystic Gate's {W/U} paid from the pool): the Mana abilities whose
+// own payManaCost calls come between are returned with it, left unread
+// for their own activations' payments.
+func (c *Controller) paymentCall(payer engine.PlayerID, paidFor engine.CardID) (*call, []abilityID) {
+	now := c.now()
+	var first *call
+	var before []abilityID
+	for _, k := range c.s.calls {
+		if k.used || k.Decider.Seat != seat(payer) || k.when() != now || k.Method != "payManaCost" {
+			continue
+		}
+		if first == nil {
+			first = k
+		}
+		var offered []json.RawMessage
+		var a abilityID
+		if json.Unmarshal(k.Offered, &offered) != nil || len(offered) < 3 || json.Unmarshal(offered[2], &a) != nil {
+			before = nil
+			continue
+		}
+		if host, ok := c.goCard(a.Host); ok && host == paidFor {
+			k.used = true
+			return k, before
+		}
+		if a.API != "Mana" {
+			before = nil
+			continue
+		}
+		before = append(before, a)
+	}
+	if first != nil {
+		first.used = true
+	}
+	return first, nil
 }
 
 // ChoosePayX is the X of the current play: Java's AI announces it without a
@@ -1172,6 +1216,22 @@ func (c *Controller) ChooseNumber(g *engine.Game, decider engine.PlayerID, sourc
 		c.fail(-1, "chooseNumber", "Java chose no number here")
 	}
 	return c.Controller.ChooseNumber(g, decider, source, lo, hi)
+}
+
+// ConfirmOptionalTrigger is Java's confirmTrigger answer: an optional
+// trigger's "you may" (OptionalDecider$) and a triggered ability's cost
+// (Artist's Talent's Discard<1/Card>) both ask it as the trigger resolves.
+func (c *Controller) ConfirmOptionalTrigger(g *engine.Game, decider engine.PlayerID, source engine.CardID) bool {
+	if k := c.next(decider, "confirmTrigger"); k != nil {
+		var yes bool
+		if json.Unmarshal(k.Answer, &yes) == nil {
+			return yes
+		}
+		c.fail(k.Seq, k.Method, "answer %s", k.Answer)
+	} else {
+		c.fail(-1, "confirmTrigger", "Java was not asked to confirm a trigger here")
+	}
+	return c.Controller.ConfirmOptionalTrigger(g, decider, source)
 }
 
 // ConfirmPayCost is Java's payCostToPreventEffect answer, or, for an

@@ -606,13 +606,24 @@ func (c *Controller) DeclareCombatBlockers(_ *engine.Game, decider engine.Player
 // lists the triggers in the order they go on the stack: Go wants the
 // reverse, first to resolve first.
 func (c *Controller) OrderSimultaneousTriggers(g *engine.Game, decider engine.PlayerID, items []engine.TriggerOrderItem) []int {
-	k := c.next(decider, "orderSimultaneousSa")
-	if k == nil {
-		c.fail(-1, "orderSimultaneousSa", "Java ordered no triggers here")
-		return c.Controller.OrderSimultaneousTriggers(g, decider, items)
-	}
+	// Java asks about a lone trigger too (MagicStack's
+	// chooseOrderOfSimultaneousStackEntry calls orderAndPlaySimultaneousSa
+	// for any), Go only about two or more: a one-trigger answer was a push
+	// Go made without asking, never this question.
+	var k *call
 	var answer []abilityID
-	_ = json.Unmarshal(k.Answer, &answer)
+	for {
+		k = c.next(decider, "orderSimultaneousSa")
+		if k == nil {
+			c.fail(-1, "orderSimultaneousSa", "Java ordered no triggers here")
+			return c.Controller.OrderSimultaneousTriggers(g, decider, items)
+		}
+		answer = nil
+		_ = json.Unmarshal(k.Answer, &answer)
+		if len(answer) > 1 {
+			break
+		}
+	}
 	used := make([]bool, len(items))
 	var order []int
 	for _, a := range answer {
@@ -720,10 +731,65 @@ func (c *Controller) ChooseCardsForEffect(g *engine.Game, decider engine.PlayerI
 	if ids, ok := c.costCards(source, options, lo, hi); ok {
 		return ids
 	}
+	if ids, ok := c.convokeCards(decider, source, options, hi); ok {
+		return ids
+	}
 	if ids, ok := c.chooseCards(decider, "chooseCardsForEffect", options); ok {
 		return ids
 	}
 	return c.Controller.ChooseCardsForEffect(g, decider, source, options, lo, hi)
+}
+
+// convokeCards answers Convoke's or Improvise's choice of permanents to tap
+// for the play under way from Java's chooseCardsForConvokeOrImprovise, whose
+// answer pairs each card with the colour it paid. Java asks once while the
+// AI chooses the play and again while it pays: every such call of the play
+// is read, the last one answers. An answer naming a card Go does not offer
+// is none: Go asks Convoke and Improvise apart, as Java does.
+func (c *Controller) convokeCards(decider engine.PlayerID, source engine.CardID, options []engine.CardID, hi int) ([]engine.CardID, bool) {
+	if c.cur == nil {
+		return nil, false
+	}
+	if host, ok := c.goCard(c.cur.Ability.Host); !ok || host != source {
+		return nil, false
+	}
+	var last *call
+	for _, k := range c.s.calls {
+		if k.used || k.Decider.Seat != seat(decider) || k.Method != "chooseCardsForConvokeOrImprovise" || k.Seq > c.cur.Seq {
+			continue
+		}
+		if k.when() == c.now() {
+			last = k
+		}
+	}
+	if last == nil {
+		return nil, false
+	}
+	var pairs [][]json.RawMessage
+	if err := json.Unmarshal(last.Answer, &pairs); err != nil {
+		return nil, false
+	}
+	var out []engine.CardID
+	for _, p := range pairs {
+		var r Ref
+		if len(p) == 0 || json.Unmarshal(p[0], &r) != nil {
+			return nil, false
+		}
+		id, ok := c.goCard(r)
+		if !ok || !slices.Contains(options, id) {
+			return nil, false
+		}
+		out = append(out, id)
+	}
+	if len(out) > hi {
+		return nil, false
+	}
+	for _, k := range c.s.calls {
+		if !k.used && k.Decider.Seat == seat(decider) && k.Method == "chooseCardsForConvokeOrImprovise" && k.Seq <= last.Seq && k.when() == c.now() {
+			k.used = true
+		}
+	}
+	return out, true
 }
 
 // costCards answers a card choice that pays a cost of the play under way
@@ -962,6 +1028,17 @@ func (c *Controller) ChooseOption(g *engine.Game, decider engine.PlayerID, sourc
 			}
 		}
 		c.fail(-1, "chooseCastOption", "no Go cast option %q for way %q among %q", want, c.castWay, options)
+	}
+	// Java's chooseCardName and chooseSomeType answer with the name or type
+	// itself (Pithing Needle's named card).
+	if k := c.next(decider, "chooseCardName", "chooseSomeType"); k != nil {
+		var name string
+		if json.Unmarshal(k.Answer, &name) == nil {
+			if i := slices.Index(options, name); i >= 0 {
+				return i
+			}
+		}
+		c.fail(k.Seq, k.Method, "answer %s is not among Go's %d options", k.Answer, len(options))
 	}
 	return c.Controller.ChooseOption(g, decider, source, options)
 }

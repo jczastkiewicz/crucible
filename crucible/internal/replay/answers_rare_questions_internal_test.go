@@ -83,6 +83,9 @@ func TestControllerAnswersRareQuestionsFromTheLog(t *testing.T) {
 		{"mana color", answer("chooseColor", `8`), false, func(c *Controller, g *engine.Game, _ []engine.CardID) bool {
 			return c.ChooseManaColor(g, g.Players()[0], engine.NoCard, 31) == 8
 		}},
+		{"card name", answer("chooseCardName", `"Card"`), true, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {
+			return c.ChooseOption(g, g.Players()[0], cards[0], []string{"Other", "Card"}) == 1
+		}},
 		{"attacking token", answer("chooseSingleEntityForEffect", `{"seat":1}`), false, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {
 			defender := engine.PlayerEntity(g.Players()[1])
 			return c.ChooseAttackTarget(g, g.Players()[0], cards[0], []engine.EntityID{defender}) == defender
@@ -117,6 +120,43 @@ func TestControllerAnswersRareQuestionsFromTheLog(t *testing.T) {
 			tc.ask(c, g, cards)
 			if c.Unanswered() == nil && (!tc.silent || calls != nil) {
 				t.Errorf("%s with %d calls: no unanswered question", tc.name, len(calls))
+			}
+		}
+	}
+}
+
+// Java asks orderSimultaneousSa about a lone trigger too, Go only about two
+// or more; and it records Improvise's choice twice, as the AI picks the play
+// and as it pays. Both are read past to the answer Go's question needs.
+func TestControllerReadsPastJavaOnlyQuestions(t *testing.T) {
+	t.Parallel()
+
+	lone := &call{Seq: 1, Method: "orderSimultaneousSa", Decider: SeatRef(0), Answer: json.RawMessage(`[{"host":{"card":101}}]`)}
+	pair := &call{Seq: 2, Method: "orderSimultaneousSa", Decider: SeatRef(0), Answer: json.RawMessage(`[{"host":{"card":102}},{"host":{"card":103}}]`)}
+	c, g, cards := rareSetup(t, lone, pair)
+	items := []engine.TriggerOrderItem{{Source: cards[2]}, {Source: cards[1]}}
+	if got := c.OrderSimultaneousTriggers(g, g.Players()[0], items); !slices.Equal(got, []int{0, 1}) || c.Unanswered() != nil {
+		t.Errorf("trigger order %v, unanswered %v; want [0 1] from the two-trigger answer", got, c.Unanswered())
+	}
+
+	improvise := func(seq int, raw string) *call {
+		return &call{Seq: seq, Method: "chooseCardsForConvokeOrImprovise", Decider: SeatRef(0), Answer: json.RawMessage(raw)}
+	}
+	for _, tc := range []struct{ name, raw string }{
+		{"offered", `[[{"card":102},"GENERIC"],[{"card":103},"GENERIC"]]`},
+		{"not offered", `[[{"card":101},"GENERIC"]]`},
+	} {
+		c, g, cards := rareSetup(t, improvise(1, tc.raw), improvise(3, tc.raw))
+		c.cur = &play{Seq: 5, Ability: abilityID{Host: CardRef(101, "")}}
+		got, ok := c.convokeCards(g.Players()[0], cards[0], cards[1:], 2)
+		switch tc.name {
+		case "offered":
+			if !ok || !slices.Equal(got, cards[1:]) || !c.s.calls[0].used || !c.s.calls[1].used {
+				t.Errorf("%s: %v, %v; want both artifacts and both records read", tc.name, got, ok)
+			}
+		default:
+			if ok {
+				t.Errorf("%s: answered %v", tc.name, got)
 			}
 		}
 	}

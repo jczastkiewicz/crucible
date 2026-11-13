@@ -51,7 +51,7 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// game's error, "" for none; a game with neither replays the same.
 		events, err string
 	}{
-		// Both Kaheera games replay to their end with no gap.
+		// These games replay to their end with no gap.
 		{fixture, "", ""},
 		{counterFixture, "", ""},
 		// Lethal combat damage: Java checks state-based actions before any
@@ -65,10 +65,7 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// Go exiles the warped Haliya at the end step; Java does not.
 		{"../../testdata/replay/eldrazi-vs-boros-energy-seed7.jsonl",
 			"go only:\n    move card 103 (Haliya, Guided by Light) Battlefield -> Exile", "Dig: controller chose 35"},
-		// Java's Equip chose its creature as it resolved, not as a target; Go
-		// cannot pay for Kappa Cannoneer.
-		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl",
-			"java only:\n    move card 18 (Kappa Cannoneer) Hand -> Stack", "could not cast card 18"},
+		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl", "", ""},
 		// Java paid Basking Broodscale with Eldrazi Temple's colorless-Eldrazi
 		// mana as the log names it; Go refuses that payment.
 		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl",

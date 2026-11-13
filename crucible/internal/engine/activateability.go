@@ -470,21 +470,25 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 			}
 		}
 	}
+	// PlaySpellAbility.java:682: the stack is frozen while the costs are paid,
+	// the mana included, so a trigger a cost fires (a sacrificed creature's
+	// dies trigger, an Eldrazi Spawn sacrificed for the mana) waits for the
+	// ability and goes on the stack above it (MagicStack.addAndUnfreeze,
+	// :132-171). The cast's hold (holdCastTriggers) is that waiting list,
+	// begun before the mana is paid. An enclosing hold is set aside and put
+	// back before the ability is pushed; a payment that fails still owes what
+	// its mana abilities fired, pushed as the hold ends.
+	outerHold, outerExits := g.holdingCastExits, g.castExits
+	g.holdingCastExits, g.castExits = true, nil
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	g.xColor = 0
 	restore()
 	if !paid {
+		held := g.castExitMatches()
+		g.holdingCastExits, g.castExits = outerHold, outerExits
+		g.pushTriggeredAbilities(controller, held)
 		return false
 	}
-	// PlaySpellAbility.java:682: the stack is frozen while the costs are paid,
-	// so a trigger a cost fires (a sacrificed creature's dies trigger, a
-	// discarded card's) waits for the ability and goes on the stack above it
-	// (MagicStack.addAndUnfreeze, :132-171). The cast's hold (holdCastTriggers)
-	// is that waiting list, begun once the mana is paid: no later part fails,
-	// so the hold always ends below. An enclosing hold is set aside and put
-	// back before the ability is pushed.
-	outerHold, outerExits := g.holdingCastExits, g.castExits
-	g.holdingCastExits, g.castExits = true, nil
 	x.setOn(&activated)
 	activated.paid.recorded = true
 	activated.paid.mana, activated.paid.manaRecorded = x.sources, true

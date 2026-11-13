@@ -480,6 +480,16 @@ func (g *Game) stackItem(id StackItemID) (*Ability, bool) {
 	return nil, false
 }
 
+// StackItemOf is the item on the stack whose ID is id: its source card and
+// whether it is a spell. False when no item has that ID.
+func (g *Game) StackItemOf(id StackItemID) (source CardID, spell, ok bool) {
+	a, ok := g.stackItem(id)
+	if !ok {
+		return NoCard, false, false
+	}
+	return a.Source, a.spell, true
+}
+
 // spellItemOf is the ID of the spell card is on the stack as, and whether
 // there is one: the item marked spell whose Source is card, top first. A
 // card in the Stack zone is one spell (CR 405.1), so at most one matches.

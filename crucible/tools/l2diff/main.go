@@ -158,7 +158,7 @@ func playGo(dir string, db *compile.DB) (r goRun, err error) {
 	if err != nil {
 		return r, err
 	}
-	afterSetup := *rng
+	afterSetup := rng.State()
 	actions, err := os.ReadFile(filepath.Join(dir, "actions.log"))
 	if err != nil && !os.IsNotExist(err) {
 		return r, err
@@ -180,7 +180,7 @@ func playGo(dir string, db *compile.DB) (r goRun, err error) {
 	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
 		return r, err
 	}
-	r.state, r.turn, r.phase, r.random = buf.Bytes(), l.Game.Turn(), l.Game.ActivePhase().String(), *rng != afterSetup
+	r.state, r.turn, r.phase, r.random = buf.Bytes(), l.Game.Turn(), l.Game.ActivePhase().String(), rng.State() != afterSetup
 	return r, nil
 }
 

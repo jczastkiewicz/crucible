@@ -52,7 +52,7 @@ func TestTargetsAtRandomDrawsLikeJava(t *testing.T) {
 		if got := tapped(g, opp); len(got) != 1 || got[0] != pick {
 			t.Errorf("tapped %v, want %v (nextInt(3) over the candidates)", got, pick)
 		}
-		if *g.Rand() != want {
+		if g.Rand().State() != want.State() {
 			t.Error("the random pick drew more or less than one nextInt(3)")
 		}
 	})
@@ -68,7 +68,7 @@ func TestTargetsAtRandomDrawsLikeJava(t *testing.T) {
 		if got := tapped(g, opp); len(got) != 1 {
 			t.Errorf("tapped %v, want the one candidate", got)
 		}
-		if *g.Rand() != before {
+		if g.Rand().State() != before.State() {
 			t.Error("a single candidate drew from the RNG")
 		}
 	})
@@ -101,7 +101,7 @@ func TestTargetsAtRandomDrawsLikeJava(t *testing.T) {
 				t.Errorf("random target %v not tapped", id)
 			}
 		}
-		if *g.Rand() != want {
+		if g.Rand().State() != want.State() {
 			t.Error("the draws differ from randomInt then one Aggregates.random per target")
 		}
 	})

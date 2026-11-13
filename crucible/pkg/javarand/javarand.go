@@ -26,12 +26,28 @@ const (
 // nothing is shared between games (ADR-0005).
 type Rand struct {
 	seed int64
+	// feed, when set, answers next before the generator does: a replay
+	// hands Go the draws a recorded Java game made (ADR-0010 L3).
+	feed func(bits uint) (int32, bool)
 }
 
 // New returns a Rand seeded as java.util.Random's constructor does.
 func New(seed int64) *Rand {
 	return &Rand{seed: (seed ^ multiplier) & mask}
 }
+
+// NewFed is New whose next(bits) is first asked of feed: a value feed gives
+// is the draw, and the generator's state does not move; with none, the
+// generator draws as New's does.
+func NewFed(seed int64, feed func(bits uint) (int32, bool)) *Rand {
+	r := New(seed)
+	r.feed = feed
+	return r
+}
+
+// State is the generator's 48-bit state: it moves with every draw the
+// generator makes, so an unchanged State means nothing was drawn.
+func (r *Rand) State() int64 { return r.seed }
 
 // SetSeed matches java.util.Random.setSeed.
 func (r *Rand) SetSeed(seed int64) {
@@ -40,6 +56,11 @@ func (r *Rand) SetSeed(seed int64) {
 
 // next matches the protected java.util.Random.next(int bits).
 func (r *Rand) next(bits uint) int32 {
+	if r.feed != nil {
+		if v, ok := r.feed(bits); ok {
+			return v
+		}
+	}
 	r.seed = (r.seed*multiplier + addend) & mask
 	return int32(r.seed >> (48 - bits))
 }

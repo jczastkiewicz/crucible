@@ -36,10 +36,12 @@ func Run(db *compile.DB, log *Log, maxTurns int) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, ids, err := setup(db, log)
+	rnd := &random{s: s}
+	g, ids, err := setup(db, log, rnd.next)
 	if err != nil {
 		return nil, err
 	}
+	rnd.g = g
 	g.SetShuffler(&shuffler{s: s, ids: ids})
 	g.SetChance(&chance{s: s})
 	norm := NewNormalizer(ids)
@@ -82,7 +84,7 @@ func Run(db *compile.DB, log *Log, maxTurns int) (*Result, error) {
 // order -- the order Java created them in, deck order -- the starting
 // library's in the library and the rest in the sideboard, each paired with
 // its Java id.
-func setup(db *compile.DB, log *Log) (*engine.Game, *IDMap, error) {
+func setup(db *compile.DB, log *Log, feed func(bits uint) (int32, bool)) (*engine.Game, *IDMap, error) {
 	h := log.Header
 	if len(h.StartingLibraries) != len(h.Seats) {
 		return nil, nil, fmt.Errorf("replay: %d seats, %d starting libraries", len(h.Seats), len(h.StartingLibraries))
@@ -91,7 +93,7 @@ func setup(db *compile.DB, log *Log) (*engine.Game, *IDMap, error) {
 	for i, s := range h.Seats {
 		names[i] = s.Deck
 	}
-	g := engine.NewGame(db, javarand.New(h.Seed), names)
+	g := engine.NewGame(db, javarand.NewFed(h.Seed, feed), names)
 	ids := newIDMap(g, log)
 	for i, s := range h.Seats {
 		pid := g.Players()[i]
@@ -147,6 +149,34 @@ func (sh *shuffler) Order(kind engine.ZoneType, owner engine.PlayerID, _ []engin
 		out = append(out, id)
 	}
 	return out, true
+}
+
+// random feeds Go's generator the draws Java made in the same step: a
+// RestRandomOrder$ shuffle (CardLists.shuffle) or an AtRandom$ pick. Java's
+// nextInt(bound) reads next(31), which the recorder logs as the next(32)
+// it shifts (the same generator state), so a narrower draw is the recorded
+// value's top bits. A draw Go makes in a step with none left draws from
+// Go's own stream, and the event diff shows what it changed.
+type random struct {
+	s *script
+	g *engine.Game
+	i int
+}
+
+func (r *random) next(bits uint) (int32, bool) {
+	if r.g == nil || r.g.Turn() == 0 {
+		return 0, false
+	}
+	now := when{r.g.Turn(), javaSteps[stepName(r.g.ActivePhase())]}
+	for r.i < len(r.s.draws) && r.s.draws[r.i].when().before(now) {
+		r.i++
+	}
+	if r.i >= len(r.s.draws) || r.s.draws[r.i].when() != now || bits > r.s.draws[r.i].Bits {
+		return 0, false
+	}
+	d := r.s.draws[r.i]
+	r.i++
+	return int32(uint32(d.Value) >> (d.Bits - bits)), true
 }
 
 // chance gives each Go coin flip and die roll the next recorded one: the

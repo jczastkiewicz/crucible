@@ -92,6 +92,17 @@ type coin struct {
 	StartingToss bool `json:"startingToss"`
 }
 
+// draw is one java.util.Random.next call the recorder could not name an
+// outcome for (CardLists.shuffle's RestRandomOrder$, AtRandom$).
+type draw struct {
+	Turn  int    `json:"turn"`
+	Phase string `json:"phase"`
+	Bits  uint   `json:"bits"`
+	Value int32  `json:"value"`
+}
+
+func (d draw) when() when { return when{d.Turn, javaSteps[d.Phase]} }
+
 // die is a die roll's outcome.
 type die struct {
 	Sides int `json:"sides"`
@@ -108,6 +119,8 @@ type script struct {
 	// coins and dice are the effects' flips and rolls in Java's order.
 	coins []bool
 	dice  []die
+	// draws are the other draws, in Java's order.
+	draws []draw
 }
 
 func newScript(log *Log) (*script, error) {
@@ -141,6 +154,10 @@ func newScript(log *Log) (*script, error) {
 			var d die
 			err = json.Unmarshal(r.Raw, &d)
 			s.dice = append(s.dice, d)
+		case "draw":
+			var d draw
+			err = json.Unmarshal(r.Raw, &d)
+			s.draws = append(s.draws, d)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("replay: record %d (%s): %w", r.Seq, r.Kind, err)

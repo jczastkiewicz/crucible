@@ -139,22 +139,27 @@ final class ReplayRecorder {
         r.addProperty("call", call);
         r.add("decider", ids.player(decider));
         r.add("ability", ids.ability(sa));
+        // An activated ability goes on the stack as a copy, and the played
+        // object loses its root targets, X and a Charm's chain
+        // (MagicStack.java:280-290): targets, X and modes are read off the
+        // stack entry when there is one.
+        SpellAbility stacked = stacked(sa);
         JsonArray chain = new JsonArray();
-        for (SpellAbility s = sa; s != null; s = s.getSubAbility()) {
+        for (SpellAbility s = stacked; s != null; s = s.getSubAbility()) {
             chain.add(part(s));
         }
         r.add("chain", chain);
-        if (sa.getXManaCostPaid() != null) {
-            r.addProperty("x", sa.getXManaCostPaid());
+        if (stacked.getXManaCostPaid() != null) {
+            r.addProperty("x", stacked.getXManaCostPaid());
         }
         JsonArray opt = new JsonArray();
         for (OptionalCost c : sa.getOptionalCosts()) {
             opt.add(c.name());
         }
         r.add("optionalCosts", opt);
-        if (sa.getChosenList() != null) {
+        if (stacked.getChosenList() != null) {
             JsonArray modes = new JsonArray();
-            for (AbilitySub m : sa.getChosenList()) {
+            for (AbilitySub m : stacked.getChosenList()) {
                 modes.add(ids.ability(m));
             }
             r.add("modes", modes);
@@ -195,6 +200,17 @@ final class ReplayRecorder {
         }
         r.add("manaAbilities", mana);
         r.add("paid", paid(sa.getPaidHash()));
+    }
+
+    /** The stack entry's ability for sa: itself, or the copy MagicStack.add made of it. */
+    private SpellAbility stacked(SpellAbility sa) {
+        for (SpellAbilityStackInstance si : game.getStack()) {
+            SpellAbility s = si.getSpellAbility();
+            if (s == sa || s.getOriginalAbility() == sa) {
+                return s;
+            }
+        }
+        return sa;
     }
 
     private JsonObject part(SpellAbility s) {

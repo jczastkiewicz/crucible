@@ -39,7 +39,7 @@ func corpusDB(t *testing.T) *compile.DB {
 	return dbVal
 }
 
-// Each recorded game replays in Go to the first gap it shows. The wants are
+// Each recorded game replays in Go to the first gap it shows, or to its end. The wants are
 // the gaps open today (game-state.md "Not ported yet"); porting one moves its
 // game's first divergence later, and the want here moves with it.
 func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
@@ -48,15 +48,14 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 	for _, tc := range []struct {
 		path string
 		// events and err are substrings of the divergence and of the Go
-		// game's error, "" for none.
+		// game's error, "" for none; a game with neither replays the same.
 		events, err string
 	}{
 		// Java's Ocelot Pride makes three tokens at the end step where Go
 		// makes none.
 		{fixture, "java only:\n    move card 174 (Warrior Token) None -> Battlefield", ""},
-		// The Theorist's -2 returns Seasoned Pyromancer in Java and an
-		// Elemental token in Go: Java's play record names no target.
-		{counterFixture, "go only:\n    move card 154 (Elemental Token) Battlefield -> Hand", ""},
+		// Replays to its end with no gap.
+		{counterFixture, "", ""},
 		// Java casts Moonshadow in its second main phase; Go passes.
 		{rakdosFixture, "java only:\n    push card 112 (Moonshadow) by seat 0", ""},
 		// Java won Ral's coin flip and transformed it; Go flips with its own
@@ -78,6 +77,12 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		res, err := replay.Run(corpusDB(t), readLog(t, tc.path), 60)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.path, err)
+		}
+		if tc.events == "" && tc.err == "" {
+			if !res.Same() || len(res.Go) == 0 {
+				t.Errorf("%s: not the same game: question %v, divergence %v, error %v", tc.path, res.Question, res.Events, res.Err)
+			}
+			continue
 		}
 		if res.Events == nil || !strings.Contains(res.Events.String(), tc.events) {
 			t.Errorf("%s: divergence %v, want one with %q", tc.path, res.Events, tc.events)

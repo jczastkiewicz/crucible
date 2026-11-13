@@ -85,9 +85,10 @@ Option 3 also moves when a trigger's condition is read. That is the open `collec
 
 **Neutral:**
 
-- Casting and activating are unchanged: a cost's triggers wait for the spell (`holdCastTriggers`), and a turn-based
-  action's triggers are pushed when its step begins.
+- Casting and activating are unchanged: a cost's triggers wait for the spell (`holdCastTriggers`). A step's turn-based
+  actions wait the same way, for the state-based actions after them (ADR-0065).
 
 ## Related
 
-ADR-0010, ADR-0019, ADR-0034, ADR-0063, `porting/port-log/game-state.md` ("Not ported yet": `collectTriggerForWaiting`)
+ADR-0010, ADR-0019, ADR-0034, ADR-0063, ADR-0065, `porting/port-log/game-state.md` ("Not ported yet":
+`collectTriggerForWaiting`)

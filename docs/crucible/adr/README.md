@@ -75,10 +75,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0062](0062-replay-log-records-the-ai-play-from-the-spell-ability.md)    | Replay log: the AI's own choices for a play, read from the cast spell ability   | Accepted                  |
 | [0063](0063-replay-event-comparison-anchors-and-intervals.md)            | Replay events: anchors in order, everything between as net changes              | Accepted                  |
 | [0064](0064-triggers-wait-for-the-resolution-and-state-based-actions.md) | Triggers wait for the resolution and the state-based actions                    | Accepted                  |
+| [0065](0065-step-triggers-wait-for-the-state-based-actions.md)           | A step's triggers wait for the state-based actions                              | Accepted                  |
 
 ## Numbering
 
-No gap and no missing number: 0001-0064, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0065, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

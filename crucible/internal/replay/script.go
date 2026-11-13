@@ -83,6 +83,18 @@ type shuffle struct {
 	Order  []int `json:"order"`
 }
 
+// coin is a coin flip's outcome; the starting toss is not an effect's flip.
+type coin struct {
+	Heads        bool `json:"heads"`
+	StartingToss bool `json:"startingToss"`
+}
+
+// die is a die roll's outcome.
+type die struct {
+	Sides int `json:"sides"`
+	Face  int `json:"face"`
+}
+
 // script is a log's records decoded for the replay controller.
 type script struct {
 	calls    []*call
@@ -90,6 +102,9 @@ type script struct {
 	payments []*payment
 	// shuffles is each seat's shuffles in Java's order.
 	shuffles map[int][]shuffle
+	// coins and dice are the effects' flips and rolls in Java's order.
+	coins []bool
+	dice  []die
 }
 
 func newScript(log *Log) (*script, error) {
@@ -113,6 +128,16 @@ func newScript(log *Log) (*script, error) {
 			var sh shuffle
 			err = json.Unmarshal(r.Raw, &sh)
 			s.shuffles[sh.Player.Seat] = append(s.shuffles[sh.Player.Seat], sh)
+		case "coin":
+			var c coin
+			err = json.Unmarshal(r.Raw, &c)
+			if !c.StartingToss {
+				s.coins = append(s.coins, c.Heads)
+			}
+		case "die":
+			var d die
+			err = json.Unmarshal(r.Raw, &d)
+			s.dice = append(s.dice, d)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("replay: record %d (%s): %w", r.Seq, r.Kind, err)

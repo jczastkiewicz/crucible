@@ -58,10 +58,7 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// trigger reaches the stack and ends the game; Go pushes Ragavan's
 		// combat damage trigger first.
 		{rakdosFixture, "java only:\n    end, seat 0 wins", ""},
-		// Java won Ral's coin flip and transformed it; Go flips with its own
-		// stream (the replay feeds shuffles, not coins), loses, and is dealt 1.
-		{"../../testdata/replay/domain-zoo-vs-ruby-storm-seed5.jsonl",
-			"go only:\n    damage card 114 (Ral, Monsoon Mage) -> seat 1 1", ""},
+		{"../../testdata/replay/domain-zoo-vs-ruby-storm-seed5.jsonl", "", ""},
 		{"../../testdata/replay/eldrazi-vs-boros-energy-seed7.jsonl", "", ""},
 		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl", "", ""},
 		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl", "", ""},

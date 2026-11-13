@@ -319,3 +319,27 @@ func TestControllerReadsTriggersAsJavaPushedThem(t *testing.T) {
 		t.Errorf("targets %v then %v, unanswered %v; want each pushed trigger's own", first, second, c.Unanswered())
 	}
 }
+
+// Coins and dice are fed in Java's order, each kind its own queue; a roll of
+// another die than Java's takes nothing from it, and an empty queue leaves
+// the flip or roll to Go's stream.
+func TestChanceFeedsRecordedCoinsAndDice(t *testing.T) {
+	t.Parallel()
+
+	ch := &chance{s: &script{coins: []bool{true}, dice: []die{{Sides: 6, Face: 3}}}}
+	if _, ok := ch.Die(0, 20); ok {
+		t.Error("a d20 took Java's d6 roll")
+	}
+	if face, ok := ch.Die(0, 6); !ok || face != 3 {
+		t.Errorf("d6 rolled %d, %v; want Java's 3", face, ok)
+	}
+	if _, ok := ch.Die(0, 6); ok {
+		t.Error("a roll past the log was answered")
+	}
+	if heads, ok := ch.Coin(0); !ok || !heads {
+		t.Errorf("coin %v, %v; want Java's heads", heads, ok)
+	}
+	if _, ok := ch.Coin(0); ok {
+		t.Error("a flip past the log was answered")
+	}
+}

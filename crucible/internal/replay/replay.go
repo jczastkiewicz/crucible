@@ -41,6 +41,7 @@ func Run(db *compile.DB, log *Log, maxTurns int) (*Result, error) {
 		return nil, err
 	}
 	g.SetShuffler(&shuffler{s: s, ids: ids})
+	g.SetChance(&chance{s: s})
 	norm := NewNormalizer(ids)
 	g.SetSink(norm)
 	ctl := newController(g, s, ids)
@@ -146,4 +147,29 @@ func (sh *shuffler) Order(kind engine.ZoneType, owner engine.PlayerID, _ []engin
 		out = append(out, id)
 	}
 	return out, true
+}
+
+// chance gives each Go coin flip and die roll the next recorded one: the
+// log names no flipper or roller, so each kind is one queue in Java's order.
+// A roll of another die than Java's, or none left, rolls with Go's stream
+// and the event diff shows the divergence.
+type chance struct {
+	s           *script
+	coins, dice int
+}
+
+func (ch *chance) Coin(engine.PlayerID) (bool, bool) {
+	if ch.coins >= len(ch.s.coins) {
+		return false, false
+	}
+	ch.coins++
+	return ch.s.coins[ch.coins-1], true
+}
+
+func (ch *chance) Die(_ engine.PlayerID, sides int) (int, bool) {
+	if ch.dice >= len(ch.s.dice) || ch.s.dice[ch.dice].Sides != sides {
+		return 0, false
+	}
+	ch.dice++
+	return ch.s.dice[ch.dice-1].Face, true
 }

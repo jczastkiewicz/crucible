@@ -6,40 +6,64 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Table;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
 import forge.game.Game;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
+import forge.game.card.CardView;
+import forge.game.card.CounterEnumType;
+import forge.game.card.CounterType;
 import forge.game.event.GameEvent;
+import forge.game.event.GameEventCardChangeZone;
+import forge.game.event.GameEventCardCounters;
+import forge.game.event.GameEventCardDamaged;
 import forge.game.event.GameEventFlipCoin;
+import forge.game.event.GameEventGameOutcome;
+import forge.game.event.GameEventPlayerCounters;
+import forge.game.event.GameEventPlayerDamaged;
+import forge.game.event.GameEventPlayerLivesChanged;
 import forge.game.event.GameEventRollDie;
+import forge.game.event.GameEventSpellAbilityCast;
+import forge.game.event.GameEventSpellResolved;
+import forge.game.event.GameEventTurnBegan;
+import forge.game.event.GameEventTurnPhase;
 import forge.game.mana.Mana;
 import forge.game.player.Player;
+import forge.game.player.PlayerView;
 import forge.game.spellability.AbilitySub;
 import forge.game.spellability.OptionalCost;
 import forge.game.spellability.SpellAbility;
+import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.spellability.TargetChoices;
 import forge.game.zone.ZoneType;
+import forge.game.zone.ZoneView;
 
 /**
- * Collects one game's replay log (ADR-0059, ADR-0062) and writes it as JSON
- * Lines: a header, then every controller call, play record and random outcome
- * in Java's order. Records are kept in memory and written when the game ends,
+ * Collects one game's replay log (ADR-0059, ADR-0062, ADR-0063) and writes it
+ * as JSON Lines: a header, then every controller call, play record, random
+ * outcome and normalised game event in Java's order. Records are kept in memory and written when the game ends,
  * because the header holds each seat's starting library, known only after
  * the first shuffle.
  */
 final class ReplayRecorder {
-    static final int FORMAT_VERSION = 1;
+    static final int FORMAT_VERSION = 2;
 
     // Controller methods that answer nothing: notifications, UI plumbing and
     // factories. Their calls are not decisions and are not logged.
@@ -62,6 +86,9 @@ final class ReplayRecorder {
     private final List<JsonObject> records = new ArrayList<>();
     private final List<JsonArray> startingLibraries = new ArrayList<>();
     final List<JsonArray> seatCards = new ArrayList<>();
+    // ADR-0063: a player's counters as the last PlayerCounters event left
+    // them, because that event fires with no type on a clear.
+    private final Map<Player, Map<String, Integer>> playerCounters = new HashMap<>();
     private int depth;
     int unattributedDraws;
 
@@ -233,7 +260,141 @@ final class ReplayRecorder {
             JsonObject r = record("coin");
             r.addProperty("heads", f.heads());
             r.addProperty("startingToss", f.startingToss());
+        } else {
+            normalised(ev);
         }
+    }
+
+    /** ADR-0063: the events the L3 diff compares, in the shape Go maps its own to. */
+    private void normalised(GameEvent ev) {
+        if (ev instanceof GameEventTurnBegan t) {
+            JsonObject e = event("turn");
+            e.addProperty("turn", t.turnNumber());
+            e.addProperty("active", seat(t.turnOwner()));
+        } else if (ev instanceof GameEventTurnPhase p) {
+            JsonObject e = event("step");
+            e.addProperty("step", p.phase().name());
+            e.addProperty("active", seat(p.playerTurn()));
+        } else if (ev instanceof GameEventSpellAbilityCast c) {
+            JsonObject e = event("push");
+            e.add("card", card(c.sa().getHostCard()));
+            e.addProperty("controller", seat(c.si().getActivatingPlayer()));
+            for (SpellAbilityStackInstance si : game.getStack()) {
+                if (si.getId() == c.si().getId()) {
+                    // For the report only: Go's event names the host alone.
+                    e.add("ability", ids.ability(si.getSpellAbility()));
+                }
+            }
+        } else if (ev instanceof GameEventSpellResolved r && !r.hasFizzled()) {
+            // A fizzled ability has no resolve: Go emits none for it.
+            event("resolve").add("card", card(r.spell().getHostCard()));
+        } else if (ev instanceof GameEventGameOutcome) {
+            int winner = -1;
+            List<Player> players = game.getRegisteredPlayers();
+            for (int i = 0; i < players.size(); i++) {
+                if (players.get(i).getOutcome() != null && players.get(i).getOutcome().hasWon()) {
+                    winner = i;
+                }
+            }
+            event("end").addProperty("winner", winner);
+        } else if (ev instanceof GameEventCardChangeZone z) {
+            JsonObject e = event("move");
+            e.add("card", card(z.card()));
+            e.addProperty("from", zone(z.from()));
+            e.addProperty("to", zone(z.to()));
+        } else if (ev instanceof GameEventCardDamaged d) {
+            damage(d.source(), card(d.card()), d.amount());
+        } else if (ev instanceof GameEventPlayerDamaged d) {
+            damage(d.source(), seatRef(d.target()), d.amount());
+        } else if (ev instanceof GameEventPlayerLivesChanged l) {
+            JsonObject e = event("life");
+            e.addProperty("player", seat(l.player()));
+            e.addProperty("delta", l.newLives() - l.oldLives());
+        } else if (ev instanceof GameEventCardCounters k) {
+            counter(card(k.card()), counterName(k.type()), k.newValue() - k.oldValue());
+        } else if (ev instanceof GameEventPlayerCounters k) {
+            playerCounters(k.receiver());
+        }
+    }
+
+    private JsonObject event(String type) {
+        JsonObject e = new JsonObject();
+        e.addProperty("type", type);
+        record("event").add("event", e);
+        return e;
+    }
+
+    private void damage(CardView source, JsonElement target, int amount) {
+        JsonObject e = event("damage");
+        e.add("source", card(source));
+        e.add("target", target);
+        e.addProperty("amount", amount);
+    }
+
+    private void counter(JsonElement target, String type, int delta) {
+        JsonObject e = event("counter");
+        e.add("target", target);
+        e.addProperty("counter", type);
+        e.addProperty("delta", delta);
+    }
+
+    private void playerCounters(PlayerView pv) {
+        int seat = seat(pv);
+        if (seat < 0) {
+            return;
+        }
+        Player p = game.getRegisteredPlayers().get(seat);
+        Map<String, Integer> now = new TreeMap<>();
+        for (Multiset.Entry<CounterType> c : p.getCounters().entrySet()) {
+            now.merge(counterName(c.getElement()), c.getCount(), Integer::sum);
+        }
+        Map<String, Integer> was = playerCounters.getOrDefault(p, Map.of());
+        TreeSet<String> types = new TreeSet<>(now.keySet());
+        types.addAll(was.keySet());
+        for (String t : types) {
+            int delta = now.getOrDefault(t, 0) - was.getOrDefault(t, 0);
+            if (delta != 0) {
+                counter(seatRef(pv), t, delta);
+            }
+        }
+        playerCounters.put(p, now);
+    }
+
+    // Go's CounterType is the enum constant's name ("P1P1", "LOYALTY"), not
+    // CounterEnumType.getName's display form.
+    private static String counterName(CounterType t) {
+        return t instanceof CounterEnumType e ? e.name() : t.getName();
+    }
+
+    private static JsonElement card(CardView c) {
+        if (c == null) {
+            return JsonNull.INSTANCE;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("card", c.getId());
+        o.addProperty("name", c.getName());
+        return o;
+    }
+
+    private JsonElement seatRef(PlayerView pv) {
+        JsonObject o = new JsonObject();
+        o.addProperty("seat", seat(pv));
+        return o;
+    }
+
+    private int seat(PlayerView pv) {
+        List<Player> players = game.getRegisteredPlayers();
+        for (int i = 0; i < players.size(); i++) {
+            if (players.get(i).getView() == pv) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // A token's creation comes from no zone; Go's comes from None.
+    private static String zone(ZoneView z) {
+        return z == null || z.zoneType() == null ? "None" : z.zoneType().name();
     }
 
     /**

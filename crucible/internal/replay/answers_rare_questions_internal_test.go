@@ -232,11 +232,33 @@ func TestControllerAnswersCastingQuestionsFromThePlay(t *testing.T) {
 		}
 	}
 
+	// Kozilek's Command's {X}{C}{C} with X 3 from a pool of four {C} and a
+	// {G}: the {C} pips keep two, so the third generic unit is the {G}.
+	g.Player(pid).ManaPool = engine.Pool{}
+	g.Player(pid).ManaPool.AddColorless(4)
+	g.Player(pid).ManaPool.Add(mana.Green, 1)
+	c.paying, c.generic = mana.MustParse("3 C C"), [6]int{}
+	var generic []mana.Shard
+	for range 3 {
+		generic = append(generic, c.ChoosePayGeneric(g, pid))
+	}
+	if want := []mana.Shard{mana.ShardC, mana.ShardC, mana.ShardG}; !slices.Equal(generic, want) {
+		t.Errorf("generic paid with %v, want %v", generic, want)
+	}
+
 	var p play
 	if err := json.Unmarshal([]byte(`{"ability":{"host":{"card":101}},"paid":[{"part":"Exiled","cards":[{"card":102}]},{"part":"ExiledCards","cards":[{"card":102}]}]}`), &p); err != nil {
 		t.Fatal(err)
 	}
 	c.cur, c.paidUsed = &p, map[int]bool{}
+	if c.ChoosePayX(g, pid, mana.MustParse("X C C")); c.Unanswered() == nil {
+		t.Error("a play naming no X answered the announcement")
+	}
+	three := 3
+	p.X = &three
+	if got := c.ChoosePayX(g, pid, mana.MustParse("X C C")); got != 3 {
+		t.Errorf("X %d, want the play's 3", got)
+	}
 	if got, ok := c.costCards(cards[0], cards, 1, 1); !ok || !slices.Equal(got, cards[1:2]) {
 		t.Errorf("cost cards %v %v, want the exiled card", got, ok)
 	}

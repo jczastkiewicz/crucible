@@ -476,6 +476,18 @@ func (c *Controller) PayManaCost(_ *engine.Game, payer engine.PlayerID, toPay ma
 	return out
 }
 
+// ChoosePayX is the X of the current play: Java's AI announces it without a
+// controller call (ComputerUtilMana), and the play record names it. A play
+// that recorded none, or no play under way, is the replay's unanswered
+// question.
+func (c *Controller) ChoosePayX(g *engine.Game, decider engine.PlayerID, cost mana.Cost) int {
+	if c.cur != nil && c.cur.X != nil {
+		return *c.cur.X
+	}
+	c.fail(-1, "announceX", "Java's play names no X for %s", cost)
+	return c.Controller.ChoosePayX(g, decider, cost)
+}
+
 // ChooseTargets is the next target list of the current play, else of the
 // next trigger Java put on the stack for decider.
 func (c *Controller) ChooseTargets(g *engine.Game, decider engine.PlayerID, valid []engine.EntityID, lo, hi int) []engine.EntityID {
@@ -1090,14 +1102,15 @@ func (c *Controller) ChooseHybridManaColor(g *engine.Game, decider engine.Player
 	return colors[best]
 }
 
-// ChoosePayGeneric pays a generic unit with mana the cost's colored pips do
-// not need, colorless first. Java's log names the mana paid, not which pip
-// each paid; any choice that leaves the pips payable is Java's payment.
+// ChoosePayGeneric pays a generic unit with mana the cost's colored and {C}
+// pips do not need, colorless first. Java's log names the mana paid, not
+// which pip each paid; any choice that leaves the pips payable is Java's
+// payment.
 func (c *Controller) ChoosePayGeneric(g *engine.Game, decider engine.PlayerID) mana.Shard {
 	shards := [...]mana.Shard{mana.ShardW, mana.ShardU, mana.ShardB, mana.ShardR, mana.ShardG, mana.ShardC}
 	need := [6]int{}
 	for _, s := range c.paying.Shards() {
-		for i, sh := range shards[:5] {
+		for i, sh := range shards {
 			if s == sh {
 				need[i]++
 			}

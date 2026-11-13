@@ -669,6 +669,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.castFor("Dash")
 	case name == "blitzed":
 		return c.castFor("Blitz")
+	case name == "evoked":
+		// CardProperty.java:1759-1765: the card's cast was for its Evoke
+		// cost, with the same isUnlinkedFromCastSA end as dashed.
+		return c.castFor("Evoke")
 	case name == "impended":
 		// CardProperty.java:1785: its cast was for its impending cost.
 		return c.castFor("Impending")

@@ -1416,10 +1416,10 @@ ChangesZone	CheckSVar	143	-	amount:1	token:129,amount:14
 ChangesZone	Condition	27	-	-	token:27
 ChangesZone	ConditionYouCastThisTurn	1	-	-	token:1
 ChangesZone	Delirium	3	-	-	bool:3
-ChangesZone	Destination	8380	-	zone:10	token:8380
+ChangesZone	Destination	8417	-	zone:10	token:8417
 ChangesZone	ExcludedDestinations	4	-	-	token:4
 ChangesZone	ExcludedOrigins	2	-	-	token:2
-ChangesZone	Execute	8410	-	-	token:8410
+ChangesZone	Execute	8447	-	-	token:8447
 ChangesZone	Fizzle	3	-	-	bool:3
 ChangesZone	Hellbent	1	-	-	bool:1
 ChangesZone	IsPresent	166	-	-	token:163,prose:3
@@ -1427,7 +1427,7 @@ ChangesZone	IsPresent2	3	-	-	token:3
 ChangesZone	ManaNotSpent	5	-	-	token:5
 ChangesZone	ManaSpent	3	-	-	token:3
 ChangesZone	Metalcraft	3	-	-	bool:3
-ChangesZone	Mode	8410	-	-	token:8410
+ChangesZone	Mode	8447	-	-	token:8447
 ChangesZone	NoResolvingCheck	6	-	-	bool:6
 ChangesZone	NotThisAbility	1	-	-	bool:1
 ChangesZone	OneOff	5	-	-	bool:5
@@ -1442,13 +1442,13 @@ ChangesZone	PresentZone	15	-	zone:1	token:15
 ChangesZone	ResolvedLimit	9	-	int:1	int:9
 ChangesZone	Revolt	8	-	-	bool:8
 ChangesZone	SVarCompare	43	-	-	token:43
-ChangesZone	Secondary	524	-	-	bool:524
+ChangesZone	Secondary	561	-	-	bool:561
 ChangesZone	Static	135	-	-	bool:135
 ChangesZone	Threshold	1	-	-	bool:1
 ChangesZone	TriggerController	32	-	defined:1	token:32
 ChangesZone	TriggerDescription	7858	-	-	prose:7858
 ChangesZone	TriggerZones	1708	-	-	token:1708
-ChangesZone	ValidCard	8409	-	valid:6	token:8386,prose:23
+ChangesZone	ValidCard	8446	-	valid:6	token:8423,prose:23
 ChangesZone	ValidCards	1	-	valid:5	token:1
 ChangesZone	ValidCause	1	-	-	token:1
 ChangesZoneAll	ActivationLimit	40	-	int:1	int:40
@@ -5979,7 +5979,7 @@ Sacrifice	ConditionSVarCompare	48	-	-	token:48
 Sacrifice	ConditionZone	1	-	-	token:1
 Sacrifice	Cost	31	-	-	prose:16,token:13,int:2
 Sacrifice	CumulativeUpkeep	85	-	-	int:40,token:36,prose:9
-Sacrifice	DB	1054	-	-	token:1054
+Sacrifice	DB	1091	-	-	token:1091
 Sacrifice	Defined	423	-	defined:73	token:423
 Sacrifice	Destroy	4	-	-	bool:4
 Sacrifice	Echo	52	-	-	prose:38,int:7,token:7

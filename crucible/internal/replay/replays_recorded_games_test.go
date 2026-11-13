@@ -52,10 +52,10 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		events, err string
 	}{
 		// Companion setup: Java moves Kaheera to the command zone before the
-		// first turn; Go does not, and Go cannot cast Solitude for its evoke
-		// cost.
-		{fixture, "move card 143 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 122"},
-		{counterFixture, "move card 69 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 46"},
+		// first turn; Go does not. Go then cannot play Sink into Stupor's land
+		// face, nor cast Orim's Chant in the upkeep.
+		{fixture, "move card 143 (Kaheera, the Orphanguard) Sideboard -> Command", "could not play land card 120"},
+		{counterFixture, "move card 69 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 31"},
 		// Java casts Moonshadow in its second main phase; Go passes.
 		{rakdosFixture, "java only:\n    push card 112 (Moonshadow) by seat 0", ""},
 		// Java won Ral's coin flip and transformed it; Go flips with its own

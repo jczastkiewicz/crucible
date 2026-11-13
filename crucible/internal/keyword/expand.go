@@ -678,6 +678,17 @@ func Expand(k Keyword) (Expansion, bool) {
 			},
 			Amounts: amounts,
 		}, true
+	case "Evoke":
+		// CardFactoryUtil.java:978-987: when this enters, if it was cast for
+		// its evoke cost, its controller sacrifices it. The cast is the
+		// engine's (altkeywords.go), made for a lone cost field only.
+		if k.Details == "" || strings.Contains(k.Details, ":") {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self+evoked | Secondary$ True | Execute$ KWEvoke" + Slot},
+			SVars:    []SVarDef{{"KWEvoke" + Slot, "DB$ Sacrifice"}},
+		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
 		// check CR 702.100c; the script spelling of that check is Condition$

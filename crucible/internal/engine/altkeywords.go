@@ -93,7 +93,7 @@ func (g *Game) opponentLostLifeThisTurn(pid PlayerID) bool {
 	return false
 }
 
-// altKeywordOptions are the Surge, Freerunning, Dash, Blitz and Warp ways pid
+// altKeywordOptions are the Surge, Freerunning, Dash, Blitz, Warp and Evoke ways pid
 // may cast c from the hand (Warp's spell is restricted to it,
 // CardFactoryUtil.java:3672): those whose keyword c has and, for the first two,
 // whose history gate holds.
@@ -122,7 +122,7 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 	if o, ok := prototypeOption(c); ok {
 		out = append(out, o)
 	}
-	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Bestow", "Web-slinging", "Impending"} {
+	for _, name := range [...]string{"Dash", "Blitz", "Warp", "Evoke", "Bestow", "Web-slinging", "Impending"} {
 		if name == "Bestow" && !c.Type().Has(cardtype.Creature) {
 			continue
 		}
@@ -136,7 +136,8 @@ func (g *Game) altKeywordOptions(pid PlayerID, c *Card) []castOption {
 // keywordCastOption is the cast for c's keyword name (Dash, Blitz, Warp or
 // Bestow, whose spell is the Aura spell animateBestow makes, bestow.go):
 // its cost in place of the mana cost, Java's copyWithDefinedCost for Dash
-// (CardFactoryUtil.java:2744-2764) and Warp (:3648-3675) and
+// (CardFactoryUtil.java:2744-2764), Warp (:3648-3675) and Evoke
+// (:2942-2962, Solitude's ExileFromHand<1/Card.White+Other/white card>) and
 // copyWithManaCostReplaced for Blitz
 // (:2690-2713), alike for a spell with no Cost$ of its own. A part past the
 // mana (Blitz's PayLife<2>, Discard<1/Card>, Timeline Culler's warp

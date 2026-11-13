@@ -62,14 +62,14 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// stream (the replay feeds shuffles, not coins), loses, and is dealt 1.
 		{"../../testdata/replay/domain-zoo-vs-ruby-storm-seed5.jsonl",
 			"go only:\n    damage card 114 (Ral, Monsoon Mage) -> seat 1 1", ""},
-		// Go exiles the warped Haliya at the end step; Java does not.
+		// Go exiles the warped Haliya at the end step; Java does not. Later Go
+		// cannot equip Blade of the Bloodchief.
 		{"../../testdata/replay/eldrazi-vs-boros-energy-seed7.jsonl",
-			"go only:\n    move card 103 (Haliya, Guided by Light) Battlefield -> Exile", "Dig: controller chose 35"},
+			"go only:\n    move card 103 (Haliya, Guided by Light) Battlefield -> Exile", "could not activate card 10"},
 		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl", "", ""},
-		// Java paid Basking Broodscale with Eldrazi Temple's colorless-Eldrazi
-		// mana as the log names it; Go refuses that payment.
+		// Go cannot cast Kozilek's Command at the end of combat.
 		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl",
-			"java only:\n    move card 80 (Basking Broodscale) Hand -> Stack", "could not cast card 80"},
+			"java only:\n    move card 37 (Kozilek's Command) Hand -> Stack", "could not cast card 37"},
 	} {
 		res, err := replay.Run(corpusDB(t), readLog(t, tc.path), 60)
 		if err != nil {

@@ -435,6 +435,22 @@ func applyContinuousColor(g *Game) {
 		}
 		applyOneContinuousColor(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
+	applyDevoid(g)
+}
+
+// applyDevoid makes every card with the Devoid keyword colorless, wherever it
+// is (CR 702.114a). Java expands the keyword into `Mode$ Continuous |
+// EffectZone$ All | CharacteristicDefining$ True | SetColor$ Colorless`
+// (CardFactoryUtil.java:3878-3882), which applies from any zone: Basking
+// Broodscale is a colorless Eldrazi spell for Eldrazi Temple's mana.
+func applyDevoid(g *Game) {
+	for i := 1; i < len(g.cards); i++ {
+		c := &g.cards[i]
+		if c.Def == nil || !c.HasKeyword("Devoid") {
+			continue
+		}
+		c.ColorMod.Add(ColorEffect{Timestamp: c.Timestamp, Overwrite: true, CharacteristicDefining: true})
+	}
 }
 
 // applyOneContinuousColor is Layer 5 for one Mode$ Continuous line:

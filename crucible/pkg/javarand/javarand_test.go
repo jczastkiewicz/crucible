@@ -183,3 +183,36 @@ func joinInts(xs []int) string {
 	}
 	return b.String()
 }
+
+// A fed Rand answers each draw from its feed while the feed has one, its
+// generator untouched (State unchanged), then draws as New does.
+func TestNewFedDrawsFromItsFeedFirst(t *testing.T) {
+	t.Parallel()
+
+	fed := []int32{7, -1}
+	r := javarand.NewFed(42, func(uint) (int32, bool) {
+		if len(fed) == 0 {
+			return 0, false
+		}
+		v := fed[0]
+		fed = fed[1:]
+		return v, true
+	})
+	plain := javarand.New(42)
+	before := r.State()
+	if got := r.Int32(); got != 7 {
+		t.Errorf("first fed draw = %d, want 7", got)
+	}
+	if got := r.Int32(); got != -1 {
+		t.Errorf("second fed draw = %d, want -1", got)
+	}
+	if r.State() != before {
+		t.Errorf("State moved on fed draws")
+	}
+	if got, want := r.Int32(), plain.Int32(); got != want {
+		t.Errorf("draw after the feed = %d, want New's %d", got, want)
+	}
+	if r.State() == before {
+		t.Errorf("State did not move on a generator draw")
+	}
+}

@@ -108,3 +108,42 @@ func TestPlayerOrdersTheirSimultaneousTriggers(t *testing.T) {
 		})
 	}
 }
+
+// triggerOrderReader records the triggers a player is asked to order.
+type triggerOrderReader struct {
+	*engine.ScriptedController
+	items []engine.TriggerOrderItem
+}
+
+func (r *triggerOrderReader) OrderSimultaneousTriggers(g *engine.Game, decider engine.PlayerID, items []engine.TriggerOrderItem) []int {
+	r.items = items
+	return r.ScriptedController.OrderSimultaneousTriggers(g, decider, items)
+}
+
+// Two triggers of one card differ by the effect they run, which the player
+// ordering them is told (Haliya's draw beside its warp exile).
+func TestTriggersToOrderNameTheirEffect(t *testing.T) {
+	t.Parallel()
+
+	g, _, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, other, engine.DeclareAttackers)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	watcher := g.NewCard(scriptDef(t, "Twin Watcher", "Artifact",
+		"T:Mode$ Attacks | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigLife",
+		"T:Mode$ Attacks | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigDraw",
+		"SVar:TrigLife:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+		"SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"), other, engine.Battlefield)
+	r := &triggerOrderReader{ScriptedController: engine.NewScriptedController()}
+	r.QueueAttackers([]engine.CardID{attacker})
+	declareAttackers(t, g, r)
+
+	got := map[string]bool{}
+	for _, it := range r.items {
+		if it.Source == watcher {
+			got[it.API] = true
+		}
+	}
+	if len(r.items) != 2 || !got["GainLife"] || !got["Draw"] {
+		t.Errorf("asked to order %+v, want the watcher's GainLife and Draw", r.items)
+	}
+}

@@ -4386,6 +4386,7 @@ func (g *Game) triggerPushOrder(controller PlayerController, pid PlayerID, match
 	items := make([]TriggerOrderItem, len(idx))
 	for k, i := range idx {
 		items[k].Source = matches[i].Source
+		items[k].API = matches[i].API.String()
 		if matches[i].trigger != nil {
 			items[k].Mode = matches[i].trigger.Name
 		}

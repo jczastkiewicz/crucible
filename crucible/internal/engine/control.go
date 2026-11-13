@@ -1657,4 +1657,7 @@ type TriggerOrderItem struct {
 	Source CardID
 	// Mode is the trigger's Mode$ (ChangesZone, Attacks, ...).
 	Mode string
+	// API is the effect the trigger runs (Draw, ChangeZone, ...): two
+	// triggers of one card, Haliya's draw and its warp exile, differ by it.
+	API string
 }

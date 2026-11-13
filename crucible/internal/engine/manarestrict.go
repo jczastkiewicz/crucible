@@ -153,6 +153,21 @@ func (g *Game) restrictionMet(u poolUnit, ctx *payContext) bool {
 	return false
 }
 
+// UsableMana is pid's pool as the payment under way may spend it, in
+// [Pool.Breakdown]'s order: a unit whose RestrictValid$ rejects what is paid
+// for (Eldrazi Temple's {C}{C} for a non-Eldrazi) is left out. A controller
+// choosing which mana pays a generic unit reads it.
+func (g *Game) UsableMana(pid PlayerID) [6]int {
+	var out [6]int
+	usable := g.usableMana()
+	for _, u := range g.Player(pid).ManaPool.units {
+		if usable(u) {
+			out[u.bucket%bucketSnow]++
+		}
+	}
+	return out
+}
+
 // usableMana is the units the current payment may spend (ADR-0046).
 func (g *Game) usableMana() func(poolUnit) bool {
 	ctx := g.payFor

@@ -61,6 +61,7 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl", "", ""},
 		{"../../testdata/replay/goryos-vengeance-vs-boros-energy-seed12.jsonl", "", ""},
 		{"../../testdata/replay/domain-zoo-vs-eldrazi-seed18.jsonl", "", ""},
+		{"../../testdata/replay/affinity-vs-goryos-vengeance-seed17.jsonl", "", ""},
 	} {
 		res, err := replay.Run(corpusDB(t), readLog(t, tc.path), 60)
 		if err != nil {

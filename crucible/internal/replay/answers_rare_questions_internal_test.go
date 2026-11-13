@@ -386,3 +386,20 @@ func TestControllerReadsAKeywordCostCount(t *testing.T) {
 		t.Errorf("count %d, unanswered %v; want Java's 2", got, c.Unanswered())
 	}
 }
+
+// A Discard<> or Sac<> cost names no source in Go's question: its cards
+// come from the paid parts of the play under way, as Java's AI chose them
+// without a call.
+func TestControllerPaysASacrificeCostFromThePlay(t *testing.T) {
+	t.Parallel()
+
+	c, g, cards := rareSetup(t)
+	c.cur = &play{}
+	if err := json.Unmarshal([]byte(`{"ability":{"host":{"card":101}},"paid":[{"part":"Sacrificed","cards":[{"card":103}]}]}`), c.cur); err != nil {
+		t.Fatal(err)
+	}
+	c.paidUsed = map[int]bool{}
+	if got := c.ChoosePermanentsToSacrifice(g, g.Players()[0], cards[1:], 1); !slices.Equal(got, cards[2:]) || c.Unanswered() != nil {
+		t.Errorf("sacrificed %v, unanswered %v; want the play's paid card", got, c.Unanswered())
+	}
+}

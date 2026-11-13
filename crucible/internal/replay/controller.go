@@ -114,7 +114,7 @@ func (c *Controller) next(pid engine.PlayerID, methods ...string) *call {
 	for _, k := range c.s.calls {
 		if !k.used && k.Decider.Seat == seat(pid) && k.when() == now && slices.Contains(methods, k.Method) {
 			k.used = true
-			if k.Method == "chooseEntitiesForEffect" {
+			if k.Method == "chooseEntitiesForEffect" || k.Method == "chooseCardsForEffect" {
 				c.readNested(k, "chooseSingleEntityForEffect")
 			}
 			return k
@@ -501,6 +501,22 @@ func (c *Controller) ChoosePayX(g *engine.Game, decider engine.PlayerID, cost ma
 // next trigger Java put on the stack for decider.
 func (c *Controller) ChooseTargets(g *engine.Game, decider engine.PlayerID, valid []engine.EntityID, lo, hi int) []engine.EntityID {
 	if len(c.targets) == 0 {
+		// A spell a Play effect casts (rebound, cascade) has its own play
+		// record, linked to Java's playSaFromPlayEffect call.
+		if k := c.next(decider, "playSaFromPlayEffect"); k != nil {
+			for _, p := range c.s.plays {
+				if p.Call != k.Seq {
+					continue
+				}
+				for _, part := range p.Chain {
+					if len(part.Targets) > 0 {
+						c.targets = append(c.targets, part.Targets)
+					}
+				}
+			}
+		}
+	}
+	if len(c.targets) == 0 {
 		for _, p := range c.s.plays {
 			// A trigger's targets are chosen as it is put on the stack: the play
 			// of its wrapper, a delayed or reflexive one's too (Guide of
@@ -763,23 +779,27 @@ var cardChoices = []string{
 
 // chooseCards is the next card-choice answer of decider's, kept to options.
 func (c *Controller) chooseCards(decider engine.PlayerID, method string, options []engine.CardID) ([]engine.CardID, bool) {
-	k := c.next(decider, cardChoices...)
-	if k == nil {
-		c.fail(-1, method, "Java chose no cards here")
-		return nil, false
-	}
-	ids, ok := c.cards(k.Answer)
-	if !ok {
-		c.fail(k.Seq, k.Method, "answer %s names a card Go does not have", k.Answer)
-		return nil, false
-	}
-	for _, id := range ids {
-		if !slices.Contains(options, id) {
+	for {
+		k := c.next(decider, cardChoices...)
+		if k == nil {
+			c.fail(-1, method, "Java chose no cards here")
+			return nil, false
+		}
+		ids, ok := c.cards(k.Answer)
+		if !ok {
+			c.fail(k.Seq, k.Method, "answer %s names a card Go does not have", k.Answer)
+			return nil, false
+		}
+		if !slices.ContainsFunc(ids, func(id engine.CardID) bool { return !slices.Contains(options, id) }) {
+			return ids, true
+		}
+		// A one-option single-entity record outside Go's options is a
+		// question Go never asked (ChooseEntitiesForEffect).
+		if k.Method != "chooseSingleEntityForEffect" || !loneOffer(k) {
 			c.fail(k.Seq, k.Method, "answer %s is not among Go's options", k.Answer)
 			return nil, false
 		}
 	}
-	return ids, true
 }
 
 // ChooseCardsForEffect is Java's card choice.
@@ -904,16 +924,38 @@ func (c *Controller) costCards(source engine.CardID, options []engine.CardID, lo
 	return nil, false
 }
 
-// ChoosePermanentsToSacrifice is Java's card choice.
+// playCostCards is costCards for a question that names no source: a
+// Discard<> or Sac<> cost part of the play under way (Psychic Frog's
+// discard), whose cards Java's AI chose without a call.
+func (c *Controller) playCostCards(options []engine.CardID, n int) ([]engine.CardID, bool) {
+	if c.cur == nil {
+		return nil, false
+	}
+	host, ok := c.goCard(c.cur.Ability.Host)
+	if !ok {
+		return nil, false
+	}
+	return c.costCards(host, options, n, n)
+}
+
+// ChoosePermanentsToSacrifice is a sacrifice cost's cards from the play
+// under way, else Java's card choice.
 func (c *Controller) ChoosePermanentsToSacrifice(g *engine.Game, decider engine.PlayerID, options []engine.CardID, n int) []engine.CardID {
+	if ids, ok := c.playCostCards(options, n); ok {
+		return ids
+	}
 	if ids, ok := c.chooseCards(decider, "choosePermanentsToSacrifice", options); ok {
 		return ids
 	}
 	return c.Controller.ChoosePermanentsToSacrifice(g, decider, options, n)
 }
 
-// ChooseCardsToDiscard is Java's card choice.
+// ChooseCardsToDiscard is a discard cost's cards from the play under way,
+// else Java's card choice.
 func (c *Controller) ChooseCardsToDiscard(g *engine.Game, decider engine.PlayerID, hand []engine.CardID, n int) []engine.CardID {
+	if ids, ok := c.playCostCards(hand, n); ok {
+		return ids
+	}
 	if ids, ok := c.chooseCards(decider, "chooseCardsToDiscard", hand); ok {
 		return ids
 	}
@@ -931,7 +973,7 @@ func (c *Controller) DiscardToHandSize(g *engine.Game, decider engine.PlayerID, 
 // ChooseEntitiesForEffect is Java's choice, cards or players.
 func (c *Controller) ChooseEntitiesForEffect(g *engine.Game, decider engine.PlayerID, source engine.CardID, options []engine.EntityID, lo, hi int) []engine.EntityID {
 	k := c.next(decider, cardChoices...)
-	if k != nil {
+	for k != nil {
 		var refs []Ref
 		if json.Unmarshal(k.Answer, &refs) != nil {
 			var one Ref
@@ -948,11 +990,29 @@ func (c *Controller) ChooseEntitiesForEffect(g *engine.Game, decider engine.Play
 		if len(out) == len(refs) {
 			return out
 		}
+		// Java asks a single-entity choice of one option too (PlayEffect's
+		// card to play), Go does not: such a record outside Go's options
+		// was a question Go never asked.
+		if k.Method == "chooseSingleEntityForEffect" && loneOffer(k) {
+			k = c.next(decider, cardChoices...)
+			continue
+		}
 		c.fail(k.Seq, k.Method, "answer %s is not among Go's options", k.Answer)
-	} else {
+		break
+	}
+	if k == nil {
 		c.fail(-1, "chooseEntitiesForEffect", "Java chose nothing here")
 	}
 	return c.Controller.ChooseEntitiesForEffect(g, decider, source, options, lo, hi)
+}
+
+// loneOffer reports whether k offered exactly one option (its first
+// argument, a list).
+func loneOffer(k *call) bool {
+	var offered []json.RawMessage
+	var options []json.RawMessage
+	return json.Unmarshal(k.Offered, &offered) == nil && len(offered) > 0 &&
+		json.Unmarshal(offered[0], &options) == nil && len(options) == 1
 }
 
 // readNested marks read the method calls nested in k: Java's AI answers

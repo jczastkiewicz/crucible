@@ -107,3 +107,33 @@ func TestNumberEntityIsNeitherACardNorAPlayer(t *testing.T) {
 		t.Error("a player reads as a number")
 	}
 }
+
+// Tranquil Frillback: "you may pay {G} up to three times. When you pay this
+// cost one or more times, choose up to that many": the reflexive charm reads
+// its CharmNum$ against itself, the {G} count it remembered
+// (CharmEffect.java:242), though it reaches the stack after the enters
+// trigger resolved (ADR-0064).
+func TestReflexiveCharmChoosesUpToTheTimesPaid(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	dino := g.NewCard(corpusCard(t, "Tranquil Frillback"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 5)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueuePayGeneric(mana.ShardG)
+	c.QueueConfirmOptionalTrigger(true)
+	c.QueuePayX(2)
+	c.QueueModeChoice([]int{1}) // GainLife: no artifact to destroy, so two modes offered
+	castThenResolve(t, g, p, dino, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 24 {
+		t.Errorf("life %d, want 24: the charm's gain-life mode", got)
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("%d mana left, want the {G} paid twice", got)
+	}
+}

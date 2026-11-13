@@ -123,7 +123,12 @@ func (g *Game) chooseAbilityTargets(controller PlayerController, a *Ability) boo
 		defer func() { g.xctx = prev }()
 	}
 	if a.API == APICharm {
+		// CharmEffect.makeChoices reads CharmNum$ and MinCharmNum$ against
+		// the charm itself (CharmEffect.java:242-243): Tranquil Frillback's
+		// reflexive trigger counts the {G} it remembered.
+		restore := g.inAbilityContext(a)
 		ok, err := g.chooseCharmModes(controller, a)
+		restore()
 		if err != nil {
 			a.modesErr = err
 		} else if !ok {

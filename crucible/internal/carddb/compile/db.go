@@ -45,6 +45,8 @@ type DB struct {
 	commanderEffect *Card
 	// planarDiceEffect is the Planar Dice card (ADR-0056), compiled once.
 	planarDiceEffect *Card
+	// companionEffect is the Companion Effect card, compiled once.
+	companionEffect *Card
 }
 
 // LoadDB parses and compiles every script under root.
@@ -95,7 +97,7 @@ func LoadDB(root, typeList string) (*DB, error) {
 		return nil, err
 	}
 
-	db := &DB{byName: make(map[string]*Card, len(cards)), types: reg, commanderEffect: compileCommanderEffect(), planarDiceEffect: compilePlanarDiceEffect()}
+	db := &DB{byName: make(map[string]*Card, len(cards)), types: reg, commanderEffect: compileCommanderEffect(), planarDiceEffect: compilePlanarDiceEffect(), companionEffect: compileCompanionEffect()}
 	for _, parsed := range cards {
 		card, err := Compile(parsed)
 		if err != nil {
@@ -140,7 +142,7 @@ func LoadDB(root, typeList string) (*DB, error) {
 // wrong for a test that wants three known cards and nothing else. Names is
 // sorted rather than insertion order, since a map has none to give.
 func NewDB(cards map[string]*Card) *DB {
-	db := &DB{byName: cards, names: make([]string, 0, len(cards)), commanderEffect: compileCommanderEffect(), planarDiceEffect: compilePlanarDiceEffect()}
+	db := &DB{byName: cards, names: make([]string, 0, len(cards)), commanderEffect: compileCommanderEffect(), planarDiceEffect: compilePlanarDiceEffect(), companionEffect: compileCompanionEffect()}
 	for name := range cards {
 		db.names = append(db.names, name)
 	}

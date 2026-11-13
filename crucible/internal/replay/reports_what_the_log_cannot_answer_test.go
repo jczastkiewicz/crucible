@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -70,39 +71,42 @@ func TestReplayReportsTheFirstQuestionTheLogCannotAnswer(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		edit func(map[string]any) map[string]any
-		// method is the first unanswered question's, "" for any.
-		method string
+		// methods are the first unanswered question's, nil for any.
+		methods []string
 	}{
 		{"calls dropped", func(r map[string]any) map[string]any {
 			if r["kind"] == "call" || r["kind"] == "play" || r["kind"] == "payment" {
 				return nil
 			}
 			return r
-		}, "chooseStartingPlayer"},
+		}, []string{
+			// A seat with a companion is asked for it first (Kaheera).
+			"chooseStartingPlayer", "chooseEntitiesForEffect",
+		}},
 		{"choices dropped", func(r map[string]any) map[string]any {
 			if r["kind"] == "call" && !played(r) {
 				return nil
 			}
 			return r
-		}, ""},
+		}, nil},
 		{"choices garbled", func(r map[string]any) map[string]any {
 			if r["kind"] == "call" && !played(r) {
 				r["answer"] = "garbled"
 			}
 			return r
-		}, ""},
+		}, nil},
 		{"choices name no card", func(r map[string]any) map[string]any {
 			if r["kind"] == "call" && !played(r) {
 				r["answer"] = []any{map[string]any{"card": 99999, "name": "Nowhere"}}
 			}
 			return r
-		}, ""},
+		}, nil},
 		{"plays name no card", func(r map[string]any) map[string]any {
 			if r["kind"] == "call" && r["method"] == "chooseSpellAbilityToPlay" && r["answer"] != nil {
 				r["answer"] = []any{map[string]any{"host": map[string]any{"card": 99999, "name": "Nowhere"}, "section": "land"}}
 			}
 			return r
-		}, "chooseSpellAbilityToPlay"},
+		}, []string{"chooseSpellAbilityToPlay"}},
 	} {
 		paths, err := filepath.Glob("../../testdata/replay/*.jsonl")
 		if err != nil {
@@ -123,8 +127,8 @@ func TestReplayReportsTheFirstQuestionTheLogCannotAnswer(t *testing.T) {
 				continue
 			}
 			reported++
-			if tc.method != "" && res.Question.Method != tc.method {
-				t.Errorf("%s, %s: first unanswered %v, want %q", tc.name, path, res.Question, tc.method)
+			if tc.methods != nil && !slices.Contains(tc.methods, res.Question.Method) {
+				t.Errorf("%s, %s: first unanswered %v, want one of %q", tc.name, path, res.Question, tc.methods)
 			}
 			if !strings.Contains(res.Question.String(), res.Question.Method) || res.Same() {
 				t.Errorf("%s, %s: report %q", tc.name, path, res.Question)

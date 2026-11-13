@@ -51,6 +51,13 @@ func Run(db *compile.DB, log *Log, maxTurns int) (*Result, error) {
 				res.Err = fmt.Errorf("replay: Go game panicked: %v\n%s", r, debug.Stack())
 			}
 		}()
+		// Match.prepareAllZones (Match.java:352-356): each seat's companion
+		// before the libraries are shuffled.
+		for _, pid := range g.Players() {
+			if res.Err = g.AssignCompanion(pid, ctl); res.Err != nil {
+				return
+			}
+		}
 		first := engine.DealOpeningHands(g, ctl)
 		engine.PerformMulligans(g, ctl, first)
 		reg := engine.NewRegistry()

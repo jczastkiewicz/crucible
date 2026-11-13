@@ -117,28 +117,16 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			return fmt.Errorf("engine: ChangeZone: Origin$: %w", err)
 		}
 		for _, z := range origin {
-			// Command only for an effect card exiling itself -- the corpus's
-			// 180-odd "Origin$ Command | Destination$ Exile" lines
-			// (changeZoneKnown's IsEffect branch).
-			if z == Command && dest == Exile {
-				continue
-			}
-			// Hidden$ True from the Command zone (Command Beacon, Netherborn
-			// Altar) fetches through changeHiddenOriginResolve like any hidden
-			// origin; without a commander setup (isCommander is false) nothing
-			// matches, as in Java with no commanders.
-			if z == Command && hasParam(a, "Hidden") {
-				continue
-			}
-			// A list naming Command beside another zone (Norin the Wary's
-			// "Exile,Command") only matters for an effect card; any other
-			// card in Command is refused where it is met, below.
-			if z == Command && len(origin) > 1 {
-				continue
-			}
-			// Stack only for a spell exiling itself ("Exile CARDNAME", Mnemonic
-			// Betrayal): the loop below refuses any other spell.
-			if z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile && z != Sideboard && z != Stack {
+			// Command is a known zone: an effect card exiling itself (the
+			// corpus's 180-odd "Origin$ Command | Destination$ Exile" lines,
+			// changeZoneKnown's IsEffect branch), a commander or companion
+			// leaving it (Derevi; the Companion Effect's special action,
+			// Player.java:3315). Hidden$ True from it (Command Beacon,
+			// Netherborn Altar) fetches through changeHiddenOriginResolve like
+			// any hidden origin. Stack only for a spell exiling itself
+			// ("Exile CARDNAME", Mnemonic Betrayal): the loop below refuses
+			// any other spell.
+			if z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile && z != Sideboard && z != Stack && z != Command {
 				return fmt.Errorf("engine: ChangeZone: Origin$ %v not resolvable yet", z)
 			}
 		}
@@ -634,11 +622,6 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			cards = ordered
 		} else if cards, err = g.orderCardsByTheirOwners(controller, cards, dest); err != nil {
 			return fmt.Errorf("engine: ChangeZone: %w", err)
-		}
-	}
-	for _, id := range cards {
-		if c := g.Card(id); c.Zone == Command && zoneIn(Command, origin) && !c.IsEffect {
-			return fmt.Errorf("engine: ChangeZone: Origin$ Command for a card that is not an effect not resolvable yet")
 		}
 	}
 	_, optional := a.Params.Param("Optional")

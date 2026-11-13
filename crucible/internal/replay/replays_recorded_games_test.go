@@ -51,11 +51,12 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// game's error, "" for none.
 		events, err string
 	}{
-		// Companion setup: Java moves Kaheera to the command zone before the
-		// first turn; Go does not, and cannot cast Kaheera from the hand Java
-		// put it into for {3}, nor Orim's Chant in the upkeep.
-		{fixture, "move card 143 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 143"},
-		{counterFixture, "move card 69 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 31"},
+		// Java's Ocelot Pride makes three tokens at the end step where Go
+		// makes none; Go then cannot cast Kaheera from the hand its companion
+		// action put it into.
+		{fixture, "java only:\n    move card 174 (Warrior Token) None -> Battlefield", "could not cast card 143"},
+		// Java casts Orim's Chant in the upkeep; Go cannot.
+		{counterFixture, "java only:\n    move card 31 (Orim's Chant) Hand -> Stack", "could not cast card 31"},
 		// Java casts Moonshadow in its second main phase; Go passes.
 		{rakdosFixture, "java only:\n    push card 112 (Moonshadow) by seat 0", ""},
 		// Java won Ral's coin flip and transformed it; Go flips with its own

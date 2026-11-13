@@ -84,3 +84,39 @@ func (db *DB) PlanarDiceEffect() *Card {
 	}
 	return db.planarDiceEffect
 }
+
+// Player.createCompanionEffect (Player.java:3310-3322): the Command-zone
+// effect card a player's chosen companion comes with. Its static grants the
+// companion, while it is in the Command zone, the special action that puts
+// it into its owner's hand for {3} (CR 702.139c). Java names the card after
+// its companion; the engine renames its copy of this definition. Compiled
+// once per DB (PORT-2).
+const (
+	companionEffectStatic = "Mode$ Continuous | EffectZone$ Command | Affected$ Card.YouOwn+EffectSource | AffectedZone$ Command | AddAbility$ MoveToHand"
+	companionEffectAction = "ST$ ChangeZone | Cost$ 3 | Defined$ Self | Origin$ Command | Destination$ Hand | SorcerySpeed$ True | ActivationZone$ Command | SpellDescription$ Companion - Put CARDNAME in to your hand"
+)
+
+// compileCompanionEffect builds the Companion Effect's definition; its text
+// is fixed, so an error is a broken build.
+func compileCompanionEffect() *Card {
+	raw := &carddb.Card{Filename: "companion_effect"}
+	f := &raw.Faces[0]
+	f.Present = true
+	f.Name = "Companion Effect"
+	f.Statics = []string{companionEffectStatic}
+	f.SVars.Set("MoveToHand", companionEffectAction)
+	card, err := Compile(raw)
+	if err != nil {
+		panic(fmt.Sprintf("compile: Companion Effect: %v", err))
+	}
+	return card
+}
+
+// CompanionEffect is the Companion Effect card's definition. A DB built by
+// neither constructor compiles its own.
+func (db *DB) CompanionEffect() *Card {
+	if db == nil || db.companionEffect == nil {
+		return compileCompanionEffect()
+	}
+	return db.companionEffect
+}

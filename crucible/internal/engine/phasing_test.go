@@ -802,10 +802,10 @@ func TestOublietteReturnsItsCreatureTapped(t *testing.T) {
 	}
 }
 
-// TestChangeZoneFromCommandIsOnlyAnEffectExilingItself: Origin$ Command
-// resolves only for an effect card going to exile; any other destination,
-// or a card in the Command zone that is not an effect, is refused.
-func TestChangeZoneFromCommandIsOnlyAnEffectExilingItself(t *testing.T) {
+// TestChangeZoneFromCommandMovesAnyCardThere: Command is a known origin. A
+// host not in it is not moved, and a card there that is not an effect (a
+// commander, a companion) changes zones like any other.
+func TestChangeZoneFromCommandMovesAnyCardThere(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
@@ -813,13 +813,13 @@ func TestChangeZoneFromCommandIsOnlyAnEffectExilingItself(t *testing.T) {
 		"DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Hand",
 		"DB$ ChangeZone | Defined$ Remembered | Origin$ Command | Destination$ Exile",
 	} {
-		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		host, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
 			"DB$ Pump | Defined$ Self | SubAbility$ DBMove", "DBMove", line)
-		if strings.Contains(line, "Hand") && (err == nil || !strings.Contains(err.Error(), "not resolvable yet")) {
-			t.Errorf("%q: err = %v, want not resolvable yet", line, err)
-		}
-		if !strings.Contains(line, "Hand") && err != nil {
+		if err != nil {
 			t.Errorf("%q: %v", line, err)
+		}
+		if got := g.Card(host).Zone; got != engine.Battlefield {
+			t.Errorf("%q: the host, not in the command zone, moved to %v", line, got)
 		}
 	}
 
@@ -831,8 +831,11 @@ func TestChangeZoneFromCommandIsOnlyAnEffectExilingItself(t *testing.T) {
 	plain := g.NewCard(creatureDef(t), p, engine.Command)
 	g.Card(host).Memory.Remember(engine.CardEntity(plain))
 	pushLine(t, g, p, host, "DB$ ChangeZone | Defined$ Remembered | Origin$ Command | Destination$ Exile")
-	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err == nil || !strings.Contains(err.Error(), "not an effect") {
-		t.Errorf("non-effect card from Command: err = %v, want not resolvable yet", err)
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(plain).Zone; got != engine.Exile {
+		t.Errorf("the card in the command zone is in %v, want exile", got)
 	}
 }
 

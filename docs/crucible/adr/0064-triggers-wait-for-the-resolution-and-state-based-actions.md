@@ -1,8 +1,8 @@
 # ADR-0064 — Triggers Wait for the Resolution and the State-Based Actions
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-13
-- **Deciders:** Crucible session (R21c), owner to accept
+- **Deciders:** Crucible session (R21c), accepted by the owner
 
 ## Context
 

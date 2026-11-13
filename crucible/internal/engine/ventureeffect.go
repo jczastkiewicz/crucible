@@ -272,6 +272,14 @@ func (g *Game) hasSourceOnStack(source CardID) bool {
 			return true
 		}
 	}
+	// A trigger waiting to go on the stack counts (MagicStack.java:1027-1033,
+	// simultaneousStackEntryList): CR 704.5v's "triggered but not yet left
+	// the stack".
+	for i := range g.triggerBatch {
+		if !g.triggerBatch[i].activated && g.triggerBatch[i].Source == source {
+			return true
+		}
+	}
 	return false
 }
 

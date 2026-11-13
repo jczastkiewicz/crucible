@@ -56,21 +56,19 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// cost.
 		{fixture, "move card 143 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 122"},
 		{counterFixture, "move card 69 (Kaheera, the Orphanguard) Sideboard -> Command", "could not cast card 46"},
-		// Go puts Seasoned Pyromancer's enters trigger on the stack while the
-		// spell resolves, Java once it has resolved (CR 603.3, ADR-0019's
-		// inline triggers); every question is answered and the game plays on.
-		{rakdosFixture,
-			"java only:\n    resolve card 53 (Seasoned Pyromancer)\n  go only:\n    push card 53 (Seasoned Pyromancer) by seat 0", ""},
-		// The same inline triggers: Commercial District's, Haliya's. Go then
-		// offers no Ral as a target (domain zoo) and no Broodscale to choose
-		// (Eldrazi).
+		// Java casts Moonshadow in its second main phase; Go passes.
+		{rakdosFixture, "java only:\n    push card 112 (Moonshadow) by seat 0", ""},
+		// Java won Ral's coin flip and transformed it; Go flips with its own
+		// stream (the replay feeds shuffles, not coins), loses, and is dealt 1.
 		{"../../testdata/replay/domain-zoo-vs-ruby-storm-seed5.jsonl",
-			"go only:\n    push card 85 (Commercial District) by seat 1", ""},
+			"go only:\n    damage card 114 (Ral, Monsoon Mage) -> seat 1 1", ""},
+		// Go exiles the warped Haliya at the end step; Java does not.
 		{"../../testdata/replay/eldrazi-vs-boros-energy-seed7.jsonl",
-			"go only:\n    push card 103 (Haliya, Guided by Light) by seat 1", "Dig: controller chose 35"},
-		// Java's Equip chose its creature as it resolved, not as a target.
+			"go only:\n    move card 103 (Haliya, Guided by Light) Battlefield -> Exile", "Dig: controller chose 35"},
+		// Java's Equip chose its creature as it resolved, not as a target; Go
+		// cannot pay for Kappa Cannoneer.
 		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl",
-			"go only:\n    push card 55 (Weapons Manufacturing) by seat 0", "could not cast card 18"},
+			"java only:\n    move card 18 (Kappa Cannoneer) Hand -> Stack", "could not cast card 18"},
 		// Java paid Basking Broodscale with Eldrazi Temple's colorless-Eldrazi
 		// mana as the log names it; Go refuses that payment.
 		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl",

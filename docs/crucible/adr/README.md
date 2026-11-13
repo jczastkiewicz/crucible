@@ -74,7 +74,7 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0061](0061-print-identity-for-border-color.md)                          | A card carries its print, pinned by the deck or by latest art                   | Accepted                  |
 | [0062](0062-replay-log-records-the-ai-play-from-the-spell-ability.md)    | Replay log: the AI's own choices for a play, read from the cast spell ability   | Accepted                  |
 | [0063](0063-replay-event-comparison-anchors-and-intervals.md)            | Replay events: anchors in order, everything between as net changes              | Accepted                  |
-| [0064](0064-triggers-wait-for-the-resolution-and-state-based-actions.md) | Triggers wait for the resolution and the state-based actions                    | Proposed                  |
+| [0064](0064-triggers-wait-for-the-resolution-and-state-based-actions.md) | Triggers wait for the resolution and the state-based actions                    | Accepted                  |
 
 ## Numbering
 

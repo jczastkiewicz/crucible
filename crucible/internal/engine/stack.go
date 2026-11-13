@@ -192,6 +192,16 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 	g.stack[n] = Ability{}
 	g.stack = g.stack[:n]
 
+	// CR 117.5, 603.3: the triggers this resolution and the state-based
+	// actions after it fire wait, and go on the stack in one APNAP pass once
+	// both are done -- Java's frozen stack, unfrozen by finishResolving
+	// (MagicStack.java:700, :163-170) after the resolve event and the
+	// control grant's end. Registered first, so it runs after the grant ends.
+	// A restart keeps them: a returned card's enters trigger resolves in the
+	// restarted game (ADR-0034).
+	g.beginTriggerBatch()
+	defer g.endTriggerBatch(controller)
+
 	if a.controlledBy.set {
 		// MagicStack.java:617-618, :650-653: the player who controls the caster
 		// for this spell decides for it while it resolves, then the grant ends.

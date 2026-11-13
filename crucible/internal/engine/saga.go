@@ -9,6 +9,7 @@
 package engine
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/jczastkiewicz/crucible/internal/keyword"
@@ -96,8 +97,8 @@ func sacrificeCompletedSagas(g *Game, controller PlayerController) bool {
 // hasChapterOnStack is MagicStack.hasSourceOnStack(c, SpellAbility::isChapter):
 // an ability synthesized from the card's `Chapter` keyword is on the stack.
 func (g *Game) hasChapterOnStack(id CardID) bool {
-	for i := range g.stack {
-		item := &g.stack[i]
+	// A chapter waiting to go on the stack counts too (simultaneousStackEntryList).
+	for _, item := range append(slices.Clip(g.stack), g.triggerBatch...) {
 		if item.Source != id || item.Params == nil {
 			continue
 		}

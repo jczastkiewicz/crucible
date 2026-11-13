@@ -58,10 +58,16 @@ func (g *Game) checkAlwaysTriggers(controller PlayerController) {
 }
 
 // alwaysOnStack reports whether host's trigger executing sub already waits on
-// the stack.
+// the stack, or to go on it (MagicStack.hasStateTrigger reads
+// simultaneousStackEntryList too, MagicStack.java:956-968).
 func (g *Game) alwaysOnStack(host CardID, sub *compile.Ability) bool {
 	for i := range g.stack {
 		if s := &g.stack[i]; s.isTrigger && s.Source == host && s.Params == sub {
+			return true
+		}
+	}
+	for i := range g.triggerBatch {
+		if s := &g.triggerBatch[i]; !s.activated && s.Source == host && s.Params == sub {
 			return true
 		}
 	}

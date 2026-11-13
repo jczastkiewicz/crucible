@@ -91,21 +91,22 @@ Option 1 chosen.
      carry. Counting locally needs nothing persisted on `*Game` between calls, since the whole round runs inside one
      `PassPriority` call (CR 117.3c's "keeps priority" is loop-local too: an action resets the counter and the holder to
      the actor, it never has to survive past this call the way turn/phase state does).
-   - Loop body, in order: `CheckStateBasedActions` (already the only pre-ask step this port's trigger design needs —
-     `pushTriggeredAbilities` fires inline at trigger-detection sites, not from a waiting queue a priority ask would
-     have to drain, unlike Java's `addAllTriggeredAbilitiesToStack`). Then ask `holder.TakeAction`. A non-pass answer is
-     applied by calling `CastSpell`/`ActivateAbility` directly; a `false` return means the queued action failed a
-     legality check `PassPriority` itself did not pre-derive (Decision, point 5) and becomes an error naming the player,
-     the card and, for an activated ability, its index (GO-7: a bad queued action fails its own game, not the batch). On
-     success, `holder` and the pass count reset to the actor (CR 117.3c — the caster keeps priority). A pass advances
-     `holder` to the next live player (`nextPlayerAfter`, already skips a player who has lost) and increments the pass
-     count; once it reaches the number of live players (recomputed each time — a state-based action inside the loop can
-     remove one mid-round), CR 117.4 resolves **only the object on top of the stack**, not the whole stack —
-     `resolveTop` (Decision, point 3) — then CR 117.3b gives priority back to the active player (or the next live player
-     after them, if the active player has since lost, `PhaseHandler.java:1131-1135`) with the pass count reset to zero,
-     and the loop continues. If the stack was already empty when the pass count reached the player count, the step ends
-     and `PassPriority` returns. The loop's own guard is `!g.over`, checked going into each iteration — a state-based
-     action can end the game mid-round.
+   - Loop body, in order: `CheckStateBasedActions` (already the only pre-ask step this port's trigger design needs — no
+     waiting queue is left for a priority ask to drain: a trigger batch closes before priority is given, the one a
+     resolution opens only after its state-based actions, ADR-0064, where Java drains
+     `addAllTriggeredAbilitiesToStack`). Then ask `holder.TakeAction`. A non-pass answer is applied by calling
+     `CastSpell`/`ActivateAbility` directly; a `false` return means the queued action failed a legality check
+     `PassPriority` itself did not pre-derive (Decision, point 5) and becomes an error naming the player, the card and,
+     for an activated ability, its index (GO-7: a bad queued action fails its own game, not the batch). On success,
+     `holder` and the pass count reset to the actor (CR 117.3c — the caster keeps priority). A pass advances `holder` to
+     the next live player (`nextPlayerAfter`, already skips a player who has lost) and increments the pass count; once
+     it reaches the number of live players (recomputed each time — a state-based action inside the loop can remove one
+     mid-round), CR 117.4 resolves **only the object on top of the stack**, not the whole stack — `resolveTop`
+     (Decision, point 3) — then CR 117.3b gives priority back to the active player (or the next live player after them,
+     if the active player has since lost, `PhaseHandler.java:1131-1135`) with the pass count reset to zero, and the loop
+     continues. If the stack was already empty when the pass count reached the player count, the step ends and
+     `PassPriority` returns. The loop's own guard is `!g.over`, checked going into each iteration — a state-based action
+     can end the game mid-round.
    - No nested loops: a response only pushes and returns to the outer loop — the loop itself is the only place
      `CastSpell`/`ActivateAbility` get called from a priority ask. Both keep their existing push-only, gate-then-push
      shape (Decision, point 5) and stay callable directly the way every existing test and `actions.go` verb already

@@ -14,6 +14,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/deck"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/sim"
@@ -515,5 +516,51 @@ func TestDeckAttractionAndContraptionDecksAreReadAndChecked(t *testing.T) {
 		if _, err := sim.RunBatch(context.Background(), s, 1, 1); err == nil || !strings.Contains(err.Error(), "No Such Ride") {
 			t.Errorf("unknown card: err = %v, want it named", err)
 		}
+	}
+}
+
+// A game runs the opening-hand actions before its first turn
+// (GameAction.java:2408): a Leyline in an opening hand starts on the
+// battlefield, so it leaves the hand before turn 1.
+func TestOpeningHandActionsRunBeforeTheFirstTurn(t *testing.T) {
+	t.Parallel()
+	f, err := os.Open(filepath.Join("..", "..", "..", "forge-gui", "res", "lists", "TypeLists.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	reg, err := cardtype.LoadRegistry(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := carddb.ParseScript(reg, "leyline.txt", []byte("Name:Leyline\nManaCost:2 W W\nTypes:Enchantment\n"+
+		"K:MayEffectFromOpeningHand:FromHand\n"+
+		"SVar:FromHand:DB$ ChangeZone | Defined$ Self | Origin$ Hand | Destination$ Battlefield\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	leyline, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deck := sim.Deck{Name: "L", Cards: slices.Repeat([]string{"Leyline"}, 40)}
+	dir := t.TempDir()
+	run, _ := store.Create(dir, store.Manifest{RunID: "r", SchemaVersion: 1, MetricsVersion: 1, Shards: 1, Games: 1})
+	plan := sim.Plan{DB: compile.NewDB(map[string]*compile.Card{"Leyline": leyline}), Jobs: []sim.Job{{Decks: [2]sim.Deck{deck, deck}}},
+		NewController: func() engine.PlayerController { return &smoke.Controller{} }, BaseSeed: 2, MaxTurns: 3, Store: run}
+	if _, err := sim.Run(context.Background(), plan, 1); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := store.Open(dir, 0, 0)
+	before := 0
+	_ = r.Each(func(row store.Row) error {
+		var tr telemetry.TenureRow
+		if row.Kind == telemetry.KindTenure && json.Unmarshal(row.Data, &tr) == nil && tr.Source == "opening" && tr.ExitTurn == 0 && tr.Exit != "end" {
+			before++
+		}
+		return nil
+	})
+	if before == 0 {
+		t.Error("no Leyline left an opening hand before turn 1")
 	}
 }

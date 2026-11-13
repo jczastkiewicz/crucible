@@ -509,11 +509,17 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 	}
 	first := engine.DealOpeningHands(g, ctl)
 	engine.PerformMulligans(g, ctl, first)
-	// GameAction.java:2377-2381: the first plane and the planar dice.
+	// GameAction.java:2401-2406: the first plane and the planar dice, then
+	// (:2408) the opening-hand actions (Leylines, Gemstone Caverns), which
+	// may change who goes first.
+	reg := engine.NewRegistry()
 	err := g.InitPlanechase(first)
 	if err == nil {
+		first, err = engine.RunOpeningHandActions(g, reg, ctl, first)
+	}
+	if err == nil {
 		g.StartTurn(first, ctl)
-		err = g.Run(engine.NewRegistry(), ctl, plan.MaxTurns)
+		err = g.Run(reg, ctl, plan.MaxTurns)
 	}
 	res.Turns = g.Turn()
 	switch {

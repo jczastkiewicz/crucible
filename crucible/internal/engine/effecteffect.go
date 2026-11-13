@@ -296,13 +296,24 @@ func boonTriggers(def *compile.Card) []boonTrigger {
 }
 
 // afterEffectTrigger is TriggerHandler.runSingleTriggerInternal's ending
-// (TriggerHandler.java:539-547), run once a trigger of an effect card went on
-// the stack or resolved: a Boon$ effect goes out of the Command zone with its
-// first firing, or, with BoonAmount$ on the trigger, after that many firings
-// of its ability this game.
+// (TriggerHandler.java:554-562), run once a trigger of an effect card went on
+// the stack or resolved: a trigger line with OneOff$ takes its effect card out
+// of the Command zone with its first firing (Devourer of Destiny's "your
+// first upkeep"); a Boon$ effect goes with its first firing, or, with
+// BoonAmount$ on the trigger, after that many firings of its ability this
+// game.
 func (g *Game) afterEffectTrigger(a *Ability) {
 	e := g.Card(a.Source)
-	if !e.isBoon || e.Zone != Command {
+	if e.Zone != Command {
+		return
+	}
+	if a.trigger != nil && e.IsEffect {
+		if _, oneOff := a.trigger.Param("OneOff"); oneOff {
+			g.exileEffect(a.Source)
+			return
+		}
+	}
+	if !e.isBoon {
 		return
 	}
 	for _, b := range e.boons {

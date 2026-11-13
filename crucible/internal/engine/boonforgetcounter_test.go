@@ -42,6 +42,32 @@ func TestBoonEffectLeavesAfterItsTriggersFired(t *testing.T) {
 	}
 }
 
+// OneOff$ on an effect card's trigger (TriggerHandler.java:560): the effect
+// leaves the Command zone with that trigger's first firing, so a second draw
+// gains nothing (Devourer of Destiny's "your first upkeep").
+func TestOneOffTriggerTakesItsEffectCardAway(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 5)
+	c := engine.NewScriptedController()
+	resolveLine(t, g, p, c, "DB$ Effect | Duration$ Permanent | Triggers$ TrigGain",
+		"TrigGain", "Mode$ Drawn | ValidCard$ Card.YouCtrl | OneOff$ True | TriggerZones$ Command | Execute$ DBGain",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 2")
+	for range 2 {
+		g.DrawCards(p, 1, c)
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := g.Player(p).Life; got != 22 {
+		t.Errorf("life = %d after two draws, want 22: the trigger fires once", got)
+	}
+	if n := len(commandEffects(g, p)); n != 0 {
+		t.Errorf("%d effects after the one-off trigger, want 0", n)
+	}
+}
+
 // ForgetCounter$ (:86-98, :597-612): the effect remembers only the cards that
 // carry the counter, forgets one when its last counter goes, and leaves once it
 // remembers nothing; ImprintOnHost$ has the host imprint the effect card.

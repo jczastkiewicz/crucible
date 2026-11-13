@@ -591,6 +591,51 @@ func (c *Controller) stackTarget(raw json.RawMessage, valid []engine.EntityID) (
 	return 0, false
 }
 
+// AssignCombatDamage is Java's assignCombatDamage answer for this attacker
+// (its first argument): Java asks for a lone recipient too, Go only for two
+// or more, so the record is found by attacker, not taken in turn.
+func (c *Controller) AssignCombatDamage(g *engine.Game, decider engine.PlayerID, attacker engine.CardID, blockers []engine.CardID) []engine.DamageAssignment {
+	now := c.now()
+	for _, k := range c.s.calls {
+		if k.used || k.Method != "assignCombatDamage" || k.Decider.Seat != seat(decider) || k.when() != now {
+			continue
+		}
+		var offered []json.RawMessage
+		var first Ref
+		if json.Unmarshal(k.Offered, &offered) != nil || len(offered) == 0 || json.Unmarshal(offered[0], &first) != nil {
+			continue
+		}
+		if id, ok := c.goCard(first); !ok || id != attacker {
+			continue
+		}
+		k.used = true
+		var answer [][2]json.RawMessage
+		if json.Unmarshal(k.Answer, &answer) != nil {
+			break
+		}
+		out := make([]engine.DamageAssignment, 0, len(answer))
+		for _, a := range answer {
+			var r Ref
+			var n int
+			if json.Unmarshal(a[0], &r) != nil || json.Unmarshal(a[1], &n) != nil {
+				break
+			}
+			id, ok := c.goCard(r)
+			if !ok || !slices.Contains(blockers, id) {
+				break
+			}
+			out = append(out, engine.DamageAssignment{Blocker: id, Amount: n})
+		}
+		if len(out) == len(answer) {
+			return out
+		}
+		c.fail(k.Seq, k.Method, "answer %s is not among Go's recipients", k.Answer)
+		return c.Controller.AssignCombatDamage(g, decider, attacker, blockers)
+	}
+	c.fail(-1, "assignCombatDamage", "Java assigned no damage for this attacker here")
+	return c.Controller.AssignCombatDamage(g, decider, attacker, blockers)
+}
+
 type combatAnswer struct {
 	Attacker Ref   `json:"attacker"`
 	Defender Ref   `json:"defender"`
@@ -1248,6 +1293,31 @@ func (c *Controller) ChooseHybridManaColor(g *engine.Game, decider engine.Player
 	}
 	c.hybrid[best]++
 	return colors[best]
+}
+
+// ChoosePayPhyrexian pays a Phyrexian symbol with mana when the pool holds
+// that colour beyond the cost's one-colour symbols and the hybrid and
+// Phyrexian symbols paid so far, else with life: Java records the mana it
+// paid with, not which symbol took life (Dismember paid with one {B} from
+// Talisman of Resilience and 2 life).
+func (c *Controller) ChoosePayPhyrexian(g *engine.Game, decider engine.PlayerID, color mana.Colors) bool {
+	colors := [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green}
+	shards := [...]mana.Shard{mana.ShardW, mana.ShardU, mana.ShardB, mana.ShardR, mana.ShardG}
+	i := slices.Index(colors[:], color)
+	if i < 0 {
+		return c.Controller.ChoosePayPhyrexian(g, decider, color)
+	}
+	need := 0
+	for _, s := range c.paying.Shards() {
+		if s == shards[i] {
+			need++
+		}
+	}
+	if g.UsableMana(decider)[i]-need-c.hybrid[i] <= 0 {
+		return false
+	}
+	c.hybrid[i]++
+	return true
 }
 
 // ChoosePayGeneric pays a generic unit with mana the cost's colored and {C}

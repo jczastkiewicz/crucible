@@ -390,7 +390,10 @@ func (c *Controller) keywordAbility(id engine.CardID, a abilityID) (engine.Actio
 // card's spell first (it has no SP line); Go numbers its printed lines. The
 // API must agree.
 func (c *Controller) printed(id engine.CardID, a abilityID) (ab *compile.Ability, index int, cast bool, err error) {
-	if a.Index == nil || a.State != "Original" {
+	// A modal card played as its back face (Witch-Blessed Meadow) is that
+	// face in Go: its lines are the definition's first face, as Java's
+	// Backside state's are numbered.
+	if a.Index == nil || a.State != "Original" && (a.State != "Backside" || c.g.Card(id).Name() != a.Host.Name) {
 		return nil, 0, false, fmt.Errorf("state %q index %v is not mapped yet", a.State, a.Index)
 	}
 	def := c.g.Card(id).Def

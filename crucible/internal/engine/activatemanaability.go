@@ -379,7 +379,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	var color mana.Colors
 	var colorless bool
-	var noted []string
+	var noted, multi []string
 	switch {
 	case produced == "Special LastNotedType":
 		// ManaEffect.java:262-274: the Strings the host remembered (Ice Cauldron,
@@ -409,7 +409,17 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	default:
 		color, colorless, ok = producedManaColor(produced)
 		if !ok {
-			return false
+			// "R G" (Gruul Turf): one mana of each symbol, the whole string
+			// Amount$ times over (AbilityManaPart.java:188-199).
+			multi = strings.Fields(produced)
+			if len(multi) < 2 {
+				return false
+			}
+			for _, tok := range multi {
+				if _, _, ok := producedManaColor(tok); !ok {
+					return false
+				}
+			}
 		}
 	}
 	// The general path announces X before the amount is read: a storage
@@ -528,7 +538,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	var made producedMana
 	total := 0
-	if produced == "Special LastNotedType" {
+	for range amount {
+		noted = append(noted, multi...)
+	}
+	if produced == "Special LastNotedType" || multi != nil {
 		restrict, _ := ability.Param("RestrictValid")
 		for i, tok := range noted {
 			col, none, _ := producedManaColor(tok)

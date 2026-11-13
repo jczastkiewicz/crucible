@@ -35,6 +35,32 @@ func TestActivateManaAbilityAddsLiteralColor(t *testing.T) {
 	}
 }
 
+// TestActivateManaAbilityAddsEachSymbol proves a Produced$ naming several
+// symbols (Gruul Turf's "R G") adds one mana of each, the whole string
+// Amount$ times over (AbilityManaPart.java:188-199).
+func TestActivateManaAbilityAddsEachSymbol(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		line string
+		want [6]int
+	}{
+		{"AB$ Mana | Cost$ T | Produced$ R G", [6]int{0, 0, 0, 1, 1, 0}},
+		{"AB$ Mana | Cost$ T | Produced$ W C | Amount$ 2", [6]int{2, 0, 0, 0, 0, 2}},
+	} {
+		g := newGame(t, "a", "b")
+		p := g.Players()[0]
+		g.SetTurnState(1, p, engine.Main1)
+		land := g.NewCard(creatureDefWithAbility(t, "Test Karoo", tc.line), p, engine.Battlefield)
+		if !g.ActivateManaAbility(p, land, 0, engine.NewScriptedController()) {
+			t.Fatalf("%s: ActivateManaAbility returned false, want true", tc.line)
+		}
+		if got := g.Player(p).ManaPool.Breakdown(); got != tc.want {
+			t.Errorf("%s: pool breakdown = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
 // TestActivateManaAbilityAddsColorless proves Produced$ C -- the corpus's
 // own single largest Produced$ value -- adds colorless mana rather than
 // treating "C" as a (non-existent) sixth color.

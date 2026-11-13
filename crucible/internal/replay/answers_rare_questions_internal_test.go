@@ -5,7 +5,9 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
@@ -119,4 +121,34 @@ func methodOf(k *call) string {
 		return "none"
 	}
 	return k.Method
+}
+
+// A recorded land play names no face: a modal double-faced card is played as
+// its land face, and one with a land on both faces is refused, not guessed.
+func TestControllerPlaysTheLandFaceOfAModalCard(t *testing.T) {
+	t.Parallel()
+	land, spell := cardtype.ParseToken("Land"), cardtype.ParseToken("Sorcery")
+	for _, tc := range []struct {
+		name        string
+		front, back cardtype.Line
+		door        engine.Door
+		refused     bool
+	}{
+		{"spell // land", spell, land, carddb.FaceAlternate, false},
+		{"land // spell", land, spell, engine.DoorLeft, false},
+		{"land // land", land, land, 0, true},
+	} {
+		c, g, _ := rareSetup(t)
+		def := &compile.Card{Name: "Modal", SplitType: carddb.SplitModal}
+		def.Faces[0].Type, def.Faces[carddb.FaceAlternate].Type = tc.front, tc.back
+		id := g.NewCard(def, g.Players()[0], engine.Hand)
+		c.ids.pair(201, id)
+		act, err := c.action(abilityID{Host: CardRef(201, "Modal"), Section: "land"})
+		switch {
+		case tc.refused && err == nil:
+			t.Errorf("%s: played %v, want it refused", tc.name, act)
+		case !tc.refused && (err != nil || act.Kind != engine.ActionPlayLand || act.Door != tc.door):
+			t.Errorf("%s: action %v, %v; want the land play of face %v", tc.name, act, err, tc.door)
+		}
+	}
 }

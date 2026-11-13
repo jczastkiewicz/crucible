@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
@@ -278,7 +279,22 @@ func (c *Controller) action(a abilityID) (engine.Action, error) {
 	}
 	switch section {
 	case "land":
-		return engine.Action{Kind: engine.ActionPlayLand, Card: id}, nil
+		// Java's land play names no face: a modal double-faced card whose
+		// front is no land is played as its back (Sink into Stupor). One
+		// with a land on both faces (a Pathway) is a face the log does not
+		// name, never guessed.
+		act := engine.Action{Kind: engine.ActionPlayLand, Card: id}
+		if card := c.g.Card(id); card.Def.SplitType == carddb.SplitModal {
+			front := card.Def.Faces[0].Type.Has(cardtype.Land)
+			back := card.Def.Faces[carddb.FaceAlternate].Type.Has(cardtype.Land)
+			switch {
+			case front && back:
+				return engine.Action{}, fmt.Errorf("land play of %s names no face", a.Host)
+			case back:
+				act.Door = carddb.FaceAlternate
+			}
+		}
+		return act, nil
 	case "keyword":
 		// An alternative cast a keyword makes (Warp:W): the keyword's spell,
 		// picked among Go's cast options by its label.

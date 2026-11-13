@@ -51,10 +51,8 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// game's error, "" for none; a game with neither replays the same.
 		events, err string
 	}{
-		// Java's Ocelot Pride makes three tokens at the end step where Go
-		// makes none.
-		{fixture, "java only:\n    move card 174 (Warrior Token) None -> Battlefield", ""},
-		// Replays to its end with no gap.
+		// Both Kaheera games replay to their end with no gap.
+		{fixture, "", ""},
 		{counterFixture, "", ""},
 		// Java casts Moonshadow in its second main phase; Go passes.
 		{rakdosFixture, "java only:\n    push card 112 (Moonshadow) by seat 0", ""},

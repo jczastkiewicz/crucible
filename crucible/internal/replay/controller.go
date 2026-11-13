@@ -556,6 +556,19 @@ func (c *Controller) ChooseAttackTarget(g *engine.Game, decider engine.PlayerID,
 			return e
 		}
 	}
+	// A creature put onto the battlefield attacking (Mobilize's tokens):
+	// Java asks the activator for its defender with
+	// chooseSingleEntityForEffect (SpellAbilityEffect.java:797).
+	if k := c.next(decider, "chooseSingleEntityForEffect"); k != nil {
+		var r Ref
+		if json.Unmarshal(k.Answer, &r) == nil {
+			if e, ok := c.entity(r); ok && slices.Contains(eligible, e) {
+				return e
+			}
+		}
+		c.fail(k.Seq, k.Method, "defender %s is not one Go offers for %d", k.Answer, attacker)
+		return c.Controller.ChooseAttackTarget(g, decider, attacker, eligible)
+	}
 	c.fail(-1, "chooseAttackTarget", "no recorded defender Go offers for %d", attacker)
 	return c.Controller.ChooseAttackTarget(g, decider, attacker, eligible)
 }

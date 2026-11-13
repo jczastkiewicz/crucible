@@ -83,6 +83,10 @@ func TestControllerAnswersRareQuestionsFromTheLog(t *testing.T) {
 		{"mana color", answer("chooseColor", `8`), false, func(c *Controller, g *engine.Game, _ []engine.CardID) bool {
 			return c.ChooseManaColor(g, g.Players()[0], engine.NoCard, 31) == 8
 		}},
+		{"attacking token", answer("chooseSingleEntityForEffect", `{"seat":1}`), false, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {
+			defender := engine.PlayerEntity(g.Players()[1])
+			return c.ChooseAttackTarget(g, g.Players()[0], cards[0], []engine.EntityID{defender}) == defender
+		}},
 		{"attack target", nil, false, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {
 			if c.attacks == nil {
 				c.attacks = map[engine.CardID]Ref{cards[0]: SeatRef(1)}

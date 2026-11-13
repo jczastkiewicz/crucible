@@ -546,20 +546,33 @@ func (c *Controller) ChooseTargets(g *engine.Game, decider engine.PlayerID, vali
 	return out
 }
 
-// stackTarget is the spell among valid that Java's target names when it is
-// a spell on the stack, recorded by its identity (ADR-0059): a host with an
-// "ability" section, the cast spell's own ability. Go targets a spell as its
-// card.
+// stackTarget is the item among valid that Java's target names when it is
+// on the stack, recorded by its identity (ADR-0059). Go targets a spell (an
+// "ability" section: the cast spell's own ability) as its card, any other
+// item (a trigger, an activated ability) as that stack item.
 func (c *Controller) stackTarget(raw json.RawMessage, valid []engine.EntityID) (engine.EntityID, bool) {
 	var a abilityID
-	if json.Unmarshal(raw, &a) != nil || a.Host.Card == 0 || a.Section != "ability" {
+	if json.Unmarshal(raw, &a) != nil || a.Host.Card == 0 {
 		return 0, false
 	}
 	host, ok := c.goCard(a.Host)
-	if !ok || !slices.Contains(valid, engine.CardEntity(host)) {
+	if !ok {
 		return 0, false
 	}
-	return engine.CardEntity(host), true
+	if a.Section == "ability" {
+		if slices.Contains(valid, engine.CardEntity(host)) {
+			return engine.CardEntity(host), true
+		}
+		return 0, false
+	}
+	for _, e := range valid {
+		if id, isItem := e.AsStackItem(); isItem {
+			if src, spell, ok := c.g.StackItemOf(id); ok && src == host && !spell {
+				return e, true
+			}
+		}
+	}
+	return 0, false
 }
 
 type combatAnswer struct {
@@ -978,7 +991,9 @@ func (c *Controller) OrderCardsForZone(g *engine.Game, decider engine.PlayerID, 
 
 // ChooseNumber is Java's chooseNumber answer.
 func (c *Controller) ChooseNumber(g *engine.Game, decider engine.PlayerID, source engine.CardID, lo, hi int) int {
-	if k := c.next(decider, "chooseNumber"); k != nil {
+	// A keyword's repeat count (Replicate, Multikicker) is
+	// chooseNumberForKeywordCost.
+	if k := c.next(decider, "chooseNumber", "chooseNumberForKeywordCost"); k != nil {
 		var n int
 		if json.Unmarshal(k.Answer, &n) == nil && n >= lo && n <= hi {
 			return n

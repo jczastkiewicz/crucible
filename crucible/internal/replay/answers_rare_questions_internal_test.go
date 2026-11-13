@@ -375,3 +375,14 @@ func TestControllerReadsSpellTargetsAndAlternativeCasts(t *testing.T) {
 		t.Errorf("cast option %d, unanswered %v; want the alternative cost", got, c.Unanswered())
 	}
 }
+
+// A keyword's repeat count (Consign to Memory's Replicate) is Java's
+// chooseNumberForKeywordCost answer.
+func TestControllerReadsAKeywordCostCount(t *testing.T) {
+	t.Parallel()
+
+	c, g, _ := rareSetup(t, answer("chooseNumberForKeywordCost", "2"))
+	if got := c.ChooseNumber(g, g.Players()[0], engine.NoCard, 0, 5); got != 2 || c.Unanswered() != nil {
+		t.Errorf("count %d, unanswered %v; want Java's 2", got, c.Unanswered())
+	}
+}

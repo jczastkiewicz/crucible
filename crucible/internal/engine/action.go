@@ -1254,9 +1254,13 @@ func (g *Game) refreshLayers() {
 // first is a re-entry, the second Java's hold (staticsHeld). The rebuild
 // runs outside the parent's resolution context, since statics evaluate their
 // own amounts rather than the resolving ability's. Java's checkStaticAbilities
-// also corrects control zones, runs static commands, unpairs and fires
-// Always triggers (GameAction.java:1203-1248); those stay with the next
-// state-based-action pass here.
+// then runs the Always triggers (GameAction.java:1245); the Static$ True
+// ones resolve at once (TriggerHandler.runStateTrigger, :272-287), so
+// Ascend's blessing and Storied's enduring story are given here too: Ocelot
+// Pride's tenth permanent, its own Cat token, gives the blessing its next
+// link reads. Java's other checkStaticAbilities work (control zones, static
+// commands, unpairing) and the Always triggers that use the stack stay with
+// the next state-based-action pass here.
 func (g *Game) refreshLayersBetweenLinks() {
 	if g.layering > 0 || g.staticsHeld > 0 {
 		return
@@ -1264,5 +1268,8 @@ func (g *Game) refreshLayersBetweenLinks() {
 	prevX, prevResolving := g.xctx, g.resolving
 	g.xctx, g.resolving = xContext{}, nil
 	g.refreshLayers()
+	if blessed, storied := assignBlessings(g), assignEnduringStories(g); blessed || storied {
+		g.refreshLayers()
+	}
 	g.xctx, g.resolving = prevX, prevResolving
 }

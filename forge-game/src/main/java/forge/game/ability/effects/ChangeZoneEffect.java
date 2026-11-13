@@ -493,6 +493,7 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
         final CardCollectionView lastStateBattlefield = triggerList.getLastStateBattlefield();
 
         // changing zones for spells on the stack
+        final PlayerCollection stackOwners = new PlayerCollection();
         for (final SpellAbility tgtSA : getTargetSpells(sa)) {
             if (!tgtSA.isSpell()) { // Catch any abilities or triggers that slip through somehow
                 continue;
@@ -503,6 +504,7 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
                 continue;
             }
 
+            stackOwners.add(tgtSA.getHostCard().getOwner());
             removeFromStack(tgtSA, sa, si, destination, libPos, game, triggerList, counterTable);
         } // End of change from stack
 
@@ -880,6 +882,7 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
                     // FCollection already does use set.
                     pl.add(tgtC.getOwner());
                 }
+                pl.addAll(stackOwners);
                 if (pl.isEmpty()) {
                     pl.add(activator);
                 }
@@ -1631,9 +1634,6 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
                 movedCard = game.getAction().moveToHand(tgtHost, srcSA, params);
             } else if (destination == ZoneType.Library) {
                 movedCard = game.getAction().moveToLibrary(tgtHost, libPos, srcSA, params);
-                if (srcSA.hasParam("Shuffle") && "True".equals(srcSA.getParam("Shuffle"))) {
-                    tgtHost.getOwner().shuffle(srcSA);
-                }
             } else {
                 throw new IllegalArgumentException("AbilityFactory_ChangeZone: Invalid Destination argument for card "
                         + srcSA.getHostCard().getName());

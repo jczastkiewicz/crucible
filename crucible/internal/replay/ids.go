@@ -1,6 +1,8 @@
 package replay
 
 import (
+	"strings"
+
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
@@ -88,8 +90,27 @@ func (m *IDMap) IsCreature(card engine.CardID) bool {
 	return m.g.Card(card).Type().Has(cardtype.Creature)
 }
 
-// CounterName is the counter type detail names in the game.
+// CounterName is the counter type detail names in the game, spelled as
+// Java's CounterType.toString: a keyword counter prints its keyword
+// ("First Strike", CounterKeywordType.java:16-18,37-39), not the upper-case
+// name Go keys it by.
 func (m *IDMap) CounterName(detail engine.CounterDetail) string {
 	t, _ := m.g.CounterTypeOf(detail)
+	if k, ok := javaKeywordCounters[string(t)]; ok {
+		return k
+	}
 	return string(t)
 }
+
+// javaKeywordCounters maps Go's counter key to Java's spelling for the
+// keyword counters of rule 122.1b (CounterKeywordType.keywordCounter).
+var javaKeywordCounters = func() map[string]string {
+	out := map[string]string{}
+	for _, k := range []string{"Flying", "First Strike", "Double Strike", "Deathtouch", "Decayed", "Exalted",
+		"Haste", "Hexproof", "Indestructible", "Lifelink", "Menace", "Reach", "Shadow", "Trample", "Vigilance"} {
+		out[strings.ToUpper(k)] = k
+		out[strings.ToUpper(strings.ReplaceAll(k, " ", ""))] = k
+		out[strings.ToUpper(strings.ReplaceAll(k, " ", "_"))] = k
+	}
+	return out
+}()

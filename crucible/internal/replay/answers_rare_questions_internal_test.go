@@ -283,3 +283,39 @@ func TestControllerAnswersCastingQuestionsFromThePlay(t *testing.T) {
 		t.Error("a choice for another card answered from this play")
 	}
 }
+
+// Two triggers of one card are told apart by their effect, and a trigger's
+// targets are read from the play that put it on the stack (its wrapper),
+// never from the play that resolved it and repeats them unwrapped.
+func TestControllerReadsTriggersAsJavaPushedThem(t *testing.T) {
+	t.Parallel()
+
+	order := &call{Seq: 1, Method: "orderSimultaneousSa", Decider: SeatRef(0), Answer: json.RawMessage(
+		`[{"host":{"card":101},"wrapped":{"host":{"card":101},"api":"Draw"}},{"host":{"card":101},"wrapped":{"host":{"card":101},"api":"ChangeZone"}}]`)}
+	c, g, cards := rareSetup(t, order)
+	items := []engine.TriggerOrderItem{{Source: cards[0], API: "ChangeZone"}, {Source: cards[0], API: "Draw"}}
+	if got := c.OrderSimultaneousTriggers(g, g.Players()[0], items); !slices.Equal(got, []int{0, 1}) || c.Unanswered() != nil {
+		// The answer's Draw is item 1, not the host's first item; the order is
+		// Java's reversed into Go's.
+		t.Errorf("trigger order %v, unanswered %v; want [0 1]", got, c.Unanswered())
+	}
+
+	c, g, cards = rareSetup(t)
+	for _, raw := range []string{
+		`{"seq":1,"decider":{"seat":0},"ability":{"host":{"card":101},"section":"trigger","wrapped":{"host":{"card":101}}},"chain":[{"targets":[{"card":102}]}]}`,
+		`{"seq":2,"decider":{"seat":0},"ability":{"host":{"card":101},"section":"trigger"},"chain":[{"targets":[{"card":102}]}]}`,
+		`{"seq":3,"decider":{"seat":0},"ability":{"host":{"card":101},"section":"trigger","wrapped":{"host":{"card":101}}},"chain":[{"targets":[{"card":103}]}]}`,
+	} {
+		p := &play{}
+		if err := json.Unmarshal([]byte(raw), p); err != nil {
+			t.Fatal(err)
+		}
+		c.s.plays = append(c.s.plays, p)
+	}
+	valid := []engine.EntityID{engine.CardEntity(cards[1]), engine.CardEntity(cards[2])}
+	first := c.ChooseTargets(g, g.Players()[0], valid, 1, 1)
+	second := c.ChooseTargets(g, g.Players()[0], valid, 1, 1)
+	if !slices.Equal(first, valid[:1]) || !slices.Equal(second, valid[1:]) || c.Unanswered() != nil {
+		t.Errorf("targets %v then %v, unanswered %v; want each pushed trigger's own", first, second, c.Unanswered())
+	}
+}

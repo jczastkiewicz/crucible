@@ -496,7 +496,12 @@ func (c *Controller) ChoosePayX(g *engine.Game, decider engine.PlayerID, cost ma
 func (c *Controller) ChooseTargets(g *engine.Game, decider engine.PlayerID, valid []engine.EntityID, lo, hi int) []engine.EntityID {
 	if len(c.targets) == 0 {
 		for _, p := range c.s.plays {
-			if c.triggerPlays[p] || p.Decider.Seat != seat(decider) || p.Ability.Section != "trigger" {
+			// A trigger's targets are chosen as it is put on the stack: the play
+			// of its wrapper, a delayed or reflexive one's too (Guide of
+			// Souls), never the play of its resolution, which repeats them
+			// unwrapped (Soul-Guide Lantern).
+			pushed := (p.Ability.Section == "trigger" || p.Ability.Section == "delayed") && p.Ability.Wrapped != nil
+			if c.triggerPlays[p] || p.Decider.Seat != seat(decider) || !pushed {
 				continue
 			}
 			c.triggerPlays[p] = true
@@ -643,12 +648,29 @@ func (c *Controller) OrderSimultaneousTriggers(g *engine.Game, decider engine.Pl
 	var order []int
 	for _, a := range answer {
 		host, _ := c.goCard(a.Host)
+		api := a.API
+		if a.Wrapped != nil {
+			api = a.Wrapped.API
+		}
+		// The trigger of the host with the answer's effect; failing that, the
+		// host's first: two triggers of one card differ by their effect
+		// (Haliya's draw and its warp exile).
+		pick := -1
 		for i, it := range items {
-			if !used[i] && it.Source == host {
-				used[i] = true
-				order = append(order, i)
+			if used[i] || it.Source != host {
+				continue
+			}
+			if it.API == api {
+				pick = i
 				break
 			}
+			if pick < 0 {
+				pick = i
+			}
+		}
+		if pick >= 0 {
+			used[pick] = true
+			order = append(order, pick)
 		}
 	}
 	if len(order) != len(items) {
@@ -1111,7 +1133,7 @@ func (c *Controller) ChooseHybridManaColor(g *engine.Game, decider engine.Player
 			}
 		}
 	}
-	have := g.Player(decider).ManaPool.Breakdown()
+	have := g.UsableMana(decider)
 	best, spare := -1, 0
 	for i, col := range colors {
 		if options&col == 0 {
@@ -1142,7 +1164,7 @@ func (c *Controller) ChoosePayGeneric(g *engine.Game, decider engine.PlayerID) m
 			}
 		}
 	}
-	have := g.Player(decider).ManaPool.Breakdown()
+	have := g.UsableMana(decider)
 	for _, i := range []int{5, 0, 1, 2, 3, 4} {
 		if have[i]-need[i]-c.hybrid[i]-c.generic[i] > 0 {
 			c.generic[i]++

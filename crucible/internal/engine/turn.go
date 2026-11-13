@@ -358,6 +358,13 @@ func (g *Game) beginPhase(controller PlayerController) {
 // givePriorityToPlayer. Without driven the grant is computed the same way
 // and ignored.
 func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error) {
+	// CR 603.3, 704.3: the triggers the step's turn-based actions fire wait
+	// for the state-based actions, and go on the stack with theirs in one
+	// APNAP pass -- Java's simultaneousStackEntryList, filled by onPhaseBegin
+	// and pushed by checkStateBasedEffects after checkStateEffects
+	// (PhaseHandler.java:1308-1318). Closed on return, after the check.
+	g.beginTriggerBatch()
+	defer g.endTriggerBatch(controller)
 	g.emptyManaPools(controller)
 	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
 	priority := true

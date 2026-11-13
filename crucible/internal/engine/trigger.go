@@ -2620,7 +2620,10 @@ func (g *Game) endTriggerBatch(controller PlayerController) {
 	}
 	batch := g.triggerBatch
 	g.triggerBatch = nil
-	if len(batch) > 0 {
+	// A game the state-based actions ended pushes nothing: Java returns
+	// from checkStateBasedEffects before addAllTriggeredAbilitiesToStack
+	// (PhaseHandler.java:1313-1316).
+	if len(batch) > 0 && !g.over {
 		g.pushTriggeredAbilities(controller, batch)
 	}
 }

@@ -54,10 +54,7 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		// These games replay to their end with no gap.
 		{fixture, "", ""},
 		{counterFixture, "", ""},
-		// Lethal combat damage: Java checks state-based actions before any
-		// trigger reaches the stack and ends the game; Go pushes Ragavan's
-		// combat damage trigger first.
-		{rakdosFixture, "java only:\n    end, seat 0 wins", ""},
+		{rakdosFixture, "", ""},
 		{"../../testdata/replay/domain-zoo-vs-ruby-storm-seed5.jsonl", "", ""},
 		{"../../testdata/replay/eldrazi-vs-boros-energy-seed7.jsonl", "", ""},
 		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl", "", ""},

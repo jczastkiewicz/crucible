@@ -86,9 +86,9 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 	// exchange, then the table's ExcessDamage, DamageDoneOnce and the rest,
 	// reach the stack in one APNAP pass (beginTriggerBatch), as Java's
 	// Combat.dealAssignedDamage runs them all into one simultaneous list
-	// (GameAction.java:2766-2803, MagicStack.java:855-880). The batch closes
-	// before the state-based actions that follow the step, so a creature the
-	// damage kills triggers in the next pass.
+	// (GameAction.java:2766-2803, MagicStack.java:855-880). The step's own
+	// batch (beginStep) holds them until the state-based actions that follow,
+	// so a creature the damage kills triggers in the same pass (ADR-0065).
 	g.beginTriggerBatch()
 	defer g.endTriggerBatch(controller)
 	blockersOf := make(map[CardID][]CardID, len(g.combat.Blocks))

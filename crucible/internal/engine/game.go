@@ -67,6 +67,10 @@ type Game struct {
 	// replay's recorded order (ADR-0059). Never copied by Clone, whose
 	// imagined shuffles must not consume a replay's outcomes.
 	shuffler Shuffler
+	// chance, when set, decides each coin flip and die roll in place of
+	// rand: a replay's recorded outcomes (ADR-0059). Never copied by Clone,
+	// as shuffler.
+	chance Chance
 	// registry is the Registry this game resolves through. NewGame sets it
 	// to NewRegistry() -- an array of stateless effect values, immutable
 	// and shareable like db (ADR-0020) -- so a static trigger fired where
@@ -1669,6 +1673,41 @@ type Shuffler interface {
 
 // SetShuffler makes every later shuffle ask s (nil: the random stream).
 func (g *Game) SetShuffler(s Shuffler) { g.shuffler = s }
+
+// Chance decides random outcomes other than shuffles (ADR-0059: in replay
+// mode a random site asks for the next recorded outcome of its kind).
+type Chance interface {
+	// Coin is flipper's next coin flip, true for heads. False ok flips with
+	// the game's own stream.
+	Coin(flipper PlayerID) (heads, ok bool)
+	// Die is roller's next roll of a sides-sided die. False ok, or a face
+	// outside 1..sides, rolls with the game's own stream.
+	Die(roller PlayerID, sides int) (face int, ok bool)
+}
+
+// SetChance makes every later coin flip and die roll ask c (nil: the random
+// stream).
+func (g *Game) SetChance(c Chance) { g.chance = c }
+
+// flipCoin is one coin flip, true for heads.
+func (g *Game) flipCoin(flipper PlayerID) bool {
+	if g.chance != nil {
+		if heads, ok := g.chance.Coin(flipper); ok {
+			return heads
+		}
+	}
+	return g.rand.Bool()
+}
+
+// rollDie is one roll of a sides-sided die, 1..sides.
+func (g *Game) rollDie(roller PlayerID, sides int) int {
+	if g.chance != nil {
+		if face, ok := g.chance.Die(roller, sides); ok && face >= 1 && face <= sides {
+			return face
+		}
+	}
+	return int(g.rand.Int32n(int32(sides))) + 1
+}
 
 // sameCards reports whether a and b hold the same cards, each once.
 func sameCards(a, b []CardID) bool {

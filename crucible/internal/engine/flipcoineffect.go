@@ -210,7 +210,7 @@ func (g *Game) flipOneCoin(controller PlayerController, a *Ability, flipper Play
 		if !noCall {
 			call = controller.CallCoinFlip(g, flipper, a.Source)
 		}
-		result = g.rand.Bool()
+		result = g.flipCoin(flipper)
 	}
 	won := result == call
 	g.Player(flipper).flipsThisTurn++

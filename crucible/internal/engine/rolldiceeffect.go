@@ -128,7 +128,7 @@ func (g *Game) rollDice(a *Ability, controller PlayerController, pid PlayerID, a
 	amount, ignore, exchanges := g.rollReplaced(controller, pid, amount, sides, ignore)
 	var rolls []int
 	for i := 0; i < amount; i++ {
-		rolls = append(rolls, int(g.rand.Int32n(int32(sides)))+1)
+		rolls = append(rolls, g.rollDie(pid, sides))
 		g.Player(pid).RollsThisTurn++
 	}
 	sort.Ints(rolls)

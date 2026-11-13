@@ -477,7 +477,7 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 		// CostFlipCoin.payAsDecided -> FlipCoinEffect.flipCoins: the payer calls
 		// each flip, and a win or loss triggers as any flip's does.
 		call := controller.CallCoinFlip(g, pid, a.Source)
-		g.checkFlippedCoinTriggers(controller, pid, g.rand.Bool() == call)
+		g.checkFlippedCoinTriggers(controller, pid, g.flipCoin(pid) == call)
 	}
 	if uc.addManaN > 0 {
 		g.Player(pid).ManaPool.Add(uc.addManaColor, uc.addManaN)

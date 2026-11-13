@@ -343,3 +343,35 @@ func TestChanceFeedsRecordedCoinsAndDice(t *testing.T) {
 		t.Error("a flip past the log was answered")
 	}
 }
+
+// Java names a spell on the stack by its identity (ADR-0059); Go targets it
+// as its card. A cast Java found by its params is the copy an
+// AlternativeCost static casts, picked among Go's options by its label.
+func TestControllerReadsSpellTargetsAndAlternativeCasts(t *testing.T) {
+	t.Parallel()
+
+	c, _, cards := rareSetup(t)
+	valid := []engine.EntityID{engine.CardEntity(cards[1])}
+	spell := json.RawMessage(`{"host":{"card":102},"section":"ability","state":"Original","index":0,"api":"Mana"}`)
+	if got, ok := c.stackTarget(spell, valid); !ok || got != valid[0] {
+		t.Errorf("spell target %v, %v; want card 102's spell", got, ok)
+	}
+	trigger := json.RawMessage(`{"host":{"card":102},"section":"trigger","index":0}`)
+	if got, ok := c.stackTarget(trigger, valid); ok {
+		t.Errorf("trigger target read as the spell %v", got)
+	}
+
+	c, g, _ := rareSetup(t)
+	def := &compile.Card{Name: "Negator"}
+	def.Faces[0].Type = cardtype.ParseToken("Creature")
+	id := g.NewCard(def, g.Players()[0], engine.Hand)
+	c.ids.pair(201, id)
+	zero := 0
+	if _, err := c.action(abilityID{Host: CardRef(201, "Negator"), Section: "ability", State: "Original", Index: &zero, API: "PermanentCreature", By: "params"}); err != nil {
+		t.Fatal(err)
+	}
+	options := []string{"Cast Negator", "Cast Negator for its alternative cost Exile a blue card"}
+	if got := c.ChooseOption(g, g.Players()[0], id, options); got != 1 || c.Unanswered() != nil {
+		t.Errorf("cast option %d, unanswered %v; want the alternative cost", got, c.Unanswered())
+	}
+}

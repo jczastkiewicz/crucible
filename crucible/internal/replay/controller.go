@@ -327,7 +327,13 @@ func (c *Controller) action(a abilityID) (engine.Action, error) {
 			}
 			return engine.Action{}, err
 		case cast:
-			c.castWay, c.castCard, c.asked = "", id, false
+			// A spell Java found by its params is the copy an
+			// AlternativeCost static casts (Force of Negation's exile).
+			way := ""
+			if a.By == "params" {
+				way = "alternative"
+			}
+			c.castWay, c.castCard, c.asked = way, id, false
 			return engine.Action{Kind: engine.ActionCast, Card: id}, nil
 		case ab.Name == "Mana":
 			return engine.Action{Kind: engine.ActionManaAbility, Card: id, AbilityIndex: index}, nil
@@ -528,6 +534,9 @@ func (c *Controller) ChooseTargets(g *engine.Game, decider engine.PlayerID, vali
 		if ok {
 			e, ok = c.entity(r)
 		}
+		if !ok {
+			e, ok = c.stackTarget(t, valid)
+		}
 		if !ok || !slices.Contains(valid, e) {
 			c.fail(-1, "chooseTargets", "Java's target %s is not one Go offers", t)
 			return c.Controller.ChooseTargets(g, decider, valid, lo, hi)
@@ -535,6 +544,22 @@ func (c *Controller) ChooseTargets(g *engine.Game, decider engine.PlayerID, vali
 		out = append(out, e)
 	}
 	return out
+}
+
+// stackTarget is the spell among valid that Java's target names when it is
+// a spell on the stack, recorded by its identity (ADR-0059): a host with an
+// "ability" section, the cast spell's own ability. Go targets a spell as its
+// card.
+func (c *Controller) stackTarget(raw json.RawMessage, valid []engine.EntityID) (engine.EntityID, bool) {
+	var a abilityID
+	if json.Unmarshal(raw, &a) != nil || a.Host.Card == 0 || a.Section != "ability" {
+		return 0, false
+	}
+	host, ok := c.goCard(a.Host)
+	if !ok || !slices.Contains(valid, engine.CardEntity(host)) {
+		return 0, false
+	}
+	return engine.CardEntity(host), true
 }
 
 type combatAnswer struct {

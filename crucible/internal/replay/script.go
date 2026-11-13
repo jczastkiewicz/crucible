@@ -7,13 +7,16 @@ import (
 
 // abilityID is an ADR-0059 ability identity as the recorder writes it.
 type abilityID struct {
-	Host    Ref        `json:"host"`
-	Section string     `json:"section"`
-	State   string     `json:"state"`
-	Index   *int       `json:"index"`
-	Sub     int        `json:"sub"`
-	API     string     `json:"api"`
-	Keyword string     `json:"keyword"`
+	Host    Ref    `json:"host"`
+	Section string `json:"section"`
+	State   string `json:"state"`
+	Index   *int   `json:"index"`
+	Sub     int    `json:"sub"`
+	API     string `json:"api"`
+	Keyword string `json:"keyword"`
+	// By is "params" for a trait Java found by its script params, not its
+	// per-game id: a copy, such as the spell an alternative cost casts.
+	By      string     `json:"by"`
 	Wrapped *abilityID `json:"wrapped"`
 	Grantor *abilityID `json:"grantor"`
 }

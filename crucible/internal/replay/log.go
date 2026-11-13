@@ -34,6 +34,10 @@ type Header struct {
 	StartingLibraries    [][]int `json:"startingLibraries"`
 	UnresolvedIdentities int     `json:"unresolvedIdentities"`
 	UnattributedDraws    int     `json:"unattributedDraws"`
+	// EventFailures is how many game events the recorder failed to write;
+	// a log with any is refused, because a missing event reads as a
+	// divergence.
+	EventFailures int `json:"eventFailures"`
 	// Records is how many records follow, so a truncated log is refused.
 	Records int `json:"records"`
 }
@@ -72,7 +76,8 @@ type Log struct {
 const maxLine = 64 << 20
 
 // Read decodes a log and refuses any version but [FormatVersion], a log
-// shorter or longer than its header says, and a record out of sequence.
+// whose recorder failed to write an event, a log shorter or longer than its
+// header says, and a record out of sequence.
 func Read(r io.Reader) (*Log, error) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 1<<16), maxLine)
@@ -89,6 +94,9 @@ func Read(r io.Reader) (*Log, error) {
 	if log.Header.Version != FormatVersion {
 		return nil, fmt.Errorf("replay: log version %d, this reader needs %d: re-record it with record-game.sh",
 			log.Header.Version, FormatVersion)
+	}
+	if log.Header.EventFailures > 0 {
+		return nil, fmt.Errorf("replay: the recorder failed to write %d events", log.Header.EventFailures)
 	}
 	log.Records = make([]Record, 0, log.Header.Records)
 	for line := 2; sc.Scan(); line++ {

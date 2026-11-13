@@ -55,6 +55,25 @@ func (d *Divergence) String() string {
 	return b.String()
 }
 
+// dropIdleSteps drops a step anchor followed directly by another step, a
+// turn or the end. Java fires TurnPhase for a step it then skips
+// (PhaseHandler.java:255, before isSkippingPhase in onPhaseBegin); Go begins
+// no skipped step (turn.go drivenSkips). A step in which nothing happened is
+// no rules evidence either way (ADR-0063).
+func dropIdleSteps(evs []Event) []Event {
+	out := make([]Event, 0, len(evs))
+	for i, e := range evs {
+		if e.Type == KindStep && i+1 < len(evs) {
+			switch evs[i+1].Type {
+			case KindStep, KindTurn, KindEnd:
+				continue
+			}
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
 // segment is an anchor and the events after it, up to the next anchor. The
 // first segment has no anchor.
 type segment struct {
@@ -78,9 +97,10 @@ func split(evs []Event) []segment {
 // Compare returns the first divergence between java's and goEvents'
 // streams, nil when they agree: anchors in order, and between two anchors
 // moves and damage as a multiset, life and counters as one net change per
-// entity (ADR-0063).
+// entity (ADR-0063). A step in which nothing happened is compared on neither
+// side ([dropIdleSteps]), so Divergence.Anchor counts the anchors left.
 func Compare(java, goEvents []Event) *Divergence {
-	js, gs := split(java), split(goEvents)
+	js, gs := split(dropIdleSteps(java)), split(dropIdleSteps(goEvents))
 	d := &Divergence{Anchor: -1}
 	for i := 0; i < len(js) || i < len(gs); i++ {
 		if i > 0 {

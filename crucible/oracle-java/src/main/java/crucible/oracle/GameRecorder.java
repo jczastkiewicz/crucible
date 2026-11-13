@@ -114,9 +114,10 @@ public final class GameRecorder {
                 : players.indexOf(game.getOutcome().getWinningPlayer()));
         header.addProperty("turns", game.getPhaseHandler().getTurn());
         holder[0].write(Path.of(args[4]), header);
-        System.err.printf("recorded %s: %d turns, %d unresolved identities, %d unattributed draws%n", args[4],
-                game.getPhaseHandler().getTurn(), holder[0].ids.unresolved, holder[0].unattributedDraws);
+        System.err.printf("recorded %s: %d turns, %d unresolved identities, %d unattributed draws, %d events not recorded%n",
+                args[4], game.getPhaseHandler().getTurn(), holder[0].ids.unresolved, holder[0].unattributedDraws,
+                holder[0].eventFailures);
         // R21c maps every identity; one it cannot name makes the log unusable.
-        System.exit(holder[0].ids.unresolved > 0 ? 3 : 0);
+        System.exit(holder[0].ids.unresolved > 0 || holder[0].eventFailures > 0 ? 3 : 0);
     }
 }

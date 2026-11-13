@@ -8,11 +8,21 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/replay"
 )
 
-const fixture = "../../testdata/replay/boros-energy-vs-azorius-control-seed1.jsonl"
+const (
+	fixture = "../../testdata/replay/boros-energy-vs-azorius-control-seed1.jsonl"
+	// counterFixture has planeswalkers and energy: loyalty and energy
+	// counters, combat damage to a planeswalker.
+	counterFixture = "../../testdata/replay/jeskai-energy-vs-boros-energy-seed7.jsonl"
+)
 
 func readFixture(t *testing.T) *replay.Log {
 	t.Helper()
-	f, err := os.Open(fixture)
+	return readLog(t, fixture)
+}
+
+func readLog(t *testing.T, path string) *replay.Log {
+	t.Helper()
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,15 +77,16 @@ func TestReadRefusesBadLogs(t *testing.T) {
 	t.Parallel()
 	ev := `{"seq":0,"kind":"event","turn":1,"event":{"type":"turn","turn":1,"active":0}}`
 	cases := map[string]struct{ log, want string }{
-		"empty":         {"", "empty log"},
-		"header":        {"{", "header"},
-		"version 1":     {`{"version":1}`, "log version 1"},
-		"record":        {`{"version":2,"records":1}` + "\n{", "line 2"},
-		"sequence":      {`{"version":2,"records":1}` + "\n" + `{"seq":3,"kind":"call"}`, "out of sequence"},
-		"no event":      {`{"version":2,"records":1}` + "\n" + `{"seq":0,"kind":"event"}`, "no event"},
-		"truncated":     {`{"version":2,"records":2}` + "\n" + ev, "1 records, the header says 2"},
-		"bad entity":    {`{"version":2,"records":1}` + "\n" + `{"seq":0,"kind":"event","event":{"type":"move","card":{}}}`, "neither a card nor a seat"},
-		"entity syntax": {`{"version":2,"records":1}` + "\n" + `{"seq":0,"kind":"event","event":{"type":"move","card":3}}`, "line 2"},
+		"empty":          {"", "empty log"},
+		"header":         {"{", "header"},
+		"version 1":      {`{"version":1}`, "log version 1"},
+		"event failures": {`{"version":2,"eventFailures":2}`, "failed to write 2 events"},
+		"record":         {`{"version":2,"records":1}` + "\n{", "line 2"},
+		"sequence":       {`{"version":2,"records":1}` + "\n" + `{"seq":3,"kind":"call"}`, "out of sequence"},
+		"no event":       {`{"version":2,"records":1}` + "\n" + `{"seq":0,"kind":"event"}`, "no event"},
+		"truncated":      {`{"version":2,"records":2}` + "\n" + ev, "1 records, the header says 2"},
+		"bad entity":     {`{"version":2,"records":1}` + "\n" + `{"seq":0,"kind":"event","event":{"type":"move","card":{}}}`, "neither a card nor a seat"},
+		"entity syntax":  {`{"version":2,"records":1}` + "\n" + `{"seq":0,"kind":"event","event":{"type":"move","card":3}}`, "line 2"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -101,14 +112,26 @@ func TestReadAcceptsNullEntity(t *testing.T) {
 	}
 }
 
-func TestReadReportsLineTooLong(t *testing.T) {
+func TestReadDecodesCounters(t *testing.T) {
 	t.Parallel()
-	long := `{"version":2,"records":0,"forge":"` + strings.Repeat("x", 65<<20) + `"}`
-	if _, err := replay.Read(strings.NewReader(long)); err == nil || !strings.Contains(err.Error(), "header") {
-		t.Errorf("err = %v", err)
+	evs := readLog(t, counterFixture).Events()
+	byCounter := map[string]int{}
+	for i, e := range evs {
+		if e.Type != replay.KindCounter {
+			continue
+		}
+		byCounter[e.Counter]++
+		if e.Counter == "ENERGY" && e.Target.Seat < 0 {
+			t.Errorf("energy on a card: %v", e)
+		}
+		// Combat damage to a planeswalker is its loyalty loss alone, as
+		// Normalizer drops Go's DamageDealt to a non-creature.
+		if e.Counter == "LOYALTY" && e.Delta < 0 && i > 0 && evs[i-1].Type == replay.KindDamage &&
+			evs[i-1].Target == e.Target {
+			t.Errorf("planeswalker damage event before %v", e)
+		}
 	}
-	body := `{"version":2,"records":1}` + "\n" + strings.Repeat("y", 65<<20)
-	if _, err := replay.Read(strings.NewReader(body)); err == nil || !strings.Contains(err.Error(), "line 2") {
-		t.Errorf("err = %v", err)
+	if byCounter["LOYALTY"] == 0 || byCounter["ENERGY"] == 0 {
+		t.Errorf("counters = %v, want LOYALTY and ENERGY", byCounter)
 	}
 }

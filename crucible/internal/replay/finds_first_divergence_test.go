@@ -167,3 +167,21 @@ func TestEventTextNamesEveryKind(t *testing.T) {
 		}
 	}
 }
+
+func TestCompareSkipsStepsWhereNothingHappened(t *testing.T) {
+	t.Parallel()
+	step := func(name string) replay.Event { return replay.Event{Type: replay.KindStep, Step: name} }
+	draw := move(cat, "Library", "Hand")
+	// Java fires the first turn's draw step and then skips it; Go never
+	// begins it.
+	java := []replay.Event{turn3, step("UPKEEP"), step("DRAW"), step("MAIN1"), draw, end}
+	goEvents := []replay.Event{turn3, step("UPKEEP"), step("MAIN1"), draw, end}
+	if d := replay.Compare(java, goEvents); d != nil {
+		t.Errorf("unexpected divergence:\n%s", d)
+	}
+	// A push in a different step still diverges: its step is not idle.
+	d := replay.Compare([]replay.Event{turn3, step("UPKEEP"), step("DRAW"), push}, []replay.Event{turn3, step("UPKEEP"), push})
+	if d == nil || d.Anchor != 1 || d.Java[0].Step != "DRAW" {
+		t.Errorf("divergence = %v", d)
+	}
+}

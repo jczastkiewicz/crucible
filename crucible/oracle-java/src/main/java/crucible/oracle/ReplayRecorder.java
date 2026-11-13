@@ -91,6 +91,7 @@ final class ReplayRecorder {
     private final Map<Player, Map<String, Integer>> playerCounters = new HashMap<>();
     private int depth;
     int unattributedDraws;
+    int eventFailures;
 
     ReplayRecorder(Game game) {
         this.game = game;
@@ -249,6 +250,18 @@ final class ReplayRecorder {
 
     @Subscribe
     public void receive(GameEvent ev) {
+        // Game's EventBus logs a subscriber's exception and carries on, so a
+        // throw here would drop the record silently: count it instead, and
+        // GameRecorder refuses the log.
+        try {
+            recordEvent(ev);
+        } catch (RuntimeException e) {
+            eventFailures++;
+            System.err.println("replay: event " + ev + " not recorded: " + e);
+        }
+    }
+
+    private void recordEvent(GameEvent ev) {
         if (ev instanceof GameEventRollDie d && d.planar() == null) {
             JsonObject r = record("die");
             r.addProperty("sides", d.sides());
@@ -446,6 +459,7 @@ final class ReplayRecorder {
         header.add("startingLibraries", libs);
         header.addProperty("unresolvedIdentities", ids.unresolved);
         header.addProperty("unattributedDraws", unattributedDraws);
+        header.addProperty("eventFailures", eventFailures);
         header.addProperty("records", records.size());
         Gson gson = new GsonBuilder().serializeNulls().create();
         try (Writer w = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {

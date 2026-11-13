@@ -72,9 +72,14 @@ log, sound, priority and statistics events.
 **Comparison.** Anchors are compared as a sequence. Between two consecutive anchors, `move` and `damage` events are
 compared as a sorted multiset, and `life` and `counter` as one net delta per (entity, counter type). The first anchor
 that differs, or the first interval whose contents differ, is the divergence; it is reported with its turn, step and the
-anchors on both sides.
+anchors on both sides. A `step` followed directly by another `step`, a `turn` or the `end` is dropped on both sides
+first: Java fires `TurnPhase` for every step and only then checks whether it skips it (`PhaseHandler.java:255`, then
+`isSkippingPhase` in `onPhaseBegin`), while Go begins no skipped step (`turn.go` `drivenSkips`). A step in which nothing
+happened is no rules evidence.
 
-**Log format.** Event records make the replay log version 2. The Go reader refuses version 1.
+**Log format.** Event records make the replay log version 2. The Go reader refuses version 1. Forge's `EventBus` logs a
+subscriber's exception and carries on, so the recorder catches its own, counts them in the header and exits 3, and the
+Go reader refuses a log with any: a missing event would read as a divergence.
 
 **Not compared yet:** tapping and untapping, and characteristic changes (`GameEventCardTapped`,
 `GameEventCardStatsChanged`) have no Go kind, and adding one is an ADR-0013 change. Declared attackers and blockers are
@@ -86,9 +91,9 @@ already in the decision log as the answers of `declareAttackers` and `declareBlo
 reach the report. Every divergence has a turn, a step and a stack item. A token's creation carries its Java id, so the
 same records build ADR-0059's id map.
 
-**Bad:** Two errors inside one interval that cancel out (a card moved twice, back where it was; life lost and gained by
-the same amount) are invisible. A missing tap or a wrong power is invisible until it changes a later move, damage or
-life total.
+**Bad:** A step that one engine enters and the other skips is invisible when nothing happens in it. Two errors inside
+one interval that cancel out (a card moved twice, back where it was; life lost and gained by the same amount) are
+invisible. A missing tap or a wrong power is invisible until it changes a later move, damage or life total.
 
 **Neutral:** The normaliser fixes on Java's step names and zone names; Go's are mapped onto them.
 

@@ -39,6 +39,61 @@ func answer(method, raw string) *call {
 	return &call{Seq: 1, Method: method, Decider: SeatRef(0), Answer: json.RawMessage(raw)}
 }
 
+func offering(k *call, raw string) *call {
+	k.Offered = json.RawMessage(raw)
+	return k
+}
+
+// TestControllerPassesOverReplacementQuestionsGoDoesNotAsk: Java asks the
+// order of an entry's replacements where Go applies them unasked (two
+// "enters untapped" lines); the call read is the one offering Go's hosts.
+func TestControllerPassesOverReplacementQuestionsGoDoesNotAsk(t *testing.T) {
+	t.Parallel()
+
+	c, g, cards := rareSetup(t,
+		offering(answer("chooseSingleReplacementEffect", `{"host":{"card":102}}`), `[[{"host":{"card":102}},{"host":{"card":103}}]]`),
+		offering(answer("chooseSingleReplacementEffect", `{"host":{"card":101}}`), `[[{"host":{"card":101}},{"host":{"card":102}}]]`),
+	)
+	if got := c.ChooseReplacementEffect(g, g.Players()[0], []engine.ReplacementOption{{Host: cards[1]}, {Host: cards[0]}}); got != 1 {
+		t.Errorf("ChooseReplacementEffect = %d, want 1 (card 101 from the second call)", got)
+	}
+	if q := c.Unanswered(); q != nil {
+		t.Errorf("unanswered question %v", q)
+	}
+}
+
+// TestControllerReadsASearchJavaAnswersOneCardAtATime: Java asks a search
+// for up to two cards once per card, its prompts numbered "(1 / 2)" and
+// "(2 / 2)"; Go asks once for up to two.
+func TestControllerReadsASearchJavaAnswersOneCardAtATime(t *testing.T) {
+	t.Parallel()
+
+	pick := func(answerRaw, title string) *call {
+		return offering(answer("chooseSingleCardForZoneChange", answerRaw), `["Battlefield",["Library"],null,[],null,"Select a card from your library `+title+`",true]`)
+	}
+	for _, tc := range []struct {
+		name  string
+		calls []*call
+		want  []int
+	}{
+		{"two picks", []*call{pick(`{"card":103}`, "(1 / 2)"), pick(`{"card":101}`, "(2 / 2)")}, []int{2, 0}},
+		{"stopped at one", []*call{pick(`{"card":102}`, "(1 / 2)"), pick(`null`, "(2 / 2)")}, []int{1}},
+	} {
+		c, g, cards := rareSetup(t, tc.calls...)
+		got := c.ChooseCardsForEffect(g, g.Players()[0], cards[0], cards, 0, 2)
+		var want []engine.CardID
+		for _, i := range tc.want {
+			want = append(want, cards[i])
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: ChooseCardsForEffect = %v, want %v", tc.name, got, want)
+		}
+		if q := c.Unanswered(); q != nil {
+			t.Errorf("%s: unanswered %v", tc.name, q)
+		}
+	}
+}
+
 func TestControllerAnswersRareQuestionsFromTheLog(t *testing.T) {
 	t.Parallel()
 
@@ -74,7 +129,7 @@ func TestControllerAnswersRareQuestionsFromTheLog(t *testing.T) {
 		{"number", answer("chooseNumber", `2`), false, func(c *Controller, g *engine.Game, _ []engine.CardID) bool {
 			return c.ChooseNumber(g, g.Players()[0], engine.NoCard, 0, 3) == 2
 		}},
-		{"replacement", answer("chooseSingleReplacementEffect", `{"host":{"card":102}}`), false, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {
+		{"replacement", offering(answer("chooseSingleReplacementEffect", `{"host":{"card":102}}`), `[[{"host":{"card":101}},{"host":{"card":102}}]]`), false, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {
 			return c.ChooseReplacementEffect(g, g.Players()[0], []engine.ReplacementOption{{Host: cards[0]}, {Host: cards[1]}}) == 1
 		}},
 		{"order", answer("orderMoveToZoneList", `[{"card":102},{"card":101}]`), true, func(c *Controller, g *engine.Game, cards []engine.CardID) bool {

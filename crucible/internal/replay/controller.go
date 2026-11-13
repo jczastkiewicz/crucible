@@ -3,7 +3,9 @@ package replay
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
@@ -69,7 +71,9 @@ type Controller struct {
 	attacks map[engine.CardID]Ref
 	// triggerPlays is how many trigger play records ChooseTargets has read.
 	triggerPlays map[*play]bool
-	first        *Question
+	// picked is the call chooseCards last answered from.
+	picked *call
+	first  *Question
 	// last is the Java answer TakeAction last played, for a Go error's
 	// report.
 	last string
@@ -839,6 +843,7 @@ func (c *Controller) chooseCards(decider engine.PlayerID, method string, options
 			return nil, false
 		}
 		if !slices.ContainsFunc(ids, func(id engine.CardID) bool { return !slices.Contains(options, id) }) {
+			c.picked = k
 			return ids, true
 		}
 		// A one-option single-entity record outside Go's options is a
@@ -878,9 +883,65 @@ func (c *Controller) ChooseCardsForEffect(g *engine.Game, decider engine.PlayerI
 		return ids
 	}
 	if ids, ok := c.chooseCards(decider, "chooseCardsForEffect", options); ok {
-		return ids
+		return c.laterPicks(decider, ids, options, hi)
 	}
 	return c.Controller.ChooseCardsForEffect(g, decider, source, options, lo, hi)
+}
+
+// pickTitle is the "(i / n)" of a search's one-card prompt ("Select a card
+// from your library (2 / 2)").
+var pickTitle = regexp.MustCompile(`\((\d+) / \d+\)$`)
+
+// pickIndex is the i of a chooseSingleCardForZoneChange call's prompt, 0
+// for none.
+func pickIndex(k *call) int {
+	var offered []json.RawMessage
+	_ = json.Unmarshal(k.Offered, &offered)
+	for _, o := range offered {
+		var title string
+		if json.Unmarshal(o, &title) != nil {
+			continue
+		}
+		if m := pickTitle.FindStringSubmatch(title); m != nil {
+			i, _ := strconv.Atoi(m[1])
+			return i
+		}
+	}
+	return 0
+}
+
+// laterPicks completes a search Java answers one card per call
+// (ChangeZoneEffect.changeHiddenOriginResolve asks chooseSingleCardForZoneChange
+// once per card, its prompt numbered "(i / n)") where Go asks for up to hi
+// cards at once: the calls numbered on from the first are read until hi
+// cards or a null answer, Java's "up to" stop.
+func (c *Controller) laterPicks(decider engine.PlayerID, ids, options []engine.CardID, hi int) []engine.CardID {
+	if c.picked == nil || c.picked.Method != "chooseSingleCardForZoneChange" || pickIndex(c.picked) != 1 {
+		return ids
+	}
+	now := c.now()
+	for _, k := range c.s.calls {
+		if len(ids) >= hi {
+			break
+		}
+		if k.used || k.Decider.Seat != seat(decider) || k.when() != now || k.Method != "chooseSingleCardForZoneChange" {
+			continue
+		}
+		if pickIndex(k) != len(ids)+1 {
+			break
+		}
+		k.used = true
+		if string(k.Answer) == "null" {
+			break
+		}
+		more, ok := c.cards(k.Answer)
+		if !ok || slices.ContainsFunc(more, func(id engine.CardID) bool { return !slices.Contains(options, id) || slices.Contains(ids, id) }) {
+			c.fail(k.Seq, k.Method, "answer %s is not among Go's options", k.Answer)
+			break
+		}
+		ids = append(ids, more...)
+	}
+	return ids
 }
 
 // convokeCards answers Convoke's or Improvise's choice of permanents to tap
@@ -1162,8 +1223,27 @@ func optionalAnswers(k *call) []bool {
 }
 
 // ChooseReplacementEffect is Java's chooseSingleReplacementEffect answer.
+//
+// Java asks for every entry with several replacements; Go asks only where
+// its choice matters (two "enters tapped" or two "enters untapped" lines
+// agree, an entry counter is applied apart): a Java call is read only when
+// it offered the hosts Go offers, and the calls of a question Go did not
+// ask are passed over.
 func (c *Controller) ChooseReplacementEffect(g *engine.Game, decider engine.PlayerID, options []engine.ReplacementOption) int {
-	if k := c.next(decider, "chooseSingleReplacementEffect"); k != nil {
+	var hosts []engine.CardID
+	for _, o := range options {
+		hosts = append(hosts, o.Host)
+	}
+	slices.Sort(hosts)
+	for {
+		k := c.next(decider, "chooseSingleReplacementEffect")
+		if k == nil {
+			c.fail(-1, "chooseSingleReplacementEffect", "Java chose no replacement here")
+			break
+		}
+		if !slices.Equal(c.replacementHosts(k), hosts) {
+			continue
+		}
 		var a abilityID
 		if json.Unmarshal(k.Answer, &a) == nil {
 			if host, ok := c.goCard(a.Host); ok {
@@ -1175,10 +1255,26 @@ func (c *Controller) ChooseReplacementEffect(g *engine.Game, decider engine.Play
 			}
 		}
 		c.fail(k.Seq, k.Method, "answer %s is not among Go's options", k.Answer)
-	} else {
-		c.fail(-1, "chooseSingleReplacementEffect", "Java chose no replacement here")
+		break
 	}
 	return c.Controller.ChooseReplacementEffect(g, decider, options)
+}
+
+// replacementHosts are the Go cards whose replacements a
+// chooseSingleReplacementEffect call offered, sorted.
+func (c *Controller) replacementHosts(k *call) []engine.CardID {
+	var offered []json.RawMessage
+	var list []abilityID
+	if json.Unmarshal(k.Offered, &offered) != nil || len(offered) == 0 || json.Unmarshal(offered[0], &list) != nil {
+		return nil
+	}
+	var hosts []engine.CardID
+	for _, a := range list {
+		id, _ := c.goCard(a.Host)
+		hosts = append(hosts, id)
+	}
+	slices.Sort(hosts)
+	return hosts
 }
 
 // ChooseModesForAbility is Java's chooseModeForAbility answer, by the

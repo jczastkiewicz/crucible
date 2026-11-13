@@ -29,6 +29,8 @@ func main() {
 		err = runCmd(os.Args[2:])
 	case "report":
 		err = reportCmd(os.Args[2:])
+	case "replay":
+		err = replayCmd(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -52,5 +54,6 @@ commands:
   card-smoke        probe how many cards the engine plays
   run               play a deck against opponent decks and store the run
   report            summarize a stored run
+  replay            replay a recorded Java game in Go and report where they differ
 `)
 }

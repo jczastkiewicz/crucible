@@ -11,7 +11,9 @@ type Cards interface {
 	// for a card it has not paired yet.
 	JavaID(card engine.CardID) (int, bool)
 	Name(card engine.CardID) string
-	IsToken(card engine.CardID) bool
+	// IsEffect reports whether card is an effect card: Forge's way to carry
+	// a duration effect, not a rules object, so neither side compares it.
+	IsEffect(card engine.CardID) bool
 	IsCreature(card engine.CardID) bool
 	// CounterName is the CounterType a CounterChanged Detail names
 	// (Game.CounterTypeOf).
@@ -48,9 +50,7 @@ func (n *Normalizer) Emit(e engine.Event) {
 	case engine.GameEnded:
 		out = Event{Type: KindEnd, Winner: seat(e.Actor)}
 	case engine.ZoneChanged:
-		// Java fires no event for a token leaving the battlefield
-		// (GameAction.java:124-127).
-		if e.From == engine.Battlefield && n.cards.IsToken(e.Source) {
+		if n.cards.IsEffect(e.Source) {
 			return
 		}
 		out = Event{Type: KindMove, Card: n.card(e.Source), From: e.From.String(), To: e.To.String()}
@@ -73,7 +73,7 @@ func (n *Normalizer) Emit(e engine.Event) {
 		out = Event{Type: KindLife, Player: seat(p), Delta: int(e.Amount)}
 	case engine.CounterChanged:
 		target, ok := n.entity(e.Target)
-		if !ok {
+		if id, isCard := e.Target.AsCard(); !ok || isCard && n.cards.IsEffect(id) {
 			return
 		}
 		out = Event{Type: KindCounter, Target: target, Counter: n.cards.CounterName(engine.CounterDetail(e.Detail)),
@@ -90,6 +90,9 @@ func (n *Normalizer) Emit(e engine.Event) {
 func (n *Normalizer) card(id engine.CardID) Ref {
 	if id == engine.NoCard {
 		return noRef()
+	}
+	if n.cards.IsEffect(id) {
+		return Ref{Seat: -1, Effect: true, Name: n.cards.Name(id)}
 	}
 	if j, ok := n.cards.JavaID(id); ok {
 		return CardRef(j, n.cards.Name(id))

@@ -10,14 +10,14 @@ import (
 )
 
 // fakeCards stands in for a replayed game: cards 1-9 are paired with Java ids
-// 100 apart, 7 is a token, 8 a planeswalker, 9 unpaired.
+// 100 apart, 6 is an effect card, 7 a token (a token's moves are compared), 8 a planeswalker, 9 unpaired.
 type fakeCards struct{}
 
 func (fakeCards) JavaID(c engine.CardID) (int, bool) { return int(c) + 100, c != 9 }
 func (fakeCards) Name(c engine.CardID) string {
 	return map[engine.CardID]string{1: "Bolt", 9: "Cat"}[c]
 }
-func (fakeCards) IsToken(c engine.CardID) bool    { return c == 7 }
+func (fakeCards) IsEffect(c engine.CardID) bool   { return c == 6 }
 func (fakeCards) IsCreature(c engine.CardID) bool { return c != 8 }
 func (fakeCards) CounterName(d engine.CounterDetail) string {
 	if d == engine.CounterDetailLoyalty {
@@ -45,6 +45,9 @@ func TestNormalizerMapsEngineEvents(t *testing.T) {
 		{Kind: engine.CounterChanged, Target: engine.CardEntity(8), Amount: -3, Detail: uint32(engine.CounterDetailLoyalty)},
 		{Kind: engine.CounterChanged, Target: engine.PlayerEntity(p1), Amount: 2, Detail: uint32(engine.CounterDetailP1P1)},
 		{Kind: engine.ZoneChanged, Source: 7, From: engine.Battlefield, To: engine.Graveyard},
+		{Kind: engine.ZoneChanged, Source: 6, From: engine.None, To: engine.Command},
+		{Kind: engine.CounterChanged, Target: engine.CardEntity(6), Amount: 1, Detail: uint32(engine.CounterDetailP1P1)},
+		{Kind: engine.AbilityActivated, Actor: p1, Source: 6},
 		{Kind: engine.ZoneChanged, Source: 7, From: engine.None, To: engine.Battlefield},
 		{Kind: engine.ZoneChanged, Source: 9, From: engine.None, To: engine.Battlefield},
 		{Kind: engine.AbilityResolved, Actor: p1, Source: 1},
@@ -65,6 +68,8 @@ func TestNormalizerMapsEngineEvents(t *testing.T) {
 		{Type: replay.KindLife, Player: 1, Delta: -3},
 		{Type: replay.KindCounter, Target: replay.CardRef(108, ""), Counter: "LOYALTY", Delta: -3},
 		{Type: replay.KindCounter, Target: replay.SeatRef(0), Counter: "P1P1", Delta: 2},
+		{Type: replay.KindMove, Card: replay.CardRef(107, ""), From: "Battlefield", To: "Graveyard"},
+		{Type: replay.KindPush, Card: replay.Ref{Seat: -1, Effect: true}, Controller: 0},
 		{Type: replay.KindMove, Card: replay.CardRef(107, ""), From: "None", To: "Battlefield"},
 		{Type: replay.KindMove, Card: replay.Ref{Seat: -1, GoCard: 9, Name: "Cat"}, From: "None", To: "Battlefield"},
 		{Type: replay.KindResolve, Card: bolt},
@@ -79,7 +84,7 @@ func TestNormalizerMapsEngineEvents(t *testing.T) {
 			t.Errorf("event %d = %s, want %s", i, fmt.Sprintf("%#v", got[i]), fmt.Sprintf("%#v", want[i]))
 		}
 	}
-	if got := n.Events()[10].String(); got != "move unmapped Go card 9 (Cat) None -> Battlefield" {
+	if got := n.Events()[12].String(); got != "move unmapped Go card 9 (Cat) None -> Battlefield" {
 		t.Errorf("unmapped card = %q", got)
 	}
 }

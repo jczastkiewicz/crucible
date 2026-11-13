@@ -237,7 +237,13 @@ final class ReplayRecorder {
             // player who loses leaves the game with their cards.
             List<Card> owned = new ArrayList<>();
             for (ZoneType z : List.of(ZoneType.Library, ZoneType.Hand, ZoneType.Sideboard, ZoneType.Command)) {
-                owned.addAll(p.getCardsIn(z));
+                for (Card c : p.getCardsIn(z)) {
+                    // An effect card (a companion's) is the rules', not the
+                    // deck's: Go pairs it at its creation event.
+                    if (!c.isImmutable()) {
+                        owned.add(c);
+                    }
+                }
             }
             owned.sort((a, b) -> Integer.compare(a.getId(), b.getId()));
             JsonArray deck = new JsonArray();
@@ -311,6 +317,11 @@ final class ReplayRecorder {
             }
             event("end").addProperty("winner", winner);
         } else if (ev instanceof GameEventCardChangeZone z) {
+            if (isEffect(z.card())) {
+                // An effect card is Forge's way to carry a duration effect,
+                // not a rules object (ADR-0063).
+                return;
+            }
             JsonObject e = event("move");
             e.add("card", card(z.card()));
             e.addProperty("from", zone(z.from()));
@@ -323,7 +334,7 @@ final class ReplayRecorder {
             JsonObject e = event("life");
             e.addProperty("player", seat(l.player()));
             e.addProperty("delta", l.newLives() - l.oldLives());
-        } else if (ev instanceof GameEventCardCounters k) {
+        } else if (ev instanceof GameEventCardCounters k && !isEffect(k.card())) {
             counter(card(k.card()), counterName(k.type()), k.newValue() - k.oldValue());
         } else if (ev instanceof GameEventPlayerCounters k) {
             playerCounters(k.receiver());
@@ -379,6 +390,10 @@ final class ReplayRecorder {
         return t instanceof CounterEnumType e ? e.name() : t.getName();
     }
 
+    private static boolean isEffect(CardView c) {
+        return c != null && c.getGamePieceType() == forge.card.GamePieceType.EFFECT;
+    }
+
     private static JsonElement card(CardView c) {
         if (c == null) {
             return JsonNull.INSTANCE;
@@ -386,6 +401,10 @@ final class ReplayRecorder {
         JsonObject o = new JsonObject();
         o.addProperty("card", c.getId());
         o.addProperty("name", c.getName());
+        if (isEffect(c)) {
+            // Its id and name are Forge's bookkeeping (ADR-0063).
+            o.addProperty("effect", true);
+        }
         return o;
     }
 

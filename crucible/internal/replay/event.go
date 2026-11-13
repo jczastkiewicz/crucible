@@ -135,6 +135,10 @@ type Ref struct {
 	Seat int
 	// GoCard is a Go card the replay has no Java id for, 0 otherwise.
 	GoCard engine.CardID
+	// Effect marks an effect card: Forge's way to carry a duration effect,
+	// whose id and name differ between the engines, so every effect card
+	// compares equal (ADR-0063).
+	Effect bool
 	// Name is the card's name. Never compared.
 	Name string
 }
@@ -151,9 +155,10 @@ func noRef() Ref { return Ref{Seat: -1} }
 // null as no entity.
 func (r *Ref) UnmarshalJSON(b []byte) error {
 	var v *struct {
-		Card *int   `json:"card"`
-		Seat *int   `json:"seat"`
-		Name string `json:"name"`
+		Card   *int   `json:"card"`
+		Seat   *int   `json:"seat"`
+		Name   string `json:"name"`
+		Effect bool   `json:"effect"`
 	}
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
@@ -163,6 +168,7 @@ func (r *Ref) UnmarshalJSON(b []byte) error {
 	case v == nil:
 	case v.Card != nil:
 		*r = CardRef(*v.Card, v.Name)
+		r.Effect = v.Effect
 	case v.Seat != nil:
 		*r = SeatRef(*v.Seat)
 	default:
@@ -173,6 +179,8 @@ func (r *Ref) UnmarshalJSON(b []byte) error {
 
 func (r Ref) key() string {
 	switch {
+	case r.Effect:
+		return "effect card"
 	case r.Card != 0:
 		return "card " + strconv.Itoa(r.Card)
 	case r.GoCard != engine.NoCard:

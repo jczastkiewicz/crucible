@@ -1015,6 +1015,17 @@ func (c *Card) grantorStatic(ability *compile.Ability) *compile.Ability {
 	return nil
 }
 
+// AbilityAt is the index'th activated ability c has now, as ActionActivate
+// and ActionManaAbility number them: printed lines, then granted ones.
+func (c *Card) AbilityAt(index int) (*compile.Ability, bool) {
+	a, _, ok := c.abilityAt(index)
+	return a, ok
+}
+
+// AbilityCount is how many indices AbilityAt answers for; a hidden printed
+// line answers not-found.
+func (c *Card) AbilityCount() int { return c.abilityCount() }
+
 // abilityCount is how many indices abilityAt answers for, printed lines and
 // granted ones alike. Under CR 305.7 the printed indices answer not-found
 // while the granted ones after them still answer, so a walk over c's

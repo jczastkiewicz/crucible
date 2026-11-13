@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/jczastkiewicz/crucible/internal/boosters"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -62,6 +63,10 @@ type Game struct {
 	// reproducible from its seed alone. There is no package-level RNG
 	// (GO-2, ADR-0006).
 	rand *javarand.Rand
+	// shuffler, when set, chooses each shuffle's order in place of rand: a
+	// replay's recorded order (ADR-0059). Never copied by Clone, whose
+	// imagined shuffles must not consume a replay's outcomes.
+	shuffler Shuffler
 	// registry is the Registry this game resolves through. NewGame sets it
 	// to NewRegistry() -- an array of stateless effect values, immutable
 	// and shareable like db (ADR-0020) -- so a static trigger fired where
@@ -1637,7 +1642,50 @@ func (g *Game) ceaseCopiedSpell(id CardID) bool {
 // where it sits in its own library.
 func (g *Game) Shuffle(kind ZoneType, owner PlayerID) {
 	z := g.Zone(kind, owner)
+	if g.shuffler != nil {
+		if order, ok := g.shuffler.Order(kind, owner, slices.Clone(z.cards.All())); ok && sameCards(order, z.cards.All()) {
+			for i, want := range order {
+				for j := i; j < z.cards.Len(); j++ {
+					if z.cards.All()[j] == want {
+						z.cards.Swap(i, j)
+						break
+					}
+				}
+			}
+			return
+		}
+	}
 	g.rand.Shuffle(z.cards.Len(), z.cards.Swap)
+}
+
+// Shuffler chooses the order a shuffle leaves a zone in, in place of the
+// game's random stream: the order a replay recorded (ADR-0059).
+type Shuffler interface {
+	// Order is owner's kind zone's new order, top first: a permutation of
+	// cards, its current order. False, or an order that is not a
+	// permutation, shuffles with the game's own stream.
+	Order(kind ZoneType, owner PlayerID, cards []CardID) ([]CardID, bool)
+}
+
+// SetShuffler makes every later shuffle ask s (nil: the random stream).
+func (g *Game) SetShuffler(s Shuffler) { g.shuffler = s }
+
+// sameCards reports whether a and b hold the same cards, each once.
+func sameCards(a, b []CardID) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[CardID]int, len(a))
+	for _, id := range a {
+		seen[id]++
+	}
+	for _, id := range b {
+		if seen[id] != 1 {
+			return false
+		}
+		seen[id]--
+	}
+	return true
 }
 
 // put appends a card to a zone and records the reverse index on the card. It

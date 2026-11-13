@@ -13,6 +13,8 @@ const (
 	// counterFixture has planeswalkers and energy: loyalty and energy
 	// counters, combat damage to a planeswalker.
 	counterFixture = "../../testdata/replay/jeskai-energy-vs-boros-energy-seed7.jsonl"
+	// rakdosFixture replays with every question answered.
+	rakdosFixture = "../../testdata/replay/boros-energy-vs-rakdos-midrange-seed3.jsonl"
 )
 
 func readFixture(t *testing.T) *replay.Log {

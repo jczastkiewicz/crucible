@@ -222,6 +222,9 @@ func TestDeckFromListRepeatsEachCopy(t *testing.T) {
 	if want := []string{"Island", "Island", "Mountain"}; !slices.Equal(got.Cards, want) || got.Name != "T" {
 		t.Errorf("deck %+v, want main cards %v", got, want)
 	}
+	if want := []string{"Forest", "Forest", "Forest"}; !slices.Equal(got.Sideboard, want) {
+		t.Errorf("sideboard %v, want %v", got.Sideboard, want)
+	}
 }
 
 // A deck line's pinned edition rides with each copy (ADR-0061); a deck that
@@ -562,5 +565,46 @@ func TestOpeningHandActionsRunBeforeTheFirstTurn(t *testing.T) {
 	})
 	if before == 0 {
 		t.Error("no Leyline left an opening hand before turn 1")
+	}
+}
+
+// The sideboard is seated and each seat's companion chosen before the game
+// (Match.java:352-356): a companion whose condition the engine cannot read
+// fails the game rather than being offered or skipped.
+func TestSideboardCompanionIsAssignedBeforeTheGame(t *testing.T) {
+	t.Parallel()
+	f, err := os.Open(filepath.Join("..", "..", "..", "forge-gui", "res", "lists", "TypeLists.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	reg, err := cardtype.LoadRegistry(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := func(file, text string) *compile.Card {
+		raw, err := carddb.ParseScript(reg, file, []byte(text))
+		if err != nil {
+			t.Fatal(err)
+		}
+		c, err := compile.Compile(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	db := compile.NewDB(map[string]*compile.Card{
+		"Plains": card("plains.txt", "Name:Plains\nTypes:Basic Land Plains\n"),
+		"Odd":    card("odd.txt", "Name:Odd\nManaCost:1 W\nTypes:Creature Cat\nPT:1/1\nK:Companion:Special:NoSuchRule:Text\n"),
+	})
+	deck := sim.Deck{Name: "C", Cards: slices.Repeat([]string{"Plains"}, 40), Sideboard: []string{"Odd"}}
+	plan := sim.Plan{DB: db, Jobs: []sim.Job{{Decks: [2]sim.Deck{deck, deck}}},
+		NewController: func() engine.PlayerController { return &smoke.Controller{} }, BaseSeed: 2, MaxTurns: 3}
+	res, err := sim.Run(context.Background(), plan, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 || res[0].Outcome != sim.Errored || !strings.Contains(res[0].Detail, "unknown special rule") {
+		t.Errorf("results %+v, want the game errored on the companion's rule", res)
 	}
 }

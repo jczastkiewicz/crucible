@@ -66,8 +66,11 @@ type Deck struct {
 	// Prints is the edition each of Cards pins, "" where its line pins none
 	// (deck.Entry.Edition); nil when no card pins one. Seating plays the
 	// latest-art print for "" (ADR-0061).
-	Prints     []string
-	Stickers   []string
+	Prints   []string
+	Stickers []string
+	// Sideboard is seated in the Sideboard zone, where a companion is
+	// chosen from (Match.java:352-356) and Learn and wishes look.
+	Sideboard  []string
 	Commanders []string
 	Avatars    []string
 	Planes     []string
@@ -77,16 +80,16 @@ type Deck struct {
 	Contraptions []string
 }
 
-// DeckFromList flattens a parsed decklist's main, Stickers, Commander,
-// Avatar, Planes, Attractions and Contraptions sections.
+// DeckFromList flattens a parsed decklist's main, Sideboard, Stickers,
+// Commander, Avatar, Planes, Attractions and Contraptions sections.
 func DeckFromList(name string, d *deck.Deck) Deck {
 	out := Deck{Name: name}
 	for _, sec := range []struct {
 		section deck.Section
 		into    *[]string
 	}{
-		{deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes},
-		{deck.Attractions, &out.Attractions}, {deck.Contraptions, &out.Contraptions},
+		{deck.Sideboard, &out.Sideboard}, {deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars},
+		{deck.Planes, &out.Planes}, {deck.Attractions, &out.Attractions}, {deck.Contraptions, &out.Contraptions},
 	} {
 		for _, e := range d.Cards(sec.section) {
 			for i := 0; i < e.Count; i++ {
@@ -267,7 +270,7 @@ func Run(ctx context.Context, plan Plan, workers int) ([]GameResult, error) {
 				continue
 			}
 			checked[d.Name] = true
-			for _, name := range slices.Concat(d.Cards, d.Stickers, d.Commanders, d.Avatars, d.Planes, d.Attractions, d.Contraptions) {
+			for _, name := range slices.Concat(d.Cards, d.Sideboard, d.Stickers, d.Commanders, d.Avatars, d.Planes, d.Attractions, d.Contraptions) {
 				if _, ok := plan.DB.Card(name); !ok {
 					return nil, fmt.Errorf("sim: deck %q: card %q is not in the database", d.Name, name)
 				}
@@ -465,6 +468,11 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 			id := g.NewCard(def, pid, engine.Library)
 			seatPrint(g, plan.Boosters, id, name, d.Prints, i)
 		}
+		// Match.preparePlayerZone (Match.java:352-354): the sideboard.
+		for _, name := range d.Sideboard {
+			def, _ := plan.DB.Card(name)
+			g.NewCard(def, pid, engine.Sideboard)
+		}
 		// Player.initVariantsZones, in its order: the Vanguard avatars
 		// (Player.java:2978-2985), the planar deck (:3006-3012, shuffled by
 		// DealOpeningHands), the commanders (:3016-3025), then the sticker
@@ -507,13 +515,23 @@ func runOne(plan Plan, job Job, index int, seed int64, res *GameResult) ([]telem
 	if job.OnPlay != 0 {
 		ctl = firstPlayer{PlayerController: ctl, seat: g.Players()[job.OnPlay-1]}
 	}
+	// Match.prepareAllZones (Match.java:355): each seat's companion, before
+	// the libraries are shuffled.
+	var err error
+	for _, pid := range g.Players() {
+		if err = g.AssignCompanion(pid, ctl); err != nil {
+			break
+		}
+	}
 	first := engine.DealOpeningHands(g, ctl)
 	engine.PerformMulligans(g, ctl, first)
 	// GameAction.java:2401-2406: the first plane and the planar dice, then
 	// (:2408) the opening-hand actions (Leylines, Gemstone Caverns), which
 	// may change who goes first.
 	reg := engine.NewRegistry()
-	err := g.InitPlanechase(first)
+	if err == nil {
+		err = g.InitPlanechase(first)
+	}
 	if err == nil {
 		first, err = engine.RunOpeningHandActions(g, reg, ctl, first)
 	}

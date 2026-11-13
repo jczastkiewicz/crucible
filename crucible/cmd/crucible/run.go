@@ -265,7 +265,7 @@ func loadSimDeck(db *compile.DB, path string) (sim.Deck, error) {
 	for _, sec := range []struct {
 		section deck.Section
 		into    *[]string
-	}{{deck.Main, &out.Cards}, {deck.Stickers, &out.Stickers}, {deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes}} {
+	}{{deck.Main, &out.Cards}, {deck.Sideboard, &out.Sideboard}, {deck.Stickers, &out.Stickers}, {deck.Commander, &out.Commanders}, {deck.Avatar, &out.Avatars}, {deck.Planes, &out.Planes}} {
 		for _, e := range d.Cards(sec.section) {
 			name, ok := db.Resolve(e.Name)
 			if !ok {
@@ -299,12 +299,13 @@ func deckInfos(gt sim.Gauntlet, weights []float64) []store.DeckInfo {
 		for _, sec := range []struct {
 			header string
 			names  []string
-		}{{"Commander", d.Commanders}, {"Avatar", d.Avatars}, {"Planes", d.Planes}} {
+		}{{"Sideboard", d.Sideboard}, {"Commander", d.Commanders}, {"Avatar", d.Avatars}, {"Planes", d.Planes}} {
 			if len(sec.names) == 0 {
 				continue
 			}
-			// Two lists that differ only in a variant section are different
-			// decks (ADR-0055, ADR-0056); a list with none keeps its digest.
+			// Two lists that differ only in a variant section, or in the
+			// sideboard a companion comes from, are different decks
+			// (ADR-0055, ADR-0056); a list with none keeps its digest.
 			names := append([]string(nil), sec.names...)
 			sort.Strings(names)
 			text += "\n[" + sec.header + "]\n" + strings.Join(names, "\n")

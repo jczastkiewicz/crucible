@@ -8,7 +8,9 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
@@ -150,5 +152,54 @@ func TestControllerPlaysTheLandFaceOfAModalCard(t *testing.T) {
 		case !tc.refused && (err != nil || act.Kind != engine.ActionPlayLand || act.Door != tc.door):
 			t.Errorf("%s: action %v, %v; want the land play of face %v", tc.name, act, err, tc.door)
 		}
+	}
+}
+
+// Answers Java records no call for: an optional cost from the one
+// chooseOptionalCosts record of the cast, a hybrid symbol's colour from the
+// pool, a cost's cards from the play's paid parts.
+func TestControllerAnswersCastingQuestionsFromThePlay(t *testing.T) {
+	t.Parallel()
+
+	optional := &call{Method: "chooseOptionalCosts",
+		Offered: json.RawMessage(`[{"host":{"card":101}},[{"text":"Kicker – {W}"},{"text":"Kicker – {1}"}]]`),
+		Answer:  json.RawMessage(`[{"text":"Kicker – {1}"}]`)}
+	if got := optionalAnswers(optional); !slices.Equal(got, []bool{false, true}) {
+		t.Errorf("optional answers %v, want [false true]", got)
+	}
+	if got := optionalAnswers(&call{Offered: json.RawMessage(`[]`)}); got != nil {
+		t.Errorf("a record without costs: %v", got)
+	}
+	kicked := answer("chooseOptionalCosts", `[{"text":"Kicker – {1}"}]`)
+	kicked.Offered = optional.Offered
+	c, g, cards := rareSetup(t, kicked)
+	c.castCard = cards[0]
+	pid := g.Players()[0]
+	if c.ConfirmPayCost(g, pid, cost.Parse("W"), cards[0]) || !c.ConfirmPayCost(g, pid, cost.Parse("1"), cards[0]) {
+		t.Error("the kickers are not Java's choice")
+	}
+
+	g.Player(pid).ManaPool.Add(mana.White, 2)
+	g.Player(pid).ManaPool.Add(mana.Red, 1)
+	c.paying = mana.MustParse("1 GW GW")
+	for i := range 2 {
+		if got := c.ChooseHybridManaColor(g, pid, mana.Green|mana.White); got != mana.White {
+			t.Errorf("hybrid %d paid with %v, want white: the pool holds no green", i, got)
+		}
+	}
+
+	var p play
+	if err := json.Unmarshal([]byte(`{"ability":{"host":{"card":101}},"paid":[{"part":"Exiled","cards":[{"card":102}]},{"part":"ExiledCards","cards":[{"card":102}]}]}`), &p); err != nil {
+		t.Fatal(err)
+	}
+	c.cur, c.paidUsed = &p, map[int]bool{}
+	if got, ok := c.costCards(cards[0], cards, 1, 1); !ok || !slices.Equal(got, cards[1:2]) {
+		t.Errorf("cost cards %v %v, want the exiled card", got, ok)
+	}
+	if _, ok := c.costCards(cards[0], cards, 1, 1); ok {
+		t.Error("the one payment answered twice")
+	}
+	if _, ok := c.costCards(cards[1], cards, 1, 1); ok {
+		t.Error("a choice for another card answered from this play")
 	}
 }

@@ -47,11 +47,19 @@ type Controller struct {
 	cur     *play
 	targets [][]json.RawMessage
 	paid    bool
+	// paidUsed is which of cur's paid parts a cost card choice has spent.
+	paidUsed map[int]bool
 	// castWay is how the play TakeAction started casts its card: "" for
 	// the spell's own way, else the alternative-cost keyword ("Warp"),
 	// for ChooseOption's cast-option question.
 	castWay  string
 	castCard engine.CardID
+	// optional is what Java's one chooseOptionalCosts answer for the cast
+	// of castCard says of each cost it offered, in order: Go asks
+	// ConfirmPayCost once per optional cost (kicker.go), in the same
+	// order. asked is whether that record was read for this cast.
+	optional []bool
+	asked    bool
 	// pending is the rest of a chooseSpellAbilityToPlay answer naming more
 	// than one play, after the call it came from.
 	pending     []abilityID
@@ -69,6 +77,9 @@ type Controller struct {
 	// buckets ChoosePayGeneric has spent on its generic part so far.
 	paying  mana.Cost
 	generic [6]int
+	// hybrid is the pool buckets ChooseHybridManaColor has spent on the
+	// cost's two-colour hybrid symbols so far.
+	hybrid [6]int
 }
 
 func newController(g *engine.Game, s *script, ids *IDMap) *Controller {
@@ -247,7 +258,7 @@ func (c *Controller) start(pid engine.PlayerID, a abilityID, k *call) engine.Act
 			}
 		}
 	}
-	c.paid = false
+	c.paid, c.paidUsed = false, map[int]bool{}
 	if c.cur != nil {
 		for _, part := range c.cur.Chain {
 			if len(part.Targets) > 0 {
@@ -302,7 +313,7 @@ func (c *Controller) action(a abilityID) (engine.Action, error) {
 			return c.keywordAbility(id, a)
 		}
 		name, _, _ := strings.Cut(a.Keyword, ":")
-		c.castWay, c.castCard = name, id
+		c.castWay, c.castCard, c.asked = name, id, false
 		return engine.Action{Kind: engine.ActionCast, Card: id}, nil
 	case "ability":
 		ab, index, cast, err := c.printed(id, a)
@@ -313,7 +324,7 @@ func (c *Controller) action(a abilityID) (engine.Action, error) {
 			}
 			return engine.Action{}, err
 		case cast:
-			c.castWay, c.castCard = "", id
+			c.castWay, c.castCard, c.asked = "", id, false
 			return engine.Action{Kind: engine.ActionCast, Card: id}, nil
 		case ab.Name == "Mana":
 			return engine.Action{Kind: engine.ActionManaAbility, Card: id, AbilityIndex: index}, nil
@@ -421,7 +432,7 @@ func (c *Controller) landColor(id engine.CardID, javaColor int) mana.Colors {
 // PayManaCost activates the mana abilities Java paid with: the current
 // play's for its own cost, else the payment record of the next pay call.
 func (c *Controller) PayManaCost(_ *engine.Game, payer engine.PlayerID, toPay mana.Cost, paidFor engine.CardID) []engine.Action {
-	c.paying, c.generic = toPay, [6]int{}
+	c.paying, c.generic, c.hybrid = toPay, [6]int{}, [6]int{}
 	var abilities []abilityID
 	colors := map[int][]int{}
 	if c.cur != nil && !c.paid && paidFor != engine.NoCard {
@@ -693,10 +704,50 @@ func (c *Controller) ChooseCardsForEffect(g *engine.Game, decider engine.PlayerI
 			return nil
 		}
 	}
+	if ids, ok := c.costCards(source, options, lo, hi); ok {
+		return ids
+	}
 	if ids, ok := c.chooseCards(decider, "chooseCardsForEffect", options); ok {
 		return ids
 	}
 	return c.Controller.ChooseCardsForEffect(g, decider, source, options, lo, hi)
+}
+
+// costCards answers a card choice that pays a cost of the play under way
+// (Solitude's evoke exile) from that play's paid parts: Java's AI chooses
+// cost cards without a controller call (AiCostDecision), and the play
+// record names what it paid. A part whose cards Go does not offer, or whose
+// count is outside lo..hi, is no answer.
+func (c *Controller) costCards(source engine.CardID, options []engine.CardID, lo, hi int) ([]engine.CardID, bool) {
+	if c.cur == nil || source == engine.NoCard {
+		return nil, false
+	}
+	if host, ok := c.goCard(c.cur.Ability.Host); !ok || host != source {
+		return nil, false
+	}
+	for i, part := range c.cur.Paid {
+		if c.paidUsed[i] || len(part.Cards) < lo || len(part.Cards) > hi {
+			continue
+		}
+		ids := make([]engine.CardID, 0, len(part.Cards))
+		for _, r := range part.Cards {
+			if id, ok := c.goCard(r); ok && slices.Contains(options, id) {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) != len(part.Cards) {
+			continue
+		}
+		// Java records one payment under several part names (Exiled,
+		// ExiledCards): every part naming the same cards is spent with it.
+		for j, other := range c.cur.Paid {
+			if slices.Equal(other.Cards, part.Cards) {
+				c.paidUsed[j] = true
+			}
+		}
+		return ids, true
+	}
+	return nil, false
 }
 
 // ChoosePermanentsToSacrifice is Java's card choice.
@@ -775,8 +826,22 @@ func (c *Controller) ChooseNumber(g *engine.Game, decider engine.PlayerID, sourc
 	return c.Controller.ChooseNumber(g, decider, source, lo, hi)
 }
 
-// ConfirmPayCost is Java's payCostToPreventEffect answer.
+// ConfirmPayCost is Java's payCostToPreventEffect answer, or, for an
+// optional cost of the card being cast, its chooseOptionalCosts answer.
 func (c *Controller) ConfirmPayCost(g *engine.Game, decider engine.PlayerID, price cost.Cost, source engine.CardID) bool {
+	if source != engine.NoCard && source == c.castCard {
+		if !c.asked {
+			c.asked, c.optional = true, nil
+			if k := c.next(decider, "chooseOptionalCosts"); k != nil {
+				c.optional = optionalAnswers(k)
+			}
+		}
+		if len(c.optional) > 0 {
+			yes := c.optional[0]
+			c.optional = c.optional[1:]
+			return yes
+		}
+	}
 	if k := c.next(decider, "payCostToPreventEffect", "payCombatCost", "confirmPayment"); k != nil {
 		var yes bool
 		if json.Unmarshal(k.Answer, &yes) == nil {
@@ -785,6 +850,28 @@ func (c *Controller) ConfirmPayCost(g *engine.Game, decider engine.PlayerID, pri
 	}
 	c.fail(-1, "confirmPayCost", "Java was not asked to pay here")
 	return c.Controller.ConfirmPayCost(g, decider, price, source)
+}
+
+// optionalAnswers is, for each optional cost a chooseOptionalCosts record
+// offered (its second argument), whether its answer chose it.
+func optionalAnswers(k *call) []bool {
+	var offered []json.RawMessage
+	var costs, chosen []struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(k.Offered, &offered) != nil || len(offered) < 2 ||
+		json.Unmarshal(offered[1], &costs) != nil || json.Unmarshal(k.Answer, &chosen) != nil {
+		return nil
+	}
+	out := make([]bool, len(costs))
+	for i, o := range costs {
+		out[i] = slices.ContainsFunc(chosen, func(ch struct {
+			Text string `json:"text"`
+		}) bool {
+			return ch.Text == o.Text
+		})
+	}
+	return out
 }
 
 // ChooseReplacementEffect is Java's chooseSingleReplacementEffect answer.
@@ -881,6 +968,38 @@ func (c *Controller) ChooseManaColor(g *engine.Game, decider engine.PlayerID, so
 	return c.Controller.ChooseManaColor(g, decider, source, options)
 }
 
+// ChooseHybridManaColor pays a two-colour hybrid symbol with whichever of
+// its colours the pool holds more of beyond the cost's one-colour symbols
+// and the hybrid symbols paid so far: Java records no such choice, it pays
+// from the mana its payment record made (Kaheera's {G/W} with Plains mana).
+func (c *Controller) ChooseHybridManaColor(g *engine.Game, decider engine.PlayerID, options mana.Colors) mana.Colors {
+	colors := [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green}
+	shards := [...]mana.Shard{mana.ShardW, mana.ShardU, mana.ShardB, mana.ShardR, mana.ShardG}
+	need := [5]int{}
+	for _, s := range c.paying.Shards() {
+		for i, sh := range shards {
+			if s == sh {
+				need[i]++
+			}
+		}
+	}
+	have := g.Player(decider).ManaPool.Breakdown()
+	best, spare := -1, 0
+	for i, col := range colors {
+		if options&col == 0 {
+			continue
+		}
+		if left := have[i] - need[i] - c.hybrid[i]; best < 0 || left > spare {
+			best, spare = i, left
+		}
+	}
+	if best < 0 {
+		return c.Controller.ChooseHybridManaColor(g, decider, options)
+	}
+	c.hybrid[best]++
+	return colors[best]
+}
+
 // ChoosePayGeneric pays a generic unit with mana the cost's colored pips do
 // not need, colorless first. Java's log names the mana paid, not which pip
 // each paid; any choice that leaves the pips payable is Java's payment.
@@ -896,7 +1015,7 @@ func (c *Controller) ChoosePayGeneric(g *engine.Game, decider engine.PlayerID) m
 	}
 	have := g.Player(decider).ManaPool.Breakdown()
 	for _, i := range []int{5, 0, 1, 2, 3, 4} {
-		if have[i]-need[i]-c.generic[i] > 0 {
+		if have[i]-need[i]-c.hybrid[i]-c.generic[i] > 0 {
 			c.generic[i]++
 			return shards[i]
 		}

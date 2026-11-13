@@ -55,7 +55,13 @@ type play struct {
 		Ability abilityID         `json:"ability"`
 		Targets []json.RawMessage `json:"targets"`
 	} `json:"chain"`
-	X             *int        `json:"x"`
+	X *int `json:"x"`
+	// Paid is what the play's non-mana costs paid, by cost part (Exiled,
+	// Sacrificed, Discarded ...).
+	Paid []struct {
+		Part  string `json:"part"`
+		Cards []Ref  `json:"cards"`
+	} `json:"paid"`
 	ManaAbilities []abilityID `json:"manaAbilities"`
 	PayingMana    []struct {
 		Source Ref `json:"source"`

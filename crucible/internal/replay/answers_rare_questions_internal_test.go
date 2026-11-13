@@ -139,6 +139,20 @@ func TestControllerReadsPastJavaOnlyQuestions(t *testing.T) {
 		t.Errorf("trigger order %v, unanswered %v; want [0 1] from the two-trigger answer", got, c.Unanswered())
 	}
 
+	// Java's AI answers chooseEntitiesForEffect through one nested
+	// chooseSingleEntityForEffect per pick: the nested record is no question
+	// of its own.
+	entities := &call{Seq: 1, Depth: 1, Method: "chooseEntitiesForEffect", Decider: SeatRef(0), Answer: json.RawMessage(`[{"card":101}]`)}
+	nested := &call{Seq: 2, Depth: 2, Method: "chooseSingleEntityForEffect", Decider: SeatRef(0), Answer: json.RawMessage(`{"card":101}`)}
+	next := &call{Seq: 3, Depth: 1, Method: "chooseSingleEntityForEffect", Decider: SeatRef(0), Answer: json.RawMessage(`{"card":102}`)}
+	c, g, cards = rareSetup(t, entities, nested, next)
+	options := []engine.EntityID{engine.CardEntity(cards[0]), engine.CardEntity(cards[1])}
+	first := c.ChooseEntitiesForEffect(g, g.Players()[0], engine.NoCard, options, 0, 1)
+	second := c.ChooseEntitiesForEffect(g, g.Players()[0], engine.NoCard, options, 0, 1)
+	if !slices.Equal(first, options[:1]) || !slices.Equal(second, options[1:]) || c.Unanswered() != nil {
+		t.Errorf("choices %v then %v, unanswered %v; want the outer answer, then the next question's", first, second, c.Unanswered())
+	}
+
 	improvise := func(seq int, raw string) *call {
 		return &call{Seq: seq, Method: "chooseCardsForConvokeOrImprovise", Decider: SeatRef(0), Answer: json.RawMessage(raw)}
 	}

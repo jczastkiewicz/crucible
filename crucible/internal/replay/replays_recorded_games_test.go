@@ -67,10 +67,7 @@ func TestReplayFindsTheFirstGapOfEachRecordedGame(t *testing.T) {
 		{"../../testdata/replay/eldrazi-vs-boros-energy-seed7.jsonl",
 			"go only:\n    move card 103 (Haliya, Guided by Light) Battlefield -> Exile", "could not activate card 10"},
 		{"../../testdata/replay/affinity-vs-izzet-prowess-seed4.jsonl", "", ""},
-		// Sowing Mycospawn's cast trigger: Java finds Eldrazi Temple, Go a
-		// Forest.
-		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl",
-			"java only:\n    move card 95 (Eldrazi Temple) Library -> Battlefield", "could not cast card 92"},
+		{"../../testdata/replay/eldrazi-ramp-vs-broodscale-combo-seed6.jsonl", "", ""},
 	} {
 		res, err := replay.Run(corpusDB(t), readLog(t, tc.path), 60)
 		if err != nil {

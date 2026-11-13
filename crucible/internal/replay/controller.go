@@ -114,6 +114,9 @@ func (c *Controller) next(pid engine.PlayerID, methods ...string) *call {
 	for _, k := range c.s.calls {
 		if !k.used && k.Decider.Seat == seat(pid) && k.when() == now && slices.Contains(methods, k.Method) {
 			k.used = true
+			if k.Method == "chooseEntitiesForEffect" {
+				c.readNested(k, "chooseSingleEntityForEffect")
+			}
 			return k
 		}
 	}
@@ -890,6 +893,29 @@ func (c *Controller) ChooseEntitiesForEffect(g *engine.Game, decider engine.Play
 		c.fail(-1, "chooseEntitiesForEffect", "Java chose nothing here")
 	}
 	return c.Controller.ChooseEntitiesForEffect(g, decider, source, options, lo, hi)
+}
+
+// readNested marks read the method calls nested in k: Java's AI answers
+// chooseEntitiesForEffect by asking itself chooseSingleEntityForEffect once
+// per pick (PlayerControllerAi.java:422-439), and the outer answer holds
+// them all.
+func (c *Controller) readNested(k *call, method string) {
+	after := false
+	for _, x := range c.s.calls {
+		if x == k {
+			after = true
+			continue
+		}
+		if !after {
+			continue
+		}
+		if x.Depth <= k.Depth {
+			return
+		}
+		if x.Method == method && x.Decider == k.Decider {
+			x.used = true
+		}
+	}
 }
 
 // OrderCardsForZone is Java's orderMoveToZoneList answer.

@@ -73,7 +73,7 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0060](0060-l2-java-scenario-runner.md)                               | L2 scenario runner on the Java engine: decision script, engine-to-engine diff   | Accepted                  |
 | [0061](0061-print-identity-for-border-color.md)                       | A card carries its print, pinned by the deck or by latest art                   | Accepted                  |
 | [0062](0062-replay-log-records-the-ai-play-from-the-spell-ability.md) | Replay log: the AI's own choices for a play, read from the cast spell ability   | Accepted                  |
-| [0063](0063-replay-event-comparison-anchors-and-intervals.md)         | Replay events: anchors in order, everything between as net changes              | Proposed                  |
+| [0063](0063-replay-event-comparison-anchors-and-intervals.md)         | Replay events: anchors in order, everything between as net changes              | Accepted                  |
 
 ## Numbering
 

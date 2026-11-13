@@ -1,8 +1,8 @@
 # ADR-0063 — Replay Events: Anchors in Order, Everything Between as Net Changes
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-12
-- **Deciders:** Crucible session (R21b), owner
+- **Deciders:** Crucible session (R21b), accepted by the owner
 
 ## Context
 
@@ -14,9 +14,9 @@ asymmetries:
 
 | What                        | Java                                                                                                                                                                                                                     | Go                                                                                                  |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Turn and step               | `GameEventTurnBegan` (`PhaseHandler.java:207`, fired before the turn number increments), `GameEventTurnPhase` (`:255`)                                                                                                   | `TurnBegan`, `PhaseBegan` (`turn.go:68, 362`)                                                       |
+| Turn and step               | `GameEventTurnBegan` (`PhaseHandler.java:207`, fired after the turn number increments), `GameEventTurnPhase` (`:255`)                                                                                                    | `TurnBegan`, `PhaseBegan` (`turn.go:68, 362`)                                                       |
 | Something goes on the stack | One `GameEventSpellAbilityCast` (`MagicStack.java:347`) for a spell, an activated ability and a trigger                                                                                                                  | `AbilityActivated` from `PushAbility` (`stack.go:41`) for all three; a spell also emits `SpellCast` |
-| It resolves                 | `GameEventSpellResolved` (`MagicStack.java:698`)                                                                                                                                                                         | `AbilityResolved` (`stack.go:232`)                                                                  |
+| It resolves                 | `GameEventSpellResolved` (`MagicStack.java:698`), fizzled or not                                                                                                                                                         | `AbilityResolved` (`stack.go:232`), not for a fizzled ability                                       |
 | A card moves                | `GameEventCardChangeZone` per card (`GameAction.java:597`), including a cast to the stack and a token's creation (`[null] -> [Battlefield]`, with the token's id); none for a token leaving the battlefield (`:124-127`) | `ZoneChanged` per card (`game.go:1415`), a draw included                                            |
 | A draw                      | The zone change alone                                                                                                                                                                                                    | `ZoneChanged` and `CardDrawn` (`turn.go:717`)                                                       |
 | Damage                      | `GameEventCardDamaged` for a creature (`Card.java:6399`), `GameEventPlayerDamaged` (`Player.java:741`); planeswalker and battle damage is a counter change                                                               | `DamageDealt` for every target (`combatdamage.go:440, 526`)                                         |
@@ -46,17 +46,24 @@ hash-ordered lists, and a nested post is delivered after the handler that caused
 same typed shape, card ids translated through the replay's Java-id map (ADR-0059). Both sides drop what the other cannot
 see.
 
-| Normalised | Java source                                                    | Go source                                             | Kind of event |
-| ---------- | -------------------------------------------------------------- | ----------------------------------------------------- | ------------- |
-| `turn`     | `TurnBegan`: turn number from the event, active seat           | `TurnBegan`                                           | Anchor        |
-| `step`     | `TurnPhase`                                                    | `PhaseBegan`                                          | Anchor        |
-| `push`     | `SpellAbilityCast`: host card, ability identity                | `AbilityActivated`                                    | Anchor        |
-| `resolve`  | `SpellResolved`: host card, fizzled                            | `AbilityResolved`                                     | Anchor        |
-| `end`      | `GameOutcome`: winning seat or draw                            | `GameEnded`                                           | Anchor        |
-| `move`     | `CardChangeZone`: card, from, to                               | `ZoneChanged`, except a token leaving the battlefield | Between       |
-| `damage`   | `CardDamaged`, `PlayerDamaged`: source, target, amount, combat | `DamageDealt` to a creature or a player               | Between       |
-| `life`     | `PlayerLivesChanged`: new minus old                            | `LifeChanged`                                         | Between, net  |
-| `counter`  | `CardCounters`, `PlayerCounters`: new minus old                | `CounterChanged`                                      | Between, net  |
+| Normalised | Java source                                                                  | Go source                                             | Kind of event |
+| ---------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- | ------------- |
+| `turn`     | `TurnBegan`: turn number from the event, active seat                         | `TurnBegan`                                           | Anchor        |
+| `step`     | `TurnPhase`                                                                  | `PhaseBegan`                                          | Anchor        |
+| `push`     | `SpellAbilityCast`: host card, controller                                    | `AbilityActivated`                                    | Anchor        |
+| `resolve`  | `SpellResolved` that did not fizzle: host card                               | `AbilityResolved`                                     | Anchor        |
+| `end`      | `GameOutcome`: winning seat or draw                                          | `GameEnded`                                           | Anchor        |
+| `move`     | `CardChangeZone`: card, from, to                                             | `ZoneChanged`, except a token leaving the battlefield | Between       |
+| `damage`   | `CardDamaged`, `PlayerDamaged`: source, target, amount                       | `DamageDealt` to a creature or a player               | Between       |
+| `life`     | `PlayerLivesChanged`: new minus old                                          | `LifeChanged`                                         | Between, net  |
+| `counter`  | `CardCounters` new minus old; a player's counters against the last ones seen | `CounterChanged`                                      | Between, net  |
+
+Go's events carry the host card alone, so `push` compares host and controller; the Java record adds the ability's
+ADR-0059 identity for the report. A fizzled ability has a `push` and no `resolve` on both sides, because Go emits no
+`AbilityResolved` for it. `damage` has no combat flag: `CardDamaged` carries none, and a combat damage step's own damage
+is the interval after its `step` anchor, before any `push`. `PlayerCounters` fires with no type when a player's counters
+are cleared or replaced (`Player.java:952, 989`), so the recorder compares each player's counters with the last ones it
+saw. Turn and step of a between event come from the anchors before it, not from the event.
 
 Dropped: Go's `SpellCast` (its `push` is the `AbilityActivated` beside it), `CardDrawn` (the zone change carries it),
 `ManaLost` (Java's event has no amount), `Phased` (until both sides are checked against a game that phases); Java's UI,

@@ -151,8 +151,11 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 	if len(options) == 0 {
 		// Flashback (CR 702.34a), foretell and Beam me up: the owner may cast
 		// the card from their graveyard or exile for a keyword's cost.
-		cost, reduce, ok := g.flashbackCost(pid, c)
+		cost, reduce, extra, ok := g.flashbackCost(pid, c)
 		opts.altReduce = reduce
+		if ok && extra != nil {
+			opts.extra, opts.hasExtra = *extra, true
+		}
 		opts.fromKeyword = ok // Flashback and Beam me up exile the spell as it leaves the stack
 		if !ok {
 			cost, ok = g.faceZoneCost(pid, c)
@@ -509,12 +512,14 @@ func (g *Game) graveyardDiscardCast(pid PlayerID, c *Card) (uc unlessCost, jumps
 // keyword's ReduceCost$ extra, "" when it has none. "Flashback:<cost>[:<extra>
 // [:<description>]]" (CardFactoryUtil.java's Flashback branch appends <extra>
 // to the flashback spell, so CostAdjustment.java:214-223 reads its ReduceCost$
-// as the spell's own: the Visions cycle's commander mana value). A Flashback
-// whose cost is not a plain mana cost (Sac<..>, PayLife<..>, a non-mana part),
-// or whose extra is not a ReduceCost$, is not offered (GO-7).
-func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, bool) {
+// as the spell's own: the Visions cycle's commander mana value). A cost's
+// non-mana parts (Twinned Vision's Discard<1/Card>, Sac<..>, PayLife<..>) are
+// extra, paid as Escape's are; a Flashback with no mana part, a part the
+// unless-cost reader does not cover, or an extra that is not a ReduceCost$, is
+// not offered (GO-7).
+func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, *unlessCost, bool) {
 	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
-		return mana.Cost{}, "", false
+		return mana.Cost{}, "", nil, false
 	}
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
@@ -525,9 +530,9 @@ func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, bool) {
 			// A bare Flashback (granted by AddKeyword$) is cast for the card's
 			// own mana cost (GameActionUtil.getGraveyardSpellByKeyword).
 			if c.manaCost().IsNoCost() {
-				return mana.Cost{}, "", false
+				return mana.Cost{}, "", nil, false
 			}
-			return c.manaCost(), "", true
+			return c.manaCost(), "", nil, true
 		}
 		args := k.Args()
 		text := args[0]
@@ -535,20 +540,29 @@ func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, bool) {
 		if len(args) > 1 && args[1] != "" {
 			name, ok := strings.CutPrefix(args[1], "ReduceCost$ ")
 			if !ok || strings.ContainsAny(name, " |") {
-				return mana.Cost{}, "", false
+				return mana.Cost{}, "", nil, false
 			}
 			reduce = name
 		}
 		if parsed := cost.Parse(text); !parsed.IsPureMana() {
-			return mana.Cost{}, "", false
+			uc, ok := parseUnlessCost(text)
+			if !ok || !uc.hasMana || uc.mana.CountX() > 0 {
+				return mana.Cost{}, "", nil, false
+			}
+			mc := uc.mana
+			uc.hasMana, uc.mana, uc.manaTokens = false, mana.Cost{}, nil
+			if !g.unlessPayable(pid, c.ID, uc) {
+				return mana.Cost{}, "", nil, false
+			}
+			return mc, reduce, &uc, true
 		}
 		mc, err := mana.Parse(text)
 		if err != nil || mc.CountX() > 0 {
-			return mana.Cost{}, "", false
+			return mana.Cost{}, "", nil, false
 		}
-		return mc, reduce, true
+		return mc, reduce, nil, true
 	}
-	return mana.Cost{}, "", false
+	return mana.Cost{}, "", nil, false
 }
 
 // castOpts is how an effect's "cast it" differs from casting it normally

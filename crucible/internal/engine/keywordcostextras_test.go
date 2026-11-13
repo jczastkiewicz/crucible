@@ -263,3 +263,30 @@ func TestDisguiseXCostBoundsTheTriggersTargets(t *testing.T) {
 		}
 	}
 }
+
+// Twinned Vision's Flashback {1}{U/R}{U/R} with Discard<1/Card>: the cost's
+// non-mana part is paid with the mana, so the card is cast from the
+// graveyard and the discarded card reaches the graveyard first.
+func TestFlashbackPaysItsNonManaCostParts(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	vision := g.NewCard(corpusCard(t, "Twinned Vision"), p, engine.Graveyard)
+	fodder := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 3)
+
+	c := engine.NewScriptedController()
+	c.QueueHybridManaColor(mana.Blue)
+	c.QueueHybridManaColor(mana.Blue)
+	c.QueuePayGeneric(mana.ShardU)
+	c.QueueDiscardChoice([]engine.CardID{fodder})
+	if !g.CastSpell(p, vision, c) {
+		t.Fatal("CastSpell by Flashback from the graveyard failed")
+	}
+	if got := g.Card(fodder).Zone; got != engine.Graveyard {
+		t.Errorf("discarded card zone = %v, want Graveyard", got)
+	}
+	if got := g.Card(vision).Zone; got != engine.Stack {
+		t.Errorf("Twinned Vision zone = %v, want Stack", got)
+	}
+}

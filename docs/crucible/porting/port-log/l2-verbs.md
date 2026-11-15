@@ -105,7 +105,7 @@ Queue kinds by scenarios: attackers 380, blocks 356, paygeneric 235, targets 224
 
 ## Findings
 
-The current run: 1,217 same, 4 differs, 1 random, 5 not runnable (4 with an unmapped line, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
+The current run: 1,218 same, 4 differs, 1 random, 5 not runnable (4 with an unmapped line, 1 Java error, F4). A `differs` scenario or Java error gets a Go fix, or a `quirks.md` or `forge-java-defects.md` row and a line in `crucible/testdata/l2-baseline.txt` citing it (ADR-0060). The gate also fails on a baseline line whose scenario no longer differs or errs, so the file stays the exact list.
 
 | Finding | Scenarios | What the diff shows | Class |
 | --- | --- | --- | --- |

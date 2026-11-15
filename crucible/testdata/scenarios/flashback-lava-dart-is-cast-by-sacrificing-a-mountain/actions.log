@@ -1,0 +1,9 @@
+# CR 702.34a with a flashback cost that has no mana part: Lava Dart's
+# Flashback:Sac<1/Mountain> is cast for {0} plus the sacrifice. human
+# sacrifices Mountain 2 and Lava Dart deals 1 damage to ai, then is exiled.
+startturn human
+advance 3
+queue sacrificechoice 2
+queue targets ai
+castspell human 1
+resolvestack

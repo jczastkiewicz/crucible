@@ -130,8 +130,13 @@ final class ReplayRecorder {
         }
     }
 
-    /** ADR-0062: the choices the AI made for one play, read from the played ability. */
-    void play(Player decider, SpellAbility sa, int call) {
+    /**
+     * ADR-0062: the choices the AI made for one play, read from the played
+     * ability. mark is the ability's mana-ability and paying-mana counts at
+     * its first pay call of this play, null when it paid nothing: the mana
+     * lists start there.
+     */
+    void play(Player decider, SpellAbility sa, int call, int[] mark) {
         if (sa == null) {
             return;
         }
@@ -165,13 +170,17 @@ final class ReplayRecorder {
             r.add("modes", modes);
         }
         r.add("paid", paid(sa.getPaidHash()));
+        List<SpellAbility> used = sa.getPayingManaAbilities();
+        List<Mana> spent = sa.getPayingMana();
+        int fromUsed = mark == null ? 0 : Math.min(mark[0], used.size());
+        int fromSpent = mark == null ? 0 : Math.min(mark[1], spent.size());
         JsonArray mana = new JsonArray();
-        for (SpellAbility m : sa.getPayingManaAbilities()) {
+        for (SpellAbility m : used.subList(fromUsed, used.size())) {
             mana.add(ids.ability(m));
         }
         r.add("manaAbilities", mana);
         JsonArray paying = new JsonArray();
-        for (Mana m : sa.getPayingMana()) {
+        for (Mana m : spent.subList(fromSpent, spent.size())) {
             JsonObject o = new JsonObject();
             o.add("source", m.getSourceCard() == null ? null : ids.card(m.getSourceCard()));
             o.addProperty("color", m.getColor());

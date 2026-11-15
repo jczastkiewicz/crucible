@@ -514,9 +514,10 @@ func (g *Game) graveyardDiscardCast(pid PlayerID, c *Card) (uc unlessCost, jumps
 // to the flashback spell, so CostAdjustment.java:214-223 reads its ReduceCost$
 // as the spell's own: the Visions cycle's commander mana value). A cost's
 // non-mana parts (Twinned Vision's Discard<1/Card>, Sac<..>, PayLife<..>) are
-// extra, paid as Escape's are; a Flashback with no mana part, a part the
-// unless-cost reader does not cover, or an extra that is not a ReduceCost$, is
-// not offered (GO-7).
+// extra, paid as Escape's are, and a cost with no mana part (Lava Dart's
+// Sac<1/Mountain>) is cast for {0} plus them; a part the unless-cost reader
+// does not cover, or an extra that is not a ReduceCost$, is not offered
+// (GO-7).
 func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, *unlessCost, bool) {
 	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
 		return mana.Cost{}, "", nil, false
@@ -546,9 +547,11 @@ func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, string, *unlessC
 		}
 		if parsed := cost.Parse(text); !parsed.IsPureMana() {
 			uc, ok := parseUnlessCost(text)
-			if !ok || !uc.hasMana || uc.mana.CountX() > 0 {
+			if !ok || uc.mana.CountX() > 0 {
 				return mana.Cost{}, "", nil, false
 			}
+			// A cost with no mana part (Lava Dart's Sac<1/Mountain>) is cast
+			// for {0} plus the rest.
 			mc := uc.mana
 			uc.hasMana, uc.mana, uc.manaTokens = false, mana.Cost{}, nil
 			if !g.unlessPayable(pid, c.ID, uc) {

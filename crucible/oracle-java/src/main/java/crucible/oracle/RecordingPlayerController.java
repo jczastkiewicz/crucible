@@ -44,6 +44,14 @@ final class RecordingPlayerController extends RecordingControllerBase {
     // The paying ability's mana-ability count at each open pay call.
     private final java.util.ArrayDeque<Integer> payMark = new java.util.ArrayDeque<>();
 
+    // Each ability's mana-ability and paying-mana counts at its first pay
+    // call since its last play record: the AI's play path never clears the
+    // mana-ability list (PlaySpellAbility.java:670-671 clears it for a
+    // human's play only), so an Equip activated again still lists the mana
+    // abilities of the turns before. A play record names only what came
+    // after; the paying-mana list is sliced the same way.
+    private final java.util.IdentityHashMap<SpellAbility, int[]> playMark = new java.util.IdentityHashMap<>();
+
     // The abilities each open orderAndPlaySimultaneousSa call was handed, and
     // the order the AI put them on the stack in (its own nested
     // orderSimultaneousSa answer, PlayerControllerAi.java:1476-1477). Read
@@ -79,6 +87,9 @@ final class RecordingPlayerController extends RecordingControllerBase {
         if (PAYS.containsKey(method)) {
             SpellAbility sa = (SpellAbility) args[PAYS.get(method)];
             payMark.push(sa == null ? 0 : sa.getPayingManaAbilities().size());
+            if (sa != null) {
+                playMark.putIfAbsent(sa, new int[] {sa.getPayingManaAbilities().size(), sa.getPayingMana().size()});
+            }
         }
     }
 
@@ -101,7 +112,7 @@ final class RecordingPlayerController extends RecordingControllerBase {
                 played = played(method, args);
             }
             for (SpellAbility sa : played) {
-                recorder.get().play(getPlayer(), sa, seq);
+                recorder.get().play(getPlayer(), sa, seq, sa == null ? null : playMark.remove(sa));
             }
         }
         if (PAYS.containsKey(method)) {

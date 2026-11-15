@@ -214,6 +214,10 @@ func (c *Controller) TuckCardsViaMulligan(g *engine.Game, decider engine.PlayerI
 // at this priority, a pass when Java answered none or was not asked.
 func (c *Controller) TakeAction(_ *engine.Game, pid engine.PlayerID) engine.Action {
 	c.cur, c.targets = nil, nil
+	// The last play's cast is over: a cost the resolution of its spell asks
+	// for (Galvanic Discharge's PayEnergy<X>) is not one of its optional
+	// costs.
+	c.castCard, c.castWay = engine.NoCard, ""
 	if len(c.pending) > 0 {
 		a := c.pending[0]
 		c.pending = c.pending[1:]

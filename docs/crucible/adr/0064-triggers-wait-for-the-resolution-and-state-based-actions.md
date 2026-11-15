@@ -67,8 +67,10 @@ Option 1 hides what L3 exists to find. The order is not cosmetic: triggers fired
 be ordered apart from the resolution's. A reorder in the normaliser also has to guess where a fizzled ability's resolve
 would have been, because Go emits none.
 
-Option 3 also moves when a trigger's condition is read. That is the open `collectTriggerForWaiting` row in
-`game-state.md`. It touches every trigger-check site, and no recorded game shows it yet.
+Option 3 also moves when a trigger's condition is read. That touches every trigger-check site. Its enters half is ported
+apart, for the one case a recorded game shows: an effect's entering cards are matched by their enters triggers once all
+of them have entered (`deferEntries`, CR 603.6a). The rest is the open `collectTriggerForWaiting` row in
+`game-state.md`.
 
 ## Consequences
 
@@ -80,7 +82,8 @@ Option 3 also moves when a trigger's condition is read. That is the open `collec
 
 **Bad:**
 
-- A trigger's match is still decided when its event happens, not when the stack unfreezes (option 3, still open).
+- A trigger's match is still decided when its event happens, not when the stack unfreezes (option 3), except an entering
+  card's enters triggers, matched when the effect that moved it is done.
 - Every new reader of "a trigger of this card is on the stack" has to read the batch too.
 
 **Neutral:**

@@ -403,6 +403,14 @@ type Game struct {
 	triggerBatch      []Ability
 	triggerBatchDepth int
 
+	// pendingEntries holds the cards an effect put onto the battlefield whose
+	// ChangesZone triggers have not been matched yet (deferEntries, trigger.go):
+	// Java's TriggerWaiting entries, matched once every card the effect moves
+	// has entered (CR 603.6a). entryDeferDepth counts the resolveEffectBatched
+	// calls open; empty and zero outside one.
+	pendingEntries  []pendingEntry
+	entryDeferDepth int
+
 	// combat is CR 506-510's combat state, starting with CR 508's declared
 	// attackers (combat.go, attack.go). Zero-valued when no combat is in
 	// progress.
@@ -1938,6 +1946,8 @@ func (g *Game) Clone() *Game {
 		// both copy to nothing in practice; carried for completeness.
 		triggerBatch:      append([]Ability(nil), g.triggerBatch...),
 		triggerBatchDepth: g.triggerBatchDepth,
+		pendingEntries:    append([]pendingEntry(nil), g.pendingEntries...),
+		entryDeferDepth:   g.entryDeferDepth,
 		// Carried so the clone's next push gets an ID no item already on
 		// its stack has (ADR-0018: a StackItemID is never reused within a
 		// game, and CopySpellAbility tells a copy from its original by it).
@@ -2333,4 +2343,20 @@ func (g *Game) SetPrintEdition(id CardID, code string) { g.Card(id).printEdition
 type attackRecord struct {
 	attacking, defender PlayerID
 	attacker            *Card
+}
+
+// pendingEntry is one card checkETBTriggers saw enter while an effect
+// resolved: Java's TriggerWaiting for a ChangesZone event, its runParams kept
+// and its triggers not yet looked up (TriggerHandler.runTrigger,
+// TriggerHandler.java:274-275). cause is the move's cause, which
+// ValidCause$ reads; at is where in triggerBatch its matches go, so they keep
+// their place among the triggers other events of the effect raised (Java
+// keeps waitingTriggers in event order); depth is the entryDeferDepth it was
+// recorded at.
+type pendingEntry struct {
+	entered CardID
+	origin  ZoneType
+	cause   *Ability
+	at      int
+	depth   int
 }

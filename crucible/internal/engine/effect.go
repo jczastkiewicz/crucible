@@ -202,12 +202,15 @@ func resolveSplicedTail(g *Game, a *Ability, controller PlayerController) error 
 // frozen stack holds them in simultaneousStackEntryList for one ordering
 // (TriggerHandler.java:264, MagicStack.java:855-880). A nested resolution (a
 // RepeatEach's or Charm's sub-ability inside the body) joins the outer batch.
+// The ChangesZone triggers of the cards the body puts onto the battlefield are
+// matched once the body is done (deferEntries), before the batch closes.
 func resolveEffectBatched(g *Game, e Effect, a *Ability, controller PlayerController) error {
 	if g == nil {
 		return e.Resolve(g, a, controller)
 	}
 	g.beginTriggerBatch()
 	defer g.endTriggerBatch(controller)
+	defer g.deferEntries(controller)()
 	return e.Resolve(g, a, controller)
 }
 

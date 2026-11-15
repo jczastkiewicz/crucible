@@ -213,6 +213,12 @@ type Ability struct {
 	// that changed zones since is a new object (CR 400.7) and no longer a
 	// legal target. A Charm mode carries its own.
 	targetStamps []targetStamp
+	// inheritedStamps are the targetStamps of the links above this one, for a
+	// link that reads a target an earlier link moved (targetAsLastSeen):
+	// Swords to Plowshares' GainLife reads the creature its ChangeZone exiled.
+	// Kept apart from targetStamps, which decide whether a target is still
+	// legal.
+	inheritedStamps []targetStamp
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
@@ -843,7 +849,20 @@ type targetStamp struct {
 // ability resolved without going on the stack (a test calling
 // Registry.Resolve directly) has none, and only the other checks apply.
 func (a *Ability) stampOf(card CardID) (uint64, bool) {
-	for _, s := range a.targetStamps {
+	return findStamp(a.targetStamps, card)
+}
+
+// lastSeenStampOf is stampOf, falling back to the stamps the links above a
+// recorded (inheritedStamps).
+func (a *Ability) lastSeenStampOf(card CardID) (uint64, bool) {
+	if s, ok := a.stampOf(card); ok {
+		return s, true
+	}
+	return findStamp(a.inheritedStamps, card)
+}
+
+func findStamp(stamps []targetStamp, card CardID) (uint64, bool) {
+	for _, s := range stamps {
 		if s.card == card {
 			return s.stamp, true
 		}

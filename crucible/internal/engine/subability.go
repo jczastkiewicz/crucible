@@ -11,6 +11,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -99,7 +100,8 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		activationIndex:  parent.activationIndex,
 		// The parent's targeted abilities on the stack as last seen (ADR-0041),
 		// for a link read after the parent countered one.
-		stackTargets: parent.stackTargets,
+		stackTargets:    parent.stackTargets,
+		inheritedStamps: append(slices.Clip(parent.targetStamps), parent.inheritedStamps...),
 		// ReplacementHandler.executeReplacement sets the replacing objects
 		// on every ability of the ReplaceWith$ chain, not the head alone.
 		replacing: parent.replacing,

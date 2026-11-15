@@ -44,6 +44,25 @@ final class RecordingPlayerController extends RecordingControllerBase {
     // The paying ability's mana-ability count at each open pay call.
     private final java.util.ArrayDeque<Integer> payMark = new java.util.ArrayDeque<>();
 
+    // The abilities each open orderAndPlaySimultaneousSa call was handed, and
+    // the order the AI put them on the stack in (its own nested
+    // orderSimultaneousSa answer, PlayerControllerAi.java:1476-1477). Read
+    // before the call: the AI's orderPlaySa empties the list it sorts
+    // (AiController.filterList removes what it picks, AiController.java:
+    // 3663-3667), so afterwards the argument holds only the abilities no
+    // filter picked. The play records follow the stack order, the order the
+    // replay asks for their targets in.
+    private static final class Simultaneous {
+        final List<SpellAbility> handed;
+        List<SpellAbility> order;
+
+        Simultaneous(List<SpellAbility> handed) {
+            this.handed = handed;
+        }
+    }
+
+    private final java.util.ArrayDeque<Simultaneous> simultaneous = new java.util.ArrayDeque<>();
+
     @Override
     void before(String method, Object[] args) {
         Object[] offered = args;
@@ -54,6 +73,9 @@ final class RecordingPlayerController extends RecordingControllerBase {
         }
         JsonObject r = recorder.get().call(getPlayer(), method, offered);
         open.push(r == null ? new JsonObject() : r);
+        if (method.equals("orderAndPlaySimultaneousSa")) {
+            simultaneous.push(new Simultaneous(List.copyOf((List<SpellAbility>) args[0])));
+        }
         if (PAYS.containsKey(method)) {
             SpellAbility sa = (SpellAbility) args[PAYS.get(method)];
             payMark.push(sa == null ? 0 : sa.getPayingManaAbilities().size());
@@ -66,8 +88,19 @@ final class RecordingPlayerController extends RecordingControllerBase {
         JsonObject rec = r.has("seq") ? r : null;
         recorder.get().answer(rec, answer, args);
         int seq = rec == null ? -1 : rec.get("seq").getAsInt();
+        if (method.equals("orderSimultaneousSa") && !simultaneous.isEmpty() && simultaneous.peek().order == null
+                && answer instanceof List<?> order) {
+            simultaneous.peek().order = List.copyOf((List<SpellAbility>) order);
+        }
         if (PLAYS.contains(method)) {
-            for (SpellAbility sa : played(method, args)) {
+            List<SpellAbility> played;
+            if (method.equals("orderAndPlaySimultaneousSa")) {
+                Simultaneous sim = simultaneous.pop();
+                played = sim.order != null && sim.order.size() == sim.handed.size() ? sim.order : sim.handed;
+            } else {
+                played = played(method, args);
+            }
+            for (SpellAbility sa : played) {
                 recorder.get().play(getPlayer(), sa, seq);
             }
         }
@@ -93,7 +126,6 @@ final class RecordingPlayerController extends RecordingControllerBase {
     private static List<SpellAbility> played(String method, Object[] args) {
         return switch (method) {
             case "playTrigger" -> List.of((SpellAbility) args[1]);
-            case "orderAndPlaySimultaneousSa" -> List.copyOf((List<SpellAbility>) args[0]);
             default -> args[0] == null ? List.of() : List.of((SpellAbility) args[0]);
         };
     }

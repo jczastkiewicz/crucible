@@ -1,0 +1,11 @@
+# Swords to Plowshares: "Its controller gains life equal to its power."
+# DBGainLife's Targeted$CardPower reads the target list Java's ChangeZone
+# left behind (SpellAbility.findTargetedCards), the object the move to exile
+# replaced: the Bears as they last were on the battlefield, 3/3 under
+# Glorious Anthem. Read in exile they are 2/2.
+startturn human
+advance 3
+tapformana human 2 W
+queue targets 4
+castspell human 1
+resolvestack

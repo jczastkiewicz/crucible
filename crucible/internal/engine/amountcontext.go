@@ -310,6 +310,10 @@ func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 // its card, so a card target recorded as a spell (stackTargetRef.spell) is
 // one of the second kind, read as Java's host object (spellTargetView). A
 // sub-ability carries its root's targets, Java's parent-targeting fallback.
+// A card target that has left the battlefield since it was targeted is read
+// from its last-known information: Java's target list keeps the object the
+// move left behind (Swords to Plowshares' and Solitude's "its power" read
+// the creature as it last was, a Construct token's artifact count included).
 func (g *Game) targetedCards(a *Ability) []*Card {
 	var cards, hosts []*Card
 	for _, e := range a.Targets {
@@ -325,12 +329,27 @@ func (g *Game) targetedCards(a *Ability) []*Card {
 			hosts = append(hosts, view)
 			continue
 		}
-		cards = append(cards, g.Card(id))
+		cards = append(cards, g.targetAsLastSeen(a, id))
 	}
 	if len(cards) > 0 {
 		return cards
 	}
 	return hosts
+}
+
+// targetAsLastSeen is card target id as a's targeting saw it: the card
+// itself while it is the object a targeted (its zoneStamp unchanged), its
+// last-known information when it left the battlefield since.
+func (g *Game) targetAsLastSeen(a *Ability, id CardID) *Card {
+	c := g.Card(id)
+	stamp, ok := a.lastSeenStampOf(id)
+	if !ok || c.zoneStamp == stamp {
+		return c
+	}
+	if snap := g.LKI(id); snap != nil && snap.battlefieldStamp == stamp {
+		return snap
+	}
+	return c
 }
 
 // spellTargetView is the targeted spell card id as Java's target SpellAbility

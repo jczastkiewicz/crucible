@@ -72,6 +72,54 @@ import (
 // trigger correctly, regardless of whether its own Execute$ API happens to
 // be implemented yet, is this port's whole job here.
 func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, origin ZoneType) {
+	if g.entryDeferDepth > 0 {
+		g.pendingEntries = append(g.pendingEntries, pendingEntry{entered: entered, origin: origin, cause: g.currentMoveCause(), at: len(g.triggerBatch), depth: g.entryDeferDepth})
+		return
+	}
+	g.matchETBTriggers(controller, entered, origin)
+}
+
+// deferEntries opens an entry deferral for one effect's body and returns
+// its close, which asks controller what the matches need. While one is open, checkETBTriggers records each entering card
+// instead of matching it; the close matches the entries recorded at its depth
+// or deeper, in the order they entered, against the state after the body,
+// with every card the body moved already on the battlefield. This is CR
+// 603.6a, and Java's order: a trigger waits unmatched while the stack is
+// frozen (TriggerHandler.runTrigger), and collectTriggerForWaiting matches
+// the waiting ones before the next SubAbility$ link resolves
+// (AbilityUtils.resolveSubAbilities, AbilityUtils.java:1365-1377). So
+// Simic Growth Chamber, fetched by Primeval Titan together with Yavimaya,
+// Cradle of Growth, is a Forest to Roiling Canopy's trigger, and permanents
+// entering together see each other. A link resolves after its parent's body
+// closes (Registry.resolveSubAbility), so its own entries are matched apart.
+func (g *Game) deferEntries(controller PlayerController) func() {
+	g.entryDeferDepth++
+	depth := g.entryDeferDepth
+	return func() {
+		g.entryDeferDepth--
+		first := len(g.pendingEntries)
+		for first > 0 && g.pendingEntries[first-1].depth >= depth {
+			first--
+		}
+		entries := slices.Clone(g.pendingEntries[first:])
+		g.pendingEntries = g.pendingEntries[:first]
+		shift := 0
+		for _, e := range entries {
+			at := min(e.at+shift, len(g.triggerBatch))
+			tail := slices.Clone(g.triggerBatch[at:])
+			g.triggerBatch = g.triggerBatch[:at]
+			restore := g.withMoveCause(e.cause)
+			g.matchETBTriggers(controller, e.entered, e.origin)
+			restore()
+			shift += len(g.triggerBatch) - at
+			g.triggerBatch = append(g.triggerBatch, tail...)
+		}
+	}
+}
+
+// matchETBTriggers is checkETBTriggers' match: entered's own enters
+// triggers, every other permanent's that watch it, and the delayed ones.
+func (g *Game) matchETBTriggers(controller PlayerController, entered CardID, origin ZoneType) {
 	var matches []Ability
 	c := g.Card(entered)
 	if c.Def != nil {

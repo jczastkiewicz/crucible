@@ -1,0 +1,38 @@
+# CR 603.6a: what sees a permanent enter is decided once everything entering
+# with it has. Primeval Titan puts Simic Growth Chamber, then Yavimaya, onto
+# the battlefield in one effect. Yavimaya makes every land a Forest, so
+# Roiling Canopy ("whenever a Forest you control enters, if you control five
+# other Forests") triggers for both: Java matches a waiting ChangesZone
+# trigger after the effect (TriggerHandler.collectTriggerForWaiting), not as
+# each card moves. Matched per card, Growth Chamber is no Forest yet and
+# Canopy triggers once. Both pumps go on Grizzly Bears, which attacks for 8.
+startturn human
+advance 3
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue optionaltrigger true
+queue cardchoice 81,82
+tapformana human 100 G
+tapformana human 101 G
+tapformana human 102 G
+tapformana human 103 G
+tapformana human 104 G
+tapformana human 107 G
+# The Titan, its trigger, then both Canopy pumps on the Bears and Growth
+# Chamber's return of Forest 100.
+queue targets 106
+queue targets 106
+queue cardchoice 100
+castspell human 1
+resolvestack
+advance 2
+queue attackers 106
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -1,6 +1,7 @@
 package replay
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -743,6 +744,29 @@ func (c *Controller) ChooseAttackTarget(g *engine.Game, decider engine.PlayerID,
 	return c.Controller.ChooseAttackTarget(g, decider, attacker, eligible)
 }
 
+// ChooseLegendaryToKeep is the permanent Java's legend rule kept: its
+// chooseSingleEntityForEffect for the InternalLegendaryRule ability
+// (GameAction.handleLegendRule), one call per name.
+func (c *Controller) ChooseLegendaryToKeep(g *engine.Game, decider engine.PlayerID, duplicates []engine.CardID) engine.CardID {
+	now := c.now()
+	for _, k := range c.s.calls {
+		if k.used || k.Decider.Seat != seat(decider) || k.when() != now || k.Method != "chooseSingleEntityForEffect" ||
+			!bytes.Contains(k.Offered, []byte(`"api":"InternalLegendaryRule"`)) {
+			continue
+		}
+		var r Ref
+		if json.Unmarshal(k.Answer, &r) != nil {
+			continue
+		}
+		if id, ok := c.goCard(r); ok && slices.Contains(duplicates, id) {
+			k.used = true
+			return id
+		}
+	}
+	c.fail(-1, "chooseSingleEntityForEffect", "no recorded legend-rule keep among %v", duplicates)
+	return c.Controller.ChooseLegendaryToKeep(g, decider, duplicates)
+}
+
 // DeclareCombatBlockers is Java's declareBlockers answer; no block when Java
 // was not asked.
 func (c *Controller) DeclareCombatBlockers(_ *engine.Game, decider engine.PlayerID, _, eligible []engine.CardID) []engine.Block {
@@ -880,6 +904,12 @@ func (c *Controller) chooseCards(decider engine.PlayerID, method string, options
 		if k == nil {
 			c.fail(-1, method, "Java chose no cards here")
 			return nil, false
+		}
+		if emptyZoneChangeOffer(k) {
+			// A search Java asked with nothing to pick (Spelunking's "put a
+			// land card from your hand" with no land in hand): Go asks no
+			// question without options.
+			continue
 		}
 		ids, ok := c.cards(k.Answer)
 		if !ok {
@@ -1161,6 +1191,17 @@ func (c *Controller) ChooseEntitiesForEffect(g *engine.Game, decider engine.Play
 
 // loneOffer reports whether k offered exactly one option (its first
 // argument, a list).
+// emptyZoneChangeOffer reports whether k is a chooseSingleCardForZoneChange
+// call that offered no card (its fourth argument, the fetch list, empty) and
+// was answered with none.
+func emptyZoneChangeOffer(k *call) bool {
+	var offered []json.RawMessage
+	var options []json.RawMessage
+	return k.Method == "chooseSingleCardForZoneChange" && string(k.Answer) == "null" &&
+		json.Unmarshal(k.Offered, &offered) == nil && len(offered) > 3 &&
+		json.Unmarshal(offered[3], &options) == nil && len(options) == 0
+}
+
 func loneOffer(k *call) bool {
 	var offered []json.RawMessage
 	var options []json.RawMessage
